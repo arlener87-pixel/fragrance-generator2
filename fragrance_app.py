@@ -1,16 +1,19 @@
-#!/usr/bin/env python3
-"""
-Fragrance Generator + Layering Combo Suggester
-- Recommends Top 1 / Top 3 / Top 5 single fragrances
-- Suggests complementary layering combinations
-- Supports Male, Female, Unisex, and Any gender filters
-"""
-
 import random
 import re
-from typing import List, Dict, Tuple
+import streamlit as st
 
-# ====================== FRAGRANCE DATABASE ======================
+# ==========================================
+# PAGE CONFIGURATION
+# ==========================================
+st.set_page_config(
+    page_title="Fragrance Generator & Layering Suggester",
+    page_icon="✨",
+    layout="centered"
+)
+
+# ==========================================
+# FRAGRANCE DATABASE[span_0](start_span)[span_0](end_span)
+# ==========================================
 FRAGRANCES = [
     {"name": "Ajwad", "brand": "Lattafa", "gender": "Unisex", "season": "Versatile (cooler preferred)", "notes": "Fruity-woody-oriental (pineapple/rose/oud-leaning)", "category": ["Oriental", "Woody", "Fruity"]},
     {"name": "Al Rehab Caramello", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top – Pistachio, Almond / Heart – Jasmine, Heliotrope / Base – Caramel, Vanilla, Sandalwood", "category": ["Gourmand", "Sweet"]},
@@ -176,8 +179,9 @@ FRAGRANCES = [
 ]
 
 
-# ====================== GENDER HELPERS ======================
-
+# ==========================================
+# HELPER FUNCTIONS[span_1](start_span)[span_1](end_span)
+# ==========================================
 def normalize_gender(g: str) -> str:
     g = g.lower().strip()
     if re.search(r"\bfemale[- ]?leaning\b|\bleans feminine\b|\bleans female\b", g):
@@ -195,13 +199,7 @@ def normalize_gender(g: str) -> str:
     return "Unisex"
 
 
-def matches_gender(fragrance: Dict, preferred: str) -> bool:
-    """
-    - Male   → Male + Male-leaning + Unisex
-    - Female → Female + Female-leaning + Unisex
-    - Unisex → pure Unisex + leanings
-    - Any    → everything
-    """
+def matches_gender(fragrance: dict, preferred: str) -> bool:
     if preferred == "Any":
         return True
     fg = normalize_gender(fragrance["gender"])
@@ -214,9 +212,7 @@ def matches_gender(fragrance: Dict, preferred: str) -> bool:
     return True
 
 
-# ====================== OTHER MATCHERS ======================
-
-def matches_weather(fragrance: Dict, weather: str) -> bool:
+def matches_weather(fragrance: dict, weather: str) -> bool:
     season = fragrance["season"].lower()
     if weather == "Any":
         return True
@@ -231,13 +227,13 @@ def matches_weather(fragrance: Dict, weather: str) -> bool:
     return True
 
 
-def matches_category(fragrance: Dict, category: str) -> bool:
+def matches_category(fragrance: dict, category: str) -> bool:
     if category == "Any":
         return True
     return category in fragrance["category"]
 
 
-def matches_occasion(fragrance: Dict, occasion: str) -> bool:
+def matches_occasion(fragrance: dict, occasion: str) -> bool:
     if occasion == "Any":
         return True
     season = fragrance["season"].lower()
@@ -255,15 +251,12 @@ def matches_occasion(fragrance: Dict, occasion: str) -> bool:
     return True
 
 
-# ====================== SCORING & TOP N ======================
-
-def score_fragrance(f: Dict, gender: str, weather: str, category: str, occasion: str) -> int:
+def score_fragrance(f: dict, gender: str, weather: str, category: str, occasion: str) -> int:
     score = 0
     season = f["season"].lower()
     cats = f["category"]
     g = normalize_gender(f["gender"])
 
-    # Gender
     if gender == "Any":
         score += 5
     elif gender == "Male":
@@ -278,7 +271,6 @@ def score_fragrance(f: Dict, gender: str, weather: str, category: str, occasion:
         if g == "Unisex": score += 15
         else: score += 8
 
-    # Weather
     if weather == "Any":
         score += 5
     elif weather == "Hot / Summer":
@@ -294,7 +286,6 @@ def score_fragrance(f: Dict, gender: str, weather: str, category: str, occasion:
         if "winter" in season: score += 15
         elif any(x in season for x in ["fall", "autumn", "cooler"]): score += 12
 
-    # Category
     if category == "Any":
         score += 5
     elif category in cats:
@@ -302,7 +293,6 @@ def score_fragrance(f: Dict, gender: str, weather: str, category: str, occasion:
         if cats and cats[0] == category:
             score += 5
 
-    # Occasion
     if occasion == "Any":
         score += 5
     elif occasion == "Daily / Casual":
@@ -320,7 +310,7 @@ def score_fragrance(f: Dict, gender: str, weather: str, category: str, occasion:
     return score
 
 
-def get_top_fragrances(gender: str, weather: str, category: str, occasion: str, top_n: int) -> List[Dict]:
+def get_top_fragrances(gender: str, weather: str, category: str, occasion: str, top_n: int) -> list:
     scored = []
     for f in FRAGRANCES:
         if (matches_gender(f, gender) and matches_weather(f, weather) and
@@ -331,76 +321,47 @@ def get_top_fragrances(gender: str, weather: str, category: str, occasion: str, 
     return [f for score, f in scored[:top_n]]
 
 
-# ====================== LAYERING LOGIC ======================
-
-# Complementary category pairs that generally layer well
 GOOD_LAYER_PAIRS = [
-    ("Gourmand", "Fresh"),
-    ("Gourmand", "Floral"),
-    ("Gourmand", "Woody"),
-    ("Gourmand", "Fruity"),
-    ("Sweet", "Fresh"),
-    ("Sweet", "Woody"),
-    ("Floral", "Woody"),
-    ("Floral", "Oriental"),
-    ("Fruity", "Woody"),
-    ("Fruity", "Fresh"),
-    ("Oriental", "Floral"),
-    ("Oriental", "Woody"),
-    ("Spicy", "Sweet"),
-    ("Spicy", "Woody"),
-    ("Citrus", "Gourmand"),
-    ("Citrus", "Floral"),
-    ("Aromatic", "Gourmand"),
-    ("Oud", "Floral"),
-    ("Oud", "Sweet"),
+    ("Gourmand", "Fresh"), ("Gourmand", "Floral"), ("Gourmand", "Woody"), ("Gourmand", "Fruity"),
+    ("Sweet", "Fresh"), ("Sweet", "Woody"), ("Floral", "Woody"), ("Floral", "Oriental"),
+    ("Fruity", "Woody"), ("Fruity", "Fresh"), ("Oriental", "Floral"), ("Oriental", "Woody"),
+    ("Spicy", "Sweet"), ("Spicy", "Woody"), ("Citrus", "Gourmand"), ("Citrus", "Floral"),
+    ("Aromatic", "Gourmand"), ("Oud", "Floral"), ("Oud", "Sweet"),
 ]
 
-def layer_score(f1: Dict, f2: Dict) -> int:
-    """How well two fragrances layer together."""
+
+def layer_score(f1: dict, f2: dict) -> int:
     if f1["name"] == f2["name"]:
         return -100
     cats1 = set(f1["category"])
     cats2 = set(f2["category"])
     score = 0
-
-    # Complementary categories
     for a, b in GOOD_LAYER_PAIRS:
         if (a in cats1 and b in cats2) or (b in cats1 and a in cats2):
             score += 12
-
-    # Same family can also work (e.g. two gourmands) but lower
     if cats1 & cats2:
         score += 4
-
-    # Prefer different intensity / season balance
     s1 = f1["season"].lower()
     s2 = f2["season"].lower()
     if ("summer" in s1 or "spring" in s1) and ("winter" in s2 or "fall" in s2):
         score += 6
     if ("winter" in s1 or "fall" in s1) and ("summer" in s2 or "spring" in s2):
         score += 6
-
     score += random.randint(0, 4)
     return score
 
 
-def suggest_layering_combos(pool: List[Dict], num_combos: int = 3) -> List[Tuple[Dict, Dict, str]]:
-    """Return list of (frag1, frag2, reason) tuples."""
+def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
     if len(pool) < 2:
         return []
-
     candidates = []
     for i, f1 in enumerate(pool):
         for f2 in pool[i+1:]:
             s = layer_score(f1, f2)
-            if s > 8:  # only decent pairs
-                reason = build_layer_reason(f1, f2)
+            if s > 8:
+                reason = f"{', '.join(f1['category'][:2])} + {', '.join(f2['category'][:2])}"
                 candidates.append((s, f1, f2, reason))
-
     candidates.sort(key=lambda x: x[0], reverse=True)
-
-    # Pick top unique combos (avoid repeating the same fragrance too much)
     used = set()
     results = []
     for s, f1, f2, reason in candidates:
@@ -412,154 +373,52 @@ def suggest_layering_combos(pool: List[Dict], num_combos: int = 3) -> List[Tuple
         used.add(key2)
         if len(results) >= num_combos:
             break
-
     return results
 
 
-def build_layer_reason(f1: Dict, f2: Dict) -> str:
-    c1 = ", ".join(f1["category"][:2])
-    c2 = ", ".join(f2["category"][:2])
-    return f"{c1} + {c2}"
+# ==========================================
+# STREAMLIT USER INTERFACE
+# ==========================================
+st.title("✨ Fragrance Generator & Layering Suggester ✨")
+st.write("Customize your preferences below to discover matching single fragrances and custom layering combinations from your collection.")
 
+# Sidebar Filters
+st.sidebar.header("🎯 Filter Options")
 
-# ====================== DISPLAY ======================
+gender = st.sidebar.selectbox("Gender Preference", ["Any", "Male", "Female", "Unisex"])
+weather = st.sidebar.selectbox("Weather / Season", ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"])
+category = st.sidebar.selectbox("Preferred Category", ["Any", "Gourmand", "Floral", "Woody", "Oriental", "Fresh", "Fruity"])
+occasion = st.sidebar.selectbox("Occasion", ["Any", "Daily / Casual", "Work / Office", "Date / Evening", "Formal / Event", "Outdoor / Sporty"])
+num_recs = st.sidebar.radio("Number of Recommendations", [1, 3, 5], index=1)
 
-def display_fragrance(f: Dict, idx: int = None, is_top1: bool = False):
-    if is_top1:
-        prefix = "★ TOP PICK  "
-    elif idx:
-        prefix = f"#{idx}  "
-    else:
-        prefix = "• "
-    print(f"{prefix}{f['name']} – {f['brand']}")
-    print(f"   Gender: {f['gender']} | Season: {f['season']}")
-    print(f"   Category: {', '.join(f['category'])}")
-    print(f"   Notes: {f['notes']}")
-    print()
-
-
-def display_combo(f1: Dict, f2: Dict, reason: str, idx: int):
-    print(f"#{idx}  LAYERING COMBO")
-    print(f"   Base / First : {f1['name']} – {f1['brand']}")
-    print(f"   Layer / Top  : {f2['name']} – {f2['brand']}")
-    print(f"   Why it works : {reason}")
-    print(f"   Tip          : Spray the richer/heavier one first, then the lighter one on top.")
-    print()
-
-
-# ====================== MAIN ======================
-
-def main():
-    print("=" * 65)
-    print("   FRAGRANCE GENERATOR + LAYERING COMBO SUGGESTER")
-    print("=" * 65)
-    print()
-
-    # Gender
-    print("1. Gender preference:")
-    print("   1) Male          (Male + Male-leaning + Unisex)")
-    print("   2) Female        (Female + Female-leaning + Unisex)")
-    print("   3) Unisex        (pure Unisex + leanings)")
-    print("   4) Any")
-    g_choice = input("   Enter choice (1-4): ").strip()
-    gender_map = {"1": "Male", "2": "Female", "3": "Unisex", "4": "Any"}
-    gender = gender_map.get(g_choice, "Any")
-
-    # Weather
-    print("\n2. Current weather / season:")
-    print("   1) Hot / Summer")
-    print("   2) Warm / Mild")
-    print("   3) Cool / Autumn")
-    print("   4) Cold / Winter")
-    print("   5) Any")
-    w_choice = input("   Enter choice (1-5): ").strip()
-    weather_map = {"1": "Hot / Summer", "2": "Warm / Mild", "3": "Cool / Autumn", "4": "Cold / Winter", "5": "Any"}
-    weather = weather_map.get(w_choice, "Any")
-
-    # Category
-    print("\n3. Preferred category:")
-    print("   1) Gourmand / Sweet")
-    print("   2) Floral")
-    print("   3) Woody")
-    print("   4) Oriental / Spicy")
-    print("   5) Fresh / Citrus / Aromatic")
-    print("   6) Fruity")
-    print("   7) Any")
-    c_choice = input("   Enter choice (1-7): ").strip()
-    category_map = {"1": "Gourmand", "2": "Floral", "3": "Woody", "4": "Oriental", "5": "Fresh", "6": "Fruity", "7": "Any"}
-    category = category_map.get(c_choice, "Any")
-
-    # Occasion
-    print("\n4. Place / Occasion:")
-    print("   1) Daily / Casual")
-    print("   2) Work / Office")
-    print("   3) Date / Evening")
-    print("   4) Formal / Event")
-    print("   5) Outdoor / Sporty")
-    print("   6) Any")
-    o_choice = input("   Enter choice (1-6): ").strip()
-    occasion_map = {"1": "Daily / Casual", "2": "Work / Office", "3": "Date / Evening", "4": "Formal / Event", "5": "Outdoor / Sporty", "6": "Any"}
-    occasion = occasion_map.get(o_choice, "Any")
-
-    # Number of single recommendations
-    print("\n5. How many single fragrance recommendations?")
-    print("   1) Top 1")
-    print("   2) Top 3")
-    print("   3) Top 5")
-    n_choice = input("   Enter choice (1-3): ").strip()
-    num_map = {"1": 1, "2": 3, "3": 5}
-    num = num_map.get(n_choice, 3)
-
-    # Get ranked singles
-    selected = get_top_fragrances(gender, weather, category, occasion, num)
-
-    print("\n" + "=" * 65)
-    print(f"Filters → Gender: {gender} | Weather: {weather}")
-    print(f"          Category: {category} | Occasion: {occasion}")
-    print("=" * 65)
-
+if st.sidebar.button("✨ Generate Recommendations", type="primary"):
+    selected = get_top_fragrances(gender, weather, category, occasion, num_recs)
+    
+    st.markdown("---")
+    st.subheader(f"🏆 Top {num_recs} Recommendation(s)")
+    
     if not selected:
-        print("\nNo fragrances matched your filters. Try selecting 'Any' for some options.")
-        return
-
-    title = {1: "TOP 1 PICK OF THE DAY", 3: "TOP 3 PICKS OF THE DAY", 5: "TOP 5 PICKS OF THE DAY"}
-    print(f"\n{title.get(num, 'TOP PICKS')}\n")
-
-    for i, f in enumerate(selected, 1):
-        display_fragrance(f, i, is_top1=(i == 1))
-
-    # Layering suggestions
-    # Use a larger pool for better combo variety
+        st.warning("No fragrances matched your exact filters. Try selecting 'Any' for some options.")
+    else:
+        for i, f in enumerate(selected, 1):
+            with st.container():
+                st.success(f"**#{i} — {f['name']}** by *{f['brand']}*")
+                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
+                st.write(f"**Category:** {', '.join(f['category'])}")
+                st.caption(f"Notes: {f['notes']}")
+    
+    # Layering Combos
     pool = get_top_fragrances(gender, weather, category, occasion, min(25, len(FRAGRANCES)))
     combos = suggest_layering_combos(pool, num_combos=3)
-
+    
     if combos:
-        print("-" * 65)
-        print("LAYERING COMBOS FOR YOU")
-        print("-" * 65)
-        print()
+        st.markdown("---")
+        st.subheader("🧪 Recommended Layering Combos")
         for i, (f1, f2, reason) in enumerate(combos, 1):
-            display_combo(f1, f2, reason, i)
-    else:
-        print("\n(Not enough matching fragrances to suggest layering combos.)")
-
-    print("-" * 65)
-    again = input("Generate new recommendations with same filters? (y/n): ").strip().lower()
-    if again == "y":
-        selected = get_top_fragrances(gender, weather, category, occasion, num)
-        print(f"\n{title.get(num, 'TOP PICKS')}\n")
-        for i, f in enumerate(selected, 1):
-            display_fragrance(f, i, is_top1=(i == 1))
-
-        pool = get_top_fragrances(gender, weather, category, occasion, min(25, len(FRAGRANCES)))
-        combos = suggest_layering_combos(pool, num_combos=3)
-        if combos:
-            print("-" * 65)
-            print("NEW LAYERING COMBOS")
-            print("-" * 65 + "\n")
-            for i, (f1, f2, reason) in enumerate(combos, 1):
-                display_combo(f1, f2, reason, i)
-
-
-if __name__ == "__main__":
-    main()
+            with st.info(f"**Combo #{i}**"):
+                st.write(f"✨ **Base / First:** {f1['name']} ({f1['brand']})")
+                st.write(f"✨ **Layer / Top:** {f2['name']} ({f2['brand']})")
+                st.write(f"💡 **Why it works:** {reason}")
+                st.caption("Tip: Spray the richer/heavier fragrance first, then the lighter one on top.")
+else:
+    st.info("Adjust your filters in the sidebar and click **Generate Recommendations** to start exploring!")
