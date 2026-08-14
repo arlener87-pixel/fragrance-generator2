@@ -181,7 +181,7 @@ if "fragrances_db" not in st.session_state:
 
 # Initialize Reactions Database (Favorites & Dislikes)
 if "user_reactions" not in st.session_state:
-    st.session_state["user_reactions"] = {} # format: {"Fragrance Name": "fav" or "dislike"}
+    st.session_state["user_reactions"] = {}
 
 # ==========================================
 # HELPER FUNCTIONS
@@ -259,12 +259,11 @@ def score_fragrance(f: dict, gender: str, weather: str, category: str, occasion:
     score = 0
     name = f["name"]
     
-    # Check user reactions
     reaction = st.session_state["user_reactions"].get(name)
     if reaction == "dislike":
-        return -999  # Skip disliked fragrances entirely from smart generator
+        return -999
     elif reaction == "fav":
-        score += 50  # Give massive priority to favorites
+        score += 50
 
     season = f["season"].lower()
     cats = f["category"]
@@ -326,7 +325,6 @@ def score_fragrance(f: dict, gender: str, weather: str, category: str, occasion:
 def get_top_fragrances(gender: str, weather: str, category: str, occasion: str, top_n: int) -> list:
     scored = []
     for f in st.session_state["fragrances_db"]:
-        # Skip disliked items completely
         if st.session_state["user_reactions"].get(f["name"]) == "dislike":
             continue
         if (matches_gender(f, gender) and matches_weather(f, weather) and
@@ -349,7 +347,6 @@ GOOD_LAYER_PAIRS = [
 def layer_score(f1: dict, f2: dict) -> int:
     if f1["name"] == f2["name"]:
         return -100
-    # Avoid disliked items in layering suggestions
     if st.session_state["user_reactions"].get(f1["name"]) == "dislike" or st.session_state["user_reactions"].get(f2["name"]) == "dislike":
         return -100
 
@@ -357,7 +354,6 @@ def layer_score(f1: dict, f2: dict) -> int:
     cats2 = set(f2["category"])
     score = 0
     
-    # Prioritize user favorites in layering combos
     if st.session_state["user_reactions"].get(f1["name"]) == "fav": score += 10
     if st.session_state["user_reactions"].get(f2["name"]) == "fav": score += 10
 
@@ -373,7 +369,6 @@ def layer_score(f1: dict, f2: dict) -> int:
 
 
 def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
-    # Use full database if pool is too small
     source_pool = pool if len(pool) >= 5 else st.session_state["fragrances_db"]
     if len(source_pool) < 2:
         return []
@@ -407,7 +402,6 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 st.title("💀 ScentedDeadGirl Fragrance Generator & Layering Suggester ✨")
 st.write("Welcome to your dark sanctuary of scent! Filter your collection, rate your bottles, and discover custom layering combinations.")
 
-# Sidebar Filters & Add Tool
 st.sidebar.header("🎯 Filter Options")
 
 gender = st.sidebar.selectbox("Gender Preference", ["Any", "Male", "Female", "Unisex"])
@@ -416,7 +410,6 @@ category = st.sidebar.selectbox("Preferred Category", ["Any", "Gourmand", "Flora
 occasion = st.sidebar.selectbox("Occasion", ["Any", "Daily / Casual", "Work / Office", "Date / Evening", "Formal / Event", "Outdoor / Sporty"])
 num_recs = st.sidebar.radio("Number of Recommendations", [1, 3, 5], index=1)
 
-# ADD NEW FRAGRANCE SECTION IN SIDEBAR
 st.sidebar.markdown("---")
 st.sidebar.header("➕ Add New Fragrance")
 with st.sidebar.form("add_fragrance_form"):
@@ -443,7 +436,6 @@ with st.sidebar.form("add_fragrance_form"):
         else:
             st.sidebar.error("Please provide at least a Name and Brand.")
 
-# MAIN GENERATOR ACTION
 if st.sidebar.button("✨ Generate Recommendations", type="primary"):
     selected = get_top_fragrances(gender, weather, category, occasion, num_recs)
     
@@ -454,28 +446,25 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
         st.warning("No fragrances matched your exact filters (or they were marked as disliked). Try selecting 'Any' for some options.")
     else:
         for i, f in enumerate(selected, 1):
-            with st.container():
-                current_reaction = st.session_state["user_reactions"].get(f['name'])
-                status_badge = " ⭐ [Favorite]" if current_reaction == "fav" else ""
-                
-                st.success(f"**#{i} — {f['name']}** by *{f['brand']}*{status_badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Notes: {f['notes']}")
-                
-                # Thumbs Up / Thumbs Down Buttons
-                col1, col2, col3 = st.columns([1, 1, 4])
-                with col1:
-                    if st.button("👍 Love", key=f"fav_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f['name']] = "fav"
-                        st.rerun()
-                with col2:
-                    if st.button("👎 Trash", key=f"dislike_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f['name']] = "dislike"
-                        st.rerun()
-                st.markdown("---")
+            current_reaction = st.session_state["user_reactions"].get(f['name'])
+            status_badge = " ⭐ [Favorite]" if current_reaction == "fav" else ""
+            
+            st.success(f"**#{i} — {f['name']}** by *{f['brand']}*{status_badge}")
+            st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
+            st.write(f"**Category:** {', '.join(f['category'])}")
+            st.caption(f"Notes: {f['notes']}")
+            
+            col1, col2, col3 = st.columns([1, 1, 4])
+            with col1:
+                if st.button("👍 Love", key=f"fav_{f['name']}_{i}"):
+                    st.session_state["user_reactions"][f['name']] = "fav"
+                    st.rerun()
+            with col2:
+                if st.button("👎 Trash", key=f"dislike_{f['name']}_{i}"):
+                    st.session_state["user_reactions"][f['name']] = "dislike"
+                    st.rerun()
+            st.markdown("---")
     
-    # Layering Combos (Fixed & Enhanced)
     pool = get_top_fragrances(gender, weather, category, occasion, min(30, len(st.session_state["fragrances_db"])))
     combos = suggest_layering_combos(pool, num_combos=3)
     
@@ -483,15 +472,11 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
         st.markdown("---")
         st.subheader("🧪 Recommended Layering Combos")
         for i, (f1, f2, reason) in enumerate(combos, 1):
-            with st.info(f"**Combo #{i}**"):
-                st.write(f"🖤 **Base / First:** {f1['name']} ({f1['brand']})")
-                st.write(f"🖤 **Layer / Top:** {f2['name']} ({f2['brand']})")
-                st.write(f"💡 **Why it works:** {reason}")
-                st.caption("Tip: Spray the richer/heavier fragrance first, then layer the lighter one on top.")
+            st.info(f"**Combo #{i}**\n\n🖤 **Base / First:** {f1['name']} ({f1['brand']})\n\n🖤 **Layer / Top:** {f2['name']} ({f2['brand']})\n\n💡 **Why it works:** {reason}")
+        st.caption("Tip: Spray the richer/heavier fragrance first, then layer the lighter one on top.")
 else:
     st.info("Adjust your filters in the sidebar and click **Generate Recommendations** to start exploring your collection!")
 
-# View All / Manage Favorites Section at Bottom
 with st.expander("🖤 View All Collection & Saved Reactions"):
     st.write(f"Total fragrances in database: **{len(st.session_state['fragrances_db'])}**")
     
