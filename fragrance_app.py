@@ -1,3 +1,4 @@
+import datetime
 import json
 import random
 import re
@@ -1741,6 +1742,9 @@ if "user_reactions" not in st.session_state:
 if "sotd_history" not in st.session_state:
   st.session_state["sotd_history"] = []
 
+if "roulette_pick" not in st.session_state:
+  st.session_state["roulette_pick"] = None
+
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
   st.session_state["search_input"] = ""
@@ -2192,6 +2196,45 @@ with st.sidebar.form("add_fragrance_form"):
     else:
       st.sidebar.error("Please provide at least a Name and Brand.")
 
+# ==========================================
+# MIDNIGHT SCENT ROULETTE (Feature Integration)
+# ==========================================
+st.markdown("---")
+st.subheader("🎰 Midnight Scent Roulette")
+st.write(
+    "Can't decide what to wear? Let fate choose a dark fragrance for you from"
+    " your collection!"
+)
+
+if st.button("🎲 Spin the Scent Roulette"):
+  valid_pool = [
+      f
+      for f in st.session_state["fragrances_db"]
+      if st.session_state["user_reactions"].get(f["name"]) != "dislike"
+  ]
+  if valid_pool:
+    st.session_state["roulette_pick"] = random.choice(valid_pool)
+  else:
+    st.warning(
+        "No available fragrances found (check your dislikes filter or"
+        " collection)."
+    )
+
+if st.session_state["roulette_pick"]:
+  f_roulette = st.session_state["roulette_pick"]
+  current_reaction = st.session_state["user_reactions"].get(f_roulette["name"])
+  status_badge = " ⭐ [Favorite]" if current_reaction == "fav" else ""
+
+  st.success(
+      f"✨ **Destiny Chooses:** {f_roulette['name']} by"
+      f" *{f_roulette['brand']}*{status_badge}"
+  )
+  st.write(
+      f"**Gender:** {f_roulette['gender']} | **Season:** {f_roulette['season']}"
+  )
+  st.write(f"**Category:** {', '.join(f_roulette['category'])}")
+  st.caption(f"Notes: {f_roulette['notes']}")
+
 # Handle Note Specific Search Query Results
 if note_query:
   st.markdown("---")
@@ -2335,8 +2378,6 @@ sotd_notes = st.text_input(
 
 if st.button("Log Today's Scent"):
   if sotd_choice != "Select a fragrance...":
-    import datetime
-
     today_date = datetime.date.today().strftime("%Y-%m-%d")
     st.session_state["sotd_history"].insert(
         0, {"date": today_date, "scent": sotd_choice, "notes": sotd_notes}
