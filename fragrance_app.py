@@ -2438,6 +2438,72 @@ elif not search_query and not note_query:
       " your filters, or click **Generate Recommendations** to explore!"
   )
 
+# ==========================================
+# FRAGRANCE ROULETTE
+# ==========================================
+st.markdown("---")
+st.subheader("🎰 Fragrance Roulette")
+st.write(
+    "Feeling indecisive, darling? Let the darkness choose your next scent..."
+)
+
+roulette_col1, roulette_col2 = st.columns([2, 1])
+with roulette_col1:
+  use_filters_for_roulette = st.checkbox(
+      "Respect current sidebar filters (gender, weather, category, occasion)",
+      value=True,
+      key="roulette_use_filters",
+  )
+with roulette_col2:
+  st.write("")  # spacing
+  st.write("")
+
+if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
+  # Build the pool of eligible fragrances
+  if use_filters_for_roulette:
+    pool = get_top_fragrances(
+        gender, weather, category, occasion,
+        top_n=len(st.session_state["fragrances_db"])
+    )
+  else:
+    pool = [
+        f for f in st.session_state["fragrances_db"]
+        if st.session_state["user_reactions"].get(f["name"]) != "dislike"
+    ]
+
+  if not pool:
+    st.warning(
+        "No fragrances available to spin. Try loosening your filters or "
+        "clearing some dislikes."
+    )
+  else:
+    chosen = random.choice(pool)
+    current_reaction = st.session_state["user_reactions"].get(chosen["name"])
+    status_badge = (
+        " ⭐ [Favorite]"
+        if current_reaction == "fav"
+        else (" 👎 [Disliked]" if current_reaction == "dislike" else "")
+    )
+
+    st.balloons()
+    st.success("### 🩸 The roulette has spoken...")
+    st.markdown(f"## **{chosen['name']}**{status_badge}")
+    st.markdown(f"### by *{chosen['brand']}*")
+    st.write(f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}")
+    st.write(f"**Category:** {', '.join(chosen['category'])}")
+    st.caption(f"Notes: {chosen['notes']}")
+
+    # Quick action buttons for the chosen scent
+    rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
+    with rcol1:
+      if st.button("👍 Love it", key=f"roulette_fav_{chosen['name']}"):
+        st.session_state["user_reactions"][chosen["name"]] = "fav"
+        st.rerun()
+    with rcol2:
+      if st.button("👎 Trash it", key=f"roulette_dislike_{chosen['name']}"):
+        st.session_state["user_reactions"][chosen["name"]] = "dislike"
+        st.rerun()
+
 # Scent of the Day (SOTD) Section
 st.markdown("---")
 st.subheader("🩸 Scent of the Day (SOTD) Logger")
