@@ -1,4 +1,3 @@
-import datetime
 import json
 import random
 import re
@@ -13,34 +12,151 @@ st.set_page_config(
     layout="centered",
 )
 
-# Custom Gothic Styling for ScentedDeadGirl Aesthetic
+# Custom Gothic Styling for ScentedDeadGirl Aesthetic (Black & Blue)
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=UnifrakturMaguntia&display=swap');
+
+    /* Main app background & text */
     .stApp {
-        background-color: #0b0b0c;
-        color: #e0e0e0;
+        background: linear-gradient(160deg, #020408 0%, #0a0f1a 40%, #050810 100%);
+        color: #c8d8f0;
     }
-    h1, h2, h3 {
-        color: #d1c4e9;
-        font-family: 'Cinzel', serif, sans-serif;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+
+    /* Headings - strong gothic feel */
+    h1, h2, h3, h4 {
+        color: #7eb8ff !important;
+        font-family: 'Cinzel Decorative', 'Cinzel', serif !important;
+        text-shadow: 0 0 8px rgba(60, 140, 255, 0.45), 2px 2px 4px rgba(0, 0, 0, 0.9);
+        letter-spacing: 1px;
     }
-    .stButton>button {
-        background-color: #2c163a;
-        color: #f8f9fa;
-        border: 1px solid #6a1b9a;
+
+    h1 {
+        font-size: 2.4rem !important;
+        border-bottom: 1px solid #1a3a6a;
+        padding-bottom: 0.4rem;
+    }
+
+    /* Body text */
+    p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning {
+        font-family: 'Cinzel', serif !important;
+        color: #b8cce8 !important;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #03060c 0%, #0a1220 100%) !important;
+        border-right: 1px solid #1a3050;
+    }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #6aa8ff !important;
+        font-family: 'Cinzel Decorative', 'Cinzel', serif !important;
+    }
+
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(180deg, #0d1f3c 0%, #081428 100%) !important;
+        color: #a8d0ff !important;
+        border: 1px solid #2a5a9a !important;
+        border-radius: 3px !important;
+        font-family: 'Cinzel', serif !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.5px;
+        transition: all 0.25s ease;
+        box-shadow: 0 0 6px rgba(40, 100, 200, 0.25);
+    }
+    .stButton > button:hover {
+        background: linear-gradient(180deg, #143060 0%, #0c1e40 100%) !important;
+        border-color: #4a90e0 !important;
+        color: #e0f0ff !important;
+        box-shadow: 0 0 14px rgba(60, 140, 255, 0.55);
+    }
+    .stButton > button:active {
+        background: #0a1830 !important;
+    }
+
+    /* Primary / Generate button emphasis */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(180deg, #0e2a55 0%, #0a1c3a 100%) !important;
+        border: 1px solid #3a7acc !important;
+        color: #d0e8ff !important;
+    }
+
+    /* Text inputs & select boxes */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > select,
+    .stMultiSelect > div > div,
+    .stTextArea > div > div > textarea {
+        background-color: #0a1220 !important;
+        color: #d0e4ff !important;
+        border: 1px solid #1e4068 !important;
+        border-radius: 3px !important;
+        font-family: 'Cinzel', serif !important;
+    }
+    .stTextInput > div > div > input:focus,
+    .stSelectbox > div > div > select:focus {
+        border-color: #3a7acc !important;
+        box-shadow: 0 0 8px rgba(60, 140, 255, 0.4) !important;
+    }
+
+    /* Radio & other controls */
+    .stRadio label, .stCheckbox label {
+        font-family: 'Cinzel', serif !important;
+        color: #b0c8e8 !important;
+    }
+
+    /* Info / Success / Warning boxes */
+    .stAlert {
+        background-color: #0a1528 !important;
+        border: 1px solid #1e4068 !important;
+        color: #c0d8f0 !important;
+        font-family: 'Cinzel', serif !important;
+    }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        background-color: #0a1424 !important;
+        color: #8ab8ff !important;
+        font-family: 'Cinzel', serif !important;
+        border: 1px solid #1a3a60 !important;
+    }
+
+    /* Download button */
+    .stDownloadButton > button {
+        background: linear-gradient(180deg, #0d1f3c 0%, #081428 100%) !important;
+        color: #a8d0ff !important;
+        border: 1px solid #2a5a9a !important;
+        font-family: 'Cinzel', serif !important;
+    }
+
+    /* File uploader */
+    .stFileUploader {
+        border: 1px dashed #1e4068 !important;
+        background-color: #080e18 !important;
+    }
+
+    /* Horizontal rules */
+    hr {
+        border-color: #1a3050 !important;
+    }
+
+    /* Scrollbar (webkit) */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #050810;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #1a3a60;
         border-radius: 4px;
     }
-    .stButton>button:hover {
-        background-color: #4a148c;
-        border-color: #ab47bc;
-        color: #ffffff;
-    }
-    .stTextInput>div>div>input, .stSelectbox>div>div>select {
-        background-color: #1a1520;
-        color: #f8f9fa;
-        border: 1px solid #4a148c;
+    ::-webkit-scrollbar-thumb:hover {
+        background: #2a5a9a;
     }
     </style>
 """,
@@ -1742,9 +1858,6 @@ if "user_reactions" not in st.session_state:
 if "sotd_history" not in st.session_state:
   st.session_state["sotd_history"] = []
 
-if "roulette_pick" not in st.session_state:
-  st.session_state["roulette_pick"] = None
-
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
   st.session_state["search_input"] = ""
@@ -2196,45 +2309,6 @@ with st.sidebar.form("add_fragrance_form"):
     else:
       st.sidebar.error("Please provide at least a Name and Brand.")
 
-# ==========================================
-# MIDNIGHT SCENT ROULETTE (Feature Integration)
-# ==========================================
-st.markdown("---")
-st.subheader("🎰 Midnight Scent Roulette")
-st.write(
-    "Can't decide what to wear? Let fate choose a dark fragrance for you from"
-    " your collection!"
-)
-
-if st.button("🎲 Spin the Scent Roulette"):
-  valid_pool = [
-      f
-      for f in st.session_state["fragrances_db"]
-      if st.session_state["user_reactions"].get(f["name"]) != "dislike"
-  ]
-  if valid_pool:
-    st.session_state["roulette_pick"] = random.choice(valid_pool)
-  else:
-    st.warning(
-        "No available fragrances found (check your dislikes filter or"
-        " collection)."
-    )
-
-if st.session_state["roulette_pick"]:
-  f_roulette = st.session_state["roulette_pick"]
-  current_reaction = st.session_state["user_reactions"].get(f_roulette["name"])
-  status_badge = " ⭐ [Favorite]" if current_reaction == "fav" else ""
-
-  st.success(
-      f"✨ **Destiny Chooses:** {f_roulette['name']} by"
-      f" *{f_roulette['brand']}*{status_badge}"
-  )
-  st.write(
-      f"**Gender:** {f_roulette['gender']} | **Season:** {f_roulette['season']}"
-  )
-  st.write(f"**Category:** {', '.join(f_roulette['category'])}")
-  st.caption(f"Notes: {f_roulette['notes']}")
-
 # Handle Note Specific Search Query Results
 if note_query:
   st.markdown("---")
@@ -2378,6 +2452,8 @@ sotd_notes = st.text_input(
 
 if st.button("Log Today's Scent"):
   if sotd_choice != "Select a fragrance...":
+    import datetime
+
     today_date = datetime.date.today().strftime("%Y-%m-%d")
     st.session_state["sotd_history"].insert(
         0, {"date": today_date, "scent": sotd_choice, "notes": sotd_notes}
