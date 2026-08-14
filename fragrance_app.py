@@ -6,8 +6,8 @@ import streamlit as st
 # PAGE CONFIGURATION
 # ==========================================
 st.set_page_config(
-    page_title="Fragrance Generator & Layering Suggester",
-    page_icon="✨",
+    page_title="ScentedDeadGirl Fragrance Generator & Layering Suggester",
+    page_icon="💀",
     layout="centered"
 )
 
@@ -179,6 +179,10 @@ if "fragrances_db" not in st.session_state:
         {"name": "Zimaya Hawwa Red", "brand": "Zimaya", "gender": "Female", "season": "Fall, Winter", "notes": "Top – Cassis, Strawberry, Raspberry, Orange / Heart – Black Currant, Grapefruit, Peach, Lily / Base – Musk, Vanilla, Patchouli", "category": ["Fruity", "Floral", "Sweet"]},
     ]
 
+# Initialize Reactions Database (Favorites & Dislikes)
+if "user_reactions" not in st.session_state:
+    st.session_state["user_reactions"] = {} # format: {"Fragrance Name": "fav" or "dislike"}
+
 # ==========================================
 # HELPER FUNCTIONS
 # ==========================================
@@ -253,6 +257,15 @@ def matches_occasion(fragrance: dict, occasion: str) -> bool:
 
 def score_fragrance(f: dict, gender: str, weather: str, category: str, occasion: str) -> int:
     score = 0
+    name = f["name"]
+    
+    # Check user reactions
+    reaction = st.session_state["user_reactions"].get(name)
+    if reaction == "dislike":
+        return -999  # Skip disliked fragrances entirely from smart generator
+    elif reaction == "fav":
+        score += 50  # Give massive priority to favorites
+
     season = f["season"].lower()
     cats = f["category"]
     g = normalize_gender(f["gender"])
@@ -313,6 +326,9 @@ def score_fragrance(f: dict, gender: str, weather: str, category: str, occasion:
 def get_top_fragrances(gender: str, weather: str, category: str, occasion: str, top_n: int) -> list:
     scored = []
     for f in st.session_state["fragrances_db"]:
+        # Skip disliked items completely
+        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+            continue
         if (matches_gender(f, gender) and matches_weather(f, weather) and
             matches_category(f, category) and matches_occasion(f, occasion)):
             s = score_fragrance(f, gender, weather, category, occasion)
@@ -326,47 +342,56 @@ GOOD_LAYER_PAIRS = [
     ("Sweet", "Fresh"), ("Sweet", "Woody"), ("Floral", "Woody"), ("Floral", "Oriental"),
     ("Fruity", "Woody"), ("Fruity", "Fresh"), ("Oriental", "Floral"), ("Oriental", "Woody"),
     ("Spicy", "Sweet"), ("Spicy", "Woody"), ("Citrus", "Gourmand"), ("Citrus", "Floral"),
-    ("Aromatic", "Gourmand"), ("Oud", "Floral"), ("Oud", "Sweet"),
+    ("Aromatic", "Gourmand"), ("Oud", "Floral"), ("Oud", "Sweet"), ("Gourmand", "Sweet")
 ]
 
 
 def layer_score(f1: dict, f2: dict) -> int:
     if f1["name"] == f2["name"]:
         return -100
+    # Avoid disliked items in layering suggestions
+    if st.session_state["user_reactions"].get(f1["name"]) == "dislike" or st.session_state["user_reactions"].get(f2["name"]) == "dislike":
+        return -100
+
     cats1 = set(f1["category"])
     cats2 = set(f2["category"])
     score = 0
+    
+    # Prioritize user favorites in layering combos
+    if st.session_state["user_reactions"].get(f1["name"]) == "fav": score += 10
+    if st.session_state["user_reactions"].get(f2["name"]) == "fav": score += 10
+
     for a, b in GOOD_LAYER_PAIRS:
         if (a in cats1 and b in cats2) or (b in cats1 and a in cats2):
-            score += 12
+            score += 15
+            
     if cats1 & cats2:
-        score += 4
-    s1 = f1["season"].lower()
-    s2 = f2["season"].lower()
-    if ("summer" in s1 or "spring" in s1) and ("winter" in s2 or "fall" in s2):
-        score += 6
-    if ("winter" in s1 or "fall" in s1) and ("summer" in s2 or "spring" in s2):
-        score += 6
-    score += random.randint(0, 4)
+        score += 5
+        
+    score += random.randint(1, 5)
     return score
 
 
 def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
-    if len(pool) < 2:
+    # Use full database if pool is too small
+    source_pool = pool if len(pool) >= 5 else st.session_state["fragrances_db"]
+    if len(source_pool) < 2:
         return []
+        
     candidates = []
-    for i, f1 in enumerate(pool):
-        for f2 in pool[i+1:]:
+    for i, f1 in enumerate(source_pool):
+        for f2 in source_pool[i+1:]:
             s = layer_score(f1, f2)
-            if s > 8:
-                reason = f"{', '.join(f1['category'][:2])} + {', '.join(f2['category'][:2])}"
+            if s > -50:
+                reason = f"Combines {', '.join(f1['category'])} notes from {f1['name']} with {', '.join(f2['category'])} notes from {f2['name']} for a balanced sillage."
                 candidates.append((s, f1, f2, reason))
+                
     candidates.sort(key=lambda x: x[0], reverse=True)
     used = set()
     results = []
     for s, f1, f2, reason in candidates:
         key1, key2 = f1["name"], f2["name"]
-        if key1 in used and key2 in used:
+        if key1 in used or key2 in used:
             continue
         results.append((f1, f2, reason))
         used.add(key1)
@@ -374,11 +399,13 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
         if len(results) >= num_combos:
             break
     return results
+
+
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
-st.title("✨ Fragrance Generator & Layering Suggester ✨")
-st.write("Customize your preferences below to discover matching single fragrances and custom layering combinations from your collection.")
+st.title("💀 ScentedDeadGirl Fragrance Generator & Layering Suggester ✨")
+st.write("Welcome to your dark sanctuary of scent! Filter your collection, rate your bottles, and discover custom layering combinations.")
 
 # Sidebar Filters & Add Tool
 st.sidebar.header("🎯 Filter Options")
@@ -416,6 +443,7 @@ with st.sidebar.form("add_fragrance_form"):
         else:
             st.sidebar.error("Please provide at least a Name and Brand.")
 
+# MAIN GENERATOR ACTION
 if st.sidebar.button("✨ Generate Recommendations", type="primary"):
     selected = get_top_fragrances(gender, weather, category, occasion, num_recs)
     
@@ -423,17 +451,32 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
     st.subheader(f"🏆 Top {num_recs} Recommendation(s)")
     
     if not selected:
-        st.warning("No fragrances matched your exact filters. Try selecting 'Any' for some options.")
+        st.warning("No fragrances matched your exact filters (or they were marked as disliked). Try selecting 'Any' for some options.")
     else:
         for i, f in enumerate(selected, 1):
             with st.container():
-                st.success(f"**#{i} — {f['name']}** by *{f['brand']}*")
+                current_reaction = st.session_state["user_reactions"].get(f['name'])
+                status_badge = " ⭐ [Favorite]" if current_reaction == "fav" else ""
+                
+                st.success(f"**#{i} — {f['name']}** by *{f['brand']}*{status_badge}")
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
+                
+                # Thumbs Up / Thumbs Down Buttons
+                col1, col2, col3 = st.columns([1, 1, 4])
+                with col1:
+                    if st.button("👍 Love", key=f"fav_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f['name']] = "fav"
+                        st.rerun()
+                with col2:
+                    if st.button("👎 Trash", key=f"dislike_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f['name']] = "dislike"
+                        st.rerun()
+                st.markdown("---")
     
-    # Layering Combos
-    pool = get_top_fragrances(gender, weather, category, occasion, min(25, len(st.session_state["fragrances_db"])))
+    # Layering Combos (Fixed & Enhanced)
+    pool = get_top_fragrances(gender, weather, category, occasion, min(30, len(st.session_state["fragrances_db"])))
     combos = suggest_layering_combos(pool, num_combos=3)
     
     if combos:
@@ -441,9 +484,25 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
         st.subheader("🧪 Recommended Layering Combos")
         for i, (f1, f2, reason) in enumerate(combos, 1):
             with st.info(f"**Combo #{i}**"):
-                st.write(f"✨ **Base / First:** {f1['name']} ({f1['brand']})")
-                st.write(f"✨ **Layer / Top:** {f2['name']} ({f2['brand']})")
+                st.write(f"🖤 **Base / First:** {f1['name']} ({f1['brand']})")
+                st.write(f"🖤 **Layer / Top:** {f2['name']} ({f2['brand']})")
                 st.write(f"💡 **Why it works:** {reason}")
-                st.caption("Tip: Spray the richer/heavier fragrance first, then the lighter one on top.")
+                st.caption("Tip: Spray the richer/heavier fragrance first, then layer the lighter one on top.")
 else:
-    st.info("Adjust your filters in the sidebar and click **Generate Recommendations** to start exploring!")
+    st.info("Adjust your filters in the sidebar and click **Generate Recommendations** to start exploring your collection!")
+
+# View All / Manage Favorites Section at Bottom
+with st.expander("🖤 View All Collection & Saved Reactions"):
+    st.write(f"Total fragrances in database: **{len(st.session_state['fragrances_db'])}**")
+    
+    favs = [name for name, status in st.session_state["user_reactions"].items() if status == "fav"]
+    dislikes = [name for name, status in st.session_state["user_reactions"].items() if status == "dislike"]
+    
+    if favs:
+        st.write(f"⭐ **Favorites:** {', '.join(favs)}")
+    if dislikes:
+        st.write(f"👎 **Disliked:** {', '.join(dislikes)}")
+        
+    if st.button("Clear All Reactions"):
+        st.session_state["user_reactions"] = {}
+        st.rerun()
