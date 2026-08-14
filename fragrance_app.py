@@ -12,16 +12,7 @@ st.set_page_config(
     layout="centered",
 )
 
-# Custom Gothic Styling for ScentedDeadGirl Aesthetic
-st.
-# ==========================================
-# PAGE CONFIGURATION & CUSTOM GOTHIC THEME
-# ==========================================
-st.set_page_config(
-    page_title="ScentedDeadGirl Fragrance Vault",
-    page_icon="🦇",
-    layout="centered",
-)
+# Custom Gothic Styling for ScentedDeadGirl 
 
 st.markdown(
     """
