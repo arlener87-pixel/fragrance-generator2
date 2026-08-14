@@ -13,7 +13,129 @@ st.set_page_config(
 )
 
 # Custom Gothic Styling for ScentedDeadGirl Aesthetic
+st.markdown(import json
+import random
+import re
+import streamlit as st
+
+# ==========================================
+# PAGE CONFIGURATION & CUSTOM GOTHIC THEME
+# ==========================================
+st.set_page_config(
+    page_title="ScentedDeadGirl Fragrance Vault",
+    page_icon="🦇",
+    layout="centered",
+)
+
 st.markdown(
+    """
+    <style>
+        /* Import edgy fonts from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Cinzel:wght@600&family=Inter:wght@400;600&display=swap');
+
+        /* Main background and text colors */
+        .stApp {
+            background-color: #0b0b0c;
+            color: #e0e0e0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Gothic Header styling */
+        h1, h2, h3 {
+            font-family: 'Creepster', cursive !important;
+            color: #b30000 !important;
+            letter-spacing: 2px;
+        }
+
+        /* Custom Sidebar Styling */
+        [data-testid="stSidebar"] {
+            background-color: #121212;
+            border-right: 1px solid #2b2b2b;
+        }
+
+        /* Buttons styling */
+        .stButton>button {
+            background-color: #1a0000;
+            color: #ff4d4d;
+            border: 1px solid #b30000;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .stButton>button:hover {
+            background-color: #b30000;
+            color: #ffffff;
+            border-color: #ff4d4d;
+        }
+
+        /* Inputs and Selectboxes */
+        .stTextInput>div>div>input, .stSelectbox>div>div>div {
+            background-color: #161618;
+            color: #f8f9fa;
+            border: 1px solid #2b2b2b;
+        }
+
+        /* Note / Badge pills */
+        .note-badge {
+            display: inline-block;
+            background-color: #1f1f1f;
+            color: #ffb3b3;
+            padding: 4px 10px;
+            margin: 2px;
+            border-radius: 12px;
+            border: 1px solid #4d0000;
+            font-size: 0.85rem;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ==========================================
+# APP HEADER
+# ==========================================
+st.title("🦇 ScentedDeadGirl Vault 🦇")
+st.markdown(
+    "*Your personal dark archive for gothic gourmands, vanillas, and custom"
+    " layering combos.*"
+)
+
+# ==========================================
+# MIDNIGHT SCENT ROULETTE FEATURE
+# ==========================================
+st.markdown("---")
+st.subheader("🦇 Midnight Scent Roulette")
+
+if st.button("Spin the Roulette"):
+  if "fragrance_database" in st.session_state and st.session_state[
+      "fragrance_database"
+  ]:
+    chosen_one = random.choice(st.session_state["fragrance_database"])
+    st.markdown(
+        f"🔮 **Tonight's Dark Omen Picks:** You are destined to wear"
+        f" **{chosen_one.get('name', 'Unknown Fragrance')}**!"
+    )
+    st.markdown(
+        f"<span class='note-badge'>Vibe:"
+        f" {chosen_one.get('profile', 'Gourmand/Vanilla')}</span>",
+        unsafe_allow_html=True,
+    )
+  else:
+    # Fallback sample demo if database is empty or initializing
+    sample_picks = [
+        {"name": "Vanilla Noir", "profile": "Smoky Vanilla & Black Amber"},
+        {"name": "Midnight Caramel", "profile": "Dark Caramel & Sea Salt"},
+        {"name": "Velvet Orchid", "profile": "Spiced Plum & Dark Musk"},
+    ]
+    chosen_one = random.choice(sample_picks)
+    st.markdown(
+        f"🔮 **Tonight's Dark Omen Picks:** You are destined to wear"
+        f" **{chosen_one['name']}**!"
+    )
+    st.markdown(
+        f"<span class='note-badge'>Vibe: {chosen_one['profile']}</span>",
+        unsafe_allow_html=True,
+    )
+
     """
     <style>
     .stApp {
