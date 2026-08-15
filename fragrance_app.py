@@ -42,7 +42,7 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="ð¤",
+    page_icon="Ã°ÂÂÂ¤",
     layout="centered",
 )
 
@@ -592,12 +592,12 @@ if "fragrances_db" not in st.session_state:
           "brand": "Lattafa",
           "gender": "Unisex/Female",
           "season": "Fall-Winter",
-          "notes": "Banana-toffee/Ã©clair gourmand",
+          "notes": "Banana-toffee/ÃÂ©clair gourmand",
           "category": ["Gourmand", "Sweet"],
       },
       {
-          "name": "Ãclat Parfumerie Al Gazal",
-          "brand": "Ãclat Parfumerie",
+          "name": "ÃÂclat Parfumerie Al Gazal",
+          "brand": "ÃÂclat Parfumerie",
           "gender": "Unisex (leans masculine)",
           "season": "Versatile to cooler",
           "notes": (
@@ -701,7 +701,7 @@ if "fragrances_db" not in st.session_state:
           "category": ["Oriental", "Woody"],
       },
       {
-          "name": "Fragrance World CrÃ¨me of Clouds",
+          "name": "Fragrance World CrÃÂ¨me of Clouds",
           "brand": "Fragrance World",
           "gender": "Unisex",
           "season": "Fall, Winter",
@@ -778,7 +778,7 @@ if "fragrances_db" not in st.session_state:
           "category": ["Gourmand", "Sweet"],
       },
       {
-          "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
+          "name": "Gulf Orchid PiÃÂ±a Colada Musk Collection Body Spray",
           "brand": "Gulf Orchid",
           "gender": "Unisex",
           "season": "Spring, Summer",
@@ -1440,7 +1440,7 @@ if "fragrances_db" not in st.session_state:
           "category": ["Gourmand", "Sweet"],
       },
       {
-          "name": "Melt CrÃ¨me Caramel",
+          "name": "Melt CrÃÂ¨me Caramel",
           "brand": "Mamlakat Al Oud",
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter",
@@ -2503,23 +2503,37 @@ with st.sidebar.form("add_fragrance_form"):
 
   if submit_added:
     if new_name and new_brand:
-      new_item = {
-          "name": new_name,
-          "brand": new_brand,
-          "gender": new_gender,
-          "season": new_season,
-          "notes": new_notes if new_notes else "Not specified",
-          "category": new_cats if new_cats else ["Gourmand"],
-      }
-      st.session_state["fragrances_db"].append(new_item)
-      save_persisted_data()
-      # Clear form fields so you can add another immediately
-      st.session_state["add_name"] = ""
-      st.session_state["add_brand"] = ""
-      st.session_state["add_season"] = "Fall, Winter"
-      st.session_state["add_notes"] = ""
-      st.sidebar.success(f"Added {new_name} successfully! Form cleared.")
-      st.rerun()
+      # Prevent adding the same fragrance twice (name + brand, case-insensitive)
+      name_lower = new_name.strip().lower()
+      brand_lower = new_brand.strip().lower()
+      already_exists = any(
+          f["name"].strip().lower() == name_lower
+          and f["brand"].strip().lower() == brand_lower
+          for f in st.session_state["fragrances_db"]
+      )
+      if already_exists:
+        st.sidebar.error(
+            f"'{new_name}' by {new_brand} is already in your collection. "
+            "Duplicate not added."
+        )
+      else:
+        new_item = {
+            "name": new_name.strip(),
+            "brand": new_brand.strip(),
+            "gender": new_gender,
+            "season": new_season,
+            "notes": new_notes if new_notes else "Not specified",
+            "category": new_cats if new_cats else ["Gourmand"],
+        }
+        st.session_state["fragrances_db"].append(new_item)
+        save_persisted_data()
+        # Clear form fields so you can add another immediately
+        st.session_state["add_name"] = ""
+        st.session_state["add_brand"] = ""
+        st.session_state["add_season"] = "Fall, Winter"
+        st.session_state["add_notes"] = ""
+        st.sidebar.success(f"Added {new_name} successfully! Form cleared.")
+        st.rerun()
     else:
       st.sidebar.error("Please provide at least a Name and Brand.")
 
@@ -2566,7 +2580,7 @@ if search_query:
   if not matching_fragrances:
     st.warning("No fragrances found matching your search term.")
   else:
-    for f in matching_fragrances:
+    for i, f in enumerate(matching_fragrances):
       current_reaction = st.session_state["user_reactions"].get(f["name"])
       status_badge = (
           " [Favorite]"
@@ -2581,12 +2595,12 @@ if search_query:
 
       col1, col2, col3 = st.columns([1, 1, 4])
       with col1:
-        if st.button("Love", key=f"search_fav_{f['name']}"):
+        if st.button("Love", key=f"search_fav_{i}_{f['name']}"):
           st.session_state["user_reactions"][f["name"]] = "fav"
           save_persisted_data()
           st.rerun()
       with col2:
-        if st.button("Trash", key=f"search_dislike_{f['name']}"):
+        if st.button("Trash", key=f"search_dislike_{i}_{f['name']}"):
           st.session_state["user_reactions"][f["name"]] = "dislike"
           save_persisted_data()
           st.rerun()
@@ -2739,12 +2753,12 @@ if st.button("Spin the Roulette", type="primary", key="spin_roulette_btn"):
 
     rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
     with rcol1:
-      if st.button("Love it", key=f"roulette_fav_{chosen['name']}"):
+      if st.button("Love it", key=f"roulette_fav_{chosen['name']}_{id(chosen)}"):
         st.session_state["user_reactions"][chosen["name"]] = "fav"
         save_persisted_data()
         st.rerun()
     with rcol2:
-      if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}"):
+      if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}_{id(chosen)}"):
         st.session_state["user_reactions"][chosen["name"]] = "dislike"
         save_persisted_data()
         st.rerun()
@@ -2807,7 +2821,7 @@ with st.expander("Quick Layering Combos (click to use)"):
             f"*{reason}*"
         )
       with col_b:
-        if st.button("Use", key=f"use_combo_{i}_{f1['name']}_{f2['name']}"):
+        if st.button("Use", key=f"use_combo_{i}"):
           st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
           st.rerun()
 
