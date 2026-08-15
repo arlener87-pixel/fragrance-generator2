@@ -1,191 +1,237 @@
 import datetime
 import json
+import os
 import random
 import re
+from pathlib import Path
+
 import streamlit as st
+
+# ==========================================
+# PERSISTENCE (auto-save / auto-load)
+# ==========================================
+DATA_FILE = Path(__file__).parent / "scented_dead_girl_data.json"
+
+
+def load_persisted_data():
+    """Load reactions, SOTD history, and any user-added fragrances."""
+    if DATA_FILE.exists():
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_persisted_data():
+    """Save current session data to disk."""
+    data = {
+        "fragrances_db": st.session_state.get("fragrances_db", []),
+        "user_reactions": st.session_state.get("user_reactions", {}),
+        "sotd_history": st.session_state.get("sotd_history", []),
+    }
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        st.sidebar.warning(f"Could not save data: {e}")
 
 # ==========================================
 # PAGE CONFIGURATION & CUSTOM GOTHIC THEME
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="💀",
+    page_icon="ð",
     layout="centered",
 )
 
-# Custom Gothic Styling for ScentedDeadGirl Aesthetic (Black & Blue + Floating Bats Animation)
+# Custom Gothic Styling for ScentedDeadGirl Aesthetic
+# Deep black, blood-crimson accents, spectral blue, floating bats
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=UnifrakturMaguntia&display=swap');
 
-    /* Main app background & text */
+    /* Deep void background */
     .stApp {
-        background: linear-gradient(160deg, #020408 0%, #0a0f1a 40%, #050810 100%);
-        color: #c8d8f0;
+        background: radial-gradient(ellipse at top, #0a0e18 0%, #020408 45%, #000000 100%);
+        color: #c8d0e0;
     }
 
-    /* Headings - strong gothic feel */
+    /* Headings - spectral gothic */
     h1, h2, h3, h4 {
-        color: #7eb8ff !important;
+        color: #9ec5ff !important;
         font-family: 'Cinzel Decorative', 'Cinzel', serif !important;
-        text-shadow: 0 0 8px rgba(60, 140, 255, 0.45), 2px 2px 4px rgba(0, 0, 0, 0.9);
-        letter-spacing: 1px;
+        text-shadow: 0 0 12px rgba(80, 140, 255, 0.55), 0 0 4px rgba(180, 40, 60, 0.3), 2px 2px 6px rgba(0, 0, 0, 0.95);
+        letter-spacing: 1.5px;
     }
 
     h1 {
-        font-size: 2.4rem !important;
-        border-bottom: 1px solid #1a3a6a;
-        padding-bottom: 0.4rem;
+        font-size: 2.5rem !important;
+        border-bottom: 1px solid #2a1a30;
+        padding-bottom: 0.5rem;
+        background: linear-gradient(90deg, transparent, rgba(40, 20, 50, 0.4), transparent);
     }
 
     /* Body text */
     p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning {
         font-family: 'Cinzel', serif !important;
-        color: #b8cce8 !important;
+        color: #b0c0d8 !important;
     }
 
-    /* Sidebar */
+    /* Sidebar - deeper crypt */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #03060c 0%, #0a1220 100%) !important;
-        border-right: 1px solid #1a3050;
+        background: linear-gradient(180deg, #05070e 0%, #0a0f1a 50%, #08060c 100%) !important;
+        border-right: 1px solid #1a1525;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.6);
     }
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        color: #6aa8ff !important;
+        color: #8ab4ff !important;
         font-family: 'Cinzel Decorative', 'Cinzel', serif !important;
+        text-shadow: 0 0 8px rgba(60, 100, 200, 0.4);
     }
 
-    /* Buttons */
+    /* Buttons - dark steel with blue glow */
     .stButton > button {
-        background: linear-gradient(180deg, #0d1f3c 0%, #081428 100%) !important;
-        color: #a8d0ff !important;
-        border: 1px solid #2a5a9a !important;
-        border-radius: 3px !important;
+        background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
+        color: #a0c8ff !important;
+        border: 1px solid #2a4068 !important;
+        border-radius: 2px !important;
         font-family: 'Cinzel', serif !important;
         font-weight: 600 !important;
-        letter-spacing: 0.5px;
-        transition: all 0.25s ease;
-        box-shadow: 0 0 6px rgba(40, 100, 200, 0.25);
+        letter-spacing: 0.8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 8px rgba(30, 70, 150, 0.2);
     }
     .stButton > button:hover {
-        background: linear-gradient(180deg, #143060 0%, #0c1e40 100%) !important;
-        border-color: #4a90e0 !important;
-        color: #e0f0ff !important;
-        box-shadow: 0 0 14px rgba(60, 140, 255, 0.55);
+        background: linear-gradient(180deg, #152545 0%, #0c1830 100%) !important;
+        border-color: #4a7ac8 !important;
+        color: #e8f0ff !important;
+        box-shadow: 0 0 18px rgba(70, 130, 255, 0.5);
+        transform: translateY(-1px);
     }
     .stButton > button:active {
-        background: #0a1830 !important;
+        background: #0a1220 !important;
     }
 
-    /* Primary / Generate button emphasis */
+    /* Primary buttons - deeper emphasis */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(180deg, #0e2a55 0%, #0a1c3a 100%) !important;
-        border: 1px solid #3a7acc !important;
-        color: #d0e8ff !important;
+        background: linear-gradient(180deg, #121e38 0%, #0a1428 100%) !important;
+        border: 1px solid #3a6aaa !important;
+        color: #d0e4ff !important;
+        box-shadow: 0 0 10px rgba(50, 100, 200, 0.3);
     }
 
-    /* Text inputs & select boxes */
+    /* Inputs */
     .stTextInput > div > div > input,
     .stSelectbox > div > div > select,
     .stMultiSelect > div > div,
     .stTextArea > div > div > textarea {
-        background-color: #0a1220 !important;
-        color: #d0e4ff !important;
-        border: 1px solid #1e4068 !important;
-        border-radius: 3px !important;
+        background-color: #080c16 !important;
+        color: #d0e0f8 !important;
+        border: 1px solid #1e2a48 !important;
+        border-radius: 2px !important;
         font-family: 'Cinzel', serif !important;
     }
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > select:focus {
-        border-color: #3a7acc !important;
-        box-shadow: 0 0 8px rgba(60, 140, 255, 0.4) !important;
+        border-color: #4a80d0 !important;
+        box-shadow: 0 0 10px rgba(60, 120, 220, 0.45) !important;
     }
 
-    /* Radio & other controls */
+    /* Radio & checkbox */
     .stRadio label, .stCheckbox label {
         font-family: 'Cinzel', serif !important;
-        color: #b0c8e8 !important;
+        color: #a8bdd8 !important;
     }
 
-    /* Info / Success / Warning boxes */
+    /* Alerts */
     .stAlert {
-        background-color: #0a1528 !important;
-        border: 1px solid #1e4068 !important;
-        color: #c0d8f0 !important;
+        background-color: #0a101c !important;
+        border: 1px solid #1e2a48 !important;
+        color: #b8cce8 !important;
         font-family: 'Cinzel', serif !important;
     }
 
     /* Expander */
     .streamlit-expanderHeader {
-        background-color: #0a1424 !important;
-        color: #8ab8ff !important;
+        background-color: #0a0e18 !important;
+        color: #8ab0e8 !important;
         font-family: 'Cinzel', serif !important;
-        border: 1px solid #1a3a60 !important;
+        border: 1px solid #1a2540 !important;
     }
 
     /* Download button */
     .stDownloadButton > button {
-        background: linear-gradient(180deg, #0d1f3c 0%, #081428 100%) !important;
-        color: #a8d0ff !important;
-        border: 1px solid #2a5a9a !important;
+        background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
+        color: #a0c8ff !important;
+        border: 1px solid #2a4068 !important;
         font-family: 'Cinzel', serif !important;
     }
 
     /* File uploader */
     .stFileUploader {
-        border: 1px dashed #1e4068 !important;
-        background-color: #080e18 !important;
+        border: 1px dashed #2a3050 !important;
+        background-color: #060a12 !important;
     }
 
     /* Horizontal rules */
     hr {
-        border-color: #1a3050 !important;
+        border-color: #1a2035 !important;
+        opacity: 0.7;
     }
 
     /* Floating Bats Animation */
     @keyframes flyBats {
         0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0; }
-        20% { opacity: 1; }
-        80% { opacity: 1; }
-        100% { transform: translateY(-400px) translateX(150px) rotate(20deg); opacity: 0; }
+        15% { opacity: 1; }
+        85% { opacity: 1; }
+        100% { transform: translateY(-420px) translateX(160px) rotate(25deg); opacity: 0; }
     }
 
     .bat-container {
         position: relative;
-        height: 120px;
+        height: 130px;
         width: 100%;
         overflow: hidden;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
 
     .floating-bat {
         position: absolute;
         bottom: 0px;
-        font-size: 24px;
-        animation: flyBats 3s ease-in-out infinite;
+        font-size: 26px;
+        animation: flyBats 3.2s ease-in-out infinite;
+        filter: drop-shadow(0 0 4px rgba(100, 60, 180, 0.5));
     }
 
-    .bat1 { left: 10%; animation-delay: 0s; }
-    .bat2 { left: 35%; animation-delay: 0.6s; }
-    .bat3 { left: 60%; animation-delay: 0.3s; }
-    .bat4 { left: 85%; animation-delay: 0.9s; }
+    .bat1 { left: 8%; animation-delay: 0s; }
+    .bat2 { left: 32%; animation-delay: 0.55s; }
+    .bat3 { left: 58%; animation-delay: 0.25s; }
+    .bat4 { left: 82%; animation-delay: 0.85s; }
 
-    /* Scrollbar (webkit) */
+    /* Scrollbar */
     ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
     }
     ::-webkit-scrollbar-track {
-        background: #050810;
+        background: #030508;
     }
     ::-webkit-scrollbar-thumb {
-        background: #1a3a60;
+        background: #1a2540;
         border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: #2a5a9a;
+        background: #2a4068;
+    }
+
+    /* Subtle crimson accent for success messages */
+    div[data-testid="stNotification"] {
+        border-left: 3px solid #6a2030 !important;
     }
     </style>
 """,
@@ -195,8 +241,15 @@ st.markdown(
 # ==========================================
 # FRAGRANCE DATABASE (Stored in Session State)
 # ==========================================
+# Load any previously saved data first
+_persisted = load_persisted_data()
+
 if "fragrances_db" not in st.session_state:
-  st.session_state["fragrances_db"] = [
+  if _persisted.get("fragrances_db"):
+    st.session_state["fragrances_db"] = _persisted["fragrances_db"]
+  else:
+    # Built-in sanctuary collection
+    st.session_state["fragrances_db"] = [
       {
           "name": "Ajwad",
           "brand": "Lattafa",
@@ -213,7 +266,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Pistachio, Almond / Heart – Jasmine, Heliotrope / Base –"
+              "Top â Pistachio, Almond / Heart â Jasmine, Heliotrope / Base â"
               " Caramel, Vanilla, Sandalwood"
           ),
           "category": ["Gourmand", "Sweet"],
@@ -224,8 +277,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Warm Spicy, Amber / Heart – Sweet, Powdery, Vanilla /"
-              " Base – Chocolate, Musky, Cocoa"
+              "Top â Warm Spicy, Amber / Heart â Sweet, Powdery, Vanilla /"
+              " Base â Chocolate, Musky, Cocoa"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -235,7 +288,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Marshmallow, Strawberry / Heart – Cocoa, Vanilla / Base –"
+              "Top â Marshmallow, Strawberry / Heart â Cocoa, Vanilla / Base â"
               " Sweet Musk"
           ),
           "category": ["Gourmand", "Sweet"],
@@ -246,7 +299,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Chocolate / Heart – Vanilla / Base – Musk"
+              "Top â Chocolate / Heart â Vanilla / Base â Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -256,7 +309,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Citrus, Amber / Heart – Vanilla Cake / Base – Vanilla,"
+              "Top â Citrus, Amber / Heart â Vanilla Cake / Base â Vanilla,"
               " Amber"
           ),
           "category": ["Gourmand", "Sweet"],
@@ -267,7 +320,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Vanilla / Heart – Creamy Sweet / Base – Vanilla, Musk"
+              "Top â Vanilla / Heart â Creamy Sweet / Base â Vanilla, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -277,7 +330,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Spicy, Citrus, Woody / Heart – Floral, Sweet / Base –"
+              "Top â Spicy, Citrus, Woody / Heart â Floral, Sweet / Base â"
               " Amber, Musk, Vanilla"
           ),
           "category": ["Woody", "Spicy", "Oriental"],
@@ -288,7 +341,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex/Male",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Fresh Citrus, Metallic / Heart – Floral / Base – Musk,"
+              "Top â Fresh Citrus, Metallic / Heart â Floral / Base â Musk,"
               " Sweet"
           ),
           "category": ["Fresh", "Citrus"],
@@ -299,8 +352,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Citruses / Heart – Orchid, Jasmine, Vanilla, Caramel /"
-              " Base – White Musk, Woody Notes, Vetiver"
+              "Top â Citruses / Heart â Orchid, Jasmine, Vanilla, Caramel /"
+              " Base â White Musk, Woody Notes, Vetiver"
           ),
           "category": ["Floral", "Sweet", "Gourmand"],
       },
@@ -310,7 +363,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Spring",
           "notes": (
-              "Top – Rose / Heart – Floral, Sweet / Base – Musk, Vanilla"
+              "Top â Rose / Heart â Floral, Sweet / Base â Musk, Vanilla"
           ),
           "category": ["Floral", "Sweet"],
       },
@@ -320,8 +373,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female-leaning",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cherry, Mandarin, Mango, Pear, Bergamot / Heart – Amber,"
-              " Fig, Jasmine / Base – Amber, Vanilla, Sandalwood, Musk"
+              "Top â Cherry, Mandarin, Mango, Pear, Bergamot / Heart â Amber,"
+              " Fig, Jasmine / Base â Amber, Vanilla, Sandalwood, Musk"
           ),
           "category": ["Fruity", "Oriental", "Sweet"],
       },
@@ -331,8 +384,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Coconut, Peach, Bergamot, Mandarin / Heart – Tiare, White"
-              " Flowers, Jasmine, Rose / Base – White Musk, Patchouli"
+              "Top â Coconut, Peach, Bergamot, Mandarin / Heart â Tiare, White"
+              " Flowers, Jasmine, Rose / Base â White Musk, Patchouli"
           ),
           "category": ["Floral", "Fruity", "Fresh"],
       },
@@ -342,7 +395,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Jasmine, Vanilla Bean / Heart – Caramel, Amber / Base –"
+              "Top â Jasmine, Vanilla Bean / Heart â Caramel, Amber / Base â"
               " Musk, Tonka Bean, Vanilla"
           ),
           "category": ["Gourmand", "Sweet", "Floral"],
@@ -353,8 +406,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Almond, Coffee, Ylang Ylang / Heart – Jasmine, Rose,"
-              " Tuberose / Base – Vanilla, Musk, Tonka, Woody/Cacao"
+              "Top â Almond, Coffee, Ylang Ylang / Heart â Jasmine, Rose,"
+              " Tuberose / Base â Vanilla, Musk, Tonka, Woody/Cacao"
           ),
           "category": ["Gourmand", "Floral", "Oriental"],
       },
@@ -364,7 +417,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Tropical Fruits, Coconut / Heart – Sweet / Base – Musk"
+              "Top â Tropical Fruits, Coconut / Heart â Sweet / Base â Musk"
           ),
           "category": ["Fruity", "Fresh", "Sweet"],
       },
@@ -374,8 +427,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Orange, Grapefruit, Artemisia / Heart – Mint, Lavender /"
-              " Base – Ambroxan, Cypress, Patchouli"
+              "Top â Orange, Grapefruit, Artemisia / Heart â Mint, Lavender /"
+              " Base â Ambroxan, Cypress, Patchouli"
           ),
           "category": ["Fresh", "Citrus", "Aromatic"],
       },
@@ -385,8 +438,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female-leaning",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Strawberry, Raspberry, Peach, Bergamot / Heart – Caramel,"
-              " Jasmine / Base – Patchouli, Musk, Amber"
+              "Top â Strawberry, Raspberry, Peach, Bergamot / Heart â Caramel,"
+              " Jasmine / Base â Patchouli, Musk, Amber"
           ),
           "category": ["Fruity", "Gourmand", "Sweet"],
       },
@@ -396,9 +449,9 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Spring, Fall, Winter",
           "notes": (
-              "Top – Apple, Lemon, Coconut, Peony, Lily of the Valley / Heart –"
+              "Top â Apple, Lemon, Coconut, Peony, Lily of the Valley / Heart â"
               " Strawberry, Peach, Raspberry, Apricot, Marshmallow, Orange"
-              " Blossom / Base – Vanilla, Praline, Tonka, Amber, Musk, Mascarpone"
+              " Blossom / Base â Vanilla, Praline, Tonka, Amber, Musk, Mascarpone"
           ),
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -408,8 +461,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Versatile to cooler",
           "notes": (
-              "Top – Jasmine, Bergamot, Peony / Heart – Pineapple, Peach, Plum /"
-              " Base – Musk, Patchouli, Sandalwood"
+              "Top â Jasmine, Bergamot, Peony / Heart â Pineapple, Peach, Plum /"
+              " Base â Musk, Patchouli, Sandalwood"
           ),
           "category": ["Floral", "Fruity"],
       },
@@ -419,7 +472,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex/Male",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Red Fruits, Spices / Heart – Sweet Notes / Base – Woody,"
+              "Top â Red Fruits, Spices / Heart â Sweet Notes / Base â Woody,"
               " Musk"
           ),
           "category": ["Fruity", "Woody", "Spicy"],
@@ -430,8 +483,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Aldehydes, Heliotrope, Coconut, Vanilla / Heart – Vanilla,"
-              " Mango / Base – White Musk, Coconut, Vanilla Absolute"
+              "Top â Aldehydes, Heliotrope, Coconut, Vanilla / Heart â Vanilla,"
+              " Mango / Base â White Musk, Coconut, Vanilla Absolute"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -439,7 +492,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Berries Cream Macaron",
           "brand": "Arabiyat Sugar",
           "gender": "Female",
-          "season": "Spring–Fall",
+          "season": "SpringâFall",
           "notes": "Berry + cream macaron gourmand",
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -447,7 +500,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Black Opinion",
           "brand": "Black Opinion",
           "gender": "Male/Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Dark, bold (woody/spicy/leather)",
           "category": ["Woody", "Spicy", "Leather"],
       },
@@ -457,7 +510,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cardamom / Heart – Lavender, Iris / Base – Vanilla,"
+              "Top â Cardamom / Heart â Lavender, Iris / Base â Vanilla,"
               " Oriental Woods"
           ),
           "category": ["Woody", "Oriental", "Spicy"],
@@ -466,7 +519,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Caramel Chocolate Macaron",
           "brand": "Arabiyat Sugar",
           "gender": "Female/Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Caramel-chocolate-macaron gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -476,7 +529,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Apple, Citrus / Heart – Rose, Jasmine / Base – Vanilla,"
+              "Top â Apple, Citrus / Heart â Rose, Jasmine / Base â Vanilla,"
               " Musk"
           ),
           "category": ["Floral", "Fruity", "Fresh"],
@@ -485,7 +538,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Coconut Chiffon",
           "brand": "Arabiyat Sugar",
           "gender": "Female/Unisex",
-          "season": "Spring–Summer",
+          "season": "SpringâSummer",
           "notes": "Coconut + light cake/chiffon",
           "category": ["Gourmand", "Sweet", "Fresh"],
       },
@@ -493,7 +546,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Confections",
           "brand": "Paris Corner",
           "gender": "Female/Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Gourmand/sweet, confectionery-style",
           "category": ["Gourmand", "Sweet"],
       },
@@ -501,10 +554,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Dulzura",
           "brand": "Paris Corner",
           "gender": "Female",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": (
-              "Top – Black pepper, buttermilk / Heart – Cake, vanilla, cream /"
-              " Base – Amber, musk"
+              "Top â Black pepper, buttermilk / Heart â Cake, vanilla, cream /"
+              " Base â Amber, musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -512,13 +565,13 @@ if "fragrances_db" not in st.session_state:
           "name": "Eclaire Banoffi",
           "brand": "Lattafa",
           "gender": "Unisex/Female",
-          "season": "Fall–Winter",
-          "notes": "Banana-toffee/éclair gourmand",
+          "season": "FallâWinter",
+          "notes": "Banana-toffee/Ã©clair gourmand",
           "category": ["Gourmand", "Sweet"],
       },
       {
-          "name": "Éclat Parfumerie Al Gazal",
-          "brand": "Éclat Parfumerie",
+          "name": "Ãclat Parfumerie Al Gazal",
+          "brand": "Ãclat Parfumerie",
           "gender": "Unisex (leans masculine)",
           "season": "Versatile to cooler",
           "notes": (
@@ -532,8 +585,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter (versatile to cooler)",
           "notes": (
-              "Top – Cinnamon, Orange, Nutmeg / Heart – Vanilla Cream, Cognac,"
-              " Cocoa / Base – Bourbon Vanilla, Cedarwood, Patchouli"
+              "Top â Cinnamon, Orange, Nutmeg / Heart â Vanilla Cream, Cognac,"
+              " Cocoa / Base â Bourbon Vanilla, Cedarwood, Patchouli"
           ),
           "category": ["Gourmand", "Spicy", "Woody"],
       },
@@ -541,10 +594,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Elyssia Scarlet",
           "brand": "Riiffs",
           "gender": "Female",
-          "season": "Spring–Summer / versatile",
+          "season": "SpringâSummer / versatile",
           "notes": (
-              "Top – Black Cherry, Pink Pepper / Heart – Leather, Cream, Benzoin"
-              " / Base – Vanilla Absolute, Cashmeran, Amber, Iso E Super"
+              "Top â Black Cherry, Pink Pepper / Heart â Leather, Cream, Benzoin"
+              " / Base â Vanilla Absolute, Cashmeran, Amber, Iso E Super"
           ),
           "category": ["Fruity", "Leather", "Sweet"],
       },
@@ -554,7 +607,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Spring",
           "notes": (
-              "Top – Pear, Apple / Heart – Caramel, Jasmine / Base –"
+              "Top â Pear, Apple / Heart â Caramel, Jasmine / Base â"
               " Raspberry, Musk"
           ),
           "category": ["Fruity", "Gourmand", "Sweet"],
@@ -565,8 +618,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (female-leaning)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Mango, Ginger, Lemon, Red Berries / Heart – Coumarin,"
-              " Jasmine, Cedar / Base – Cypriol, Amber, Musk, Oud"
+              "Top â Mango, Ginger, Lemon, Red Berries / Heart â Coumarin,"
+              " Jasmine, Cedar / Base â Cypriol, Amber, Musk, Oud"
           ),
           "category": ["Fruity", "Oriental", "Woody"],
       },
@@ -576,7 +629,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Roasted Coffee Beans / Heart – Praline, Rose / Base –"
+              "Top â Roasted Coffee Beans / Heart â Praline, Rose / Base â"
               " Oakmoss, Cedar, Amber"
           ),
           "category": ["Gourmand", "Woody"],
@@ -593,7 +646,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Entice Ruby",
           "brand": "Vurv",
           "gender": "Female",
-          "season": "Spring–Summer / versatile",
+          "season": "SpringâSummer / versatile",
           "notes": "Fruity-floral / berry-red fruit leaning",
           "category": ["Fruity", "Floral"],
       },
@@ -609,7 +662,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Espada Prime",
           "brand": "Le Chameau",
           "gender": "Male",
-          "season": "Spring–Summer / versatile",
+          "season": "SpringâSummer / versatile",
           "notes": "Fresh or spicy-woody",
           "category": ["Fresh", "Woody", "Spicy"],
       },
@@ -622,13 +675,13 @@ if "fragrances_db" not in st.session_state:
           "category": ["Oriental", "Woody"],
       },
       {
-          "name": "Fragrance World Crème of Clouds",
+          "name": "Fragrance World CrÃ¨me of Clouds",
           "brand": "Fragrance World",
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Vanilla, Chocolate, Burnt Sugar / Heart – Milk,"
-              " Creamy/Coconut Milk, Whipped Cream / Base – Musk"
+              "Top â Vanilla, Chocolate, Burnt Sugar / Heart â Milk,"
+              " Creamy/Coconut Milk, Whipped Cream / Base â Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -638,8 +691,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cardamom, Pink Pepper, Candy Apple / Heart – Liquor, Dates,"
-              " Boozy notes, Davana, Osmanthus / Base – Myrrh, Benzoin, Styrax,"
+              "Top â Cardamom, Pink Pepper, Candy Apple / Heart â Liquor, Dates,"
+              " Boozy notes, Davana, Osmanthus / Base â Myrrh, Benzoin, Styrax,"
               " Amber Xtreme, Labdanum, Patchouli"
           ),
           "category": ["Oriental", "Spicy", "Sweet"],
@@ -650,8 +703,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male/Unisex (leans masculine)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Incense, Guaiac Wood, Saffron / Heart – Leather, Amberwood,"
-              " Violet, Sugar Cane / Base – Smoke, Patchouli, Sandalwood, Woodsy"
+              "Top â Incense, Guaiac Wood, Saffron / Heart â Leather, Amberwood,"
+              " Violet, Sugar Cane / Base â Smoke, Patchouli, Sandalwood, Woodsy"
               " Notes, Black Musk"
           ),
           "category": ["Woody", "Leather", "Oriental"],
@@ -662,8 +715,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Blackberry, Black Currant, Rosemary, Bergamot / Heart –"
-              " Raspberry, Vodka, Basil, Lily of the Valley / Base – Strawberry,"
+              "Top â Blackberry, Black Currant, Rosemary, Bergamot / Heart â"
+              " Raspberry, Vodka, Basil, Lily of the Valley / Base â Strawberry,"
               " Musk, Peach, Amber, Sandalwood, Patchouli, Incense"
           ),
           "category": ["Fruity", "Fresh", "Aromatic"],
@@ -674,8 +727,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Nutella, Cardamom, Rum / Heart – Cocoa, Coconut, White"
-              " Flowers, Lily of the Valley / Base – Sandalwood, Ambergris, Musk"
+              "Top â Nutella, Cardamom, Rum / Heart â Cocoa, Coconut, White"
+              " Flowers, Lily of the Valley / Base â Sandalwood, Ambergris, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -683,7 +736,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Ghaliya",
           "brand": "Zakat",
           "gender": "Unisex/Female",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Rich oriental/oud-floral",
           "category": ["Oriental", "Floral", "Oud"],
       },
@@ -693,18 +746,18 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cookie, Butter / Heart – Vanilla, Musk / Base – Caramel,"
+              "Top â Cookie, Butter / Heart â Vanilla, Musk / Base â Caramel,"
               " Amber"
           ),
           "category": ["Gourmand", "Sweet"],
       },
       {
-          "name": "Gulf Orchid Piña Colada Musk Collection Body Spray",
+          "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
           "brand": "Gulf Orchid",
           "gender": "Unisex",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Pineapple, Coconut / Heart – Tropical / Base – Musk"
+              "Top â Pineapple, Coconut / Heart â Tropical / Base â Musk"
           ),
           "category": ["Fruity", "Fresh", "Sweet"],
       },
@@ -712,10 +765,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Hawas Elixir",
           "brand": "Rasasi",
           "gender": "Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": (
-              "Top – Mint, bergamot, artemisia / Heart – Dark chocolate,"
-              " lavender, benzoin / Base – Vanilla, tonka bean, white musk"
+              "Top â Mint, bergamot, artemisia / Heart â Dark chocolate,"
+              " lavender, benzoin / Base â Vanilla, tonka bean, white musk"
           ),
           "category": ["Gourmand", "Fresh", "Sweet"],
       },
@@ -725,7 +778,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Citrus, Aromatic Herbs / Heart – Light Spices / Base –"
+              "Top â Citrus, Aromatic Herbs / Heart â Light Spices / Base â"
               " Woods, Musk"
           ),
           "category": ["Fresh", "Citrus", "Aromatic"],
@@ -734,7 +787,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Kandy Rush",
           "brand": "Kandy Rush",
           "gender": "Female/Unisex",
-          "season": "Fall–Winter / casual year-round",
+          "season": "FallâWinter / casual year-round",
           "notes": "Sweet candy/gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -744,8 +797,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Coffee, Sweet Almond, Milk / Heart – Vanilla, Ice Cream"
-              " Accord, Amber / Base – Vanilla, Almond Cream, Caramel"
+              "Top â Coffee, Sweet Almond, Milk / Heart â Vanilla, Ice Cream"
+              " Accord, Amber / Base â Vanilla, Almond Cream, Caramel"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -755,7 +808,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Caramel, Butter / Heart – Tonka, Honey, Jasmine / Base –"
+              "Top â Caramel, Butter / Heart â Tonka, Honey, Jasmine / Base â"
               " Vanilla, Musk, Amber"
           ),
           "category": ["Gourmand", "Sweet"],
@@ -766,8 +819,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Bergamot, Jasmine, Peony / Heart – Pineapple, Peach, Plum /"
-              " Base – Musk, Sandalwood, Patchouli"
+              "Top â Bergamot, Jasmine, Peony / Heart â Pineapple, Peach, Plum /"
+              " Base â Musk, Sandalwood, Patchouli"
           ),
           "category": ["Floral", "Fruity", "Fresh"],
       },
@@ -777,8 +830,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Blackcurrant, Strawberry, Freesia / Heart – Raspberry,"
-              " Magnolia, Cashmere Wood / Base – Vanilla, Caramel, Moss"
+              "Top â Blackcurrant, Strawberry, Freesia / Heart â Raspberry,"
+              " Magnolia, Cashmere Wood / Base â Vanilla, Caramel, Moss"
           ),
           "category": ["Fruity", "Gourmand", "Floral"],
       },
@@ -788,8 +841,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Summer, Fall",
           "notes": (
-              "Top – Guava, Peach, Nectarine / Heart – Vanilla, Ginger,"
-              " Cinnamon, Amber / Base – Caramel, Musk, Sandalwood"
+              "Top â Guava, Peach, Nectarine / Heart â Vanilla, Ginger,"
+              " Cinnamon, Amber / Base â Caramel, Musk, Sandalwood"
           ),
           "category": ["Fruity", "Gourmand", "Sweet"],
       },
@@ -799,8 +852,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Bergamot, Gardenia, Almond / Heart – Coconut, Caramel /"
-              " Base – Patchouli, Vanilla, Musk"
+              "Top â Bergamot, Gardenia, Almond / Heart â Coconut, Caramel /"
+              " Base â Patchouli, Vanilla, Musk"
           ),
           "category": ["Gourmand", "Floral", "Sweet"],
       },
@@ -808,7 +861,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Khamrah Waha",
           "brand": "Lattafa",
           "gender": "Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Spicy-sweet (date, cinnamon, vanilla family)",
           "category": ["Oriental", "Spicy", "Sweet"],
       },
@@ -816,7 +869,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Khayali Vanilla Ayelet",
           "brand": "Khayali",
           "gender": "Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": (
               "Vanilla orchid, jasmine / Brown sugar, tonka / Amber, musk,"
               " patchouli (Kayali-inspired)"
@@ -829,8 +882,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Ginger, Mandarin, Pink Pepper / Heart – Lavender, Praline,"
-              " Cacao, Jasmine / Base – Vanilla, Amber, Musk"
+              "Top â Ginger, Mandarin, Pink Pepper / Heart â Lavender, Praline,"
+              " Cacao, Jasmine / Base â Vanilla, Amber, Musk"
           ),
           "category": ["Gourmand", "Spicy", "Sweet"],
       },
@@ -840,8 +893,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Mandarin Orange, Pear / Heart – Sweet Notes, Jasmine, Rose"
-              " / Base – Musk, Vanilla, Raspberry"
+              "Top â Mandarin Orange, Pear / Heart â Sweet Notes, Jasmine, Rose"
+              " / Base â Musk, Vanilla, Raspberry"
           ),
           "category": ["Fruity", "Floral", "Sweet"],
       },
@@ -851,8 +904,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Black Pepper, Tobacco, Pineapple / Heart – Patchouli,"
-              " Coffee, Iris / Base – Vanilla, Amber, Dry Woods, Benzoin,"
+              "Top â Black Pepper, Tobacco, Pineapple / Heart â Patchouli,"
+              " Coffee, Iris / Base â Vanilla, Amber, Dry Woods, Benzoin,"
               " Labdanum"
           ),
           "category": ["Woody", "Spicy", "Oriental"],
@@ -863,7 +916,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Rose Milk / Heart – Meringue, Almond / Base – Vanilla,"
+              "Top â Rose Milk / Heart â Meringue, Almond / Base â Vanilla,"
               " Musk, Sandalwood"
           ),
           "category": ["Floral", "Gourmand", "Sweet"],
@@ -874,8 +927,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans feminine)",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Watermelon, Peach, Orange / Heart – Coconut, White Flowers"
-              " / Base – Musk, Vanilla, Amber"
+              "Top â Watermelon, Peach, Orange / Heart â Coconut, White Flowers"
+              " / Base â Musk, Vanilla, Amber"
           ),
           "category": ["Fruity", "Fresh", "Sweet"],
       },
@@ -885,8 +938,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring",
           "notes": (
-              "Top – Apple (Golden Delicious), Mandarin / Heart – Jasmine,"
-              " Ylang-Ylang, Orange Flower / Base – Vanilla, Musk, Oakmoss"
+              "Top â Apple (Golden Delicious), Mandarin / Heart â Jasmine,"
+              " Ylang-Ylang, Orange Flower / Base â Vanilla, Musk, Oakmoss"
           ),
           "category": ["Floral", "Fruity", "Fresh"],
       },
@@ -896,8 +949,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Caramel, Milk, Sugar / Heart – Honey, White Flowers / Base"
-              " – Vanilla, Praline, Musk"
+              "Top â Caramel, Milk, Sugar / Heart â Honey, White Flowers / Base"
+              " â Vanilla, Praline, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -907,8 +960,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Orange Blossom, Black Currant, Bergamot / Heart – Tuberose,"
-              " Jasmine, Marigold / Base – Musk, Vanilla, Cedarwood, Patchouli"
+              "Top â Orange Blossom, Black Currant, Bergamot / Heart â Tuberose,"
+              " Jasmine, Marigold / Base â Musk, Vanilla, Cedarwood, Patchouli"
           ),
           "category": ["Floral", "Fruity"],
       },
@@ -918,8 +971,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Year-round (best Spring/Fall)",
           "notes": (
-              "Top – Blackberry / Heart – Cocoapulse, Vanilla Caviar, Cacao /"
-              " Base – Akigalawood, Tonka Bean, Ambrofix, Cedarwood, Benzoin,"
+              "Top â Blackberry / Heart â Cocoapulse, Vanilla Caviar, Cacao /"
+              " Base â Akigalawood, Tonka Bean, Ambrofix, Cedarwood, Benzoin,"
               " Musk"
           ),
           "category": ["Gourmand", "Woody", "Sweet"],
@@ -930,7 +983,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Dark Fruits, Spices / Heart – Woody / Base – Vanilla, Musk"
+              "Top â Dark Fruits, Spices / Heart â Woody / Base â Vanilla, Musk"
           ),
           "category": ["Fruity", "Woody", "Spicy"],
       },
@@ -940,19 +993,19 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Tuberose, Salt / Heart – Amber, Tonka / Base – Cedarwood,"
+              "Top â Tuberose, Salt / Heart â Amber, Tonka / Base â Cedarwood,"
               " Vetiver, Labdanum"
           ),
           "category": ["Floral", "Woody", "Oriental"],
       },
       {
-          "name": "Lattafa Habik (Women’s version)",
+          "name": "Lattafa Habik (Womenâs version)",
           "brand": "Lattafa",
           "gender": "Female",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Pear, Bergamot / Heart – Lily of the Valley, Jasmine,"
-              " Freesia / Base – Musk, Amber, Oakmoss"
+              "Top â Pear, Bergamot / Heart â Lily of the Valley, Jasmine,"
+              " Freesia / Base â Musk, Amber, Oakmoss"
           ),
           "category": ["Floral", "Fresh", "Fruity"],
       },
@@ -962,8 +1015,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Champagne, Strawberry, Rose, Tangerine, Blood Orange /"
-              " Heart – Gardenia, Jasmine, Vanilla Orchid / Base – Amber,"
+              "Top â Champagne, Strawberry, Rose, Tangerine, Blood Orange /"
+              " Heart â Gardenia, Jasmine, Vanilla Orchid / Base â Amber,"
               " Sandalwood"
           ),
           "category": ["Floral", "Fruity", "Sweet"],
@@ -974,7 +1027,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cinnamon / Heart – Tuberose, Jasmine, Incense / Base –"
+              "Top â Cinnamon / Heart â Tuberose, Jasmine, Incense / Base â"
               " Vanilla, Musk, Tonka"
           ),
           "category": ["Floral", "Spicy", "Oriental"],
@@ -985,8 +1038,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Lavender, Cinnamon, Mandarin / Heart – Iris, Benzoin,"
-              " Cypress, Mahonial / Base – Vanilla, Tonka, Amber, Incense,"
+              "Top â Lavender, Cinnamon, Mandarin / Heart â Iris, Benzoin,"
+              " Cypress, Mahonial / Base â Vanilla, Tonka, Amber, Incense,"
               " Cedarwood, Patchouli"
           ),
           "category": ["Woody", "Spicy", "Oriental"],
@@ -997,8 +1050,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Spices, Pimento, Mandarin / Heart – Incense, Labdanum,"
-              " Orange Blossom, Patchouli / Base – Tobacco, Praline, Amber, Tonka"
+              "Top â Spices, Pimento, Mandarin / Heart â Incense, Labdanum,"
+              " Orange Blossom, Patchouli / Base â Tobacco, Praline, Amber, Tonka"
               " Bean, Benzoin"
           ),
           "category": ["Oriental", "Spicy", "Sweet"],
@@ -1009,8 +1062,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cinnamon, Nutmeg, Bergamot / Heart – Dates, Praline,"
-              " Tuberose, Mahonial / Base – Vanilla, Tonka Bean, Amberwood,"
+              "Top â Cinnamon, Nutmeg, Bergamot / Heart â Dates, Praline,"
+              " Tuberose, Mahonial / Base â Vanilla, Tonka Bean, Amberwood,"
               " Myrrh, Benzoin, Akigalawood"
           ),
           "category": ["Oriental", "Spicy", "Sweet"],
@@ -1021,8 +1074,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cinnamon, Cardamom, Ginger / Heart – Praline, Candied"
-              " Fruits, White Flowers / Base – Coffee, Vanilla, Tonka Bean,"
+              "Top â Cinnamon, Cardamom, Ginger / Heart â Praline, Candied"
+              " Fruits, White Flowers / Base â Coffee, Vanilla, Tonka Bean,"
               " Benzoin, Musk"
           ),
           "category": ["Gourmand", "Spicy", "Sweet"],
@@ -1033,7 +1086,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Anise / Heart – Caramel / Base – Vanilla, Tonka Bean, Musk"
+              "Top â Anise / Heart â Caramel / Base â Vanilla, Tonka Bean, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1043,7 +1096,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Strawberry, Bergamot / Heart – Cherry Jam, Cacao / Base –"
+              "Top â Strawberry, Bergamot / Heart â Cherry Jam, Cacao / Base â"
               " Vanilla, Amber, Patchouli"
           ),
           "category": ["Fruity", "Gourmand", "Sweet"],
@@ -1054,8 +1107,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Blackcurrant, Apricot, Pineapple / Heart – Magnolia,"
-              " Cyclamen, Jasmine, Orange Blossom, Rose / Base – Vanilla,"
+              "Top â Blackcurrant, Apricot, Pineapple / Heart â Magnolia,"
+              " Cyclamen, Jasmine, Orange Blossom, Rose / Base â Vanilla,"
               " Cashmeran, Caramel, Sandalwood"
           ),
           "category": ["Floral", "Fruity", "Sweet"],
@@ -1066,8 +1119,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Red Berries, Mandarin Orange / Heart – Vanilla, Cacao,"
-              " Rose / Base – Sugar, Tonka Bean, Amber, Musk"
+              "Top â Red Berries, Mandarin Orange / Heart â Vanilla, Cacao,"
+              " Rose / Base â Sugar, Tonka Bean, Amber, Musk"
           ),
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -1077,8 +1130,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter, Mild Spring",
           "notes": (
-              "Top – Milk Candy, Whipped Cream / Heart – Sugar Cane, Heliotrope"
-              " / Base – Vanilla, Ambroxan, Musk"
+              "Top â Milk Candy, Whipped Cream / Heart â Sugar Cane, Heliotrope"
+              " / Base â Vanilla, Ambroxan, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1090,8 +1143,8 @@ if "fragrances_db" not in st.session_state:
               "Spring, Summer (versatile year-round in mild climates)"
           ),
           "notes": (
-              "Top – Mango, Grapefruit, Lemon, Ginger / Heart – Jasmine,"
-              " Cedarwood, Violet / Base – Woodsy notes, Ambergris, Benzoin,"
+              "Top â Mango, Grapefruit, Lemon, Ginger / Heart â Jasmine,"
+              " Cedarwood, Violet / Base â Woodsy notes, Ambergris, Benzoin,"
               " Oakmoss"
           ),
           "category": ["Fruity", "Woody", "Fresh"],
@@ -1102,8 +1155,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Rose, Saffron, Pimento / Heart – Agarwood (Oud), Caramel,"
-              " Floral Notes, Patchouli / Base – Woody Notes, Amber, Resins,"
+              "Top â Rose, Saffron, Pimento / Heart â Agarwood (Oud), Caramel,"
+              " Floral Notes, Patchouli / Base â Woody Notes, Amber, Resins,"
               " Incense, Musk"
           ),
           "category": ["Oriental", "Oud", "Woody"],
@@ -1114,7 +1167,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans masculine)",
           "season": "Versatile",
           "notes": (
-              "Top – Pineapple, Saffron / Heart – Balsam Fir, Jasmine / Base –"
+              "Top â Pineapple, Saffron / Heart â Balsam Fir, Jasmine / Base â"
               " Cedar, Amber, Agarwood (Oud)"
           ),
           "category": ["Fruity", "Woody", "Oud"],
@@ -1125,8 +1178,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male/Unisex",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Coconut, Pineapple, Citruses / Heart – Ylang-Ylang,"
-              " Frangipani, Jasmine / Base – Vanilla, Musk, Sandalwood, Sweet"
+              "Top â Coconut, Pineapple, Citruses / Heart â Ylang-Ylang,"
+              " Frangipani, Jasmine / Base â Vanilla, Musk, Sandalwood, Sweet"
               " Notes"
           ),
           "category": ["Fruity", "Floral", "Sweet"],
@@ -1137,7 +1190,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male/Unisex",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Apple, Citrus / Heart – Floral / Base – Sweet, Woody"
+              "Top â Apple, Citrus / Heart â Floral / Base â Sweet, Woody"
           ),
           "category": ["Fruity", "Woody", "Fresh"],
       },
@@ -1147,7 +1200,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Fruity, Sweet / Heart – Floral / Base – Vanilla, Musk"
+              "Top â Fruity, Sweet / Heart â Floral / Base â Vanilla, Musk"
           ),
           "category": ["Floral", "Fruity", "Sweet"],
       },
@@ -1157,8 +1210,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Red Fruits, Orange / Heart – Marshmallow, Jasmine, Lily of"
-              " the Valley / Base – Vanilla, Musk, Moss"
+              "Top â Red Fruits, Orange / Heart â Marshmallow, Jasmine, Lily of"
+              " the Valley / Base â Vanilla, Musk, Moss"
           ),
           "category": ["Fruity", "Gourmand", "Floral"],
       },
@@ -1168,8 +1221,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male/Unisex",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Cucumber, Watermelon, Tangerine / Heart – Basil, Sage /"
-              " Base – Sandalwood, Leather, Cedar"
+              "Top â Cucumber, Watermelon, Tangerine / Heart â Basil, Sage /"
+              " Base â Sandalwood, Leather, Cedar"
           ),
           "category": ["Fresh", "Woody", "Aromatic"],
       },
@@ -1179,8 +1232,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Passionfruit, Mandarin Orange, Ozonic Notes / Heart –"
-              " Raspberry, Rose, Orange Blossom, Sea Salt / Base – Toffee,"
+              "Top â Passionfruit, Mandarin Orange, Ozonic Notes / Heart â"
+              " Raspberry, Rose, Orange Blossom, Sea Salt / Base â Toffee,"
               " Praline, Vanilla, Musk"
           ),
           "category": ["Fruity", "Gourmand", "Floral"],
@@ -1191,8 +1244,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Caramel, Bitter Almond, Apricot, Pink Pepper / Heart –"
-              " Honey, Rhubarb, White Flowers, Rose / Base – Leather, Vanilla,"
+              "Top â Caramel, Bitter Almond, Apricot, Pink Pepper / Heart â"
+              " Honey, Rhubarb, White Flowers, Rose / Base â Leather, Vanilla,"
               " Musk, Vetiver, Labdanum"
           ),
           "category": ["Gourmand", "Floral", "Oriental"],
@@ -1203,7 +1256,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Saffron, Bergamot / Heart – Plum Liquor, Cinnamon / Base –"
+              "Top â Saffron, Bergamot / Heart â Plum Liquor, Cinnamon / Base â"
               " Amber, Tonka Bean, Benzoin"
           ),
           "category": ["Oriental", "Spicy", "Sweet"],
@@ -1214,8 +1267,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex / Female-leaning",
           "season": "Fall, Spring",
           "notes": (
-              "Top – Cupcake / Heart – Sugar Frosting, Almond, Cinnamon / Base"
-              " – Butter, Vanilla, Musk"
+              "Top â Cupcake / Heart â Sugar Frosting, Almond, Cinnamon / Base"
+              " â Butter, Vanilla, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1225,8 +1278,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Caramel, Popcorn, Salted Caramel / Heart – Milk, Jasmine /"
-              " Base – Tonka, Benzoin, Musk, Ambrofix"
+              "Top â Caramel, Popcorn, Salted Caramel / Heart â Milk, Jasmine /"
+              " Base â Tonka, Benzoin, Musk, Ambrofix"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1236,7 +1289,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Candy, Sweet / Heart – Fruity / Base – Vanilla, Musk"
+              "Top â Candy, Sweet / Heart â Fruity / Base â Vanilla, Musk"
           ),
           "category": ["Gourmand", "Sweet", "Fruity"],
       },
@@ -1246,7 +1299,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Versatile",
           "notes": (
-              "Top – Fruity, Sweet / Heart – Floral / Base – Vanilla, Musk"
+              "Top â Fruity, Sweet / Heart â Floral / Base â Vanilla, Musk"
           ),
           "category": ["Floral", "Fruity", "Sweet"],
       },
@@ -1254,7 +1307,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Love & Peace",
           "brand": "Lattafa",
           "gender": "Unisex/Female",
-          "season": "Spring–Fall",
+          "season": "SpringâFall",
           "notes": "Soft floral, musky, or peaceful sweet",
           "category": ["Floral", "Sweet"],
       },
@@ -1264,8 +1317,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Tangerine, Freesia / Heart – Lily of the Valley, Jasmine,"
-              " Rose / Base – Musk, Sandalwood, Amber"
+              "Top â Tangerine, Freesia / Heart â Lily of the Valley, Jasmine,"
+              " Rose / Base â Musk, Sandalwood, Amber"
           ),
           "category": ["Floral", "Fresh"],
       },
@@ -1275,7 +1328,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Vanilla / Heart – Creamy Sweet / Base – Vanilla, Musk"
+              "Top â Vanilla / Heart â Creamy Sweet / Base â Vanilla, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1285,8 +1338,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Plum, Jasmine, Lily of the Valley / Heart – Vanilla,"
-              " Brown Sugar, Caramel / Base – Tonka, Patchouli, Amber, Musk"
+              "Top â Plum, Jasmine, Lily of the Valley / Heart â Vanilla,"
+              " Brown Sugar, Caramel / Base â Tonka, Patchouli, Amber, Musk"
           ),
           "category": ["Gourmand", "Floral", "Sweet"],
       },
@@ -1294,10 +1347,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Majestic Supreme",
           "brand": "Le Falcone",
           "gender": "Women/Unisex",
-          "season": "Fall–Winter / versatile",
+          "season": "FallâWinter / versatile",
           "notes": (
-              "Top – Rose, peony, pink pepper / Heart – Raspberry blossom,"
-              " jasmine / Base – Amber, papyrus, tonka, vanilla"
+              "Top â Rose, peony, pink pepper / Heart â Raspberry blossom,"
+              " jasmine / Base â Amber, papyrus, tonka, vanilla"
           ),
           "category": ["Floral", "Sweet"],
       },
@@ -1313,10 +1366,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Mango Affogato",
           "brand": "Arabiyat Sugar",
           "gender": "Unisex",
-          "season": "Spring–Summer / year-round",
+          "season": "SpringâSummer / year-round",
           "notes": (
-              "Top – Mango, nutmeg, clove / Heart – Leather, saffron, amber,"
-              " moss / Base – Akigalawood, patchouli, vetiver, cypriol"
+              "Top â Mango, nutmeg, clove / Heart â Leather, saffron, amber,"
+              " moss / Base â Akigalawood, patchouli, vetiver, cypriol"
           ),
           "category": ["Fruity", "Woody", "Spicy"],
       },
@@ -1324,7 +1377,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Mango Ice",
           "brand": "Gulf Orchid",
           "gender": "Unisex",
-          "season": "Spring–Summer",
+          "season": "SpringâSummer",
           "notes": "Fruity mango with cool/icy facets",
           "category": ["Fruity", "Fresh"],
       },
@@ -1334,8 +1387,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Summer",
           "notes": (
-              "Top – Lychee, Raspberry, Violet Leaf / Heart – Peony, White"
-              " Rose, Jasmine / Base – Musk, Vanilla"
+              "Top â Lychee, Raspberry, Violet Leaf / Heart â Peony, White"
+              " Rose, Jasmine / Base â Musk, Vanilla"
           ),
           "category": ["Floral", "Fruity", "Fresh"],
       },
@@ -1345,7 +1398,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Sweet Gourmand / Heart – Vanilla / Base – Musk"
+              "Top â Sweet Gourmand / Heart â Vanilla / Base â Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1355,19 +1408,19 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Black Coffee, Amaretto Liquor / Heart – Vanilla Ice Cream,"
-              " Speculoos / Base – Vanilla Pods, Brown Sugar, Grey Amber"
+              "Top â Black Coffee, Amaretto Liquor / Heart â Vanilla Ice Cream,"
+              " Speculoos / Base â Vanilla Pods, Brown Sugar, Grey Amber"
           ),
           "category": ["Gourmand", "Sweet"],
       },
       {
-          "name": "Melt Crème Caramel",
+          "name": "Melt CrÃ¨me Caramel",
           "brand": "Mamlakat Al Oud",
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Caramel, Vanilla Flower / Heart – Dulce de Leche, Cotton"
-              " Candy, Frangipani, White Flowers / Base – Vanilla Pod, Tonka"
+              "Top â Caramel, Vanilla Flower / Heart â Dulce de Leche, Cotton"
+              " Candy, Frangipani, White Flowers / Base â Vanilla Pod, Tonka"
               " Bean, Musk"
           ),
           "category": ["Gourmand", "Sweet"],
@@ -1378,8 +1431,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter, Spring",
           "notes": (
-              "Top – Strawberry, Blackberry (or Caramel/Milk) / Heart –"
-              " Jasmine, Rose, Marshmallow, Vanilla, Honey / Base – Vanilla,"
+              "Top â Strawberry, Blackberry (or Caramel/Milk) / Heart â"
+              " Jasmine, Rose, Marshmallow, Vanilla, Honey / Base â Vanilla,"
               " Musk, Praline, Tonka"
           ),
           "category": ["Gourmand", "Floral", "Sweet"],
@@ -1390,8 +1443,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans feminine)",
           "season": "Fall, Winter (versatile year-round)",
           "notes": (
-              "Top – Vanilla (woody tones), Lavender, Cacao, Ginger / Heart –"
-              " Vanilla Caviar / Base – Vanilla Absolute"
+              "Top â Vanilla (woody tones), Lavender, Cacao, Ginger / Heart â"
+              " Vanilla Caviar / Base â Vanilla Absolute"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1401,9 +1454,9 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Italian Bergamot, Pistachio Gelato, Hazelnut, Sweet Rum,"
-              " Cardamom / Heart – Geranium, White Peony, Muguet, Jasmine /"
-              " Base – Amber, Musk, Woody Notes"
+              "Top â Italian Bergamot, Pistachio Gelato, Hazelnut, Sweet Rum,"
+              " Cardamom / Heart â Geranium, White Peony, Muguet, Jasmine /"
+              " Base â Amber, Musk, Woody Notes"
           ),
           "category": ["Gourmand", "Floral", "Woody"],
       },
@@ -1413,9 +1466,9 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Pear, Tangerine, Bergamot, Orange / Heart – Vanilla,"
+              "Top â Pear, Tangerine, Bergamot, Orange / Heart â Vanilla,"
               " Strawberry, Mimosa, Rose, Ylang Ylang, Jasmine, Passionfruit /"
-              " Base – Vanilla, Coffee, Tonka Bean, Patchouli, Vetiver"
+              " Base â Vanilla, Coffee, Tonka Bean, Patchouli, Vetiver"
           ),
           "category": ["Floral", "Fruity", "Gourmand"],
       },
@@ -1449,8 +1502,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Brown Sugar, Caramel, Biscuit / Heart – Toffee, Vanilla"
-              " Bean, Amber / Base – White Musk, Praline"
+              "Top â Brown Sugar, Caramel, Biscuit / Heart â Toffee, Vanilla"
+              " Bean, Amber / Base â White Musk, Praline"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1458,7 +1511,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Obsidian",
           "brand": "French Avenue",
           "gender": "Unisex/Male",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Dark, woody, or smoky-oriental",
           "category": ["Woody", "Oriental", "Smoky"],
       },
@@ -1466,8 +1519,8 @@ if "fragrances_db" not in st.session_state:
           "name": "Panache Angel Dust",
           "brand": "Khadlaj",
           "gender": "Female",
-          "season": "Spring–Fall / versatile",
-          "notes": "Soft, powdery, musk-vanilla / “angelic”",
+          "season": "SpringâFall / versatile",
+          "notes": "Soft, powdery, musk-vanilla / âangelicâ",
           "category": ["Floral", "Sweet", "Powdery"],
       },
       {
@@ -1476,7 +1529,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Sugar, Sweet Notes / Heart – Rose, Jasmine / Base –"
+              "Top â Sugar, Sweet Notes / Heart â Rose, Jasmine / Base â"
               " Vanilla, Caramel, Musk"
           ),
           "category": ["Gourmand", "Floral", "Sweet"],
@@ -1487,8 +1540,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Davana, Bergamot, Pink Pepper / Heart – Agarwood (Oud),"
-              " Amber, Rosemary / Base – Leather, Vetiver, Musk"
+              "Top â Davana, Bergamot, Pink Pepper / Heart â Agarwood (Oud),"
+              " Amber, Rosemary / Base â Leather, Vetiver, Musk"
           ),
           "category": ["Woody", "Oud", "Spicy"],
       },
@@ -1498,7 +1551,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Marshmallow, Sweet / Heart – Fruity / Base – Vanilla, Musk"
+              "Top â Marshmallow, Sweet / Heart â Fruity / Base â Vanilla, Musk"
           ),
           "category": ["Gourmand", "Sweet", "Fruity"],
       },
@@ -1508,8 +1561,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Whipped Cream, Dark Chocolate, Orange / Heart –"
-              " Marshmallow, Coconut, Jasmine / Base – Vanilla, White Musk"
+              "Top â Whipped Cream, Dark Chocolate, Orange / Heart â"
+              " Marshmallow, Coconut, Jasmine / Base â Vanilla, White Musk"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1517,10 +1570,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Pecan Butter Cookie",
           "brand": "Arabiyat Sugar",
           "gender": "Unisex/Female",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": (
-              "Top – Pecan, coconut milk, butter / Heart – Hazelnut, almond,"
-              " roasted nuts / Base – Hazelnut, vanilla, ambergris"
+              "Top â Pecan, coconut milk, butter / Heart â Hazelnut, almond,"
+              " roasted nuts / Base â Hazelnut, vanilla, ambergris"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1530,8 +1583,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Marshmallow, Sugar, Citrus / Heart – Coconut, Jasmine /"
-              " Base – Whipped Cream, Vanilla, Caramel"
+              "Top â Marshmallow, Sugar, Citrus / Heart â Coconut, Jasmine /"
+              " Base â Whipped Cream, Vanilla, Caramel"
           ),
           "category": ["Gourmand", "Sweet"],
       },
@@ -1541,8 +1594,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (female-leaning)",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Sugar, Pink Pepper, Apple / Heart – Cashmere Wood, Jasmine,"
-              " Lily / Base – Vanilla, Sandalwood, Agarwood, Benzoin"
+              "Top â Sugar, Pink Pepper, Apple / Heart â Cashmere Wood, Jasmine,"
+              " Lily / Base â Vanilla, Sandalwood, Agarwood, Benzoin"
           ),
           "category": ["Gourmand", "Woody", "Sweet"],
       },
@@ -1550,7 +1603,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Pink Velvet",
           "brand": "Maison Alhambra",
           "gender": "Female",
-          "season": "Spring–Fall",
+          "season": "SpringâFall",
           "notes": "Soft, powdery, rosy, or gourmand-pink",
           "category": ["Floral", "Sweet", "Powdery"],
       },
@@ -1558,10 +1611,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Pink Yara / Yara Pink",
           "brand": "Lattafa",
           "gender": "Female",
-          "season": "Spring–Summer",
+          "season": "SpringâSummer",
           "notes": (
-              "Top – Orchid, heliotrope, tangerine / Heart – Gourmand accord,"
-              " tropical fruits / Base – Vanilla, musk, sandalwood"
+              "Top â Orchid, heliotrope, tangerine / Heart â Gourmand accord,"
+              " tropical fruits / Base â Vanilla, musk, sandalwood"
           ),
           "category": ["Floral", "Gourmand", "Fruity"],
       },
@@ -1579,8 +1632,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex (leans masculine)",
           "season": "Year-round",
           "notes": (
-              "Top – Apple, mint / Heart – Geranium, cinnamon, lavender / Base"
-              " – Vanilla, Peru balsam, cedarwood, guaiac wood"
+              "Top â Apple, mint / Heart â Geranium, cinnamon, lavender / Base"
+              " â Vanilla, Peru balsam, cedarwood, guaiac wood"
           ),
           "category": ["Fresh", "Woody", "Spicy"],
       },
@@ -1590,8 +1643,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Red Fruits, Rhubarb, Lychee / Heart – Rose, Frankincense,"
-              " Cedar / Base – Vanilla, Musk, Ambergris"
+              "Top â Red Fruits, Rhubarb, Lychee / Heart â Rose, Frankincense,"
+              " Cedar / Base â Vanilla, Musk, Ambergris"
           ),
           "category": ["Fruity", "Floral", "Woody"],
       },
@@ -1601,8 +1654,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Litchi/Lychee, Bergamot, Pear, Pistachio / Heart – Rose,"
-              " Incense / Base – Vanilla, Amber, Musk, Woody Notes"
+              "Top â Litchi/Lychee, Bergamot, Pear, Pistachio / Heart â Rose,"
+              " Incense / Base â Vanilla, Amber, Musk, Woody Notes"
           ),
           "category": ["Fruity", "Floral", "Woody"],
       },
@@ -1612,8 +1665,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male",
           "season": "Versatile",
           "notes": (
-              "Top – Apple, Italian Lemon, Sicilian Bergamot, Star Anise /"
-              " Heart – Plum, Orange Blossom, Cardamom / Base – Musk, Moss,"
+              "Top â Apple, Italian Lemon, Sicilian Bergamot, Star Anise /"
+              " Heart â Plum, Orange Blossom, Cardamom / Base â Musk, Moss,"
               " Driftwood, Amber"
           ),
           "category": ["Fresh", "Fruity", "Aromatic"],
@@ -1624,8 +1677,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Spring",
           "notes": (
-              "Top – Pink Pepper, Saffron, Pear / Heart – Rose, Frankincense,"
-              " White Flowers / Base – Blonde Woods, Vanilla, Amber, Musk"
+              "Top â Pink Pepper, Saffron, Pear / Heart â Rose, Frankincense,"
+              " White Flowers / Base â Blonde Woods, Vanilla, Amber, Musk"
           ),
           "category": ["Floral", "Woody", "Spicy"],
       },
@@ -1635,8 +1688,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cinnamon, Nutmeg, Neroli / Heart – Marshmallow, Tuberose,"
-              " Orange Blossom / Base – Cotton Candy, Vanilla, Tonka Bean"
+              "Top â Cinnamon, Nutmeg, Neroli / Heart â Marshmallow, Tuberose,"
+              " Orange Blossom / Base â Cotton Candy, Vanilla, Tonka Bean"
           ),
           "category": ["Gourmand", "Floral", "Sweet"],
       },
@@ -1646,8 +1699,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female/Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Strawberry, Lemon / Heart – Whipped Sugar, Sugarberry,"
-              " Frangipani / Base – Vanilla Bean, Musk, Amber"
+              "Top â Strawberry, Lemon / Heart â Whipped Sugar, Sugarberry,"
+              " Frangipani / Base â Vanilla Bean, Musk, Amber"
           ),
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -1657,7 +1710,7 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Bergamot / Heart – Blackcurrant, Strawberry Milk / Base –"
+              "Top â Bergamot / Heart â Blackcurrant, Strawberry Milk / Base â"
               " Musk, Vanilla"
           ),
           "category": ["Gourmand", "Fruity", "Sweet"],
@@ -1666,10 +1719,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Safa by Nusuk",
           "brand": "Nusuk",
           "gender": "Unisex/Female",
-          "season": "Spring–Summer / versatile",
+          "season": "SpringâSummer / versatile",
           "notes": (
-              "Top – Marshmallow, Strawberry, Lemon / Heart – Coconut, Sugar,"
-              " Nectarine / Base – Vanilla, Musk, Ambroxan"
+              "Top â Marshmallow, Strawberry, Lemon / Heart â Coconut, Sugar,"
+              " Nectarine / Base â Vanilla, Musk, Ambroxan"
           ),
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -1679,8 +1732,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cinnamon, Pear, Mandarin, Floral notes / Heart – Jasmine"
-              " Sambac, Orange Blossom / Base – White Musk, Vanilla, Tonka Bean,"
+              "Top â Cinnamon, Pear, Mandarin, Floral notes / Heart â Jasmine"
+              " Sambac, Orange Blossom / Base â White Musk, Vanilla, Tonka Bean,"
               " Coffee, Patchouli"
           ),
           "category": ["Floral", "Spicy", "Sweet"],
@@ -1697,10 +1750,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Sara Debai Essences",
           "brand": "Sara Debai",
           "gender": "Female",
-          "season": "Spring–Summer",
+          "season": "SpringâSummer",
           "notes": (
-              "Top – Heliotrope, orchid, tangerine / Heart – Gourmand accord,"
-              " tropical fruits / Base – Vanilla, musk, sandalwood"
+              "Top â Heliotrope, orchid, tangerine / Heart â Gourmand accord,"
+              " tropical fruits / Base â Vanilla, musk, sandalwood"
           ),
           "category": ["Floral", "Gourmand", "Fruity"],
       },
@@ -1708,10 +1761,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Spectre / Sceptre Malachite",
           "brand": "Maison Alhambra",
           "gender": "Unisex",
-          "season": "Spring–Summer",
+          "season": "SpringâSummer",
           "notes": (
-              "Top – Green tangerine, bergamot, blackcurrant / Heart –"
-              " Aromatic + spicy notes, lavender, pink pepper, jasmine / Base –"
+              "Top â Green tangerine, bergamot, blackcurrant / Heart â"
+              " Aromatic + spicy notes, lavender, pink pepper, jasmine / Base â"
               " Amber, musk, woody notes, vetiver"
           ),
           "category": ["Fresh", "Aromatic", "Woody"],
@@ -1720,7 +1773,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Strawberry Tres Leches",
           "brand": "Arabiyat Sugar",
           "gender": "Female",
-          "season": "Spring–Summer / year-round",
+          "season": "SpringâSummer / year-round",
           "notes": "Strawberry + milky cake gourmand",
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -1728,7 +1781,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Sugar Crown",
           "brand": "Lattafa",
           "gender": "Female/Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Sweet/sugar gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -1736,7 +1789,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Sugar Me Dulce de Leche",
           "brand": "Maison Alhambra",
           "gender": "Unisex/Female",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Dulce de leche / caramel-vanilla gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -1744,7 +1797,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Sweet Surrender",
           "brand": "Mahajan",
           "gender": "Female",
-          "season": "Fall–Winter / versatile",
+          "season": "FallâWinter / versatile",
           "notes": "Soft sweet/gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -1752,7 +1805,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Sweet Surrender Pink Parfait",
           "brand": "Mahajan",
           "gender": "Female",
-          "season": "Spring–Summer / year-round",
+          "season": "SpringâSummer / year-round",
           "notes": "Pink/fruity-parfait sweet",
           "category": ["Gourmand", "Fruity", "Sweet"],
       },
@@ -1768,10 +1821,10 @@ if "fragrances_db" not in st.session_state:
           "name": "Taif",
           "brand": "Riiffs",
           "gender": "Unisex",
-          "season": "Versatile (Spring–Summer preferred)",
+          "season": "Versatile (SpringâSummer preferred)",
           "notes": (
-              "Top – Ginger, Calabrian Bergamot, Lemon, Orange Blossom / Heart"
-              " – Musk, Rose Petals, Tuberose / Base – Vanilla Bean, Amberwood,"
+              "Top â Ginger, Calabrian Bergamot, Lemon, Orange Blossom / Heart"
+              " â Musk, Rose Petals, Tuberose / Base â Vanilla Bean, Amberwood,"
               " Clearwood"
           ),
           "category": ["Floral", "Fresh", "Woody"],
@@ -1780,7 +1833,7 @@ if "fragrances_db" not in st.session_state:
           "name": "The King",
           "brand": "Ali",
           "gender": "Male",
-          "season": "Fall–Winter / versatile",
+          "season": "FallâWinter / versatile",
           "notes": "Masculine woody or oriental",
           "category": ["Woody", "Oriental"],
       },
@@ -1788,7 +1841,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Toffee Ganache",
           "brand": "Arabiyat Sugar",
           "gender": "Unisex",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Toffee/chocolate gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -1798,8 +1851,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Raspberry, Peach, Bergamot / Heart – Rose, Jasmine, Orange"
-              " Blossom / Base – Vanilla, Amber, Woods"
+              "Top â Raspberry, Peach, Bergamot / Heart â Rose, Jasmine, Orange"
+              " Blossom / Base â Vanilla, Amber, Woods"
           ),
           "category": ["Floral", "Fruity", "Sweet"],
       },
@@ -1809,8 +1862,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Male / Unisex (leans masculine)",
           "season": "Fall, Winter (versatile)",
           "notes": (
-              "Top – Calabrian Bergamot, Espresso Coffee Accord / Heart –"
-              " Coffee / Base – Vetiver"
+              "Top â Calabrian Bergamot, Espresso Coffee Accord / Heart â"
+              " Coffee / Base â Vetiver"
           ),
           "category": ["Woody", "Fresh", "Aromatic"],
       },
@@ -1818,7 +1871,7 @@ if "fragrances_db" not in st.session_state:
           "name": "Vanilla Addiction",
           "brand": "Gulf Orchid",
           "gender": "Unisex/Female",
-          "season": "Fall–Winter",
+          "season": "FallâWinter",
           "notes": "Vanilla-forward gourmand",
           "category": ["Gourmand", "Sweet"],
       },
@@ -1828,8 +1881,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Unisex",
           "season": "Autumn, Winter",
           "notes": (
-              "Top – Vanilla, Cinnamon, Cardamom, Bergamot / Heart – Orange"
-              " Blossom, Guaiac Wood, Bourbon / Base – Praline, Amber, Musk"
+              "Top â Vanilla, Cinnamon, Cardamom, Bergamot / Heart â Orange"
+              " Blossom, Guaiac Wood, Bourbon / Base â Praline, Amber, Musk"
           ),
           "category": ["Gourmand", "Spicy", "Woody"],
       },
@@ -1839,8 +1892,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter, Cool Spring Days",
           "notes": (
-              "Top – Strawberry S'mores, Black Currant / Heart – Jasmine,"
-              " Orange Blossom / Base – Vanilla, Caramel, Amber, Musk"
+              "Top â Strawberry S'mores, Black Currant / Heart â Jasmine,"
+              " Orange Blossom / Base â Vanilla, Caramel, Amber, Musk"
           ),
           "category": ["Gourmand", "Floral", "Sweet"],
       },
@@ -1848,9 +1901,9 @@ if "fragrances_db" not in st.session_state:
           "name": "Zenith",
           "brand": "Riiffs",
           "gender": "Unisex",
-          "season": "Spring–Summer / versatile",
+          "season": "SpringâSummer / versatile",
           "notes": (
-              "Top – Coconut, Vanilla, Cream / Heart – Rum, Saffron / Base –"
+              "Top â Coconut, Vanilla, Cream / Heart â Rum, Saffron / Base â"
               " Cashmeran, Tonka Bean"
           ),
           "category": ["Gourmand", "Sweet", "Fresh"],
@@ -1861,8 +1914,8 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Spring, Fall",
           "notes": (
-              "Top – Rhubarb, Bergamot, Grapefruit, Nutmeg / Heart – Rose,"
-              " Jasmine / Base – Musk, Vanilla, Vetiver, Ambergris"
+              "Top â Rhubarb, Bergamot, Grapefruit, Nutmeg / Heart â Rose,"
+              " Jasmine / Base â Musk, Vanilla, Vetiver, Ambergris"
           ),
           "category": ["Floral", "Fruity", "Fresh"],
       },
@@ -1872,20 +1925,22 @@ if "fragrances_db" not in st.session_state:
           "gender": "Female",
           "season": "Fall, Winter",
           "notes": (
-              "Top – Cassis, Strawberry, Raspberry, Orange / Heart – Black"
-              " Currant, Grapefruit, Peach, Lily / Base – Musk, Vanilla,"
+              "Top â Cassis, Strawberry, Raspberry, Orange / Heart â Black"
+              " Currant, Grapefruit, Peach, Lily / Base â Musk, Vanilla,"
               " Patchouli"
           ),
           "category": ["Fruity", "Floral", "Sweet"],
       },
   ]
 
-# Initialize Reactions Database & SOTD History
+# ==========================================
+# REACTIONS & SOTD (from persisted data)
+# ==========================================
 if "user_reactions" not in st.session_state:
-  st.session_state["user_reactions"] = {}
+  st.session_state["user_reactions"] = _persisted.get("user_reactions", {})
 
 if "sotd_history" not in st.session_state:
-  st.session_state["sotd_history"] = []
+  st.session_state["sotd_history"] = _persisted.get("sotd_history", [])
 
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
@@ -1905,6 +1960,8 @@ if "add_season" not in st.session_state:
   st.session_state["add_season"] = "Fall, Winter"
 if "add_notes" not in st.session_state:
   st.session_state["add_notes"] = ""
+if "sotd_prefill" not in st.session_state:
+  st.session_state["sotd_prefill"] = []
 
 # ==========================================
 # HELPER FUNCTIONS
@@ -2264,14 +2321,16 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
-st.title("💀 ScentedDeadGirl 🖤")
-st.write(
-    "Welcome to your dark sanctuary of scent! Filter your collection, rate your"
-    " bottles, log your Scent of the Day, and discover custom layering"
-    " combinations."
+st.title("ð ScentedDeadGirl ð¤")
+st.markdown(
+    """
+    *Enter the crypt of scentâ¦*  
+    Filter the vault, cherish or banish bottles, log your Scent of the Day,  
+    and weave forbidden layering combinations under the watch of the bats.
+    """
 )
 
-st.sidebar.header("🔍 Search Your Collection")
+st.sidebar.header("ð Search Your Collection")
 search_col1, search_col2 = st.sidebar.columns([3, 1])
 with search_col1:
   search_query = st.text_input(
@@ -2288,7 +2347,7 @@ with search_col2:
 
 # Quick Notes & Season Lookup Section
 st.sidebar.markdown("---")
-st.sidebar.header("🦇 Quick Notes & Season Lookup")
+st.sidebar.header("ð¦ Quick Notes & Season Lookup")
 quick_query = st.sidebar.text_input(
     "Fragrance name...",
     value=st.session_state["quick_lookup_input"],
@@ -2306,15 +2365,15 @@ if quick_query:
   if matched_quick:
     for f in matched_quick:
       st.sidebar.info(
-          f"**{f['name']}** ({f['brand']})\n\n🌿 **Notes:**"
-          f" {f['notes']}\n\n🌤️ **Season:** {f['season']}"
+          f"**{f['name']}** ({f['brand']})\n\nð¿ **Notes:**"
+          f" {f['notes']}\n\nð¤ï¸ **Season:** {f['season']}"
       )
   else:
     st.sidebar.warning("No matching fragrance found.")
 
 # Note Specific Search Option
 st.sidebar.markdown("---")
-st.sidebar.header("🔎 Search by Specific Note")
+st.sidebar.header("ð Search by Specific Note")
 note_col1, note_col2 = st.sidebar.columns([3, 1])
 with note_col1:
   note_query = st.text_input(
@@ -2330,7 +2389,7 @@ with note_col2:
     st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.header("🎯 Filter Options")
+st.sidebar.header("ð¯ Filter Options")
 
 gender = st.sidebar.selectbox(
     "Gender Preference", ["Any", "Male", "Female", "Unisex"]
@@ -2363,7 +2422,7 @@ occasion = st.sidebar.selectbox(
 num_recs = st.sidebar.radio("Number of Recommendations", [1, 3, 5], index=1)
 
 st.sidebar.markdown("---")
-st.sidebar.header("➕ Add New Fragrance")
+st.sidebar.header("â Add New Fragrance")
 
 with st.sidebar.form("add_fragrance_form"):
   new_name = st.text_input("Fragrance Name", value=st.session_state["add_name"])
@@ -2377,7 +2436,7 @@ with st.sidebar.form("add_fragrance_form"):
       "Season/Weather", value=st.session_state["add_season"]
   )
   new_notes = st.text_input(
-      "Notes (e.g. Top – Vanilla / Base – Musk)",
+      "Notes (e.g. Top â Vanilla / Base â Musk)",
       value=st.session_state["add_notes"],
   )
   new_cats = st.multiselect(
@@ -2419,6 +2478,7 @@ with st.sidebar.form("add_fragrance_form"):
           "category": new_cats if new_cats else ["Gourmand"],
       }
       st.session_state["fragrances_db"].append(new_item)
+      save_persisted_data()
       st.sidebar.success(f"Added {new_name} successfully!")
     else:
       st.sidebar.error("Please provide at least a Name and Brand.")
@@ -2426,7 +2486,7 @@ with st.sidebar.form("add_fragrance_form"):
 # Handle Note Specific Search Query Results
 if note_query:
   st.markdown("---")
-  st.subheader(f"🔎 Note Search Results for: '{note_query}'")
+  st.subheader(f"ð Note Search Results for: '{note_query}'")
   note_query_lower = note_query.lower()
   matching_notes = [
       f
@@ -2440,9 +2500,9 @@ if note_query:
     for f in matching_notes:
       current_reaction = st.session_state["user_reactions"].get(f["name"])
       status_badge = (
-          " ⭐ [Favorite]"
+          " â­ [Favorite]"
           if current_reaction == "fav"
-          else (" 👎 [Disliked]" if current_reaction == "dislike" else "")
+          else (" ð [Disliked]" if current_reaction == "dislike" else "")
       )
 
       st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
@@ -2454,7 +2514,7 @@ if note_query:
 # Handle Name/Brand Search Query
 if search_query:
   st.markdown("---")
-  st.subheader(f"🔍 Search Results for: '{search_query}'")
+  st.subheader(f"ð Search Results for: '{search_query}'")
   query_lower = search_query.lower()
   matching_fragrances = [
       f
@@ -2469,9 +2529,9 @@ if search_query:
     for f in matching_fragrances:
       current_reaction = st.session_state["user_reactions"].get(f["name"])
       status_badge = (
-          " ⭐ [Favorite]"
+          " â­ [Favorite]"
           if current_reaction == "fav"
-          else (" 👎 [Disliked]" if current_reaction == "dislike" else "")
+          else (" ð [Disliked]" if current_reaction == "dislike" else "")
       )
 
       st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
@@ -2481,20 +2541,22 @@ if search_query:
 
       col1, col2, col3 = st.columns([1, 1, 4])
       with col1:
-        if st.button("👍 Love", key=f"search_fav_{f['name']}"):
+        if st.button("ð Love", key=f"search_fav_{f['name']}"):
           st.session_state["user_reactions"][f["name"]] = "fav"
+          save_persisted_data()
           st.rerun()
       with col2:
-        if st.button("👎 Trash", key=f"search_dislike_{f['name']}"):
+        if st.button("ð Trash", key=f"search_dislike_{f['name']}"):
           st.session_state["user_reactions"][f["name"]] = "dislike"
+          save_persisted_data()
           st.rerun()
       st.markdown("---")
 
-if st.sidebar.button("✨ Generate Recommendations", type="primary"):
+if st.sidebar.button("â¨ Generate Recommendations", type="primary"):
   selected = get_top_fragrances(gender, weather, category, occasion, num_recs)
 
   st.markdown("---")
-  st.subheader(f"🏆 Top {num_recs} Recommendation(s)")
+  st.subheader(f"ð Top {num_recs} Recommendation(s)")
 
   if not selected:
     st.warning(
@@ -2504,10 +2566,10 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
   else:
     for i, f in enumerate(selected, 1):
       current_reaction = st.session_state["user_reactions"].get(f["name"])
-      status_badge = " ⭐ [Favorite]" if current_reaction == "fav" else ""
+      status_badge = " â­ [Favorite]" if current_reaction == "fav" else ""
 
       st.success(
-          f"**#{i} — {f['name']}** by *{f['brand']}*{status_badge}"
+          f"**#{i} â {f['name']}** by *{f['brand']}*{status_badge}"
       )
       st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
       st.write(f"**Category:** {', '.join(f['category'])}")
@@ -2515,12 +2577,14 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
 
       col1, col2, col3 = st.columns([1, 1, 4])
       with col1:
-        if st.button("👍 Love", key=f"fav_{f['name']}_{i}"):
+        if st.button("ð Love", key=f"fav_{f['name']}_{i}"):
           st.session_state["user_reactions"][f["name"]] = "fav"
+          save_persisted_data()
           st.rerun()
       with col2:
-        if st.button("👎 Trash", key=f"dislike_{f['name']}_{i}"):
+        if st.button("ð Trash", key=f"dislike_{f['name']}_{i}"):
           st.session_state["user_reactions"][f["name"]] = "dislike"
+          save_persisted_data()
           st.rerun()
       st.markdown("---")
 
@@ -2535,12 +2599,12 @@ if st.sidebar.button("✨ Generate Recommendations", type="primary"):
 
   if combos:
     st.markdown("---")
-    st.subheader("🧪 Recommended Layering Combos")
+    st.subheader("ð§ª Recommended Layering Combos")
     for i, (f1, f2, reason) in enumerate(combos, 1):
       st.info(
-          f"**Combo #{i}**\n\n🖤 **Base / First:** {f1['name']}"
-          f" ({f1['brand']})\n\n🖤 **Layer / Top:** {f2['name']}"
-          f" ({f2['brand']})\n\n💡 **Why it works:** {reason}"
+          f"**Combo #{i}**\n\nð¤ **Base / First:** {f1['name']}"
+          f" ({f1['brand']})\n\nð¤ **Layer / Top:** {f2['name']}"
+          f" ({f2['brand']})\n\nð¡ **Why it works:** {reason}"
       )
     st.caption(
         "Tip: Spray the richer/heavier fragrance first, then layer the lighter"
@@ -2556,9 +2620,9 @@ elif not search_query and not note_query:
 # FRAGRANCE ROULETTE
 # ==========================================
 st.markdown("---")
-st.subheader("🎰 Fragrance Roulette")
+st.subheader("ð° Fragrance Roulette")
 st.write(
-    "Feeling indecisive, darling? Let the darkness choose your next scent..."
+    "The night is restlessâ¦ let the darkness choose your next offering."
 )
 
 r_col1, r_col2 = st.columns(2)
@@ -2579,10 +2643,22 @@ with r_col2:
       key="roulette_season",
   )
 
-if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
+if st.button("ð² Spin the Roulette", type="primary", key="spin_roulette_btn"):
+  # Exclude scents worn in the last few SOTD entries
+  recent_worn = set()
+  for entry in st.session_state.get("sotd_history", [])[:5]:
+    if entry.get("scents"):
+      recent_worn.update(entry["scents"])
+    elif entry.get("scent"):
+      # handle old single-scent format and "A + B" strings
+      for part in entry["scent"].split(" + "):
+        recent_worn.add(part.strip())
+
   pool = []
   for f in st.session_state["fragrances_db"]:
     if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+      continue
+    if f["name"] in recent_worn:
       continue
     if matches_gender(f, roulette_gender) and matches_weather(
         f, roulette_season
@@ -2598,25 +2674,25 @@ if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
     chosen = random.choice(pool)
     current_reaction = st.session_state["user_reactions"].get(chosen["name"])
     status_badge = (
-        " ⭐ [Favorite]"
+        " â­ [Favorite]"
         if current_reaction == "fav"
-        else (" 👎 [Disliked]" if current_reaction == "dislike" else "")
+        else (" ð [Disliked]" if current_reaction == "dislike" else "")
     )
 
     # Floating Bats animation instead of balloons
     st.markdown(
         """
         <div class="bat-container">
-            <span class="floating-bat bat1">🦇</span>
-            <span class="floating-bat bat2">🦇</span>
-            <span class="floating-bat bat3">🦇</span>
-            <span class="floating-bat bat4">🦇</span>
+            <span class="floating-bat bat1">ð¦</span>
+            <span class="floating-bat bat2">ð¦</span>
+            <span class="floating-bat bat3">ð¦</span>
+            <span class="floating-bat bat4">ð¦</span>
         </div>
     """,
         unsafe_allow_html=True,
     )
 
-    st.success("### 🩸 The roulette has spoken...")
+    st.success("### ð©¸ The roulette has spoken...")
     st.markdown(f"## **{chosen['name']}**{status_badge}")
     st.markdown(f"### by *{chosen['brand']}*")
     st.write(f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}")
@@ -2626,17 +2702,19 @@ if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
     # Quick action buttons for the chosen scent
     rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
     with rcol1:
-      if st.button("👍 Love it", key=f"roulette_fav_{chosen['name']}"):
+      if st.button("ð Love it", key=f"roulette_fav_{chosen['name']}"):
         st.session_state["user_reactions"][chosen["name"]] = "fav"
+        save_persisted_data()
         st.rerun()
     with rcol2:
-      if st.button("👎 Trash it", key=f"roulette_dislike_{chosen['name']}"):
+      if st.button("ð Trash it", key=f"roulette_dislike_{chosen['name']}"):
         st.session_state["user_reactions"][chosen["name"]] = "dislike"
+        save_persisted_data()
         st.rerun()
 
 # Scent of the Day (SOTD) Section
 st.markdown("---")
-st.subheader("🩸 Scent of the Day (SOTD) Logger")
+st.subheader("ð©¸ Scent of the Day (SOTD) Logger")
 all_frag_names = [f["name"] for f in st.session_state["fragrances_db"]]
 
 # Keep a place to pre-fill the multiselect when user picks a suggested combo
@@ -2671,7 +2749,7 @@ sotd_notes = st.text_input(
 )
 
 # Quick Layering Combo suggestions (based on favorites + good pairs)
-with st.expander("🧪 Quick Layering Combos (click to use)"):
+with st.expander("ð§ª Quick Layering Combos (click to use)"):
   # Prefer favorites if any, otherwise sample from whole DB
   fav_names = [
       n for n, s in st.session_state["user_reactions"].items() if s == "fav"
@@ -2717,6 +2795,7 @@ if st.button("Log Today's Scent", type="primary"):
             "notes": sotd_notes,
         },
     )
+    save_persisted_data()
     if is_layering:
       st.success(
           f"Successfully logged layering combo: **{scent_display}** for today!"
@@ -2727,19 +2806,29 @@ if st.button("Log Today's Scent", type="primary"):
     st.warning("Please select at least one fragrance to log.")
 
 if st.session_state["sotd_history"]:
-  with st.expander("🦇 View SOTD Journal History"):
-    for entry in st.session_state["sotd_history"]:
-      layer_badge = " 🧪 [Layering]" if entry.get("is_layering") else ""
-      notes_text = f" — {entry['notes']}" if entry.get("notes") else ""
-      st.write(
-          f"**{entry['date']}**: 🖤 *{entry['scent']}*{layer_badge}{notes_text}"
-      )
+  with st.expander("ð¦ View SOTD Journal History"):
+    for i, entry in enumerate(st.session_state["sotd_history"]):
+      layer_badge = " ð§ª [Layering]" if entry.get("is_layering") else ""
+      notes_text = f" â {entry['notes']}" if entry.get("notes") else ""
+      col_h, col_x = st.columns([6, 1])
+      with col_h:
+        st.write(
+            f"**{entry['date']}**: ð¤ *{entry['scent']}*{layer_badge}{notes_text}"
+        )
+      with col_x:
+        if st.button("â", key=f"del_sotd_{i}_{entry['date']}"):
+          st.session_state["sotd_history"].pop(i)
+          save_persisted_data()
+          st.rerun()
+    if st.button("Clear entire SOTD journal", key="clear_sotd_all"):
+      st.session_state["sotd_history"] = []
+      save_persisted_data()
+      st.rerun()
 
-# Collection & Data Management Expander (Export/Import + Reactions)
-with st.expander("🖤 View All Collection & Saved Data Management"):
+# Collection & Data Management Expander (Export/Import + Reactions + Edit/Delete)
+with st.expander("ð¤ Sanctuary Vault â Collection & Data Management"):
   st.write(
-      "Total fragrances in database:"
-      f" **{len(st.session_state['fragrances_db'])}**"
+      f"ð Bottles in the vault: **{len(st.session_state['fragrances_db'])}**"
   )
 
   favs = [
@@ -2754,18 +2843,79 @@ with st.expander("🖤 View All Collection & Saved Data Management"):
   ]
 
   if favs:
-    st.write(f"⭐ **Favorites:** {', '.join(favs)}")
+    st.write(f"â­ **Cherished:** {', '.join(favs)}")
   if dislikes:
-    st.write(f"👎 **Disliked:** {', '.join(dislikes)}")
+    st.write(f"ð **Banished:** {', '.join(dislikes)}")
 
-  if st.button("Clear All Reactions"):
+  if st.button("Clear All Reactions", key="clear_all_rx"):
     st.session_state["user_reactions"] = {}
+    save_persisted_data()
     st.rerun()
 
   st.markdown("---")
-  st.subheader("💾 Backup & Restore Collection Data")
+  st.subheader("âï¸ Edit or Banish a Fragrance")
 
-  # Export JSON Data
+  manage_names = [f["name"] for f in st.session_state["fragrances_db"]]
+  selected_manage = st.selectbox(
+      "Choose a bottle to edit or removeâ¦",
+      ["â select â"] + manage_names,
+      key="manage_select",
+  )
+
+  if selected_manage != "â select â":
+    idx = next(
+        (i for i, f in enumerate(st.session_state["fragrances_db"]) if f["name"] == selected_manage),
+        None,
+    )
+    if idx is not None:
+      frag = st.session_state["fragrances_db"][idx]
+      gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
+      g_idx = gender_opts.index(frag["gender"]) if frag["gender"] in gender_opts else 0
+
+      with st.form(key=f"edit_form_{selected_manage}"):
+        e_name = st.text_input("Name", value=frag["name"])
+        e_brand = st.text_input("Brand", value=frag["brand"])
+        e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
+        e_season = st.text_input("Season", value=frag["season"])
+        e_notes = st.text_area("Notes", value=frag["notes"])
+        cat_opts = ["Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh", "Fruity", "Spicy", "Citrus", "Aromatic", "Leather", "Oud", "Smoky", "Powdery"]
+        e_cats = st.multiselect(
+            "Categories",
+            cat_opts,
+            default=[c for c in frag.get("category", []) if c in cat_opts],
+        )
+
+        col_save, col_del = st.columns(2)
+        with col_save:
+          save_edit = st.form_submit_button("ð¾ Save Changes")
+        with col_del:
+          delete_it = st.form_submit_button("ð Banish Forever")
+
+        if save_edit:
+          st.session_state["fragrances_db"][idx] = {
+              "name": e_name,
+              "brand": e_brand,
+              "gender": e_gender,
+              "season": e_season,
+              "notes": e_notes,
+              "category": e_cats if e_cats else ["Gourmand"],
+          }
+          if e_name != selected_manage and selected_manage in st.session_state["user_reactions"]:
+            st.session_state["user_reactions"][e_name] = st.session_state["user_reactions"].pop(selected_manage)
+          save_persisted_data()
+          st.success(f"Updated **{e_name}**")
+          st.rerun()
+
+        if delete_it:
+          st.session_state["fragrances_db"].pop(idx)
+          st.session_state["user_reactions"].pop(selected_manage, None)
+          save_persisted_data()
+          st.success(f"Banished **{selected_manage}** from the sanctuary.")
+          st.rerun()
+
+  st.markdown("---")
+  st.subheader("ð¾ Backup & Restore the Vault")
+
   export_data = {
       "fragrances_db": st.session_state["fragrances_db"],
       "user_reactions": st.session_state["user_reactions"],
@@ -2774,15 +2924,14 @@ with st.expander("🖤 View All Collection & Saved Data Management"):
   json_string = json.dumps(export_data, indent=4)
 
   st.download_button(
-      label="📥 Export Collection & Data as JSON",
+      label="ð¥ Export Vault as JSON",
       data=json_string,
       file_name="scented_dead_girl_backup.json",
       mime="application/json",
   )
 
-  # Import JSON Data
   uploaded_file = st.file_uploader(
-      "📤 Restore from Backup JSON File", type=["json"]
+      "ð¤ Restore from Backup JSON", type=["json"]
   )
   if uploaded_file is not None:
     try:
@@ -2793,7 +2942,8 @@ with st.expander("🖤 View All Collection & Saved Data Management"):
         st.session_state["user_reactions"] = imported_data["user_reactions"]
       if "sotd_history" in imported_data:
         st.session_state["sotd_history"] = imported_data["sotd_history"]
-      st.success("Successfully restored your collection and data backup!")
+      save_persisted_data()
+      st.success("The vault has been restored from the shadows.")
       st.rerun()
     except Exception as e:
-      st.error(f"Error loading file: {e}")
+      st.error(f"The ritual failed: {e}")
