@@ -172,22 +172,52 @@ st.markdown(
         border: 1px solid #1a2540 !important;
     }
 
-    /* Hide broken Material/icon glyphs that show as "_arrow_right" text */
+    /* ===== FIX BROKEN arrow_right / icon glyphs on mobile ===== */
     [data-testid="stExpanderToggleIcon"],
-    .streamlit-expanderHeader svg,
     [data-testid="stExpander"] summary svg,
-    .st-emotion-cache-1mwk4bt,  /* common streamlit icon wrapper */
-    [data-testid="baseButton-headerNoPadding"] svg {
+    [data-testid="stExpander"] summary > div:first-child,
+    .streamlit-expanderHeader svg,
+    .streamlit-expanderHeader [data-testid="stIconMaterial"],
+    [data-testid="stIconMaterial"],
+    [data-testid="baseButton-headerNoPadding"] svg,
+    .st-emotion-cache-1mwk4bt,
+    .st-emotion-cache-1h9usn1,
+    span[data-testid="stIconMaterial"],
+    /* Hide any text node that contains the broken material icon name */
+    [data-testid="stExpander"] summary span:empty {
         display: none !important;
         width: 0 !important;
         height: 0 !important;
+        font-size: 0 !important;
         visibility: hidden !important;
+        opacity: 0 !important;
+        position: absolute !important;
+        pointer-events: none !important;
     }
 
-    /* Keep expander label readable */
-    [data-testid="stExpander"] summary {
+    /* Clean expander headers â gothic style */
+    [data-testid="stExpander"] summary,
+    .streamlit-expanderHeader {
         font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
-        color: #8ab0e8 !important;
+        color: #9ec5ff !important;
+        background: linear-gradient(90deg, #0a0e18 0%, #0c1220 100%) !important;
+        border: 1px solid #1e2a48 !important;
+        border-radius: 4px !important;
+        padding: 0.6rem 1rem !important;
+        letter-spacing: 0.5px;
+        text-shadow: 0 0 8px rgba(80, 140, 255, 0.35);
+    }
+
+    [data-testid="stExpander"] summary:hover {
+        border-color: #3a6aaa !important;
+        box-shadow: 0 0 12px rgba(60, 120, 220, 0.25);
+    }
+
+    /* Make sure the actual label text is clean and readable */
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary div {
+        color: #9ec5ff !important;
+        font-size: 1rem !important;
     }
 
     /* Download button */
@@ -259,6 +289,20 @@ st.markdown(
     div[data-testid="stNotification"] {
         border-left: 3px solid #6a2030 !important;
     }
+
+    /* Nuclear option for broken material icon text on mobile */
+    [data-testid="stExpander"] summary {
+        overflow: hidden !important;
+    }
+    /* Hide any leftover icon text nodes */
+    [data-testid="stExpander"] summary > div > span:first-child {
+        display: none !important;
+        width: 0 !important;
+        max-width: 0 !important;
+        overflow: hidden !important;
+        font-size: 0 !important;
+    }
+
     </style>
 """,
     unsafe_allow_html=True,
@@ -2796,7 +2840,7 @@ sotd_notes = st.text_input(
     key="sotd_notes_input",
 )
 
-with st.expander("Quick Layering Combos (click to use)"):
+with st.expander("ð¦ Quick Layering Combos"):
   fav_names = [
       n for n, s in st.session_state["user_reactions"].items() if s == "fav"
   ]
@@ -2851,7 +2895,7 @@ if st.button("Log Today's Scent", type="primary"):
     st.warning("Please select at least one fragrance to log.")
 
 if st.session_state["sotd_history"]:
-  with st.expander("View SOTD Journal History"):
+  with st.expander("ð SOTD Journal History"):
     for i, entry in enumerate(st.session_state["sotd_history"]):
       layer_badge = " [Layering]" if entry.get("is_layering") else ""
       notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
@@ -2871,7 +2915,7 @@ if st.session_state["sotd_history"]:
       st.rerun()
 
 # Collection & Data Management Expander (Export/Import + Reactions + Edit/Delete)
-with st.expander("Sanctuary Vault - Collection & Data Management"):
+with st.expander("ð° Sanctuary Vault â Collection & Data"):
   st.write(
       f"Bottles in the vault: **{len(st.session_state['fragrances_db'])}**"
   )
