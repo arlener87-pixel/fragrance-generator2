@@ -1,3 +1,4 @@
+import datetime
 import json
 import random
 import re
@@ -12,7 +13,7 @@ st.set_page_config(
     layout="centered",
 )
 
-# Custom Gothic Styling for ScentedDeadGirl Aesthetic (Black & Blue)
+# Custom Gothic Styling for ScentedDeadGirl Aesthetic (Black & Blue + Floating Bats Animation)
 st.markdown(
     """
     <style>
@@ -142,6 +143,34 @@ st.markdown(
     hr {
         border-color: #1a3050 !important;
     }
+
+    /* Floating Bats Animation */
+    @keyframes flyBats {
+        0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { transform: translateY(-400px) translateX(150px) rotate(20deg); opacity: 0; }
+    }
+
+    .bat-container {
+        position: relative;
+        height: 120px;
+        width: 100%;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .floating-bat {
+        position: absolute;
+        bottom: 0px;
+        font-size: 24px;
+        animation: flyBats 3s ease-in-out infinite;
+    }
+
+    .bat1 { left: 10%; animation-delay: 0s; }
+    .bat2 { left: 35%; animation-delay: 0.6s; }
+    .bat3 { left: 60%; animation-delay: 0.3s; }
+    .bat4 { left: 85%; animation-delay: 0.9s; }
 
     /* Scrollbar (webkit) */
     ::-webkit-scrollbar {
@@ -1865,6 +1894,9 @@ if "search_input" not in st.session_state:
 if "note_search_input" not in st.session_state:
   st.session_state["note_search_input"] = ""
 
+if "quick_lookup_input" not in st.session_state:
+  st.session_state["quick_lookup_input"] = ""
+
 if "add_name" not in st.session_state:
   st.session_state["add_name"] = ""
 if "add_brand" not in st.session_state:
@@ -1918,22 +1950,77 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
   season = fragrance["season"].lower()
   if weather == "Any":
     return True
-  if weather == "Hot / Summer":
-    return any(x in season for x in ["spring", "summer", "versatile", "year-round"])
+
+  is_summer_target = "summer" in weather.lower() or "hot" in weather.lower()
+  is_winter_target = "winter" in weather.lower() or "cold" in weather.lower()
+
+  # Strict filtering logic
+  if is_summer_target:
+    # If looking for summer, exclude if explicitly only winter/fall and NO summer/spring/versatile mentioned
+    if (
+        ("winter" in season or "fall" in season or "autumn" in season)
+        and not "summer" in season
+        and not "spring" in season
+        and not "versatile" in season
+        and not "year-round" in season
+    ):
+      return False
+    return (
+        "summer" in season
+        or "spring" in season
+        or "versatile" in season
+        or "year-round" in season
+        or "mild" in season
+    )
+
+  if is_winter_target:
+    # If looking for winter, exclude if explicitly only summer/spring and NO winter/fall/versatile mentioned
+    if (
+        ("summer" in season or "spring" in season)
+        and not "winter" in season
+        and not "fall" in season
+        and not "autumn" in season
+        and not "cooler" in season
+        and not "versatile" in season
+        and not "year-round" in season
+    ):
+      return False
+    return (
+        "winter" in season
+        or "fall" in season
+        or "autumn" in season
+        or "cooler" in season
+        or "versatile" in season
+        or "year-round" in season
+    )
+
   if weather == "Warm / Mild":
     return any(
         x in season
-        for x in ["spring", "fall", "autumn", "versatile", "year-round", "mild"]
+        for x in [
+            "spring",
+            "fall",
+            "autumn",
+            "mild",
+            "versatile",
+            "year-round",
+            "summer",
+        ]
     )
+
   if weather == "Cool / Autumn":
     return any(
         x in season
-        for x in ["fall", "autumn", "winter", "cooler", "versatile", "year-round"]
+        for x in [
+            "fall",
+            "autumn",
+            "winter",
+            "cooler",
+            "versatile",
+            "year-round",
+        ]
     )
-  if weather == "Cold / Winter":
-    return any(
-        x in season for x in ["fall", "winter", "cooler", "autumn", "versatile"]
-    )
+
   return True
 
 
@@ -2003,7 +2090,7 @@ def score_fragrance(
 
   if weather == "Any":
     score += 5
-  elif weather == "Hot / Summer":
+  elif "summer" in weather.lower() or "hot" in weather.lower():
     if "summer" in season:
       score += 15
     elif any(x in season for x in ["spring", "versatile", "year-round"]):
@@ -2018,7 +2105,7 @@ def score_fragrance(
       score += 15
     elif any(x in season for x in ["winter", "cooler"]):
       score += 12
-  elif weather == "Cold / Winter":
+  elif "winter" in weather.lower() or "cold" in weather.lower():
     if "winter" in season:
       score += 15
     elif any(x in season for x in ["fall", "autumn", "cooler"]):
@@ -2197,6 +2284,32 @@ with search_col2:
   if st.button("Clear", key="clear_search_btn"):
     st.session_state["search_input"] = ""
     st.rerun()
+
+# Quick Notes & Season Lookup Section
+st.sidebar.markdown("---")
+st.sidebar.header("🦇 Quick Notes & Season Lookup")
+quick_query = st.sidebar.text_input(
+    "Fragrance name...",
+    value=st.session_state["quick_lookup_input"],
+    placeholder="e.g. Ajwad",
+    key="quick_lookup_box",
+)
+st.session_state["quick_lookup_input"] = quick_query
+
+if quick_query:
+  matched_quick = [
+      f
+      for f in st.session_state["fragrances_db"]
+      if quick_query.lower() in f["name"].lower()
+  ]
+  if matched_quick:
+    for f in matched_quick:
+      st.sidebar.info(
+          f"**{f['name']}** ({f['brand']})\n\n🌿 **Notes:**"
+          f" {f['notes']}\n\n🌤️ **Season:** {f['season']}"
+      )
+  else:
+    st.sidebar.warning("No matching fragrance found.")
 
 # Note Specific Search Option
 st.sidebar.markdown("---")
@@ -2447,34 +2560,38 @@ st.write(
     "Feeling indecisive, darling? Let the darkness choose your next scent..."
 )
 
-roulette_col1, roulette_col2 = st.columns([2, 1])
-with roulette_col1:
-  use_filters_for_roulette = st.checkbox(
-      "Respect current sidebar filters (gender, weather, category, occasion)",
-      value=True,
-      key="roulette_use_filters",
+r_col1, r_col2 = st.columns(2)
+with r_col1:
+  roulette_gender = st.selectbox(
+      "Roulette Gender", ["Any", "Male", "Female", "Unisex"], key="roulette_gender"
   )
-with roulette_col2:
-  st.write("")  # spacing
-  st.write("")
+with r_col2:
+  roulette_season = st.selectbox(
+      "Roulette Season / Weather",
+      [
+          "Any",
+          "Hot / Summer",
+          "Warm / Mild",
+          "Cool / Autumn",
+          "Cold / Winter",
+      ],
+      key="roulette_season",
+  )
 
 if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
-  # Build the pool of eligible fragrances
-  if use_filters_for_roulette:
-    pool = get_top_fragrances(
-        gender, weather, category, occasion,
-        top_n=len(st.session_state["fragrances_db"])
-    )
-  else:
-    pool = [
-        f for f in st.session_state["fragrances_db"]
-        if st.session_state["user_reactions"].get(f["name"]) != "dislike"
-    ]
+  pool = []
+  for f in st.session_state["fragrances_db"]:
+    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+      continue
+    if matches_gender(f, roulette_gender) and matches_weather(
+        f, roulette_season
+    ):
+      pool.append(f)
 
   if not pool:
     st.warning(
-        "No fragrances available to spin. Try loosening your filters or "
-        "clearing some dislikes."
+        "No fragrances available matching those roulette criteria. Try"
+        " loosening the gender or season."
     )
   else:
     chosen = random.choice(pool)
@@ -2485,7 +2602,19 @@ if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
         else (" 👎 [Disliked]" if current_reaction == "dislike" else "")
     )
 
-    st.balloons()
+    # Floating Bats animation instead of balloons
+    st.markdown(
+        """
+        <div class="bat-container">
+            <span class="floating-bat bat1">🦇</span>
+            <span class="floating-bat bat2">🦇</span>
+            <span class="floating-bat bat3">🦇</span>
+            <span class="floating-bat bat4">🦇</span>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
     st.success("### 🩸 The roulette has spoken...")
     st.markdown(f"## **{chosen['name']}**{status_badge}")
     st.markdown(f"### by *{chosen['brand']}*")
@@ -2518,8 +2647,6 @@ sotd_notes = st.text_input(
 
 if st.button("Log Today's Scent"):
   if sotd_choice != "Select a fragrance...":
-    import datetime
-
     today_date = datetime.date.today().strftime("%Y-%m-%d")
     st.session_state["sotd_history"].insert(
         0, {"date": today_date, "scent": sotd_choice, "notes": sotd_notes}
