@@ -1956,7 +1956,6 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
 
   # Strict filtering logic
   if is_summer_target:
-    # If looking for summer, exclude if explicitly only winter/fall and NO summer/spring/versatile mentioned
     if (
         ("winter" in season or "fall" in season or "autumn" in season)
         and not "summer" in season
@@ -1974,7 +1973,6 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
     )
 
   if is_winter_target:
-    # If looking for winter, exclude if explicitly only summer/spring and NO winter/fall/versatile mentioned
     if (
         ("summer" in season or "spring" in season)
         and not "winter" in season
