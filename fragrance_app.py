@@ -2840,7 +2840,7 @@ sotd_notes = st.text_input(
     key="sotd_notes_input",
 )
 
-with st.expander("ð¦ Quick Layering Combos"):
+with st.expander("Quick Layering Combos"):
   fav_names = [
       n for n, s in st.session_state["user_reactions"].items() if s == "fav"
   ]
@@ -2895,7 +2895,7 @@ if st.button("Log Today's Scent", type="primary"):
     st.warning("Please select at least one fragrance to log.")
 
 if st.session_state["sotd_history"]:
-  with st.expander("ð SOTD Journal History"):
+  with st.expander("SOTD Journal History"):
     for i, entry in enumerate(st.session_state["sotd_history"]):
       layer_badge = " [Layering]" if entry.get("is_layering") else ""
       notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
@@ -2915,7 +2915,7 @@ if st.session_state["sotd_history"]:
       st.rerun()
 
 # Collection & Data Management Expander (Export/Import + Reactions + Edit/Delete)
-with st.expander("ð° Sanctuary Vault â Collection & Data"):
+with st.expander("Sanctuary Vault - Collection & Data"):
   st.write(
       f"Bottles in the vault: **{len(st.session_state['fragrances_db'])}**"
   )
