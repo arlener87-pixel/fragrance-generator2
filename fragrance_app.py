@@ -1938,10 +1938,13 @@ def matches_gender(fragrance: dict, preferred: str) -> bool:
     return True
   fg = normalize_gender(fragrance["gender"])
   if preferred == "Male":
-    return fg in ["Male", "Male-leaning", "Unisex"]
+    # Strict: only Male and Male-leaning (no pure Unisex)
+    return fg in ["Male", "Male-leaning"]
   if preferred == "Female":
-    return fg in ["Female", "Female-leaning", "Unisex"]
+    # Strict: only Female and Female-leaning (no pure Unisex)
+    return fg in ["Female", "Female-leaning"]
   if preferred == "Unisex":
+    # Pure Unisex + both leanings
     return fg in ["Unisex", "Male-leaning", "Female-leaning"]
   return True
 
