@@ -2635,29 +2635,101 @@ if st.button("🎲 Spin the Roulette", type="primary", key="spin_roulette_btn"):
 st.markdown("---")
 st.subheader("🩸 Scent of the Day (SOTD) Logger")
 all_frag_names = [f["name"] for f in st.session_state["fragrances_db"]]
-sotd_choice = st.selectbox(
-    "What are you wearing today?", ["Select a fragrance..."] + all_frag_names
+
+# Keep a place to pre-fill the multiselect when user picks a suggested combo
+if "sotd_prefill" not in st.session_state:
+  st.session_state["sotd_prefill"] = []
+
+st.caption(
+    "Select one fragrance for a single wear, or multiple for a layering combo."
 )
-sotd_notes = st.text_input(
-    "Optional comments/vibe for today:",
-    placeholder="e.g. Perfect for a rainy gothic afternoon.",
+sotd_choices = st.multiselect(
+    "What are you wearing today? (select one or more)",
+    options=all_frag_names,
+    default=st.session_state["sotd_prefill"],
+    placeholder="Choose fragrance(s)...",
+    key="sotd_multiselect",
 )
 
-if st.button("Log Today's Scent"):
-  if sotd_choice != "Select a fragrance...":
-    today_date = datetime.date.today().strftime("%Y-%m-%d")
-    st.session_state["sotd_history"].insert(
-        0, {"date": today_date, "scent": sotd_choice, "notes": sotd_notes}
-    )
-    st.success(f"Successfully logged {sotd_choice} for today!")
+# Clear the prefill after it has been applied once
+if st.session_state["sotd_prefill"]:
+  st.session_state["sotd_prefill"] = []
+
+# Auto-suggest a note when layering
+default_note = ""
+if len(sotd_choices) > 1:
+  default_note = "Layered combo"
+
+sotd_notes = st.text_input(
+    "Optional comments/vibe for today:",
+    value=default_note if default_note else "",
+    placeholder="e.g. Perfect for a rainy gothic afternoon. / Layered for depth.",
+    key="sotd_notes_input",
+)
+
+# Quick Layering Combo suggestions (based on favorites + good pairs)
+with st.expander("🧪 Quick Layering Combos (click to use)"):
+  # Prefer favorites if any, otherwise sample from whole DB
+  fav_names = [
+      n for n, s in st.session_state["user_reactions"].items() if s == "fav"
+  ]
+  pool = [
+      f
+      for f in st.session_state["fragrances_db"]
+      if f["name"] in fav_names
+  ] if fav_names else st.session_state["fragrances_db"]
+
+  if len(pool) < 2:
+    pool = st.session_state["fragrances_db"]
+
+  quick_combos = suggest_layering_combos(pool, num_combos=4)
+
+  if not quick_combos:
+    st.write("Not enough fragrances to suggest layering combos yet.")
   else:
-    st.warning("Please choose a valid fragrance to log.")
+    for i, (f1, f2, reason) in enumerate(quick_combos, 1):
+      col_a, col_b = st.columns([4, 1])
+      with col_a:
+        st.markdown(
+            f"**Combo {i}:** `{f1['name']}` + `{f2['name']}`  \n"
+            f"*{reason}*"
+        )
+      with col_b:
+        if st.button("Use", key=f"use_combo_{i}_{f1['name']}_{f2['name']}"):
+          st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
+          st.rerun()
+
+if st.button("Log Today's Scent", type="primary"):
+  if sotd_choices:
+    today_date = datetime.date.today().strftime("%Y-%m-%d")
+    scent_display = " + ".join(sotd_choices)
+    is_layering = len(sotd_choices) > 1
+    st.session_state["sotd_history"].insert(
+        0,
+        {
+            "date": today_date,
+            "scent": scent_display,
+            "scents": sotd_choices,
+            "is_layering": is_layering,
+            "notes": sotd_notes,
+        },
+    )
+    if is_layering:
+      st.success(
+          f"Successfully logged layering combo: **{scent_display}** for today!"
+      )
+    else:
+      st.success(f"Successfully logged **{scent_display}** for today!")
+  else:
+    st.warning("Please select at least one fragrance to log.")
 
 if st.session_state["sotd_history"]:
   with st.expander("🦇 View SOTD Journal History"):
     for entry in st.session_state["sotd_history"]:
+      layer_badge = " 🧪 [Layering]" if entry.get("is_layering") else ""
+      notes_text = f" — {entry['notes']}" if entry.get("notes") else ""
       st.write(
-          f"**{entry['date']}**: 🖤 *{entry['scent']}* — {entry['notes']}"
+          f"**{entry['date']}**: 🖤 *{entry['scent']}*{layer_badge}{notes_text}"
       )
 
 # Collection & Data Management Expander (Export/Import + Reactions)
