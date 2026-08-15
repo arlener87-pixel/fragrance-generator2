@@ -168,8 +168,26 @@ st.markdown(
     .streamlit-expanderHeader {
         background-color: #0a0e18 !important;
         color: #8ab0e8 !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         border: 1px solid #1a2540 !important;
+    }
+
+    /* Hide broken Material/icon glyphs that show as "_arrow_right" text */
+    [data-testid="stExpanderToggleIcon"],
+    .streamlit-expanderHeader svg,
+    [data-testid="stExpander"] summary svg,
+    .st-emotion-cache-1mwk4bt,  /* common streamlit icon wrapper */
+    [data-testid="baseButton-headerNoPadding"] svg {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        visibility: hidden !important;
+    }
+
+    /* Keep expander label readable */
+    [data-testid="stExpander"] summary {
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
+        color: #8ab0e8 !important;
     }
 
     /* Download button */
@@ -2350,20 +2368,27 @@ with search_col1:
   )
   st.session_state["search_input"] = search_query
 with search_col2:
- if st.button("Clear", key="clear_search_btn"):
+  if st.button("Clear", key="clear_search_btn"):
     st.session_state["search_input"] = ""
     st.rerun()
 
 # Quick Notes & Season Lookup Section
 st.sidebar.markdown("---")
 st.sidebar.header("Quick Notes & Season Lookup")
-quick_query = st.sidebar.text_input(
-    "Fragrance name...",
-    value=st.session_state["quick_lookup_input"],
-    placeholder="e.g. Ajwad",
-    key="quick_lookup_box",
-)
-st.session_state["quick_lookup_input"] = quick_query
+ql_col1, ql_col2 = st.sidebar.columns([3, 1])
+with ql_col1:
+  quick_query = st.text_input(
+      "Fragrance name...",
+      value=st.session_state["quick_lookup_input"],
+      placeholder="e.g. Ajwad",
+      key="quick_lookup_box",
+      label_visibility="collapsed",
+  )
+  st.session_state["quick_lookup_input"] = quick_query
+with ql_col2:
+  if st.button("Clear", key="clear_quick_btn"):
+    st.session_state["quick_lookup_input"] = ""
+    st.rerun()
 
 if quick_query:
   matched_quick = [
@@ -2393,7 +2418,7 @@ with note_col1:
   )
   st.session_state["note_search_input"] = note_query
 with note_col2:
- if st.button("Clear", key="clear_note_btn"):
+  if st.button("Clear", key="clear_note_btn"):
     st.session_state["note_search_input"] = ""
     st.rerun()
 
@@ -2488,7 +2513,13 @@ with st.sidebar.form("add_fragrance_form"):
       }
       st.session_state["fragrances_db"].append(new_item)
       save_persisted_data()
-      st.sidebar.success(f"Added {new_name} successfully!")
+      # Clear form fields so you can add another immediately
+      st.session_state["add_name"] = ""
+      st.session_state["add_brand"] = ""
+      st.session_state["add_season"] = "Fall, Winter"
+      st.session_state["add_notes"] = ""
+      st.sidebar.success(f"Added {new_name} successfully! Form cleared.")
+      st.rerun()
     else:
       st.sidebar.error("Please provide at least a Name and Brand.")
 
