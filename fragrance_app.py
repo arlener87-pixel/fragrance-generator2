@@ -2329,7 +2329,7 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
-st.title("ð ScentedDeadGirl ð¤")
+st.title("ScentedDeadGirl")
 st.markdown(
     """
     *Enter the crypt of scent...*  
@@ -2338,7 +2338,7 @@ st.markdown(
     """
 )
 
-st.sidebar.header("ð Search Your Collection")
+st.sidebar.header("Search Your Collection")
 search_col1, search_col2 = st.sidebar.columns([3, 1])
 with search_col1:
   search_query = st.text_input(
@@ -2349,13 +2349,13 @@ with search_col1:
   )
   st.session_state["search_input"] = search_query
 with search_col2:
-  if st.button("Clear", key="clear_search_btn"):
+ if st.button("Clear", key="clear_search_btn"):
     st.session_state["search_input"] = ""
     st.rerun()
 
 # Quick Notes & Season Lookup Section
 st.sidebar.markdown("---")
-st.sidebar.header("ð¦ Quick Notes & Season Lookup")
+st.sidebar.header("Quick Notes & Season Lookup")
 quick_query = st.sidebar.text_input(
     "Fragrance name...",
     value=st.session_state["quick_lookup_input"],
@@ -2373,15 +2373,15 @@ if quick_query:
   if matched_quick:
     for f in matched_quick:
       st.sidebar.info(
-          f"**{f['name']}** ({f['brand']})\n\nð¿ **Notes:**"
-          f" {f['notes']}\n\nð¤ï¸ **Season:** {f['season']}"
+          f"**{f['name']}** ({f['brand']})\n\n**Notes:**"
+          f" {f['notes']}\n\n**Season:** {f['season']}"
       )
   else:
     st.sidebar.warning("No matching fragrance found.")
 
 # Note Specific Search Option
 st.sidebar.markdown("---")
-st.sidebar.header("ð Search by Specific Note")
+st.sidebar.header("Search by Specific Note")
 note_col1, note_col2 = st.sidebar.columns([3, 1])
 with note_col1:
   note_query = st.text_input(
@@ -2392,12 +2392,12 @@ with note_col1:
   )
   st.session_state["note_search_input"] = note_query
 with note_col2:
-  if st.button("Clear", key="clear_note_btn"):
+ if st.button("Clear", key="clear_note_btn"):
     st.session_state["note_search_input"] = ""
     st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.header("ð¯ Filter Options")
+st.sidebar.header("Filter Options")
 
 gender = st.sidebar.selectbox(
     "Gender Preference", ["Any", "Male", "Female", "Unisex"]
@@ -2430,7 +2430,7 @@ occasion = st.sidebar.selectbox(
 num_recs = st.sidebar.radio("Number of Recommendations", [1, 3, 5], index=1)
 
 st.sidebar.markdown("---")
-st.sidebar.header("â Add New Fragrance")
+st.sidebar.header("Add New Fragrance")
 
 with st.sidebar.form("add_fragrance_form"):
   new_name = st.text_input("Fragrance Name", value=st.session_state["add_name"])
@@ -2494,7 +2494,7 @@ with st.sidebar.form("add_fragrance_form"):
 # Handle Note Specific Search Query Results
 if note_query:
   st.markdown("---")
-  st.subheader(f"ð Note Search Results for: '{note_query}'")
+  st.subheader(f"Note Search Results for: '{note_query}'")
   note_query_lower = note_query.lower()
   matching_notes = [
       f
@@ -2508,9 +2508,9 @@ if note_query:
     for f in matching_notes:
       current_reaction = st.session_state["user_reactions"].get(f["name"])
       status_badge = (
-          " â­ [Favorite]"
+          " [Favorite]"
           if current_reaction == "fav"
-          else (" ð [Disliked]" if current_reaction == "dislike" else "")
+          else (" [Disliked]" if current_reaction == "dislike" else "")
       )
 
       st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
@@ -2522,7 +2522,7 @@ if note_query:
 # Handle Name/Brand Search Query
 if search_query:
   st.markdown("---")
-  st.subheader(f"ð Search Results for: '{search_query}'")
+  st.subheader(f"Search Results for: '{search_query}'")
   query_lower = search_query.lower()
   matching_fragrances = [
       f
@@ -2537,9 +2537,9 @@ if search_query:
     for f in matching_fragrances:
       current_reaction = st.session_state["user_reactions"].get(f["name"])
       status_badge = (
-          " â­ [Favorite]"
+          " [Favorite]"
           if current_reaction == "fav"
-          else (" ð [Disliked]" if current_reaction == "dislike" else "")
+          else (" [Disliked]" if current_reaction == "dislike" else "")
       )
 
       st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
@@ -2549,22 +2549,22 @@ if search_query:
 
       col1, col2, col3 = st.columns([1, 1, 4])
       with col1:
-        if st.button("ð Love", key=f"search_fav_{f['name']}"):
+        if st.button("Love", key=f"search_fav_{f['name']}"):
           st.session_state["user_reactions"][f["name"]] = "fav"
           save_persisted_data()
           st.rerun()
       with col2:
-        if st.button("ð Trash", key=f"search_dislike_{f['name']}"):
+        if st.button("Trash", key=f"search_dislike_{f['name']}"):
           st.session_state["user_reactions"][f["name"]] = "dislike"
           save_persisted_data()
           st.rerun()
       st.markdown("---")
 
-if st.sidebar.button("â¨ Generate Recommendations", type="primary"):
+if st.sidebar.button("Generate Recommendations", type="primary"):
   selected = get_top_fragrances(gender, weather, category, occasion, num_recs)
 
   st.markdown("---")
-  st.subheader(f"ð Top {num_recs} Recommendation(s)")
+  st.subheader(f"Top {num_recs} Recommendation(s)")
 
   if not selected:
     st.warning(
@@ -2574,7 +2574,7 @@ if st.sidebar.button("â¨ Generate Recommendations", type="primary"):
   else:
     for i, f in enumerate(selected, 1):
       current_reaction = st.session_state["user_reactions"].get(f["name"])
-      status_badge = " â­ [Favorite]" if current_reaction == "fav" else ""
+      status_badge = " [Favorite]" if current_reaction == "fav" else ""
 
       st.success(
           f"**#{i} - {f['name']}** by *{f['brand']}*{status_badge}"
@@ -2585,12 +2585,12 @@ if st.sidebar.button("â¨ Generate Recommendations", type="primary"):
 
       col1, col2, col3 = st.columns([1, 1, 4])
       with col1:
-        if st.button("ð Love", key=f"fav_{f['name']}_{i}"):
+        if st.button("Love", key=f"fav_{f['name']}_{i}"):
           st.session_state["user_reactions"][f["name"]] = "fav"
           save_persisted_data()
           st.rerun()
       with col2:
-        if st.button("ð Trash", key=f"dislike_{f['name']}_{i}"):
+        if st.button("Trash", key=f"dislike_{f['name']}_{i}"):
           st.session_state["user_reactions"][f["name"]] = "dislike"
           save_persisted_data()
           st.rerun()
@@ -2607,12 +2607,12 @@ if st.sidebar.button("â¨ Generate Recommendations", type="primary"):
 
   if combos:
     st.markdown("---")
-    st.subheader("ð§ª Recommended Layering Combos")
+    st.subheader("Recommended Layering Combos")
     for i, (f1, f2, reason) in enumerate(combos, 1):
       st.info(
-          f"**Combo #{i}**\n\nð¤ **Base / First:** {f1['name']}"
-          f" ({f1['brand']})\n\nð¤ **Layer / Top:** {f2['name']}"
-          f" ({f2['brand']})\n\nð¡ **Why it works:** {reason}"
+          f"**Combo #{i}**\n\n**Base / First:** {f1['name']}"
+          f" ({f1['brand']})\n\n**Layer / Top:** {f2['name']}"
+          f" ({f2['brand']})\n\n**Why it works:** {reason}"
       )
     st.caption(
         "Tip: Spray the richer/heavier fragrance first, then layer the lighter"
@@ -2628,7 +2628,7 @@ elif not search_query and not note_query:
 # FRAGRANCE ROULETTE
 # ==========================================
 st.markdown("---")
-st.subheader("ð° Fragrance Roulette")
+st.subheader("Fragrance Roulette")
 st.write(
     "The night is restless... let the darkness choose your next offering."
 )
@@ -2651,14 +2651,13 @@ with r_col2:
       key="roulette_season",
   )
 
-if st.button("ð² Spin the Roulette", type="primary", key="spin_roulette_btn"):
+if st.button("Spin the Roulette", type="primary", key="spin_roulette_btn"):
   # Exclude scents worn in the last few SOTD entries
   recent_worn = set()
   for entry in st.session_state.get("sotd_history", [])[:5]:
     if entry.get("scents"):
       recent_worn.update(entry["scents"])
     elif entry.get("scent"):
-      # handle old single-scent format and "A + B" strings
       for part in entry["scent"].split(" + "):
         recent_worn.add(part.strip())
 
@@ -2682,12 +2681,11 @@ if st.button("ð² Spin the Roulette", type="primary", key="spin_roulette_bt
     chosen = random.choice(pool)
     current_reaction = st.session_state["user_reactions"].get(chosen["name"])
     status_badge = (
-        " â­ [Favorite]"
+        " [Favorite]"
         if current_reaction == "fav"
-        else (" ð [Disliked]" if current_reaction == "dislike" else "")
+        else (" [Disliked]" if current_reaction == "dislike" else "")
     )
 
-    # Floating Bats animation instead of balloons
     st.markdown(
         """
         <div class="bat-container">
@@ -2700,32 +2698,30 @@ if st.button("ð² Spin the Roulette", type="primary", key="spin_roulette_bt
         unsafe_allow_html=True,
     )
 
-    st.success("### ð©¸ The roulette has spoken...")
+    st.success("### The roulette has spoken...")
     st.markdown(f"## **{chosen['name']}**{status_badge}")
     st.markdown(f"### by *{chosen['brand']}*")
     st.write(f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}")
     st.write(f"**Category:** {', '.join(chosen['category'])}")
     st.caption(f"Notes: {chosen['notes']}")
 
-    # Quick action buttons for the chosen scent
     rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
     with rcol1:
-      if st.button("ð Love it", key=f"roulette_fav_{chosen['name']}"):
+      if st.button("Love it", key=f"roulette_fav_{chosen['name']}"):
         st.session_state["user_reactions"][chosen["name"]] = "fav"
         save_persisted_data()
         st.rerun()
     with rcol2:
-      if st.button("ð Trash it", key=f"roulette_dislike_{chosen['name']}"):
+      if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}"):
         st.session_state["user_reactions"][chosen["name"]] = "dislike"
         save_persisted_data()
         st.rerun()
 
 # Scent of the Day (SOTD) Section
 st.markdown("---")
-st.subheader("ð©¸ Scent of the Day (SOTD) Logger")
+st.subheader("Scent of the Day (SOTD) Logger")
 all_frag_names = [f["name"] for f in st.session_state["fragrances_db"]]
 
-# Keep a place to pre-fill the multiselect when user picks a suggested combo
 if "sotd_prefill" not in st.session_state:
   st.session_state["sotd_prefill"] = []
 
@@ -2740,11 +2736,9 @@ sotd_choices = st.multiselect(
     key="sotd_multiselect",
 )
 
-# Clear the prefill after it has been applied once
 if st.session_state["sotd_prefill"]:
   st.session_state["sotd_prefill"] = []
 
-# Auto-suggest a note when layering
 default_note = ""
 if len(sotd_choices) > 1:
   default_note = "Layered combo"
@@ -2756,18 +2750,15 @@ sotd_notes = st.text_input(
     key="sotd_notes_input",
 )
 
-# Quick Layering Combo suggestions (based on favorites + good pairs)
-with st.expander("ð§ª Quick Layering Combos (click to use)"):
-  # Prefer favorites if any, otherwise sample from whole DB
+with st.expander("Quick Layering Combos (click to use)"):
   fav_names = [
       n for n, s in st.session_state["user_reactions"].items() if s == "fav"
   ]
-  pool = [
-      f
-      for f in st.session_state["fragrances_db"]
-      if f["name"] in fav_names
-  ] if fav_names else st.session_state["fragrances_db"]
-
+  pool = (
+      [f for f in st.session_state["fragrances_db"] if f["name"] in fav_names]
+      if fav_names
+      else st.session_state["fragrances_db"]
+  )
   if len(pool) < 2:
     pool = st.session_state["fragrances_db"]
 
@@ -2814,17 +2805,17 @@ if st.button("Log Today's Scent", type="primary"):
     st.warning("Please select at least one fragrance to log.")
 
 if st.session_state["sotd_history"]:
-  with st.expander("ð¦ View SOTD Journal History"):
+  with st.expander("View SOTD Journal History"):
     for i, entry in enumerate(st.session_state["sotd_history"]):
-      layer_badge = " ð§ª [Layering]" if entry.get("is_layering") else ""
+      layer_badge = " [Layering]" if entry.get("is_layering") else ""
       notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
       col_h, col_x = st.columns([6, 1])
       with col_h:
         st.write(
-            f"**{entry['date']}**: ð¤ *{entry['scent']}*{layer_badge}{notes_text}"
+            f"**{entry['date']}**: *{entry['scent']}*{layer_badge}{notes_text}"
         )
       with col_x:
-        if st.button("â", key=f"del_sotd_{i}_{entry['date']}"):
+        if st.button("X", key=f"del_sotd_{i}_{entry['date']}"):
           st.session_state["sotd_history"].pop(i)
           save_persisted_data()
           st.rerun()
@@ -2834,9 +2825,9 @@ if st.session_state["sotd_history"]:
       st.rerun()
 
 # Collection & Data Management Expander (Export/Import + Reactions + Edit/Delete)
-with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
+with st.expander("Sanctuary Vault - Collection & Data Management"):
   st.write(
-      f"ð Bottles in the vault: **{len(st.session_state['fragrances_db'])}**"
+      f"Bottles in the vault: **{len(st.session_state['fragrances_db'])}**"
   )
 
   favs = [
@@ -2851,9 +2842,9 @@ with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
   ]
 
   if favs:
-    st.write(f"â­ **Cherished:** {', '.join(favs)}")
+    st.write(f"**Cherished:** {', '.join(favs)}")
   if dislikes:
-    st.write(f"ð **Banished:** {', '.join(dislikes)}")
+    st.write(f"**Banished:** {', '.join(dislikes)}")
 
   if st.button("Clear All Reactions", key="clear_all_rx"):
     st.session_state["user_reactions"] = {}
@@ -2861,7 +2852,7 @@ with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
     st.rerun()
 
   st.markdown("---")
-  st.subheader("âï¸ Edit or Banish a Fragrance")
+  st.subheader("Edit or Banish a Fragrance")
 
   manage_names = [f["name"] for f in st.session_state["fragrances_db"]]
   selected_manage = st.selectbox(
@@ -2886,7 +2877,11 @@ with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
         e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
         e_season = st.text_input("Season", value=frag["season"])
         e_notes = st.text_area("Notes", value=frag["notes"])
-        cat_opts = ["Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh", "Fruity", "Spicy", "Citrus", "Aromatic", "Leather", "Oud", "Smoky", "Powdery"]
+        cat_opts = [
+            "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
+            "Fruity", "Spicy", "Citrus", "Aromatic", "Leather", "Oud",
+            "Smoky", "Powdery",
+        ]
         e_cats = st.multiselect(
             "Categories",
             cat_opts,
@@ -2895,9 +2890,9 @@ with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
 
         col_save, col_del = st.columns(2)
         with col_save:
-          save_edit = st.form_submit_button("ð¾ Save Changes")
+          save_edit = st.form_submit_button("Save Changes")
         with col_del:
-          delete_it = st.form_submit_button("ð Banish Forever")
+          delete_it = st.form_submit_button("Banish Forever")
 
         if save_edit:
           st.session_state["fragrances_db"][idx] = {
@@ -2922,7 +2917,7 @@ with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
           st.rerun()
 
   st.markdown("---")
-  st.subheader("ð¾ Backup & Restore the Vault")
+  st.subheader("Backup & Restore the Vault")
 
   export_data = {
       "fragrances_db": st.session_state["fragrances_db"],
@@ -2932,14 +2927,14 @@ with st.expander("ð¤ Sanctuary Vault - Collection & Data Management"):
   json_string = json.dumps(export_data, indent=4)
 
   st.download_button(
-      label="ð¥ Export Vault as JSON",
+      label="Export Vault as JSON",
       data=json_string,
       file_name="scented_dead_girl_backup.json",
       mime="application/json",
   )
 
   uploaded_file = st.file_uploader(
-      "ð¤ Restore from Backup JSON", type=["json"]
+      "Restore from Backup JSON", type=["json"]
   )
   if uploaded_file is not None:
     try:
