@@ -51,7 +51,10 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&display=swap');
+    /* System fonts only - no external font loading */
+    html, body, [class*="css"], .stApp, .stMarkdown, p, span, div, label, input, textarea, button, h1, h2, h3, h4, h5, h6 {
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
+    }
 
     /* Deep void background */
     .stApp {
@@ -62,14 +65,14 @@ st.markdown(
     /* Headings - spectral gothic (with solid fallbacks) */
     h1, h2, h3, h4 {
         color: #9ec5ff !important;
-        font-family: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         text-shadow: 0 0 12px rgba(80, 140, 255, 0.55), 0 0 4px rgba(180, 40, 60, 0.3), 2px 2px 6px rgba(0, 0, 0, 0.95);
         letter-spacing: 1.2px;
     }
 
     /* Only the main title uses the more decorative face */
     h1 {
-        font-family: 'Cinzel Decorative', 'Cinzel', 'Palatino Linotype', Palatino, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
     }
 
     h1 {
@@ -81,7 +84,7 @@ st.markdown(
 
     /* Body text - reliable gothic-ish stack */
     p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning {
-        font-family: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman', serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         color: #b0c0d8 !important;
     }
 
@@ -95,7 +98,7 @@ st.markdown(
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
         color: #8ab4ff !important;
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         text-shadow: 0 0 8px rgba(60, 100, 200, 0.4);
     }
 
@@ -105,7 +108,7 @@ st.markdown(
         color: #a0c8ff !important;
         border: 1px solid #2a4068 !important;
         border-radius: 2px !important;
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         font-weight: 600 !important;
         letter-spacing: 0.8px;
         transition: all 0.3s ease;
@@ -139,7 +142,7 @@ st.markdown(
         color: #d0e0f8 !important;
         border: 1px solid #1e2a48 !important;
         border-radius: 2px !important;
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
     }
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > select:focus {
@@ -149,7 +152,7 @@ st.markdown(
 
     /* Radio & checkbox */
     .stRadio label, .stCheckbox label {
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         color: #a8bdd8 !important;
     }
 
@@ -158,14 +161,14 @@ st.markdown(
         background-color: #0a101c !important;
         border: 1px solid #1e2a48 !important;
         color: #b8cce8 !important;
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
     }
 
     /* Expander */
     .streamlit-expanderHeader {
         background-color: #0a0e18 !important;
         color: #8ab0e8 !important;
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
         border: 1px solid #1a2540 !important;
     }
 
@@ -174,7 +177,7 @@ st.markdown(
         background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
         color: #a0c8ff !important;
         border: 1px solid #2a4068 !important;
-        font-family: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif !important;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
     }
 
     /* File uploader */
