@@ -43,7 +43,7 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="â­",
+    page_icon="S",
     layout="centered",
 )
 
@@ -2028,9 +2028,9 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     """Consistent card display for a fragrance with optional Love/Trash buttons."""
     current_reaction = st.session_state["user_reactions"].get(f["name"])
     status_badge = (
-        " â­ Favorite"
+        " YAY"
         if current_reaction == "fav"
-        else (" â Disliked" if current_reaction == "dislike" else "")
+        else (" NAH" if current_reaction == "dislike" else "")
     )
 
     st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
@@ -2041,12 +2041,12 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     if show_actions:
         col1, col2, col3 = st.columns([1, 1, 4])
         with col1:
-            if st.button("Love", key=f"{key_prefix}_fav_{f['name']}"):
+            if st.button("YAY", key=f"{key_prefix}_fav_{f['name']}"):
                 st.session_state["user_reactions"][f["name"]] = "fav"
                 save_persisted_data()
                 st.rerun()
         with col2:
-            if st.button("Trash", key=f"{key_prefix}_dislike_{f['name']}"):
+            if st.button("DEL", key=f"{key_prefix}_dislike_{f['name']}"):
                 st.session_state["user_reactions"][f["name"]] = "dislike"
                 save_persisted_data()
                 st.rerun()
@@ -2298,19 +2298,19 @@ with tab_discover:
         else:
             for i, f in enumerate(selected, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
-                badge = " â­" if current_reaction == "fav" else ""
+                badge = " YAY" if current_reaction == "fav" else ""
                 st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
                 c1, c2, _ = st.columns([1, 1, 4])
                 with c1:
-                    if st.button("Love", key=f"rec_fav_{f['name']}_{i}"):
+                    if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
                         save_persisted_data()
                         st.rerun()
                 with c2:
-                    if st.button("Trash", key=f"rec_dislike_{f['name']}_{i}"):
+                    if st.button("DEL", key=f"rec_dislike_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "dislike"
                         save_persisted_data()
                         st.rerun()
@@ -2453,9 +2453,9 @@ with tab_roulette:
         if chosen:
             current_reaction = st.session_state["user_reactions"].get(chosen["name"])
             status_badge = (
-                " â­ Favorite"
+                " YAY"
                 if current_reaction == "fav"
-                else (" â Disliked" if current_reaction == "dislike" else "")
+                else (" NAH" if current_reaction == "dislike" else "")
             )
             st.markdown(
                 """
@@ -2484,12 +2484,12 @@ with tab_roulette:
                 )
             rc1, rc2, _ = st.columns([1, 1, 2])
             with rc1:
-                if st.button("Love it", key=f"roulette_fav_{chosen['name']}"):
+                if st.button("YAY", key=f"roulette_fav_{chosen['name']}"):
                     st.session_state["user_reactions"][chosen["name"]] = "fav"
                     save_persisted_data()
                     st.rerun()
             with rc2:
-                if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}"):
+                if st.button("DEL", key=f"roulette_dislike_{chosen['name']}"):
                     st.session_state["user_reactions"][chosen["name"]] = "dislike"
                     save_persisted_data()
                     st.rerun()
@@ -2592,7 +2592,7 @@ with tab_sotd:
                         f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{notes_text}"
                     )
                 with xcol:
-                    if st.button("Del", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
+                    if st.button("DEL", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
                         st.session_state["sotd_history"].pop(i)
                         save_persisted_data()
                         st.rerun()
@@ -2638,14 +2638,14 @@ with tab_collection:
         db.sort(key=lambda x: (",".join(x.get("category", [])), x["name"].lower()))
 
     with st.expander(f"Browse all {len(db)} bottles", expanded=False):
-        for f in db:
+        for i, f in enumerate(db):
             wears = wear_counts.get(f["name"], 0)
             wear_str = f" | worn {wears}x" if wears else ""
             current_reaction = st.session_state["user_reactions"].get(f["name"])
             status = (
-                " â­"
+                " YAY"
                 if current_reaction == "fav"
-                else (" [x]" if current_reaction == "dislike" else "")
+                else (" NAH" if current_reaction == "dislike" else "")
             )
             st.markdown(
                 f"**{f['name']}**{status} - *{f['brand']}*  \n"
@@ -2653,7 +2653,32 @@ with tab_collection:
                 f"<small style='opacity:0.75'>{f['notes']}</small>",
                 unsafe_allow_html=True,
             )
+            b1, b2, _ = st.columns([1, 1, 4])
+            safe_key = f"{i}_{f['name']}"
+            with b1:
+                if current_reaction == "fav":
+                    if st.button("NAH", key=f"col_unfav_{safe_key}"):
+                        st.session_state["user_reactions"].pop(f["name"], None)
+                        save_persisted_data()
+                        st.rerun()
+                else:
+                    if st.button("YAY", key=f"col_fav_{safe_key}"):
+                        st.session_state["user_reactions"][f["name"]] = "fav"
+                        save_persisted_data()
+                        st.rerun()
+            with b2:
+                if current_reaction == "dislike":
+                    if st.button("UNDO", key=f"col_restore_{safe_key}"):
+                        st.session_state["user_reactions"].pop(f["name"], None)
+                        save_persisted_data()
+                        st.rerun()
+                else:
+                    if st.button("DEL", key=f"col_dislike_{safe_key}"):
+                        st.session_state["user_reactions"][f["name"]] = "dislike"
+                        save_persisted_data()
+                        st.rerun()
             st.markdown("---")
+
 
 # ===== VAULT =====
 with tab_vault:
