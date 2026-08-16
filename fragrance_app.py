@@ -2047,10 +2047,6 @@ def chart_category_weights(sun: str, moon: str, rising: str) -> dict:
 def score_fragrance_for_chart(f: dict, cat_weights: dict, sun: str, moon: str, rising: str) -> int:
     if st.session_state["user_reactions"].get(f["name"]) == "dislike":
         return -999
-    g = normalize_gender(f.get("gender", ""))
-    # Female / unisex focus for this feature
-    if g not in ("Female", "Female-leaning", "Unisex"):
-        return -999
 
     score = 0
     if st.session_state["user_reactions"].get(f["name"]) == "fav":
@@ -2069,10 +2065,24 @@ def score_fragrance_for_chart(f: dict, cat_weights: dict, sun: str, moon: str, r
     return score
 
 
-def get_chart_fragrances(sun: str, moon: str, rising: str, top_n: int = 5) -> list:
+def get_chart_fragrances(
+    sun: str,
+    moon: str,
+    rising: str,
+    top_n: int = 5,
+    gender: str = "Female",
+    weather: str = "Any",
+    category: str = "Any",
+) -> list:
     weights = chart_category_weights(sun, moon, rising)
     scored = []
     for f in st.session_state["fragrances_db"]:
+        if not matches_gender(f, gender):
+            continue
+        if not matches_weather(f, weather):
+            continue
+        if not matches_category(f, category):
+            continue
         s = score_fragrance_for_chart(f, weights, sun, moon, rising)
         if s > 0:
             scored.append((s, f))
