@@ -47,11 +47,11 @@ st.set_page_config(
     layout="centered",
 )
 
-# Custom Gothic Styling â polished, professional, mobile-friendly
+# Custom Gothic Styling - polished, professional, mobile-friendly
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
     --bg-deep: #05070c;
@@ -68,7 +68,7 @@ st.markdown(
 }
 
 html, body, .stApp, [class*="css"], .stMarkdown, p, span, div, label, input, textarea, button {
-    font-family: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
     letter-spacing: normal !important;
     word-spacing: normal !important;
 }
@@ -142,7 +142,7 @@ section[data-testid="stSidebar"] .stMarkdown p {
     color: var(--accent) !important;
     border: 1px solid var(--border) !important;
     border-radius: 6px !important;
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
     font-weight: 600 !important;
     font-size: 0.9rem !important;
     letter-spacing: 0.02em !important;
@@ -171,7 +171,7 @@ div[data-baseweb="select"] > div {
     color: var(--text) !important;
     border: 1px solid var(--border) !important;
     border-radius: 6px !important;
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
     font-size: 0.92rem !important;
 }
 .stTextInput > div > div > input:focus {
@@ -180,7 +180,7 @@ div[data-baseweb="select"] > div {
 }
 
 .stRadio label, .stCheckbox label {
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
     color: var(--text) !important;
     font-size: 0.9rem !important;
 }
@@ -191,7 +191,7 @@ div[data-baseweb="select"] > div {
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
     color: var(--text) !important;
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
 }
 div[data-testid="stNotification"] {
     border-left: 3px solid #6a2030 !important;
@@ -208,14 +208,14 @@ div[data-testid="stNotification"] {
     color: var(--text-muted) !important;
 }
 
-/* Tabs â professional underline style */
+/* Tabs - professional underline style */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0.25rem;
     border-bottom: 1px solid var(--border);
     background: transparent;
 }
 .stTabs [data-baseweb="tab"] {
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
     font-weight: 600 !important;
     font-size: 0.88rem !important;
     color: var(--text-muted) !important;
@@ -245,7 +245,7 @@ span[data-testid="stIconMaterial"],
 }
 [data-testid="stExpander"] summary,
 .streamlit-expanderHeader {
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
     color: var(--accent) !important;
     background: var(--bg-elevated) !important;
     border: 1px solid var(--border) !important;
@@ -275,7 +275,7 @@ span[data-testid="stIconMaterial"],
     color: var(--accent) !important;
     border: 1px solid var(--border) !important;
     border-radius: 6px !important;
-    font-family: 'Source Sans 3', system-ui, sans-serif !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
 }
 
 .stFileUploader {
@@ -2091,7 +2091,7 @@ def get_wear_counts() -> dict:
 # STREAMLIT USER INTERFACE
 # ==========================================
 st.title("ScentedDeadGirl")
-st.caption("Fragrance sanctuary Â· recommend Â· layer Â· log Â· curate")
+st.caption("Fragrance sanctuary  |  recommend  |  layer  |  log  |  curate")
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
@@ -2180,7 +2180,7 @@ with st.sidebar:
             ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
         )
         new_season = st.text_input("Season", value="Fall, Winter")
-        new_notes = st.text_input("Notes", placeholder="Top - â¦ / Heart - â¦ / Base - â¦")
+        new_notes = st.text_input("Notes", placeholder="Top - ... / Heart - ... / Base - ...")
         new_cats = st.multiselect(
             "Categories",
             [
@@ -2243,7 +2243,7 @@ with tab_discover:
 
     # Name / brand search
     if search_query:
-        st.subheader(f"Search Â· â{search_query}â")
+        st.subheader(f'Search | "{search_query}"')
         query_lower = search_query.lower()
         matching = [
             f
@@ -2259,7 +2259,7 @@ with tab_discover:
 
     # Note search
     if note_query:
-        st.subheader(f"Notes Â· â{note_query}â")
+        st.subheader(f'Notes | "{note_query}"')
         note_q = note_query.lower()
         matching_notes = [
             f
@@ -2308,9 +2308,9 @@ with tab_discover:
         st.subheader(f"Top {num_show}")
         if meta:
             st.caption(
-                f"{meta.get('gender')} Â· {meta.get('weather')} Â· "
-                f"{meta.get('category')} Â· {meta.get('occasion')}"
-                + (" Â· favorites only" if meta.get("favorites_only") else "")
+                f"{meta.get('gender')} | {meta.get('weather')} | "
+                f"{meta.get('category')} | {meta.get('occasion')}"
+                + (" | favorites only" if meta.get("favorites_only") else "")
             )
         if not selected:
             st.warning(
@@ -2321,8 +2321,8 @@ with tab_discover:
             for i, f in enumerate(selected, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
                 badge = " ð¤" if current_reaction == "fav" else ""
-                st.success(f"**#{i} â {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} Â· **Season:** {f['season']}")
+                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
+                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
                 c1, c2, _ = st.columns([1, 1, 4])
@@ -2359,7 +2359,7 @@ with tab_discover:
 # ===== ROULETTE =====
 with tab_roulette:
     st.subheader("Fragrance Roulette")
-    st.write("Let chance pick from your vault â still respecting gender and season.")
+    st.write("Let chance pick from your vault - still respecting gender and season.")
 
     r1, r2 = st.columns(2)
     with r1:
@@ -2434,14 +2434,14 @@ with tab_roulette:
             st.markdown(f"## **{chosen['name']}**{status_badge}")
             st.markdown(f"### by *{chosen['brand']}*")
             st.write(
-                f"**Gender:** {chosen['gender']}  Â·  **Season:** {chosen['season']}"
+                f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}"
             )
             st.write(f"**Category:** {', '.join(chosen['category'])}")
             st.caption(f"Notes: {chosen['notes']}")
             meta = st.session_state.get("last_roulette_meta") or {}
             if meta:
                 st.caption(
-                    f"Filters Â· {meta.get('gender', 'â')} Â· {meta.get('season', 'â')} Â· "
+                    f"Filters | {meta.get('gender', '-')} | {meta.get('season', '-')} | "
                     f"pool {meta.get('pool_size', '?')}"
                 )
             rc1, rc2, _ = st.columns([1, 1, 2])
@@ -2471,12 +2471,12 @@ with tab_sotd:
     sotd_choices = st.multiselect(
         "Wearing today",
         options=all_frag_names,
-        placeholder="Choose fragrance(s)â¦",
+        placeholder="Choose fragrance(s)...",
         key="sotd_multiselect",
     )
     sotd_notes = st.text_input(
         "Notes / vibe (optional)",
-        placeholder="Rainy afternoon Â· office Â· date night",
+        placeholder="Rainy afternoon | office | date night",
         key="sotd_notes_input",
     )
 
@@ -2540,15 +2540,15 @@ with tab_sotd:
     if st.session_state["sotd_history"]:
         with st.expander("Journal history", expanded=True):
             for i, entry in enumerate(st.session_state["sotd_history"]):
-                layer_badge = " Â· layering" if entry.get("is_layering") else ""
-                notes_text = f" â {entry['notes']}" if entry.get("notes") else ""
+                layer_badge = " | layering" if entry.get("is_layering") else ""
+                notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
                 hcol, xcol = st.columns([6, 1])
                 with hcol:
                     st.write(
                         f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{notes_text}"
                     )
                 with xcol:
-                    if st.button("â", key=f"del_sotd_{i}_{entry['date']}"):
+                    if st.button("ðï¸", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
                         st.session_state["sotd_history"].pop(i)
                         save_persisted_data()
                         st.rerun()
@@ -2580,13 +2580,13 @@ with tab_collection:
 
     browse_sort = st.selectbox(
         "Sort by",
-        ["Name (AâZ)", "Brand (AâZ)", "Most worn", "Category"],
+        ["Name (A-Z)", "Brand (A-Z)", "Most worn", "Category"],
         key="browse_sort",
     )
     db = list(st.session_state["fragrances_db"])
-    if browse_sort == "Name (AâZ)":
+    if browse_sort == "Name (A-Z)":
         db.sort(key=lambda x: x["name"].lower())
-    elif browse_sort == "Brand (AâZ)":
+    elif browse_sort == "Brand (A-Z)":
         db.sort(key=lambda x: (x["brand"].lower(), x["name"].lower()))
     elif browse_sort == "Most worn":
         db.sort(key=lambda x: wear_counts.get(x["name"], 0), reverse=True)
@@ -2596,7 +2596,7 @@ with tab_collection:
     with st.expander(f"Browse all {len(db)} bottles", expanded=False):
         for f in db:
             wears = wear_counts.get(f["name"], 0)
-            wear_str = f" Â· worn {wears}Ã" if wears else ""
+            wear_str = f" | worn {wears}x" if wears else ""
             current_reaction = st.session_state["user_reactions"].get(f["name"])
             status = (
                 " ð¤"
@@ -2604,8 +2604,8 @@ with tab_collection:
                 else (" ð«" if current_reaction == "dislike" else "")
             )
             st.markdown(
-                f"**{f['name']}**{status} â *{f['brand']}*  \n"
-                f"{f['gender']} Â· {f['season']} Â· {', '.join(f['category'])}{wear_str}  \n"
+                f"**{f['name']}**{status} - *{f['brand']}*  \n"
+                f"{f['gender']} | {f['season']} | {', '.join(f['category'])}{wear_str}  \n"
                 f"<small style='opacity:0.75'>{f['notes']}</small>",
                 unsafe_allow_html=True,
             )
@@ -2641,11 +2641,11 @@ with tab_vault:
     manage_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
     selected_manage = st.selectbox(
         "Choose a bottle",
-        ["â select â"] + manage_names,
+        ["- select -"] + manage_names,
         key="manage_select",
     )
 
-    if selected_manage != "â select â":
+    if selected_manage != "- select -":
         idx = next(
             (
                 i
