@@ -2241,6 +2241,28 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
     return results
 
 
+
+def suggest_partners_for(base: dict, num: int = 4) -> list:
+    """Best layering partners for a single selected fragrance."""
+    if not base:
+        return []
+    pool = st.session_state["fragrances_db"]
+    candidates = []
+    for f in pool:
+        if f["name"] == base["name"]:
+            continue
+        s = layer_score(base, f)
+        if s <= -50:
+            continue
+        reason = (
+            f"Pairs {', '.join(base.get('category', []))} from {base['name']} with "
+            f"{', '.join(f.get('category', []))} from {f['name']}."
+        )
+        candidates.append((s, f, reason))
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return [(f, reason) for _, f, reason in candidates[:num]]
+
+
 def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     """Consistent card display for a fragrance with optional Love/Trash buttons."""
     current_reaction = st.session_state["user_reactions"].get(f["name"])
@@ -2591,8 +2613,42 @@ with tab_discover:
 # ===== LAYER =====
 with tab_layer:
     st.subheader("Layering Studio")
-    st.write("Build a duo from your vault. Filters narrow the pool; stars get a boost.")
+    st.write(
+        "Pick a base bottle for partner ideas, or generate free combos from filters."
+    )
 
+    all_layer_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
+    base_choice = st.selectbox(
+        "Base fragrance",
+        ["- select a bottle -"] + all_layer_names,
+        key="layer_base_select",
+    )
+
+    if base_choice != "- select a bottle -":
+        name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
+        base_f = name_to_frag.get(base_choice)
+        if base_f:
+            st.caption(
+                f"{base_f['brand']} Â· {base_f['gender']} Â· {base_f['season']} Â· "
+                f"{', '.join(base_f.get('category', []))}"
+            )
+            partners = suggest_partners_for(base_f, num=5)
+            if not partners:
+                st.warning("No strong partners for this bottle.")
+            else:
+                st.markdown(f"#### Partners for **{base_choice}**")
+                for pi, (pf, reason) in enumerate(partners, 1):
+                    st.info(
+                        f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
+                        f"{', '.join(pf.get('category', []))}\n\n"
+                        f"*{reason}*"
+                    )
+                    if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
+                        st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
+                        st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### Free combos from filters")
     lc1, lc2 = st.columns(2)
     with lc1:
         layer_gender = st.selectbox(
@@ -2795,6 +2851,37 @@ with tab_sotd:
         placeholder="Rainy afternoon | office | date night",
         key="sotd_notes_input",
     )
+
+    # Layering partners based on current selection
+    if sotd_choices:
+        name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
+        primary_name = sotd_choices[0]
+        primary = name_to_frag.get(primary_name)
+        if primary:
+            st.markdown(f"#### Layer with **{primary_name}**")
+            st.caption("Suggestions for the first bottle you selected. Tap Add to include it today.")
+            partners = suggest_partners_for(primary, num=4)
+            if not partners:
+                st.write("No strong partners found (or everything else is DEL).")
+            else:
+                for pi, (pf, reason) in enumerate(partners):
+                    already = pf["name"] in sotd_choices
+                    row_a, row_b = st.columns([4, 1])
+                    with row_a:
+                        mark = " (already selected)" if already else ""
+                        st.markdown(
+                            f"**{pf['name']}** Â· *{pf['brand']}*{mark}  \n"
+                            f"{', '.join(pf.get('category', []))}  \n"
+                            f"*{reason}*"
+                        )
+                    with row_b:
+                        if not already:
+                            if st.button("Add", key=f"sotd_add_layer_{pi}_{pf['name']}"):
+                                st.session_state["sotd_prefill"] = list(sotd_choices) + [pf["name"]]
+                                if not st.session_state.get("sotd_notes_input"):
+                                    st.session_state["sotd_notes_input"] = "Layered combo"
+                                st.rerun()
+                    st.markdown("---")
 
     with st.expander("Quick layering combos"):
         fav_names = [
