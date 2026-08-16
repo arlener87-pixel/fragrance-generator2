@@ -52,9 +52,9 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* System fonts only - no external font loading */
+    /* Mobile-first font stack: emoji fonts first, then system UI, then serif fallback */
     html, body, [class*="css"], .stApp, .stMarkdown, p, span, div, label, input, textarea, button, h1, h2, h3, h4, h5, h6 {
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
     }
 
     /* Deep void background */
@@ -66,14 +66,9 @@ st.markdown(
     /* Headings - spectral gothic (with solid fallbacks) */
     h1, h2, h3, h4 {
         color: #9ec5ff !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         text-shadow: 0 0 12px rgba(80, 140, 255, 0.55), 0 0 4px rgba(180, 40, 60, 0.3), 2px 2px 6px rgba(0, 0, 0, 0.95);
         letter-spacing: 1.2px;
-    }
-
-    /* Only the main title uses the more decorative face */
-    h1 {
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
     }
 
     h1 {
@@ -83,9 +78,9 @@ st.markdown(
         background: linear-gradient(90deg, transparent, rgba(40, 20, 50, 0.4), transparent);
     }
 
-    /* Body text - reliable gothic-ish stack */
+    /* Body text */
     p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning {
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         color: #b0c0d8 !important;
     }
 
@@ -99,7 +94,7 @@ st.markdown(
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
         color: #8ab4ff !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         text-shadow: 0 0 8px rgba(60, 100, 200, 0.4);
     }
 
@@ -109,7 +104,7 @@ st.markdown(
         color: #a0c8ff !important;
         border: 1px solid #2a4068 !important;
         border-radius: 2px !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         font-weight: 600 !important;
         letter-spacing: 0.8px;
         transition: all 0.3s ease;
@@ -143,7 +138,7 @@ st.markdown(
         color: #d0e0f8 !important;
         border: 1px solid #1e2a48 !important;
         border-radius: 2px !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
     }
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > select:focus {
@@ -153,7 +148,7 @@ st.markdown(
 
     /* Radio & checkbox */
     .stRadio label, .stCheckbox label {
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         color: #a8bdd8 !important;
     }
 
@@ -162,14 +157,14 @@ st.markdown(
         background-color: #0a101c !important;
         border: 1px solid #1e2a48 !important;
         color: #b8cce8 !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
     }
 
     /* Expander */
     .streamlit-expanderHeader {
         background-color: #0a0e18 !important;
         color: #8ab0e8 !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         border: 1px solid #1a2540 !important;
     }
 
@@ -196,10 +191,10 @@ st.markdown(
         pointer-events: none !important;
     }
 
-    /* Clean expander headers â gothic style */
+    /* Clean expander headers - gothic style */
     [data-testid="stExpander"] summary,
     .streamlit-expanderHeader {
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
         color: #9ec5ff !important;
         background: linear-gradient(90deg, #0a0e18 0%, #0c1220 100%) !important;
         border: 1px solid #1e2a48 !important;
@@ -226,7 +221,7 @@ st.markdown(
         background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
         color: #a0c8ff !important;
         border: 1px solid #2a4068 !important;
-        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
     }
 
     /* File uploader */
@@ -2558,7 +2553,7 @@ if st.session_state["sotd_history"]:
         wear_counts = get_wear_counts()
         for i, entry in enumerate(st.session_state["sotd_history"]):
             layer_badge = " [Layering]" if entry.get("is_layering") else ""
-            notes_text = f" â {entry['notes']}" if entry.get("notes") else ""
+            notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
             col_h, col_x = st.columns([6, 1])
             with col_h:
                 st.write(
@@ -2604,14 +2599,14 @@ with col_s4:
 
 browse_sort = st.selectbox(
     "Sort collection by",
-    ["Name (AâZ)", "Brand (AâZ)", "Most worn", "Category"],
+    ["Name (A to Z)", "Brand (A to Z)", "Most worn", "Category"],
     key="browse_sort",
 )
 
 db = list(st.session_state["fragrances_db"])
-if browse_sort == "Name (AâZ)":
+if browse_sort == "Name (A to Z)":
     db.sort(key=lambda x: x["name"].lower())
-elif browse_sort == "Brand (AâZ)":
+elif browse_sort == "Brand (A to Z)":
     db.sort(key=lambda x: (x["brand"].lower(), x["name"].lower()))
 elif browse_sort == "Most worn":
     db.sort(key=lambda x: wear_counts.get(x["name"], 0), reverse=True)
@@ -2629,7 +2624,7 @@ with st.expander(f"Browse all {len(db)} bottles", expanded=False):
             else (" ð«" if current_reaction == "dislike" else "")
         )
         st.markdown(
-            f"**{f['name']}**{status} â *{f['brand']}*  \n"
+            f"**{f['name']}**{status} - *{f['brand']}*  \n"
             f"{f['gender']} Â· {f['season']} Â· {', '.join(f['category'])}{wear_str}  \n"
             f"<small>{f['notes']}</small>",
             unsafe_allow_html=True,
@@ -2637,7 +2632,7 @@ with st.expander(f"Browse all {len(db)} bottles", expanded=False):
         st.markdown("---")
 
 # Collection & Data Management Expander (Export/Import + Reactions + Edit/Delete)
-with st.expander("Sanctuary Vault â Collection & Data"):
+with st.expander("Sanctuary Vault - Collection & Data"):
     st.write(
         f"Bottles in the vault: **{len(st.session_state['fragrances_db'])}**"
     )
