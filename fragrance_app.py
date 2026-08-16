@@ -2810,6 +2810,9 @@ with tab_horoscope:
         "Not a full ephemeris engine - a sanctuary vibe guide."
     )
 
+    if "chart_gender" not in st.session_state:
+        st.session_state["chart_gender"] = "Female"
+
     st.markdown("#### Your chart")
     st.info(
         f"**Born** {DEFAULT_CHART['birth_date']} Â· {DEFAULT_CHART['birth_time']} Â· "
@@ -2851,24 +2854,92 @@ with tab_horoscope:
             f"Families: {', '.join(p['categories'])}"
         )
 
+    st.markdown("#### Filters")
+    if st.session_state.pop("_clear_chart_filters", False):
+        st.session_state["chart_gender"] = "Female"
+        st.session_state["chart_weather"] = "Any"
+        st.session_state["chart_category"] = "Any"
+        st.session_state.pop("last_chart_picks", None)
+
+    cf1, cf2, cf3 = st.columns(3)
+    with cf1:
+        chart_gender = st.selectbox(
+            "Gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="chart_gender",
+        )
+    with cf2:
+        chart_weather = st.selectbox(
+            "Season / weather",
+            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+            key="chart_weather",
+        )
+    with cf3:
+        chart_category = st.selectbox(
+            "Category",
+            [
+                "Any",
+                "Gourmand",
+                "Floral",
+                "Woody",
+                "Oriental",
+                "Fresh",
+                "Fruity",
+                "Spicy",
+                "Citrus",
+                "Aromatic",
+                "Sweet",
+                "Oud",
+                "Leather",
+            ],
+            key="chart_category",
+        )
+
     chart_n = st.radio("How many picks", [3, 5, 7], index=1, horizontal=True, key="chart_n")
-    if st.button("Draw chart scents", type="primary", key="chart_draw_btn"):
-        picks = get_chart_fragrances(sun_s, moon_s, rise_s, top_n=chart_n)
+    b_draw, b_clear = st.columns(2)
+    with b_draw:
+        draw_clicked = st.button("Draw chart scents", type="primary", use_container_width=True, key="chart_draw_btn")
+    with b_clear:
+        if st.button("Clear filters", use_container_width=True, key="chart_clear_btn"):
+            st.session_state["_clear_chart_filters"] = True
+            st.rerun()
+
+    if draw_clicked:
+        picks = get_chart_fragrances(
+            sun_s,
+            moon_s,
+            rise_s,
+            top_n=chart_n,
+            gender=chart_gender,
+            weather=chart_weather,
+            category=chart_category,
+        )
         st.session_state["last_chart_picks"] = {
             "picks": picks,
-            "meta": {"sun": sun_s, "moon": moon_s, "rising": rise_s},
+            "meta": {
+                "sun": sun_s,
+                "moon": moon_s,
+                "rising": rise_s,
+                "gender": chart_gender,
+                "weather": chart_weather,
+                "category": chart_category,
+            },
         }
 
     last_chart = st.session_state.get("last_chart_picks")
     if last_chart is not None:
         meta = last_chart.get("meta") or {}
         picks = last_chart.get("picks") or []
-        st.subheader("Chart picks Â· Female / Unisex")
+        st.subheader("Chart picks")
         st.caption(
-            f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· Rising {meta.get('rising')}"
+            f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· Rising {meta.get('rising')}  |  "
+            f"{meta.get('gender')} Â· {meta.get('weather')} Â· {meta.get('category')}"
         )
         if not picks:
-            st.warning("No matching Female/Unisex bottles for this blend. Add more or loosen dislikes.")
+            st.warning(
+                "Nothing matched this chart + filter blend. "
+                "Try **Any** on season/category, or clear filters."
+            )
         else:
             for i, f in enumerate(picks, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
