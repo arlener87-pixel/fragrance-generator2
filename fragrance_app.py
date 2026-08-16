@@ -2429,6 +2429,75 @@ def suggest_partners_for(base: dict, num: int = 4) -> list:
     return [(f, reason) for _, f, reason in candidates[:num]]
 
 
+def suggest_his_match(her_frags: list, num: int = 4) -> list:
+    """Male / male-leaning bottles that complement her selected scent(s)."""
+    if not her_frags:
+        return []
+    her_cats = set()
+    her_names = set()
+    for f in her_frags:
+        her_names.add(f["name"])
+        her_cats.update(f.get("category", []))
+
+    # Complementary families for him relative to her profile
+    boost_pairs = {
+        "Gourmand": ["Woody", "Spicy", "Oriental", "Fresh"],
+        "Sweet": ["Woody", "Spicy", "Fresh", "Aromatic"],
+        "Floral": ["Woody", "Oriental", "Spicy", "Fresh"],
+        "Fruity": ["Woody", "Fresh", "Aromatic", "Spicy"],
+        "Oriental": ["Woody", "Fresh", "Spicy", "Aromatic"],
+        "Fresh": ["Woody", "Oriental", "Spicy", "Gourmand"],
+        "Woody": ["Fresh", "Spicy", "Oriental", "Gourmand"],
+        "Spicy": ["Fresh", "Woody", "Gourmand", "Sweet"],
+        "Oud": ["Fresh", "Floral", "Woody", "Spicy"],
+        "Leather": ["Fresh", "Floral", "Sweet", "Woody"],
+        "Citrus": ["Woody", "Oriental", "Spicy", "Aromatic"],
+        "Aromatic": ["Woody", "Oriental", "Gourmand", "Fresh"],
+    }
+
+    candidates = []
+    for f in st.session_state["fragrances_db"]:
+        if f["name"] in her_names:
+            continue
+        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+            continue
+        g = normalize_gender(f.get("gender", ""))
+        if g not in ("Male", "Male-leaning"):
+            # pure Unisex ok as softer option but lower priority
+            if g != "Unisex":
+                continue
+            gender_bonus = 2
+        else:
+            gender_bonus = 12 if g == "Male" else 9
+
+        score = gender_bonus
+        his_cats = set(f.get("category", []))
+        # shared family = cohesive couple scent
+        shared = her_cats & his_cats
+        score += len(shared) * 10
+        # complementary families
+        for hc in her_cats:
+            for good in boost_pairs.get(hc, []):
+                if good in his_cats:
+                    score += 8
+        # layer_score against primary her bottle
+        score += max(0, layer_score(her_frags[0], f))
+        if st.session_state["user_reactions"].get(f["name"]) == "fav":
+            score += 15
+        score += _stable_tiebreak(f["name"] + her_frags[0]["name"]) % 5
+        if score < 15:
+            continue
+        shared_txt = ", ".join(shared) if shared else "contrast"
+        reason = (
+            f"Complements her {', '.join(sorted(her_cats)[:3])} with his "
+            f"{', '.join(f.get('category', []))} ({shared_txt})."
+        )
+        candidates.append((score, f, reason))
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return [(f, reason) for _, f, reason in candidates[:num]]
+
+
 def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     """Consistent card display for a fragrance with optional Love/Trash buttons."""
     current_reaction = st.session_state["user_reactions"].get(f["name"])
@@ -3121,6 +3190,29 @@ with tab_sotd:
                                     st.session_state["sotd_notes_input"] = "Layered combo"
                                 st.rerun()
                     st.markdown("---")
+
+        # Husband / male match for her selection
+        st.markdown("#### His match")
+        st.caption(
+            "Male (and unisex) bottles from the vault that sit well beside what you're wearing."
+        )
+        his_matches = suggest_his_match(
+            [name_to_frag[n] for n in sotd_choices if n in name_to_frag],
+            num=4,
+        )
+        if not his_matches:
+            st.write(
+                "No strong male matches right now. Add more male bottles or loosen DEL marks."
+            )
+        else:
+            for hi, (hf, reason) in enumerate(his_matches):
+                st.info(
+                    f"**{hf['name']}** Â· *{hf['brand']}*\n\n"
+                    f"{hf['gender']} Â· {hf['season']} Â· {', '.join(hf.get('category', []))}\n\n"
+                    f"*{reason}*\n\n"
+                    f"Notes: {hf['notes']}"
+                )
+                st.markdown("---")
 
     with st.expander("Quick layering combos"):
         fav_names = [
