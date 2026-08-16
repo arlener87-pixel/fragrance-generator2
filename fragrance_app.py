@@ -51,10 +51,15 @@ st.set_page_config(
 # Deep black, blood-crimson accents, spectral blue, floating bats
 st.markdown(
     """
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
     <style>
-    /* Mobile-first font stack: emoji fonts first, then system UI, then serif fallback */
+    /* Gothic aesthetic: Cinzel (headings) + Cormorant Garamond (body)
+       Emoji fonts kept first so hearts/bats still render on mobile */
     html, body, [class*="css"], .stApp, .stMarkdown, p, span, div, label, input, textarea, button, h1, h2, h3, h4, h5, h6 {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji,
+                     'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
     }
 
     /* Deep void background */
@@ -63,12 +68,14 @@ st.markdown(
         color: #c8d0e0;
     }
 
-    /* Headings - spectral gothic (with solid fallbacks) */
+    /* Headings - Cinzel for monumental gothic feel */
     h1, h2, h3, h4 {
         color: #9ec5ff !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
+                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
         text-shadow: 0 0 12px rgba(80, 140, 255, 0.55), 0 0 4px rgba(180, 40, 60, 0.3), 2px 2px 6px rgba(0, 0, 0, 0.95);
-        letter-spacing: 1.2px;
+        letter-spacing: 1.5px;
+        font-weight: 600 !important;
     }
 
     h1 {
@@ -76,12 +83,15 @@ st.markdown(
         border-bottom: 1px solid #2a1a30;
         padding-bottom: 0.5rem;
         background: linear-gradient(90deg, transparent, rgba(40, 20, 50, 0.4), transparent);
+        letter-spacing: 2px;
     }
 
-    /* Body text */
+    /* Body text - Cormorant Garamond (elegant, readable serif) */
     p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
+                     'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
         color: #b0c0d8 !important;
+        font-size: 1.08rem !important;
     }
 
     /* Sidebar - deeper crypt */
@@ -94,8 +104,10 @@ st.markdown(
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
         color: #8ab4ff !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
+                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
         text-shadow: 0 0 8px rgba(60, 100, 200, 0.4);
+        letter-spacing: 1.2px;
     }
 
     /* Buttons - dark steel with blue glow */
@@ -104,9 +116,10 @@ st.markdown(
         color: #a0c8ff !important;
         border: 1px solid #2a4068 !important;
         border-radius: 2px !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
+                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
         font-weight: 600 !important;
-        letter-spacing: 0.8px;
+        letter-spacing: 1px;
         transition: all 0.3s ease;
         box-shadow: 0 0 8px rgba(30, 70, 150, 0.2);
     }
@@ -138,7 +151,7 @@ st.markdown(
         color: #d0e0f8 !important;
         border: 1px solid #1e2a48 !important;
         border-radius: 2px !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
     }
     .stTextInput > div > div > input:focus,
     .stSelectbox > div > div > select:focus {
@@ -148,7 +161,7 @@ st.markdown(
 
     /* Radio & checkbox */
     .stRadio label, .stCheckbox label {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
         color: #a8bdd8 !important;
     }
 
@@ -157,15 +170,17 @@ st.markdown(
         background-color: #0a101c !important;
         border: 1px solid #1e2a48 !important;
         color: #b8cce8 !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
     }
 
     /* Expander */
     .streamlit-expanderHeader {
         background-color: #0a0e18 !important;
         color: #8ab0e8 !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
+                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
         border: 1px solid #1a2540 !important;
+        letter-spacing: 1px;
     }
 
     /* ===== FIX BROKEN arrow_right / icon glyphs on mobile ===== */
@@ -194,13 +209,14 @@ st.markdown(
     /* Clean expander headers - gothic style */
     [data-testid="stExpander"] summary,
     .streamlit-expanderHeader {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
+                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
         color: #9ec5ff !important;
         background: linear-gradient(90deg, #0a0e18 0%, #0c1220 100%) !important;
         border: 1px solid #1e2a48 !important;
         border-radius: 4px !important;
         padding: 0.6rem 1rem !important;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
         text-shadow: 0 0 8px rgba(80, 140, 255, 0.35);
     }
 
@@ -221,7 +237,7 @@ st.markdown(
         background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
         color: #a0c8ff !important;
         border: 1px solid #2a4068 !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, 'Times New Roman', Times, serif !important;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
     }
 
     /* File uploader */
