@@ -2127,10 +2127,25 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Recommend filters")
-    gender = st.selectbox("Gender", ["Any", "Male", "Female", "Unisex"])
+    # Reset filters to defaults before widgets if flagged
+    if st.session_state.pop("_clear_filters", False):
+        st.session_state["filter_gender"] = "Any"
+        st.session_state["filter_weather"] = "Any"
+        st.session_state["filter_category"] = "Any"
+        st.session_state["filter_occasion"] = "Any"
+        st.session_state["filter_num_recs"] = 3
+        st.session_state["filter_favorites_only"] = False
+        st.session_state.pop("last_recs", None)
+
+    gender = st.selectbox(
+        "Gender",
+        ["Any", "Male", "Female", "Unisex"],
+        key="filter_gender",
+    )
     weather = st.selectbox(
         "Season / weather",
         ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+        key="filter_weather",
     )
     category = st.selectbox(
         "Category",
@@ -2149,6 +2164,7 @@ with st.sidebar:
             "Oud",
             "Leather",
         ],
+        key="filter_category",
     )
     occasion = st.selectbox(
         "Occasion",
@@ -2160,10 +2176,26 @@ with st.sidebar:
             "Formal / Event",
             "Outdoor / Sporty",
         ],
+        key="filter_occasion",
     )
-    num_recs = st.radio("How many", [1, 3, 5], index=1, horizontal=True)
-    favorites_only = st.checkbox("Favorites only", value=False)
-    generate_clicked = st.button("Generate recommendations", type="primary", use_container_width=True)
+    num_recs = st.radio(
+        "How many",
+        [1, 3, 5],
+        index=1,
+        horizontal=True,
+        key="filter_num_recs",
+    )
+    favorites_only = st.checkbox(
+        "Favorites only",
+        value=False,
+        key="filter_favorites_only",
+    )
+    generate_clicked = st.button(
+        "Generate recommendations", type="primary", use_container_width=True
+    )
+    if st.button("Clear filters", use_container_width=True, key="clear_filters_btn"):
+        st.session_state["_clear_filters"] = True
+        st.rerun()
 
     st.markdown("---")
     st.markdown("### Add fragrance")
