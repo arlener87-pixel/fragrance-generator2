@@ -599,14 +599,13 @@ def get_wear_counts() -> dict:
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
-st.title("ScentedDeadGirl")
-st.caption(
-    "Scroll down for: Fragrance Roulette | Scent of the Day | Collection Browser | Sanctuary Vault"
-)
+st.title("ScentedDeadGirl Sanctuary")
+st.caption("A gothic-toned fragrance vault & recommendation engine")
+
 st.markdown(
     """
     *Enter the crypt of scent...*  
-    Filter the vault, cherish or banish bottles, log your Scent of the Day,  
+    Filter your vault, cherish or banish bottles, log your Scent of the Day,  
     and weave forbidden layering combinations under the watch of the bats.
     """
 )
@@ -672,21 +671,124 @@ if "last_roulette" in st.session_state and st.session_state["last_roulette"]:
     render_fragrance_card(chosen, key_prefix="roulette")
 
 # ==========================================
-# COLLECTION BROWSER & VAULT
+# SCENT OF THE DAY (SOTD) LOGGER
 # ==========================================
 st.markdown("---")
-st.subheader("Collection Browser")
-col_s1, col_s2, col_s3 = st.columns(3)
-with col_s1:
-    st.metric("Bottles", len(st.session_state["fragrances_db"]))
-with col_s2:
+st.subheader("Scent of the Day (SOTD)")
+
+all_names = [f["name"] for f in st.session_state["fragrances_db"]]
+col_sotd1, col_sotd2 = st.columns([3, 1])
+with col_sotd1:
+    chosen_sotd = st.multiselect("What are you wearing today?", all_names, default=st.session_state["sotd_prefill"])
+with col_sotd2:
+    st.write("")
+    st.write("")
+    if st.button("Log SOTD", type="primary"):
+        if chosen_sotd:
+            entry = {
+                "date": datetime.date.today().strftime("%Y-%m-%d"),
+                "scents": chosen_sotd
+            }
+            st.session_state["sotd_history"].insert(0, entry)
+            save_persisted_data()
+            st.success(f"Logged SOTD: {', '.join(chosen_sotd)}")
+            st.session_state["sotd_prefill"] = []
+        else:
+            st.warning("Please pick at least one fragrance to log.")
+
+if st.session_state["sotd_history"]:
+    with st.expander("View SOTD History & Stats"):
+        wear_counts = get_wear_counts()
+        if wear_counts:
+            sorted_wears = sorted(wear_counts.items(), key=lambda x: x[1], reverse=True)
+            st.write("**Most Worn Bottles:**")
+            for name, count in sorted_wears[:5]:
+                st.write(f"- {name}: {count} wear(s)")
+            st.markdown("---")
+        st.write("**Recent Logs:**")
+        for entry in st.session_state["sotd_history"][:10]:
+            st.caption(f"{entry['date']} — {', '.join(entry['scents'])}")
+
+# ==========================================
+# LAYERIGN SANCTUARY
+# ==========================================
+st.markdown("---")
+st.subheader("Forbidden Layering Lab")
+st.write("Generate custom pairing combinations from your collection.")
+if st.button("Suggest Layering Combos", type="primary"):
+    combos = suggest_layering_combos(st.session_state["fragrances_db"], num_combos=3)
+    if combos:
+        for i, (f1, f2, reason) in enumerate(combos, 1):
+            st.info(f"**Combo {i}: {f1['name']}** + **{f2['name']}**")
+            st.write(f"- {f1['name']} ({', '.join(f1['category'])})")
+            st.write(f"- {f2['name']} ({', '.join(f2['category'])})")
+            st.caption(reason)
+            st.markdown("---")
+    else:
+        st.warning("Not enough fragrances in the vault to generate layering combos yet!")
+
+# ==========================================
+# NOTE & BRAND QUICK LOOKUP
+# ==========================================
+st.markdown("---")
+st.subheader("Note & Brand Quick Lookup")
+quick_input = st.text_input("Search specific notes (e.g., vanilla, caramel, oud, rose)...", key="quick_lookup_input")
+if quick_input:
+    q_low = quick_input.lower()
+    matches = [
+        f for f in st.session_state["fragrances_db"]
+        if q_low in f["notes"].lower() or q_low in f["brand"].lower() or q_low in f["name"].lower()
+        or any(q_low in c.lower() for c in f["category"])
+    ]
+    if matches:
+        st.write(f"Found {len(matches)} matching bottle(s):")
+        for f in matches:
+            render_fragrance_card(f, key_prefix=f"quick_{quick_input}")
+    else:
+        st.info("No matching notes or brands found in your vault.")
+
+# ==========================================
+# COLLECTION BROWSER & VAULT MANAGEMENT
+# ==========================================
+st.markdown("---")
+st.subheader("Collection Browser & Vault Management")
+col_m1, col_m2, col_m3 = st.columns(3)
+with col_m1:
+    st.metric("Total Bottles", len(st.session_state["fragrances_db"]))
+with col_m2:
     st.metric("Favorites", len([s for s in st.session_state["user_reactions"].values() if s == "fav"]))
-with col_s3:
+with col_m3:
     st.metric("Banished", len([s for s in st.session_state["user_reactions"].values() if s == "dislike"]))
 
-with st.expander("Sanctuary Vault - Edit or Manage"):
+with st.expander("Add New Bottle to Vault"):
+    with st.form("add_bottle_form"):
+        new_name = st.text_input("Fragrance Name", key="add_name")
+        new_brand = st.text_input("Brand / House", key="add_brand")
+        new_gender = st.selectbox("Gender", ["Unisex", "Female", "Female-leaning", "Male", "Male-leaning"])
+        new_season = st.text_input("Season / Weather", value="Fall, Winter", key="add_season")
+        new_notes = st.text_area("Notes Breakdown", key="add_notes")
+        new_cats = st.multiselect("Categories", ["Gourmand", "Floral", "Woody", "Oriental", "Fresh", "Fruity", "Spicy", "Sweet", "Oud", "Leather"])
+        
+        if st.form_submit_button("Summon Bottle"):
+            if new_name and new_brand:
+                new_item = {
+                    "name": new_name,
+                    "brand": new_brand,
+                    "gender": new_gender,
+                    "season": new_season,
+                    "notes": new_notes if new_notes else "Not specified",
+                    "category": new_cats if new_cats else ["Uncategorized"]
+                }
+                st.session_state["fragrances_db"].append(new_item)
+                save_persisted_data()
+                st.success(f"Successfully added '{new_name}' to your vault!")
+                st.rerun()
+            else:
+                st.error("Please provide at least a name and brand.")
+
+with st.expander("Edit or Banish Existing Bottle"):
     manage_names = sorted([f["name"] for f in st.session_state["fragrances_db"]])
-    selected_manage = st.selectbox("Choose a bottle to edit...", ["- select -"] + manage_names)
+    selected_manage = st.selectbox("Choose a bottle to manage...", ["- select -"] + manage_names)
 
     if selected_manage != "- select -":
         idx = next((i for i, f in enumerate(st.session_state["fragrances_db"]) if f["name"] == selected_manage), None)
@@ -695,13 +797,48 @@ with st.expander("Sanctuary Vault - Edit or Manage"):
             with st.form(key=f"edit_form_{selected_manage}"):
                 e_name = st.text_input("Name", value=frag["name"])
                 e_brand = st.text_input("Brand", value=frag["brand"])
+                e_gender = st.selectbox("Gender", ["Unisex", "Female", "Female-leaning", "Male", "Male-leaning"], index=0)
                 e_season = st.text_input("Season", value=frag["season"])
                 e_notes = st.text_area("Notes", value=frag["notes"])
-                if st.form_submit_button("Save Changes"):
+                
+                col_sub1, col_sub2 = st.columns(2)
+                with col_sub1:
+                    save_btn = st.form_submit_button("Save Changes")
+                with col_sub2:
+                    delete_btn = st.form_submit_button("Banish Bottle Forever")
+
+                if save_btn:
                     frag["name"] = e_name
                     frag["brand"] = e_brand
+                    frag["gender"] = e_gender
                     frag["season"] = e_season
                     frag["notes"] = e_notes
                     save_persisted_data()
                     st.success("Vault updated successfully!")
                     st.rerun()
+
+                if delete_btn:
+                    st.session_state["fragrances_db"].pop(idx)
+                    if frag["name"] in st.session_state["user_reactions"]:
+                        del st.session_state["user_reactions"][frag["name"]]
+                    save_persisted_data()
+                    st.success(f"Banished '{selected_manage}' from your vault.")
+                    st.rerun()
+
+# ==========================================
+# EXPORT / IMPORT VAULT DATA
+# ==========================================
+st.markdown("---")
+with st.expander("Backup / Export Sanctuary Data"):
+    export_data = {
+        "fragrances_db": st.session_state["fragrances_db"],
+        "user_reactions": st.session_state["user_reactions"],
+        "sotd_history": st.session_state["sotd_history"]
+    }
+    json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
+    st.download_button(
+        label="Download Sanctuary JSON Backup",
+        data=json_str,
+        file_name="scented_dead_girl_backup.json",
+        mime="application/json"
+    )
