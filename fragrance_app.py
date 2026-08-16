@@ -2461,6 +2461,12 @@ with tab_sotd:
     st.subheader("Scent of the Day")
     all_frag_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
 
+    # Clear form on next run AFTER log (must happen before widgets are created)
+    if st.session_state.pop("_clear_sotd_form", False):
+        st.session_state["sotd_multiselect"] = []
+        st.session_state["sotd_notes_input"] = ""
+
+    # Prefill from quick layering combo (also before widgets)
     if st.session_state.get("sotd_prefill"):
         st.session_state["sotd_multiselect"] = list(st.session_state["sotd_prefill"])
         st.session_state["sotd_prefill"] = []
@@ -2522,8 +2528,8 @@ with tab_sotd:
                 },
             )
             save_persisted_data()
-            st.session_state["sotd_multiselect"] = []
-            st.session_state["sotd_notes_input"] = ""
+            # Flag form clear for the NEXT run (cannot mutate widget keys after widgets exist)
+            st.session_state["_clear_sotd_form"] = True
             st.session_state["_sotd_flash"] = (
                 f"Logged layering: **{scent_display}**"
                 if is_layering
@@ -2548,7 +2554,7 @@ with tab_sotd:
                         f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{notes_text}"
                     )
                 with xcol:
-                    if st.button("ðï¸", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
+                    if st.button("Del", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
                         st.session_state["sotd_history"].pop(i)
                         save_persisted_data()
                         st.rerun()
