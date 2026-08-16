@@ -31,6 +31,8 @@ def save_persisted_data():
         "fragrances_db": st.session_state.get("fragrances_db", []),
         "user_reactions": st.session_state.get("user_reactions", {}),
         "sotd_history": st.session_state.get("sotd_history", []),
+        "layer_recipes": st.session_state.get("layer_recipes", []),
+        "play_stats": st.session_state.get("play_stats", {}),
     }
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -1661,6 +1663,15 @@ if "user_reactions" not in st.session_state:
 if "sotd_history" not in st.session_state:
     st.session_state["sotd_history"] = _persisted.get("sotd_history", [])
 
+if "layer_recipes" not in st.session_state:
+    st.session_state["layer_recipes"] = _persisted.get("layer_recipes", [])
+
+if "play_stats" not in st.session_state:
+    st.session_state["play_stats"] = _persisted.get(
+        "play_stats",
+        {"blind_played": 0, "blind_correct": 0, "moods_drawn": 0},
+    )
+
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
     st.session_state["search_input"] = ""
@@ -2242,6 +2253,161 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 
 
 
+
+MOOD_PROFILES = {
+    "Cozy": {
+        "categories": ["Gourmand", "Sweet", "Woody"],
+        "notes_keywords": ["vanilla", "caramel", "milk", "tonka", "amber", "cocoa"],
+    },
+    "Fierce": {
+        "categories": ["Oriental", "Spicy", "Oud", "Leather", "Woody"],
+        "notes_keywords": ["oud", "pepper", "incense", "leather", "tobacco", "saffron"],
+    },
+    "Soft": {
+        "categories": ["Floral", "Fresh", "Sweet"],
+        "notes_keywords": ["musk", "powder", "iris", "white flower", "pear", "cotton"],
+    },
+    "Date night": {
+        "categories": ["Oriental", "Gourmand", "Floral", "Sweet"],
+        "notes_keywords": ["rose", "vanilla", "amber", "jasmine", "praline", "honey"],
+    },
+    "Focus / work": {
+        "categories": ["Fresh", "Citrus", "Aromatic", "Woody"],
+        "notes_keywords": ["citrus", "bergamot", "green", "cedar", "tea", "mint"],
+    },
+    "Rainy day": {
+        "categories": ["Gourmand", "Woody", "Oriental", "Floral"],
+        "notes_keywords": ["amber", "vanilla", "incense", "wet", "earthy", "tonka"],
+    },
+    "Main character": {
+        "categories": ["Oriental", "Gourmand", "Floral", "Spicy"],
+        "notes_keywords": ["amber", "vanilla", "oud", "rose", "cinnamon", "honey"],
+    },
+}
+
+
+def score_for_mood(f: dict, mood: str) -> int:
+    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+        return -999
+    prof = MOOD_PROFILES.get(mood, {})
+    score = 0
+    if st.session_state["user_reactions"].get(f["name"]) == "fav":
+        score += 20
+    for c in f.get("category", []):
+        if c in prof.get("categories", []):
+            score += 15
+    notes_l = f.get("notes", "").lower()
+    for kw in prof.get("notes_keywords", []):
+        if kw in notes_l:
+            score += 8
+    score += _stable_tiebreak(f["name"] + mood)
+    return score
+
+
+def get_mood_picks(mood: str, top_n: int = 3) -> list:
+    scored = []
+    for f in st.session_state["fragrances_db"]:
+        s = score_for_mood(f, mood)
+        if s > 0:
+            scored.append((s, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [f for _, f in scored[:top_n]]
+
+
+def twin_score(f1: dict, f2: dict) -> int:
+    if f1["name"] == f2["name"]:
+        return -1
+    score = 0
+    cats1 = set(f1.get("category", []))
+    cats2 = set(f2.get("category", []))
+    score += len(cats1 & cats2) * 20
+    # shared note tokens
+    t1 = set(re.findall(r"[a-zA-Z]{3,}", f1.get("notes", "").lower()))
+    t2 = set(re.findall(r"[a-zA-Z]{3,}", f2.get("notes", "").lower()))
+    # drop boring words
+    stop = {"top", "heart", "base", "and", "with", "notes", "the", "from"}
+    t1 -= stop
+    t2 -= stop
+    score += len(t1 & t2) * 5
+    if normalize_gender(f1.get("gender", "")) == normalize_gender(f2.get("gender", "")):
+        score += 5
+    return score
+
+
+def find_twins(base: dict, top_n: int = 5) -> list:
+    scored = []
+    for f in st.session_state["fragrances_db"]:
+        s = twin_score(base, f)
+        if s > 0:
+            scored.append((s, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [(s, f) for s, f in scored[:top_n]]
+
+
+def least_worn(top_n: int = 5) -> list:
+    counts = get_wear_counts()
+    items = []
+    for f in st.session_state["fragrances_db"]:
+        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+            continue
+        items.append((counts.get(f["name"], 0), f))
+    items.sort(key=lambda x: (x[0], x[1]["name"].lower()))
+    return items[:top_n]
+
+
+def sotd_streak() -> int:
+    """Consecutive days with a log ending at the most recent log (Pacific)."""
+    hist = st.session_state.get("sotd_history") or []
+    if not hist:
+        return 0
+    days = sorted({e.get("date") for e in hist if e.get("date")}, reverse=True)
+    if not days:
+        return 0
+    streak = 1
+    for i in range(len(days) - 1):
+        try:
+            d0 = datetime.date.fromisoformat(days[i])
+            d1 = datetime.date.fromisoformat(days[i + 1])
+        except ValueError:
+            break
+        if (d0 - d1).days == 1:
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def compute_badges() -> list:
+    badges = []
+    hist = st.session_state.get("sotd_history") or []
+    favs = [n for n, s in st.session_state.get("user_reactions", {}).items() if s == "fav"]
+    recipes = st.session_state.get("layer_recipes") or []
+    counts = get_wear_counts()
+    unique_worn = len([k for k, v in counts.items() if v > 0])
+    layered = sum(1 for e in hist if e.get("is_layering"))
+    stats = st.session_state.get("play_stats") or {}
+
+    if hist:
+        badges.append("First log")
+    if sotd_streak() >= 3:
+        badges.append(f"{sotd_streak()}-day streak")
+    if layered:
+        badges.append("Layer explorer")
+    if len(favs) >= 5:
+        badges.append("Collector heart")
+    if unique_worn >= 10:
+        badges.append("10 unique wears")
+    if recipes:
+        badges.append("Recipe keeper")
+    if stats.get("blind_played", 0) >= 1:
+        badges.append("Blind bottle brave")
+    if stats.get("blind_correct", 0) >= 3:
+        badges.append("Nose knows")
+    if stats.get("moods_drawn", 0) >= 5:
+        badges.append("Mood alchemist")
+    return badges
+
+
 def suggest_partners_for(base: dict, num: int = 4) -> list:
     """Best layering partners for a single selected fragrance."""
     if not base:
@@ -2503,8 +2669,8 @@ with st.sidebar:
                 st.error("Name and brand are required.")
 
 # ---------- MAIN TABS ----------
-tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Roulette", "SOTD", "Stars", "Collection", "Vault"]
+tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_play, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Roulette", "SOTD", "Stars", "Play", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -2712,6 +2878,41 @@ with tab_layer:
     else:
         st.info("Set filters and hit **Suggest layering combos** to get pairings.")
 
+
+    st.markdown("---")
+    st.markdown("#### Saved layer recipes")
+    rec_name = st.text_input("Recipe name", placeholder="e.g. Office armor", key="recipe_name_in")
+    rec_pick = st.multiselect(
+        "Bottles in recipe",
+        sorted(f["name"] for f in st.session_state["fragrances_db"]),
+        key="recipe_bottles_in",
+    )
+    if st.button("Save recipe", key="save_recipe_btn"):
+        if rec_name.strip() and len(rec_pick) >= 2:
+            st.session_state["layer_recipes"].insert(
+                0,
+                {"name": rec_name.strip(), "bottles": list(rec_pick)},
+            )
+            save_persisted_data()
+            st.success(f"Saved **{rec_name.strip()}**")
+            st.rerun()
+        else:
+            st.warning("Need a name and at least two bottles.")
+
+    for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
+        st.write(f"**{recipe['name']}** Â· {' + '.join(recipe.get('bottles') or [])}")
+        rb1, rb2 = st.columns(2)
+        with rb1:
+            if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
+                st.session_state["sotd_prefill"] = list(recipe.get("bottles") or [])
+                st.rerun()
+        with rb2:
+            if st.button("Delete", key=f"recipe_del_{ri}"):
+                st.session_state["layer_recipes"].pop(ri)
+                save_persisted_data()
+                st.rerun()
+
+
 # ===== ROULETTE =====
 with tab_roulette:
     st.subheader("Fragrance Roulette")
@@ -2728,6 +2929,16 @@ with tab_roulette:
             ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
             key="roulette_season",
         )
+    roulette_mode = st.selectbox(
+        "Mode",
+        [
+            "Standard (skip recent)",
+            "YAY only",
+            "Never worn",
+            "Opposite of yesterday",
+        ],
+        key="roulette_mode",
+    )
 
     if st.button("Spin the roulette", type="primary", key="spin_roulette_btn"):
         recent_worn = set()
@@ -2738,14 +2949,39 @@ with tab_roulette:
                 for part in entry["scent"].split(" + "):
                     recent_worn.add(part.strip())
 
+        yesterday_cats = set()
+        hist = st.session_state.get("sotd_history") or []
+        if hist:
+            last = hist[0]
+            names = last.get("scents") or []
+            if not names and last.get("scent"):
+                names = [p.strip() for p in last["scent"].split(" + ")]
+            name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
+            for n in names:
+                fr = name_map.get(n)
+                if fr:
+                    yesterday_cats.update(fr.get("category", []))
+
+        wear_counts = get_wear_counts()
         pool = []
         for f in st.session_state["fragrances_db"]:
             if st.session_state["user_reactions"].get(f["name"]) == "dislike":
                 continue
-            if f["name"] in recent_worn:
+            if not (matches_gender(f, roulette_gender) and matches_weather(f, roulette_season)):
                 continue
-            if matches_gender(f, roulette_gender) and matches_weather(f, roulette_season):
-                pool.append(f)
+            mode = roulette_mode
+            if mode == "Standard (skip recent)" and f["name"] in recent_worn:
+                continue
+            if mode == "YAY only" and st.session_state["user_reactions"].get(f["name"]) != "fav":
+                continue
+            if mode == "Never worn" and wear_counts.get(f["name"], 0) > 0:
+                continue
+            if mode == "Opposite of yesterday":
+                if not yesterday_cats:
+                    pass  # no history - allow all
+                elif set(f.get("category", [])) & yesterday_cats:
+                    continue  # skip overlapping families
+            pool.append(f)
 
         if not pool:
             st.warning(
@@ -2815,6 +3051,9 @@ with tab_roulette:
 # ===== SOTD =====
 with tab_sotd:
     st.subheader("Scent of the Day")
+    streak = sotd_streak()
+    if streak:
+        st.caption(f"Current log streak: **{streak}** day(s)")
     all_frag_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
 
     # Clear form on next run AFTER log (must happen before widgets are created)
@@ -3090,6 +3329,167 @@ with tab_horoscope:
             "for Female / Unisex recommendations."
         )
 
+
+# ===== PLAY =====
+with tab_play:
+    st.subheader("Play")
+    st.caption("Mood picks, blind bottle, twins, least-worn, compare, and badges.")
+
+    play_mode = st.radio(
+        "Game",
+        ["Mood board", "Blind bottle", "Twin finder", "Least worn", "Compare two", "Badges"],
+        horizontal=True,
+        key="play_mode",
+    )
+
+    name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
+    all_names = sorted(name_map.keys())
+
+    if play_mode == "Mood board":
+        mood = st.selectbox("Mood", list(MOOD_PROFILES.keys()), key="play_mood")
+        st.write(f"Lean: {', '.join(MOOD_PROFILES[mood]['categories'])}")
+        if st.button("Draw mood scents", type="primary", key="mood_draw"):
+            picks = get_mood_picks(mood, top_n=3)
+            st.session_state["last_mood"] = {"mood": mood, "picks": picks}
+            st.session_state["play_stats"]["moods_drawn"] = (
+                st.session_state["play_stats"].get("moods_drawn", 0) + 1
+            )
+            save_persisted_data()
+        last_mood = st.session_state.get("last_mood")
+        if last_mood:
+            st.caption(f"Mood: {last_mood.get('mood')}")
+            for i, f in enumerate(last_mood.get("picks") or [], 1):
+                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
+                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
+                st.write(f"{f['gender']} | {f['season']} | {', '.join(f['category'])}")
+                st.caption(f["notes"])
+                if st.button("Wear today", key=f"mood_wear_{i}"):
+                    st.session_state["sotd_prefill"] = [f["name"]]
+                    st.rerun()
+
+    elif play_mode == "Blind bottle":
+        st.write("Notes only. Guess the bottle, then reveal.")
+        if st.button("Draw a mystery bottle", type="primary", key="blind_draw"):
+            pool = [
+                f
+                for f in st.session_state["fragrances_db"]
+                if st.session_state["user_reactions"].get(f["name"]) != "dislike"
+            ]
+            if pool:
+                chosen = random.choice(pool)
+                st.session_state["blind_bottle"] = chosen
+                st.session_state["blind_revealed"] = False
+                st.session_state["blind_guess"] = ""
+                st.session_state["play_stats"]["blind_played"] = (
+                    st.session_state["play_stats"].get("blind_played", 0) + 1
+                )
+                save_persisted_data()
+        mystery = st.session_state.get("blind_bottle")
+        if mystery and not st.session_state.get("blind_revealed"):
+            st.info(
+                f"**Notes:** {mystery['notes']}\\n\\n"
+                f"**Season:** {mystery['season']} Â· **Category:** {', '.join(mystery['category'])}"
+            )
+            guess = st.selectbox(
+                "Your guess",
+                ["- pick -"] + all_names,
+                key="blind_guess_select",
+            )
+            if st.button("Reveal", key="blind_reveal"):
+                st.session_state["blind_revealed"] = True
+                if guess == mystery["name"]:
+                    st.session_state["play_stats"]["blind_correct"] = (
+                        st.session_state["play_stats"].get("blind_correct", 0) + 1
+                    )
+                    st.session_state["blind_result"] = "correct"
+                else:
+                    st.session_state["blind_result"] = "miss"
+                save_persisted_data()
+                st.rerun()
+        elif mystery and st.session_state.get("blind_revealed"):
+            result = st.session_state.get("blind_result")
+            if result == "correct":
+                st.success(f"Correct - **{mystery['name']}** by {mystery['brand']}")
+            else:
+                st.warning(f"It was **{mystery['name']}** by {mystery['brand']}")
+            st.write(f"{mystery['gender']} | {mystery['season']} | {', '.join(mystery['category'])}")
+            st.caption(mystery["notes"])
+
+    elif play_mode == "Twin finder":
+        base_n = st.selectbox("Find twins of", all_names, key="twin_base")
+        if st.button("Find twins", type="primary", key="twin_go"):
+            base = name_map.get(base_n)
+            if base:
+                st.session_state["last_twins"] = {
+                    "base": base_n,
+                    "twins": find_twins(base, top_n=5),
+                }
+        last_twins = st.session_state.get("last_twins")
+        if last_twins:
+            st.caption(f"Twins of {last_twins.get('base')}")
+            for s, f in last_twins.get("twins") or []:
+                st.info(
+                    f"**{f['name']}** ({f['brand']}) Â· score {s}\\n\\n"
+                    f"{', '.join(f['category'])}\\n\\n{f['notes']}"
+                )
+
+    elif play_mode == "Least worn":
+        st.write("Bottles that need love (lowest SOTD counts, DEL skipped).")
+        if st.button("Show neglected bottles", type="primary", key="least_go"):
+            st.session_state["last_least"] = least_worn(top_n=8)
+        for wears, f in st.session_state.get("last_least") or []:
+            st.write(
+                f"**{f['name']}** Â· *{f['brand']}* Â· worn {wears}x  \\n"
+                f"{f['gender']} | {', '.join(f['category'])}"
+            )
+            if st.button("Wear today", key=f"least_wear_{f['name']}"):
+                st.session_state["sotd_prefill"] = [f["name"]]
+                st.rerun()
+            st.markdown("---")
+
+    elif play_mode == "Compare two":
+        c1, c2 = st.columns(2)
+        with c1:
+            left = st.selectbox("Bottle A", all_names, key="cmp_a")
+        with c2:
+            right = st.selectbox("Bottle B", all_names, key="cmp_b")
+        if left and right and left != right:
+            fa, fb = name_map[left], name_map[right]
+            counts = get_wear_counts()
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown(f"### {fa['name']}")
+                st.write(f"*{fa['brand']}*")
+                st.write(f"**Gender:** {fa['gender']}")
+                st.write(f"**Season:** {fa['season']}")
+                st.write(f"**Category:** {', '.join(fa['category'])}")
+                st.write(f"**Worn:** {counts.get(fa['name'], 0)}x")
+                st.caption(fa["notes"])
+            with col_b:
+                st.markdown(f"### {fb['name']}")
+                st.write(f"*{fb['brand']}*")
+                st.write(f"**Gender:** {fb['gender']}")
+                st.write(f"**Season:** {fb['season']}")
+                st.write(f"**Category:** {', '.join(fb['category'])}")
+                st.write(f"**Worn:** {counts.get(fb['name'], 0)}x")
+                st.caption(fb["notes"])
+            shared = set(fa["category"]) & set(fb["category"])
+            if shared:
+                st.caption(f"Shared families: {', '.join(shared)}")
+
+    else:  # Badges
+        streak = sotd_streak()
+        badges = compute_badges()
+        stats = st.session_state.get("play_stats") or {}
+        m1, m2, m3 = st.columns(3)
+        m1.metric("SOTD streak", streak)
+        m2.metric("Blind plays", stats.get("blind_played", 0))
+        m3.metric("Blind correct", stats.get("blind_correct", 0))
+        if badges:
+            st.success(" Â· ".join(badges))
+        else:
+            st.info("Log a scent, star bottles, layer, or play blind bottle to earn badges.")
+
 # ===== COLLECTION =====
 with tab_collection:
     st.subheader("Collection browser")
@@ -3110,6 +3510,9 @@ with tab_collection:
     m2.metric("Favorites", len(favs))
     m3.metric("Banished", len(dislikes))
     m4.metric("SOTD logs", len(st.session_state["sotd_history"]))
+    badges = compute_badges()
+    if badges:
+        st.caption("Badges: " + " Â· ".join(badges))
 
     browse_sort = st.selectbox(
         "Sort by",
@@ -3305,6 +3708,8 @@ with tab_vault:
         "fragrances_db": st.session_state["fragrances_db"],
         "user_reactions": st.session_state["user_reactions"],
         "sotd_history": st.session_state["sotd_history"],
+        "layer_recipes": st.session_state.get("layer_recipes", []),
+        "play_stats": st.session_state.get("play_stats", {}),
     }
     json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
     st.download_button(
@@ -3323,6 +3728,10 @@ with tab_vault:
                 st.session_state["user_reactions"] = imported_data["user_reactions"]
             if "sotd_history" in imported_data:
                 st.session_state["sotd_history"] = imported_data["sotd_history"]
+            if "layer_recipes" in imported_data:
+                st.session_state["layer_recipes"] = imported_data["layer_recipes"]
+            if "play_stats" in imported_data:
+                st.session_state["play_stats"] = imported_data["play_stats"]
             save_persisted_data()
             st.success("Vault restored.")
             st.rerun()
