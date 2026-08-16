@@ -43,7 +43,7 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="ð¤",
+    page_icon="â­",
     layout="centered",
 )
 
@@ -1692,18 +1692,25 @@ def normalize_gender(g: str) -> str:
         return "Female-leaning"
     if re.search(r"\bmale[- ]?leaning\b|\bleans masculine\b|\bleans male\b", g):
         return "Male-leaning"
-    if g in ["unisex/male", "male/unisex", "male / unisex"]:
+    if g in ["unisex/male", "male/unisex", "male / unisex", "unisex (leans masculine)"]:
         return "Male-leaning"
     if g in [
         "unisex/female",
         "female/unisex",
         "women/unisex",
         "unisex / female-leaning",
+        "unisex / female",
+        "female / unisex",
     ]:
         return "Female-leaning"
-    if g == "male":
+    # slash forms
+    if "female" in g and "unisex" in g:
+        return "Female-leaning"
+    if "male" in g and "unisex" in g:
+        return "Male-leaning"
+    if g == "male" or g.startswith("male"):
         return "Male"
-    if g in ["female", "women"]:
+    if g in ["female", "women"] or g.startswith("female") or g.startswith("women"):
         return "Female"
     return "Unisex"
 
@@ -1725,77 +1732,48 @@ def matches_gender(fragrance: dict, preferred: str) -> bool:
 
 
 def matches_weather(fragrance: dict, weather: str) -> bool:
+    """Strict season matching. 'versatile' alone is NOT enough for Hot or Cold."""
     season = fragrance["season"].lower()
     if weather == "Any":
         return True
 
+    has_summer = "summer" in season
+    has_spring = "spring" in season
+    has_fall = "fall" in season or "autumn" in season
+    has_winter = "winter" in season
+    has_cooler = "cooler" in season
+    has_mild = "mild" in season
+    has_year = "year-round" in season or "year round" in season
+    # "versatile" only counts if not locked to the opposite extreme
+    has_versatile = "versatile" in season
+
     is_summer_target = "summer" in weather.lower() or "hot" in weather.lower()
     is_winter_target = "winter" in weather.lower() or "cold" in weather.lower()
 
-    # Strict filtering logic
     if is_summer_target:
-        if (
-            ("winter" in season or "fall" in season or "autumn" in season)
-            and "summer" not in season
-            and "spring" not in season
-            and "versatile" not in season
-            and "year-round" not in season
-        ):
-            return False
-        return (
-            "summer" in season
-            or "spring" in season
-            or "versatile" in season
-            or "year-round" in season
-            or "mild" in season
-        )
+        # Must explicitly mention summer, spring, mild, or year-round.
+        # Pure fall/winter (even with "versatile to cooler") is out.
+        if has_summer or has_spring or has_mild or has_year:
+            return True
+        # versatile without cooler/winter-only lock
+        if has_versatile and not has_winter and not has_cooler and not (has_fall and not has_spring):
+            return True
+        return False
 
     if is_winter_target:
-        if (
-            ("summer" in season or "spring" in season)
-            and "winter" not in season
-            and "fall" not in season
-            and "autumn" not in season
-            and "cooler" not in season
-            and "versatile" not in season
-            and "year-round" not in season
-        ):
-            return False
-        return (
-            "winter" in season
-            or "fall" in season
-            or "autumn" in season
-            or "cooler" in season
-            or "versatile" in season
-            or "year-round" in season
-        )
+        if has_winter or has_fall or has_cooler:
+            return True
+        if has_versatile and not has_summer:
+            return True
+        if has_year:
+            return True
+        return False
 
     if weather == "Warm / Mild":
-        return any(
-            x in season
-            for x in [
-                "spring",
-                "fall",
-                "autumn",
-                "mild",
-                "versatile",
-                "year-round",
-                "summer",
-            ]
-        )
+        return has_spring or has_fall or has_mild or has_versatile or has_year or has_summer
 
     if weather == "Cool / Autumn":
-        return any(
-            x in season
-            for x in [
-                "fall",
-                "autumn",
-                "winter",
-                "cooler",
-                "versatile",
-                "year-round",
-            ]
-        )
+        return has_fall or has_winter or has_cooler or has_versatile or has_year
 
     return True
 
@@ -2050,9 +2028,9 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     """Consistent card display for a fragrance with optional Love/Trash buttons."""
     current_reaction = st.session_state["user_reactions"].get(f["name"])
     status_badge = (
-        " ð¤ Favorite"
+        " â­ Favorite"
         if current_reaction == "fav"
-        else (" ð« Disliked" if current_reaction == "dislike" else "")
+        else (" â Disliked" if current_reaction == "dislike" else "")
     )
 
     st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
@@ -2100,6 +2078,12 @@ with st.sidebar:
         st.success(_add_flash)
 
     st.markdown("### Search")
+    # Clear search fields before widgets if flagged
+    if st.session_state.pop("_clear_search", False):
+        st.session_state["search_input"] = ""
+        st.session_state["note_search_input"] = ""
+        st.session_state["quick_lookup_input"] = ""
+
     search_query = st.text_input(
         "Name or brand",
         placeholder="e.g. Lattafa, Eclaire",
@@ -2115,6 +2099,10 @@ with st.sidebar:
         placeholder="e.g. Ajwad",
         key="quick_lookup_input",
     )
+    if st.button("Clear search", use_container_width=True, key="clear_search_btn"):
+        st.session_state["_clear_search"] = True
+        st.rerun()
+
     if quick_query:
         matched_quick = [
             f
@@ -2231,8 +2219,8 @@ with st.sidebar:
                 st.error("Name and brand are required.")
 
 # ---------- MAIN TABS ----------
-tab_discover, tab_roulette, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Roulette", "SOTD", "Collection", "Vault"]
+tab_discover, tab_layer, tab_roulette, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Roulette", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -2278,17 +2266,8 @@ with tab_discover:
         selected = get_top_fragrances(
             gender, weather, category, occasion, num_recs, favorites_only=favorites_only
         )
-        pool = get_top_fragrances(
-            gender,
-            weather,
-            category,
-            occasion,
-            min(30, len(st.session_state["fragrances_db"])),
-            favorites_only=favorites_only,
-        )
         st.session_state["last_recs"] = {
             "selected": selected,
-            "combos": suggest_layering_combos(pool, num_combos=3),
             "num": num_recs,
             "meta": {
                 "gender": gender,
@@ -2302,7 +2281,6 @@ with tab_discover:
     last_recs = st.session_state.get("last_recs")
     if last_recs is not None:
         selected = last_recs.get("selected") or []
-        combos = last_recs.get("combos") or []
         num_show = last_recs.get("num", 3)
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
@@ -2320,7 +2298,7 @@ with tab_discover:
         else:
             for i, f in enumerate(selected, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
-                badge = " ð¤" if current_reaction == "fav" else ""
+                badge = " â­" if current_reaction == "fav" else ""
                 st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
@@ -2338,16 +2316,7 @@ with tab_discover:
                         st.rerun()
                 st.markdown("---")
 
-            if combos:
-                st.subheader("Layering ideas")
-                for i, (f1, f2, reason) in enumerate(combos, 1):
-                    st.info(
-                        f"**Combo {i}**\n\n"
-                        f"**Base:** {f1['name']} ({f1['brand']})\n\n"
-                        f"**Layer:** {f2['name']} ({f2['brand']})\n\n"
-                        f"*{reason}*"
-                    )
-                st.caption("Tip: spray the richer scent first, then the lighter one.")
+
 
     if not search_query and not note_query and last_recs is None:
         st.info(
@@ -2355,6 +2324,75 @@ with tab_discover:
             "Roulette, SOTD, and vault tools live in the other tabs."
         )
 
+
+
+# ===== LAYER =====
+with tab_layer:
+    st.subheader("Layering Studio")
+    st.write("Build a duo from your vault. Filters narrow the pool; stars get a boost.")
+
+    lc1, lc2 = st.columns(2)
+    with lc1:
+        layer_gender = st.selectbox(
+            "Gender", ["Any", "Male", "Female", "Unisex"], key="layer_gender"
+        )
+    with lc2:
+        layer_season = st.selectbox(
+            "Season / weather",
+            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+            key="layer_season",
+        )
+    layer_favs_only = st.checkbox("Favorites only", value=False, key="layer_favs_only")
+    layer_n = st.radio("How many combos", [1, 3, 5], index=1, horizontal=True, key="layer_n")
+
+    if st.button("Suggest layering combos", type="primary", key="layer_gen_btn"):
+        pool = get_top_fragrances(
+            layer_gender,
+            layer_season,
+            "Any",
+            "Any",
+            min(40, len(st.session_state["fragrances_db"])),
+            favorites_only=layer_favs_only,
+        )
+        combos = suggest_layering_combos(pool, num_combos=layer_n)
+        st.session_state["last_layer"] = {
+            "combos": combos,
+            "meta": {
+                "gender": layer_gender,
+                "season": layer_season,
+                "favorites_only": layer_favs_only,
+                "pool": len(pool),
+            },
+        }
+
+    last_layer = st.session_state.get("last_layer")
+    if last_layer is not None:
+        combos = last_layer.get("combos") or []
+        meta = last_layer.get("meta") or {}
+        st.caption(
+            f"{meta.get('gender')} | {meta.get('season')} | pool {meta.get('pool', '?')}"
+            + (" | favorites only" if meta.get("favorites_only") else "")
+        )
+        if not combos:
+            st.warning(
+                "Need at least two matching bottles. Loosen filters or add favorites."
+            )
+        else:
+            for i, (f1, f2, reason) in enumerate(combos, 1):
+                st.info(
+                    f"**Combo {i}**\n\n"
+                    f"**Base:** {f1['name']} ({f1['brand']})\n\n"
+                    f"**Layer:** {f2['name']} ({f2['brand']})\n\n"
+                    f"*{reason}*"
+                )
+                b1, b2, _ = st.columns([1, 1, 3])
+                with b1:
+                    if st.button("Use in SOTD", key=f"layer_use_{i}"):
+                        st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
+                        st.rerun()
+            st.caption("Tip: spray the richer scent first, then the lighter one.")
+    else:
+        st.info("Set filters and hit **Suggest layering combos** to get pairings.")
 
 # ===== ROULETTE =====
 with tab_roulette:
@@ -2415,9 +2453,9 @@ with tab_roulette:
         if chosen:
             current_reaction = st.session_state["user_reactions"].get(chosen["name"])
             status_badge = (
-                " ð¤ Favorite"
+                " â­ Favorite"
                 if current_reaction == "fav"
-                else (" ð« Disliked" if current_reaction == "dislike" else "")
+                else (" â Disliked" if current_reaction == "dislike" else "")
             )
             st.markdown(
                 """
@@ -2605,9 +2643,9 @@ with tab_collection:
             wear_str = f" | worn {wears}x" if wears else ""
             current_reaction = st.session_state["user_reactions"].get(f["name"])
             status = (
-                " ð¤"
+                " â­"
                 if current_reaction == "fav"
-                else (" ð«" if current_reaction == "dislike" else "")
+                else (" [x]" if current_reaction == "dislike" else "")
             )
             st.markdown(
                 f"**{f['name']}**{status} - *{f['brand']}*  \n"
