@@ -33,6 +33,7 @@ def save_persisted_data():
         "sotd_history": st.session_state.get("sotd_history", []),
         "layer_recipes": st.session_state.get("layer_recipes", []),
         "play_stats": st.session_state.get("play_stats", {}),
+        "last_export_date": st.session_state.get("last_export_date"),
     }
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -331,6 +332,15 @@ hr {
 .bat2 { left: 36%; animation-delay: 0.45s; }
 .bat3 { left: 58%; animation-delay: 0.15s; }
 .bat4 { left: 80%; animation-delay: 0.7s; }
+
+@keyframes candleFlicker {
+    0%, 100% { text-shadow: 0 0 10px rgba(80, 140, 255, 0.35); }
+    40% { text-shadow: 0 0 16px rgba(120, 170, 255, 0.55); }
+    70% { text-shadow: 0 0 8px rgba(60, 110, 220, 0.25); }
+}
+h1 {
+    animation: candleFlicker 4.5s ease-in-out infinite;
+}
 
 @media (max-width: 640px) {
     h1 { font-size: 1.45rem !important; }
@@ -1669,8 +1679,14 @@ if "layer_recipes" not in st.session_state:
 if "play_stats" not in st.session_state:
     st.session_state["play_stats"] = _persisted.get(
         "play_stats",
-        {"blind_played": 0, "blind_correct": 0, "moods_drawn": 0},
+        {"blind_played": 0, "blind_correct": 0, "moods_drawn": 0, "challenges_done": 0},
     )
+# ensure key exists on older saves
+st.session_state["play_stats"].setdefault("challenges_done", 0)
+
+if "last_export_date" not in st.session_state:
+    st.session_state["last_export_date"] = _persisted.get("last_export_date")
+
 
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
@@ -2405,6 +2421,14 @@ def compute_badges() -> list:
         badges.append("Nose knows")
     if stats.get("moods_drawn", 0) >= 5:
         badges.append("Mood alchemist")
+    if stats.get("challenges_done", 0) >= 3:
+        badges.append("Challenge accepter")
+    # performance logger
+    logged_perf = sum(
+        1 for e in hist if e.get("sillage") or e.get("longevity")
+    )
+    if logged_perf >= 5:
+        badges.append("Performance tracker")
     return badges
 
 
@@ -2525,6 +2549,261 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
                 save_persisted_data()
                 st.rerun()
     st.markdown("---")
+
+
+
+def get_last_worn_dates() -> dict:
+    """Most recent wear date (YYYY-MM-DD) per fragrance name."""
+    last = {}
+    for entry in st.session_state.get("sotd_history", []):
+        d = entry.get("date")
+        if not d:
+            continue
+        scents = entry.get("scents") or []
+        if not scents and entry.get("scent"):
+            scents = [p.strip() for p in entry["scent"].split(" + ")]
+        for s in scents:
+            if s not in last or d > last[s]:
+                last[s] = d
+    return last
+
+
+def days_since_worn(name: str):
+    """Days since last wear (Pacific today). None if never worn."""
+    last = get_last_worn_dates().get(name)
+    if not last:
+        return None
+    try:
+        d = datetime.date.fromisoformat(last)
+        return (pacific_today() - d).days
+    except ValueError:
+        return None
+
+
+def is_incomplete_notes(f: dict) -> bool:
+    notes = (f.get("notes") or "").strip().lower()
+    if len(notes) < 25:
+        return True
+    vague = ("limited public data", "not specified", "likely ", "typically ", "or oriental", "or floral")
+    return any(v in notes for v in vague)
+
+
+def get_favorite_notes(top_n: int = 12) -> list:
+    """Ranked note keywords from YAY bottles."""
+    from collections import Counter
+    stop = {
+        "top", "heart", "base", "and", "with", "notes", "the", "from", "leaning",
+        "accord", "style", "family", "version", "original", "intense", "limited",
+        "public", "data", "not", "specified", "for", "women", "men",
+    }
+    c = Counter()
+    for f in st.session_state["fragrances_db"]:
+        if st.session_state["user_reactions"].get(f["name"]) != "fav":
+            continue
+        tokens = re.findall(r"[a-zA-Z]{3,}", f.get("notes", "").lower())
+        for t in tokens:
+            if t not in stop:
+                c[t] += 1
+    return c.most_common(top_n)
+
+
+def find_antipodes(base: dict, top_n: int = 5) -> list:
+    """Bottles most different from base (opposite families / gender lean)."""
+    if not base:
+        return []
+    base_cats = set(base.get("category", []))
+    base_g = normalize_gender(base.get("gender", ""))
+    scored = []
+    for f in st.session_state["fragrances_db"]:
+        if f["name"] == base["name"]:
+            continue
+        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+            continue
+        score = 0
+        cats = set(f.get("category", []))
+        # reward zero overlap
+        score += max(0, 30 - len(base_cats & cats) * 15)
+        # reward opposite lean
+        g = normalize_gender(f.get("gender", ""))
+        if base_g in ("Female", "Female-leaning") and g in ("Male", "Male-leaning"):
+            score += 12
+        elif base_g in ("Male", "Male-leaning") and g in ("Female", "Female-leaning"):
+            score += 12
+        # note token divergence
+        t1 = set(re.findall(r"[a-zA-Z]{3,}", base.get("notes", "").lower()))
+        t2 = set(re.findall(r"[a-zA-Z]{3,}", f.get("notes", "").lower()))
+        stop = {"top", "heart", "base", "and", "with", "notes", "the", "from"}
+        shared = (t1 - stop) & (t2 - stop)
+        score += max(0, 15 - len(shared) * 3)
+        score += _stable_tiebreak(base["name"] + f["name"]) % 4
+        if score > 10:
+            scored.append((score, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored[:top_n]
+
+
+def suggest_right_now(weather: str = "Any", favorites_only: bool = False, top_n: int = 3) -> list:
+    """Quick pick blending today weekday + weather + reactions."""
+    day = pacific_today().strftime("%A")
+    sun = st.session_state.get("chart_sun", DEFAULT_CHART["sun"])
+    moon = st.session_state.get("chart_moon", DEFAULT_CHART["moon"])
+    rising = st.session_state.get("chart_rising", DEFAULT_CHART["rising"])
+    day_picks = get_day_fragrances(day, sun, moon, rising, top_n=15)
+    # re-score with weather preference
+    scored = []
+    for f in day_picks:
+        if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
+            continue
+        if not matches_weather(f, weather):
+            continue
+        s = score_fragrance_for_day(f, day, sun, moon, rising)
+        if weather != "Any":
+            s += 10 if matches_weather(f, weather) else 0
+        scored.append((s, f))
+    if not scored:
+        # fallback to regular top
+        return get_top_fragrances("Any", weather, "Any", "Any", top_n, favorites_only=favorites_only)
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [f for _, f in scored[:top_n]]
+
+
+def get_weekly_recipe():
+    """Stable layering recipe for the current ISO week."""
+    today = pacific_today()
+    week_key = f"{today.isocalendar()[0]}-W{today.isocalendar()[1]:02d}"
+    cached = st.session_state.get("_weekly_recipe_cache")
+    if cached and cached.get("week") == week_key:
+        return cached
+
+    # Prefer saved recipes first
+    recipes = st.session_state.get("layer_recipes") or []
+    if recipes:
+        idx = int(hashlib.md5(week_key.encode()).hexdigest()[:6], 16) % len(recipes)
+        rec = recipes[idx]
+        out = {"week": week_key, "name": rec.get("name", "Weekly layer"), "bottles": list(rec.get("bottles") or [])}
+        st.session_state["_weekly_recipe_cache"] = out
+        return out
+
+    # Generate one
+    pool = get_top_fragrances("Any", "Any", "Any", "Any", 30, favorites_only=False)
+    combos = suggest_layering_combos(pool, num_combos=5)
+    if not combos:
+        return None
+    idx = int(hashlib.md5(week_key.encode()).hexdigest()[:6], 16) % len(combos)
+    f1, f2, reason = combos[idx]
+    out = {
+        "week": week_key,
+        "name": f"{f1['name']} + {f2['name']}",
+        "bottles": [f1["name"], f2["name"]],
+        "reason": reason,
+    }
+    st.session_state["_weekly_recipe_cache"] = out
+    return out
+
+
+CHALLENGE_DECK = [
+    "Wear only something you've never layered before.",
+    "No gourmands for the next 3 logs.",
+    "Only Male-leaning or pure Male this weekend.",
+    "Pick a bottle you haven't worn in 14+ days.",
+    "Layer a Fresh with a Gourmand today.",
+    "Wear your least-worn YAY bottle.",
+    "No vanilla-forward scents until tomorrow.",
+    "Choose something with oud, leather, or incense.",
+    "All-floral day â no woody bases if you can help it.",
+    "Blind-bottle yourself: pick without looking at the name.",
+    "Wear the opposite family of yesterday's SOTD.",
+    "Date-night intensity on an ordinary day.",
+]
+
+
+def draw_challenge() -> str:
+    today = pacific_today().isoformat()
+    seed = int(hashlib.md5(f"challenge-{today}".encode()).hexdigest()[:8], 16)
+    return CHALLENGE_DECK[seed % len(CHALLENGE_DECK)]
+
+
+def average_performance(name: str) -> dict:
+    """Average sillage / longevity from SOTD logs that recorded them."""
+    sil, lon, n_s, n_l = 0, 0, 0, 0
+    for entry in st.session_state.get("sotd_history", []):
+        scents = entry.get("scents") or []
+        if not scents and entry.get("scent"):
+            scents = [p.strip() for p in entry["scent"].split(" + ")]
+        if name not in scents:
+            continue
+        if entry.get("sillage"):
+            sil += int(entry["sillage"])
+            n_s += 1
+        if entry.get("longevity"):
+            lon += int(entry["longevity"])
+            n_l += 1
+    return {
+        "sillage": round(sil / n_s, 1) if n_s else None,
+        "longevity": round(lon / n_l, 1) if n_l else None,
+        "samples": max(n_s, n_l),
+    }
+
+
+def export_journal_markdown() -> str:
+    """Pretty markdown export of SOTD history + stats."""
+    lines = ["# ScentedDeadGirl Journal", ""]
+    lines.append(f"_Exported {pacific_today().isoformat()} (Pacific)_")
+    lines.append("")
+    lines.append(f"- Bottles in vault: **{len(st.session_state['fragrances_db'])}**")
+    lines.append(f"- SOTD logs: **{len(st.session_state.get('sotd_history') or [])}**")
+    lines.append(f"- Current streak: **{sotd_streak()}** day(s)")
+    badges = compute_badges()
+    if badges:
+        lines.append(f"- Badges: {', '.join(badges)}")
+    fav_notes = get_favorite_notes(8)
+    if fav_notes:
+        lines.append(f"- Favorite notes: {', '.join(f'{n} ({c})' for n, c in fav_notes)}")
+    lines.append("")
+    lines.append("## History")
+    lines.append("")
+    for entry in st.session_state.get("sotd_history") or []:
+        layer = " _(layering)_" if entry.get("is_layering") else ""
+        notes = f" â {entry['notes']}" if entry.get("notes") else ""
+        perf = ""
+        if entry.get("sillage") or entry.get("longevity"):
+            parts = []
+            if entry.get("sillage"):
+                parts.append(f"sillage {entry['sillage']}/5")
+            if entry.get("longevity"):
+                parts.append(f"longevity {entry['longevity']}/5")
+            perf = f" [{', '.join(parts)}]"
+        his = ""
+        if entry.get("his_scent"):
+            his = f" | his: {entry['his_scent']}"
+        lines.append(f"- **{entry.get('date', '?')}**: {entry.get('scent', '?')}{layer}{his}{perf}{notes}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def season_family_summary() -> dict:
+    """Count category wears in the last 30 days for a simple heatmap-style summary."""
+    from collections import Counter
+    cutoff = pacific_today() - datetime.timedelta(days=30)
+    cat_counts = Counter()
+    name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
+    for entry in st.session_state.get("sotd_history") or []:
+        try:
+            d = datetime.date.fromisoformat(entry.get("date", ""))
+        except ValueError:
+            continue
+        if d < cutoff:
+            continue
+        scents = entry.get("scents") or []
+        if not scents and entry.get("scent"):
+            scents = [p.strip() for p in entry["scent"].split(" + ")]
+        for s in scents:
+            fr = name_map.get(s)
+            if fr:
+                for c in fr.get("category", []):
+                    cat_counts[c] += 1
+    return dict(cat_counts.most_common())
+
 
 
 def get_wear_counts() -> dict:
@@ -2737,6 +3016,48 @@ with st.sidebar:
             else:
                 st.error("Name and brand are required.")
 
+    st.markdown("---")
+    st.markdown("### Today")
+    # Daily challenge
+    challenge = draw_challenge()
+    st.caption("Daily challenge")
+    st.info(challenge)
+    if st.button("Mark challenge done", key="challenge_done_btn", use_container_width=True):
+        st.session_state["play_stats"]["challenges_done"] = (
+            st.session_state["play_stats"].get("challenges_done", 0) + 1
+        )
+        save_persisted_data()
+        st.success("Challenge noted.")
+        st.rerun()
+
+    # Weekly recipe
+    weekly = get_weekly_recipe()
+    if weekly:
+        st.caption(f"Recipe of the week ({weekly.get('week', '')})")
+        bottles = weekly.get("bottles") or []
+        st.write(f"**{weekly.get('name', 'Layer')}**")
+        if bottles:
+            st.caption(" + ".join(bottles))
+        if weekly.get("reason"):
+            st.caption(weekly["reason"])
+        if st.button("Use weekly recipe in SOTD", key="weekly_use_btn", use_container_width=True):
+            st.session_state["sotd_prefill"] = list(bottles)
+            st.rerun()
+
+    # Backup reminder
+    st.markdown("---")
+    last_export = st.session_state.get("last_export_date")
+    if not last_export:
+        st.caption("Sanctuary tip: export your vault from the Vault tab.")
+    else:
+        try:
+            days = (pacific_today() - datetime.date.fromisoformat(last_export)).days
+            if days >= 30:
+                st.warning(f"Last export was {days} days ago â consider backing up.")
+        except ValueError:
+            pass
+
+
 # ---------- MAIN TABS ----------
 tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_play, tab_collection, tab_vault = st.tabs(
     ["Discover", "Layer", "Roulette", "SOTD", "Stars", "Play", "Collection", "Vault"]
@@ -2747,6 +3068,32 @@ with tab_discover:
     st.markdown(
         "Filter from the sidebar, search by name or note, then generate picks and layering ideas."
     )
+
+    # ---- What should I wear right now ----
+    with st.expander("What should I wear right now?", expanded=False):
+        rn_weather = st.selectbox(
+            "Weather right now",
+            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+            key="rn_weather",
+        )
+        rn_favs = st.checkbox("Favorites only", key="rn_favs")
+        if st.button("Pick for me", type="primary", key="rn_pick_btn"):
+            picks = suggest_right_now(rn_weather, favorites_only=rn_favs, top_n=3)
+            st.session_state["last_right_now"] = {
+                "picks": picks,
+                "weather": rn_weather,
+            }
+        last_rn = st.session_state.get("last_right_now")
+        if last_rn:
+            st.caption(f"Weather: {last_rn.get('weather')} Â· blended with today's planetary vibe")
+            for i, f in enumerate(last_rn.get("picks") or [], 1):
+                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
+                st.success(f"**#{i} Â· {f['name']}** by *{f['brand']}*{badge}")
+                st.caption(f"{f['gender']} | {f['season']} | {', '.join(f['category'])}")
+                if st.button("Wear today", key=f"rn_wear_{i}"):
+                    st.session_state["sotd_prefill"] = [f["name"]]
+                    st.rerun()
+
 
     # Name / brand search
     if search_query:
@@ -3130,6 +3477,9 @@ with tab_sotd:
         st.session_state["sotd_multiselect"] = []
         st.session_state["sotd_notes_input"] = ""
         st.session_state["sotd_date"] = pacific_today()
+        st.session_state["sotd_sillage"] = 0
+        st.session_state["sotd_longevity"] = 0
+        st.session_state["sotd_his_select"] = "- none -"
 
     # Prefill from quick layering combo (also before widgets)
     if st.session_state.get("sotd_prefill"):
@@ -3159,6 +3509,31 @@ with tab_sotd:
         placeholder="Rainy afternoon | office | date night",
         key="sotd_notes_input",
     )
+    perf_c1, perf_c2, perf_c3 = st.columns(3)
+    with perf_c1:
+        sotd_sillage = st.select_slider(
+            "Sillage (projection)",
+            options=[0, 1, 2, 3, 4, 5],
+            value=0,
+            key="sotd_sillage",
+            help="0 = skip Â· 1 soft Â· 5 room-filling",
+        )
+    with perf_c2:
+        sotd_longevity = st.select_slider(
+            "Longevity (hours feel)",
+            options=[0, 1, 2, 3, 4, 5],
+            value=0,
+            key="sotd_longevity",
+            help="0 = skip Â· 1 brief Â· 5 all-day",
+        )
+    with perf_c3:
+        all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
+        sotd_his = st.selectbox(
+            "His scent (optional)",
+            ["- none -"] + all_names_his,
+            key="sotd_his_select",
+        )
+
 
     # Layering partners based on current selection
     if sotd_choices:
@@ -3245,18 +3620,21 @@ with tab_sotd:
             today_date = sotd_date.strftime("%Y-%m-%d") if hasattr(sotd_date, "strftime") else str(sotd_date)
             scent_display = " + ".join(sotd_choices)
             is_layering = len(sotd_choices) > 1
-            st.session_state["sotd_history"].insert(
-                0,
-                {
-                    "date": today_date,
-                    "scent": scent_display,
-                    "scents": sotd_choices,
-                    "is_layering": is_layering,
-                    "notes": sotd_notes,
-                },
-            )
+            entry = {
+                "date": today_date,
+                "scent": scent_display,
+                "scents": sotd_choices,
+                "is_layering": is_layering,
+                "notes": sotd_notes,
+            }
+            if sotd_sillage and sotd_sillage > 0:
+                entry["sillage"] = int(sotd_sillage)
+            if sotd_longevity and sotd_longevity > 0:
+                entry["longevity"] = int(sotd_longevity)
+            if sotd_his and sotd_his != "- none -":
+                entry["his_scent"] = sotd_his
+            st.session_state["sotd_history"].insert(0, entry)
             save_persisted_data()
-            # Flag form clear for the NEXT run (cannot mutate widget keys after widgets exist)
             st.session_state["_clear_sotd_form"] = True
             st.session_state["_sotd_flash"] = (
                 f"Logged layering: **{scent_display}**"
@@ -3278,8 +3656,15 @@ with tab_sotd:
                 notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
                 hcol, xcol = st.columns([6, 1])
                 with hcol:
+                    perf_bits = []
+                    if entry.get("sillage"):
+                        perf_bits.append(f"sil {entry['sillage']}/5")
+                    if entry.get("longevity"):
+                        perf_bits.append(f"lon {entry['longevity']}/5")
+                    perf_txt = f" Â· {', '.join(perf_bits)}" if perf_bits else ""
+                    his_txt = f" Â· his: {entry['his_scent']}" if entry.get("his_scent") else ""
                     st.write(
-                        f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{notes_text}"
+                        f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{his_txt}{perf_txt}{notes_text}"
                     )
                 with xcol:
                     if st.button("DEL", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
@@ -3429,7 +3814,7 @@ with tab_play:
 
     play_mode = st.radio(
         "Game",
-        ["Mood board", "Blind bottle", "Twin finder", "Least worn", "Compare two", "Badges"],
+        ["Mood board", "Blind bottle", "Twin finder", "Antipode", "Least worn", "Compare two", "Badges"],
         horizontal=True,
         key="play_mode",
     )
@@ -3461,6 +3846,11 @@ with tab_play:
 
     elif play_mode == "Blind bottle":
         st.write("Notes only. Guess the bottle, then reveal.")
+        blind_diff = st.selectbox(
+            "Difficulty",
+            ["Normal (full notes)", "Hard (top notes only)", "Expert (base notes only)", "Scrambled keywords"],
+            key="blind_diff",
+        )
         if st.button("Draw a mystery bottle", type="primary", key="blind_draw"):
             pool = [
                 f
@@ -3478,9 +3868,29 @@ with tab_play:
                 save_persisted_data()
         mystery = st.session_state.get("blind_bottle")
         if mystery and not st.session_state.get("blind_revealed"):
+            notes_full = mystery.get("notes", "")
+            diff = st.session_state.get("blind_diff", "Normal (full notes)")
+            if "Hard" in diff:
+                if "Heart" in notes_full:
+                    shown = notes_full.split("Heart")[0].replace("Top -", "").replace("Top:", "").strip(" /")
+                else:
+                    shown = notes_full[: max(20, len(notes_full)//3)]
+                shown = f"Top-ish: {shown}"
+            elif "Expert" in diff:
+                if "Base" in notes_full:
+                    shown = notes_full.split("Base")[-1].strip(" -:")
+                else:
+                    shown = notes_full[-max(20, len(notes_full)//3):]
+                shown = f"Base-ish: {shown}"
+            elif "Scrambled" in diff:
+                tokens = re.findall(r"[A-Za-z]{3,}", notes_full)
+                random.shuffle(tokens)
+                shown = ", ".join(tokens[:12])
+            else:
+                shown = notes_full
             st.info(
-                f"**Notes:** {mystery['notes']}\\n\\n"
-                f"**Season:** {mystery['season']} ÃÂ· **Category:** {', '.join(mystery['category'])}"
+                f"**Clue:** {shown}\n\n"
+                f"**Season:** {mystery['season']} Â· **Category:** {', '.join(mystery['category'])}"
             )
             guess = st.selectbox(
                 "Your guess",
@@ -3524,6 +3934,28 @@ with tab_play:
                     f"**{f['name']}** ({f['brand']}) ÃÂ· score {s}\\n\\n"
                     f"{', '.join(f['category'])}\\n\\n{f['notes']}"
                 )
+
+    elif play_mode == "Antipode":
+        st.write("Find bottles that are the *opposite* of a chosen one â different families, opposite lean.")
+        anti_base = st.selectbox("Opposite of", all_names, key="anti_base")
+        if st.button("Find antipodes", type="primary", key="anti_go"):
+            base = name_map.get(anti_base)
+            if base:
+                st.session_state["last_antipodes"] = {
+                    "base": anti_base,
+                    "items": find_antipodes(base, top_n=5),
+                }
+        last_anti = st.session_state.get("last_antipodes")
+        if last_anti:
+            st.caption(f"Antipodes of {last_anti.get('base')}")
+            for s, f in last_anti.get("items") or []:
+                st.info(
+                    f"**{f['name']}** ({f['brand']}) Â· contrast {s}\n\n"
+                    f"{f['gender']} | {', '.join(f['category'])}\n\n{f['notes']}"
+                )
+                if st.button("Wear today", key=f"anti_wear_{f['name']}"):
+                    st.session_state["sotd_prefill"] = [f["name"]]
+                    st.rerun()
 
     elif play_mode == "Least worn":
         st.write("Bottles that need love (lowest SOTD counts, DEL skipped).")
@@ -3625,6 +4057,20 @@ with tab_collection:
     if badges:
         st.caption("Badges: " + " Â· ".join(badges))
 
+    # Favorite notes cloud
+    fav_notes = get_favorite_notes(10)
+    if fav_notes:
+        cloud = " Â· ".join(f"**{n}** ({c})" for n, c in fav_notes)
+        st.markdown(f"**Your note cloud (from YAY):** {cloud}")
+
+    # 30-day family summary (simple heatmap substitute)
+    fam = season_family_summary()
+    if fam:
+        st.caption("Last 30 days Â· families worn")
+        fam_bits = " Â· ".join(f"{k}: {v}" for k, v in list(fam.items())[:8])
+        st.write(fam_bits)
+
+
     filter_col, sort_col = st.columns(2)
     with filter_col:
         browse_gender = st.selectbox(
@@ -3675,7 +4121,24 @@ with tab_collection:
             st.info("No bottles match this gender filter.")
         for i, f in enumerate(db):
             wears = wear_counts.get(f["name"], 0)
-            wear_str = f" | worn {wears}x" if wears else ""
+            since = days_since_worn(f["name"])
+            if since is None:
+                since_str = " | never worn"
+            elif since == 0:
+                since_str = " | worn today"
+            else:
+                since_str = f" | {since}d ago"
+            wear_str = f" | worn {wears}x{since_str}" if wears else since_str
+            incomplete = " Â· needs notes" if is_incomplete_notes(f) else ""
+            perf = average_performance(f["name"])
+            perf_str = ""
+            if perf["sillage"] or perf["longevity"]:
+                bits = []
+                if perf["sillage"]:
+                    bits.append(f"sil {perf['sillage']}")
+                if perf["longevity"]:
+                    bits.append(f"lon {perf['longevity']}")
+                perf_str = " Â· avg " + "/".join(bits)
             current_reaction = st.session_state["user_reactions"].get(f["name"])
             status = (
                 " YAY"
@@ -3683,8 +4146,8 @@ with tab_collection:
                 else (" NAH" if current_reaction == "dislike" else "")
             )
             st.markdown(
-                f"**{f['name']}**{status} - *{f['brand']}*  \n"
-                f"{f['gender']} | {f['season']} | {', '.join(f['category'])}{wear_str}  \n"
+                f"**{f['name']}**{status} - *{f['brand']}*{incomplete}  \n"
+                f"{f['gender']} | {f['season']} | {', '.join(f['category'])}{wear_str}{perf_str}  \n"
                 f"<small style='opacity:0.75'>{f['notes']}</small>",
                 unsafe_allow_html=True,
             )
@@ -3855,12 +4318,24 @@ with tab_vault:
         "play_stats": st.session_state.get("play_stats", {}),
     }
     json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
-    st.download_button(
+    if st.download_button(
         label="Export vault as JSON",
         data=json_string,
         file_name="scented_dead_girl_backup.json",
         mime="application/json",
+    ):
+        st.session_state["last_export_date"] = pacific_today().isoformat()
+        save_persisted_data()
+
+    md_journal = export_journal_markdown()
+    st.download_button(
+        label="Export journal as Markdown",
+        data=md_journal,
+        file_name="scented_dead_girl_journal.md",
+        mime="text/markdown",
+        key="export_md_btn",
     )
+
     uploaded_file = st.file_uploader("Restore from backup JSON", type=["json"])
     if uploaded_file is not None:
         try:
