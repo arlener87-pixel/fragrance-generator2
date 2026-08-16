@@ -1943,6 +1943,144 @@ def get_top_fragrances(
     return [f for score, f in scored[:top_n]]
 
 
+
+# --- Astrology / scent mapping (interpretive, for fun) ---
+SIGN_SCENT_PROFILE = {
+    "Aries": {
+        "element": "Fire",
+        "vibe": "Bold, spicy, energetic",
+        "categories": ["Spicy", "Fresh", "Citrus", "Woody"],
+        "notes_keywords": ["pepper", "ginger", "citrus", "cedar", "cardamom"],
+    },
+    "Taurus": {
+        "element": "Earth",
+        "vibe": "Sensual, creamy, grounded",
+        "categories": ["Gourmand", "Floral", "Sweet", "Woody"],
+        "notes_keywords": ["vanilla", "rose", "sandalwood", "tonka", "caramel"],
+    },
+    "Gemini": {
+        "element": "Air",
+        "vibe": "Light, playful, changeable",
+        "categories": ["Fresh", "Citrus", "Fruity", "Floral"],
+        "notes_keywords": ["citrus", "bergamot", "pear", "tea", "light musk"],
+    },
+    "Cancer": {
+        "element": "Water",
+        "vibe": "Soft, milky, nostalgic",
+        "categories": ["Gourmand", "Floral", "Sweet", "Fresh"],
+        "notes_keywords": ["milk", "coconut", "white flower", "musk", "powder"],
+    },
+    "Leo": {
+        "element": "Fire",
+        "vibe": "Warm, radiant, dramatic",
+        "categories": ["Gourmand", "Floral", "Sweet", "Oriental"],
+        "notes_keywords": ["vanilla", "orange blossom", "honey", "amber", "cinnamon"],
+    },
+    "Virgo": {
+        "element": "Earth",
+        "vibe": "Clean, green, precise",
+        "categories": ["Fresh", "Floral", "Woody", "Aromatic"],
+        "notes_keywords": ["green", "herbal", "iris", "cedar", "clean musk"],
+    },
+    "Libra": {
+        "element": "Air",
+        "vibe": "Balanced, elegant, rose-kissed",
+        "categories": ["Floral", "Sweet", "Fruity", "Fresh"],
+        "notes_keywords": ["rose", "iris", "pear", "musk", "soft floral"],
+    },
+    "Scorpio": {
+        "element": "Water",
+        "vibe": "Dark, magnetic, intense",
+        "categories": ["Oriental", "Woody", "Oud", "Spicy"],
+        "notes_keywords": ["oud", "incense", "patchouli", "dark fruit", "amber"],
+    },
+    "Sagittarius": {
+        "element": "Fire",
+        "vibe": "Adventurous, warm, expansive",
+        "categories": ["Oriental", "Spicy", "Woody", "Fresh"],
+        "notes_keywords": ["cinnamon", "tobacco", "pineapple", "cedar", "saffron"],
+    },
+    "Capricorn": {
+        "element": "Earth",
+        "vibe": "Polished, structured, amber-wood",
+        "categories": ["Woody", "Oriental", "Gourmand", "Spicy"],
+        "notes_keywords": ["amber", "vanilla", "cedar", "leather", "tonka"],
+    },
+    "Aquarius": {
+        "element": "Air",
+        "vibe": "Unusual, airy, modern",
+        "categories": ["Fresh", "Aromatic", "Woody", "Citrus"],
+        "notes_keywords": ["ozonic", "metallic", "violet", "ambroxan", "tea"],
+    },
+    "Pisces": {
+        "element": "Water",
+        "vibe": "Dreamy, soft, aquatic-sweet",
+        "categories": ["Floral", "Gourmand", "Sweet", "Fresh"],
+        "notes_keywords": ["vanilla", "aquatic", "powdery", "lilac", "musk"],
+    },
+}
+
+# Default chart for sanctuary owner (Fontana CA, 1987-09-30 3:10 AM PDT)
+DEFAULT_CHART = {
+    "name": "Sanctuary chart",
+    "birth_date": "1987-09-30",
+    "birth_time": "3:10 AM PDT",
+    "birth_place": "Fontana, CA",
+    "sun": "Libra",
+    "moon": "Capricorn",
+    "rising": "Leo",
+    "venus": "Libra",
+    "notes": "Sun + Venus in Libra (beauty, balance). Moon in Capricorn (structure, amber-wood depth). Leo rising (warm radiance).",
+}
+
+
+def chart_category_weights(sun: str, moon: str, rising: str) -> dict:
+    """Blend Big Three into category preference scores."""
+    weights = {}
+    for sign, weight in ((sun, 3), (moon, 2), (rising, 2)):
+        profile = SIGN_SCENT_PROFILE.get(sign, {})
+        for cat in profile.get("categories", []):
+            weights[cat] = weights.get(cat, 0) + weight
+    return weights
+
+
+def score_fragrance_for_chart(f: dict, cat_weights: dict, sun: str, moon: str, rising: str) -> int:
+    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+        return -999
+    g = normalize_gender(f.get("gender", ""))
+    # Female / unisex focus for this feature
+    if g not in ("Female", "Female-leaning", "Unisex"):
+        return -999
+
+    score = 0
+    if st.session_state["user_reactions"].get(f["name"]) == "fav":
+        score += 25
+
+    for c in f.get("category", []):
+        score += cat_weights.get(c, 0) * 4
+
+    notes_l = f.get("notes", "").lower()
+    for sign in (sun, moon, rising):
+        for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
+            if kw.lower() in notes_l:
+                score += 6
+
+    score += _stable_tiebreak(f["name"])
+    return score
+
+
+def get_chart_fragrances(sun: str, moon: str, rising: str, top_n: int = 5) -> list:
+    weights = chart_category_weights(sun, moon, rising)
+    scored = []
+    for f in st.session_state["fragrances_db"]:
+        s = score_fragrance_for_chart(f, weights, sun, moon, rising)
+        if s > 0:
+            scored.append((s, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [f for _, f in scored[:top_n]]
+
+
+
 GOOD_LAYER_PAIRS = [
     ("Gourmand", "Fresh"),
     ("Gourmand", "Floral"),
@@ -2271,8 +2409,8 @@ with st.sidebar:
                 st.error("Name and brand are required.")
 
 # ---------- MAIN TABS ----------
-tab_discover, tab_layer, tab_roulette, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Roulette", "SOTD", "Collection", "Vault"]
+tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Roulette", "SOTD", "Stars", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -2662,6 +2800,101 @@ with tab_sotd:
                 st.session_state["sotd_history"] = []
                 save_persisted_data()
                 st.rerun()
+
+
+# ===== STARS / HOROSCOPE =====
+with tab_horoscope:
+    st.subheader("Stars & scent")
+    st.caption(
+        "Interpretive chart-to-fragrance mapping for Female / Unisex bottles. "
+        "Not a full ephemeris engine - a sanctuary vibe guide."
+    )
+
+    st.markdown("#### Your chart")
+    st.info(
+        f"**Born** {DEFAULT_CHART['birth_date']} Â· {DEFAULT_CHART['birth_time']} Â· "
+        f"{DEFAULT_CHART['birth_place']}\n\n"
+        f"**Sun** {DEFAULT_CHART['sun']} Â· **Moon** {DEFAULT_CHART['moon']} Â· "
+        f"**Rising** {DEFAULT_CHART['rising']} Â· **Venus** {DEFAULT_CHART['venus']}\n\n"
+        f"*{DEFAULT_CHART['notes']}*"
+    )
+
+    signs = list(SIGN_SCENT_PROFILE.keys())
+    hc1, hc2, hc3 = st.columns(3)
+    with hc1:
+        sun_s = st.selectbox(
+            "Sun",
+            signs,
+            index=signs.index(DEFAULT_CHART["sun"]),
+            key="chart_sun",
+        )
+    with hc2:
+        moon_s = st.selectbox(
+            "Moon",
+            signs,
+            index=signs.index(DEFAULT_CHART["moon"]),
+            key="chart_moon",
+        )
+    with hc3:
+        rise_s = st.selectbox(
+            "Rising",
+            signs,
+            index=signs.index(DEFAULT_CHART["rising"]),
+            key="chart_rising",
+        )
+
+    st.markdown("#### Sign scents")
+    for label, sign in (("Sun", sun_s), ("Moon", moon_s), ("Rising", rise_s)):
+        p = SIGN_SCENT_PROFILE[sign]
+        st.write(
+            f"**{label} Â· {sign}** ({p['element']}) - {p['vibe']}  \n"
+            f"Families: {', '.join(p['categories'])}"
+        )
+
+    chart_n = st.radio("How many picks", [3, 5, 7], index=1, horizontal=True, key="chart_n")
+    if st.button("Draw chart scents", type="primary", key="chart_draw_btn"):
+        picks = get_chart_fragrances(sun_s, moon_s, rise_s, top_n=chart_n)
+        st.session_state["last_chart_picks"] = {
+            "picks": picks,
+            "meta": {"sun": sun_s, "moon": moon_s, "rising": rise_s},
+        }
+
+    last_chart = st.session_state.get("last_chart_picks")
+    if last_chart is not None:
+        meta = last_chart.get("meta") or {}
+        picks = last_chart.get("picks") or []
+        st.subheader("Chart picks Â· Female / Unisex")
+        st.caption(
+            f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· Rising {meta.get('rising')}"
+        )
+        if not picks:
+            st.warning("No matching Female/Unisex bottles for this blend. Add more or loosen dislikes.")
+        else:
+            for i, f in enumerate(picks, 1):
+                current_reaction = st.session_state["user_reactions"].get(f["name"])
+                badge = " YAY" if current_reaction == "fav" else ""
+                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
+                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
+                st.write(f"**Category:** {', '.join(f['category'])}")
+                st.caption(f"Notes: {f['notes']}")
+                c1, c2, _ = st.columns([1, 1, 4])
+                with c1:
+                    if st.button("YAY", key=f"chart_fav_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f["name"]] = "fav"
+                        save_persisted_data()
+                        st.rerun()
+                with c2:
+                    if st.button("DEL", key=f"chart_dislike_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f["name"]] = "dislike"
+                        save_persisted_data()
+                        st.rerun()
+                st.markdown("---")
+            st.caption(
+                "Libra Sun/Venus leans floral-balanced; Capricorn Moon deepens amber-wood; "
+                "Leo rising warms the blend toward radiant gourmand-floral."
+            )
+    else:
+        st.info("Hit **Draw chart scents** for Female / Unisex picks tuned to this chart.")
 
 # ===== COLLECTION =====
 with tab_collection:
