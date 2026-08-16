@@ -2227,7 +2227,20 @@ with st.sidebar:
                 "Powdery",
             ],
         )
-        submit_added = st.form_submit_button("Add to collection", use_container_width=True)
+        c_add, c_clear = st.columns(2)
+        with c_add:
+            submit_added = st.form_submit_button(
+                "Add to collection", use_container_width=True
+            )
+        with c_clear:
+            # clear_on_submit=True clears fields after any form submit
+            clear_add_form = st.form_submit_button(
+                "Clear form", use_container_width=True
+            )
+
+        if clear_add_form:
+            st.session_state["_add_flash"] = "Form cleared."
+            # fields are cleared by clear_on_submit; no vault change
 
         if submit_added:
             if new_name and new_brand:
