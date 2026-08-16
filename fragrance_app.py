@@ -1,4 +1,5 @@
 import datetime
+from zoneinfo import ZoneInfo
 import hashlib
 import json
 import random
@@ -1686,6 +1687,12 @@ if "sotd_prefill" not in st.session_state:
 # ==========================================
 
 
+
+def pacific_today() -> datetime.date:
+    """Today in America/Los_Angeles so SOTD matches Pacific users."""
+    return datetime.datetime.now(ZoneInfo("America/Los_Angeles")).date()
+
+
 def normalize_gender(g: str) -> str:
     g = g.lower().strip()
     if re.search(r"\bfemale[- ]?leaning\b|\bleans feminine\b|\bleans female\b", g):
@@ -2503,6 +2510,7 @@ with tab_sotd:
     if st.session_state.pop("_clear_sotd_form", False):
         st.session_state["sotd_multiselect"] = []
         st.session_state["sotd_notes_input"] = ""
+        st.session_state["sotd_date"] = pacific_today()
 
     # Prefill from quick layering combo (also before widgets)
     if st.session_state.get("sotd_prefill"):
@@ -2512,6 +2520,15 @@ with tab_sotd:
             st.session_state["sotd_notes_input"] = "Layered combo"
 
     st.caption("Pick one bottle, or several for a layering day.")
+    # Default to Pacific "today" so the date matches the user, not the server UTC clock
+    if "sotd_date" not in st.session_state:
+        st.session_state["sotd_date"] = pacific_today()
+    sotd_date = st.date_input(
+        "Date",
+        value=st.session_state.get("sotd_date", pacific_today()),
+        key="sotd_date",
+        help="Calendar uses your selected day. Defaults to Pacific time today.",
+    )
     sotd_choices = st.multiselect(
         "Wearing today",
         options=all_frag_names,
@@ -2552,7 +2569,7 @@ with tab_sotd:
 
     if st.button("Log today's scent", type="primary"):
         if sotd_choices:
-            today_date = datetime.date.today().strftime("%Y-%m-%d")
+            today_date = sotd_date.strftime("%Y-%m-%d") if hasattr(sotd_date, "strftime") else str(sotd_date)
             scent_display = " + ".join(sotd_choices)
             is_layering = len(sotd_choices) > 1
             st.session_state["sotd_history"].insert(
