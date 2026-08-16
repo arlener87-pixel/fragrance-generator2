@@ -609,12 +609,12 @@ if "fragrances_db" not in st.session_state:
                 "brand": "Lattafa",
                 "gender": "Unisex/Female",
                 "season": "Fall-Winter",
-                "notes": "Banana-toffee/Ã©clair gourmand",
+                "notes": "Banana-toffee/ÃÂ©clair gourmand",
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Ãclat Parfumerie Al Gazal",
-                "brand": "Ãclat Parfumerie",
+                "name": "ÃÂclat Parfumerie Al Gazal",
+                "brand": "ÃÂclat Parfumerie",
                 "gender": "Unisex (leans masculine)",
                 "season": "Versatile to cooler",
                 "notes": "Limited public data; typically woody-oriental or spicy",
@@ -701,7 +701,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Oriental", "Woody"],
             },
             {
-                "name": "Fragrance World CrÃ¨me of Clouds",
+                "name": "Fragrance World CrÃÂ¨me of Clouds",
                 "brand": "Fragrance World",
                 "gender": "Unisex",
                 "season": "Fall, Winter",
@@ -757,7 +757,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
+                "name": "Gulf Orchid PiÃÂ±a Colada Musk Collection Body Spray",
                 "brand": "Gulf Orchid",
                 "gender": "Unisex",
                 "season": "Spring, Summer",
@@ -1245,7 +1245,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Melt CrÃ¨me Caramel",
+                "name": "Melt CrÃÂ¨me Caramel",
                 "brand": "Mamlakat Al Oud",
                 "gender": "Unisex (leans feminine)",
                 "season": "Fall, Winter",
@@ -2864,7 +2864,7 @@ with tab_layer:
         base_f = name_to_frag.get(base_choice)
         if base_f:
             st.caption(
-                f"{base_f['brand']} Â· {base_f['gender']} Â· {base_f['season']} Â· "
+                f"{base_f['brand']} ÃÂ· {base_f['gender']} ÃÂ· {base_f['season']} ÃÂ· "
                 f"{', '.join(base_f.get('category', []))}"
             )
             partners = suggest_partners_for(base_f, num=5)
@@ -2969,7 +2969,7 @@ with tab_layer:
             st.warning("Need a name and at least two bottles.")
 
     for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
-        st.write(f"**{recipe['name']}** Â· {' + '.join(recipe.get('bottles') or [])}")
+        st.write(f"**{recipe['name']}** ÃÂ· {' + '.join(recipe.get('bottles') or [])}")
         rb1, rb2 = st.columns(2)
         with rb1:
             if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
@@ -3083,10 +3083,10 @@ with tab_roulette:
             st.markdown(
                 """
                 <div class="bat-container">
-                    <span class="floating-bat bat1">ð¦</span>
-                    <span class="floating-bat bat2">ð¦</span>
-                    <span class="floating-bat bat3">ð¦</span>
-                    <span class="floating-bat bat4">ð¦</span>
+                    <span class="floating-bat bat1">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat2">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat3">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat4">Ã°ÂÂ¦Â</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3178,7 +3178,7 @@ with tab_sotd:
                     with row_a:
                         mark = " (already selected)" if already else ""
                         st.markdown(
-                            f"**{pf['name']}** Â· *{pf['brand']}*{mark}  \n"
+                            f"**{pf['name']}** ÃÂ· *{pf['brand']}*{mark}  \n"
                             f"{', '.join(pf.get('category', []))}  \n"
                             f"*{reason}*"
                         )
@@ -3207,8 +3207,8 @@ with tab_sotd:
         else:
             for hi, (hf, reason) in enumerate(his_matches):
                 st.info(
-                    f"**{hf['name']}** Â· *{hf['brand']}*\n\n"
-                    f"{hf['gender']} Â· {hf['season']} Â· {', '.join(hf.get('category', []))}\n\n"
+                    f"**{hf['name']}** ÃÂ· *{hf['brand']}*\n\n"
+                    f"{hf['gender']} ÃÂ· {hf['season']} ÃÂ· {', '.join(hf.get('category', []))}\n\n"
                     f"*{reason}*\n\n"
                     f"Notes: {hf['notes']}"
                 )
@@ -3302,10 +3302,10 @@ with tab_horoscope:
 
     st.markdown("#### Your chart")
     st.info(
-        f"**Born** {DEFAULT_CHART['birth_date']} Â· {DEFAULT_CHART['birth_time']} Â· "
+        f"**Born** {DEFAULT_CHART['birth_date']} ÃÂ· {DEFAULT_CHART['birth_time']} ÃÂ· "
         f"{DEFAULT_CHART['birth_place']}\n\n"
-        f"**Sun** {DEFAULT_CHART['sun']} Â· **Moon** {DEFAULT_CHART['moon']} Â· "
-        f"**Rising** {DEFAULT_CHART['rising']} Â· **Venus** {DEFAULT_CHART['venus']}\n\n"
+        f"**Sun** {DEFAULT_CHART['sun']} ÃÂ· **Moon** {DEFAULT_CHART['moon']} ÃÂ· "
+        f"**Rising** {DEFAULT_CHART['rising']} ÃÂ· **Venus** {DEFAULT_CHART['venus']}\n\n"
         f"*{DEFAULT_CHART['notes']}*"
     )
 
@@ -3357,7 +3357,7 @@ with tab_horoscope:
     )
     day_prof = DAY_RULER[day_s]
     st.write(
-        f"**{day_s}** Â· ruled by **{day_prof['planet']}**  \n"
+        f"**{day_s}** ÃÂ· ruled by **{day_prof['planet']}**  \n"
         f"{day_prof['vibe']}  \n"
         f"Families: {', '.join(day_prof['categories'])}"
     )
@@ -3382,8 +3382,8 @@ with tab_horoscope:
         picks = last_chart.get("picks") or []
         st.subheader(f"{meta.get('day', 'Day')} scents")
         st.caption(
-            f"{meta.get('day')} Â· {meta.get('planet')}  |  "
-            f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· Rising {meta.get('rising')}  |  "
+            f"{meta.get('day')} ÃÂ· {meta.get('planet')}  |  "
+            f"Sun {meta.get('sun')} ÃÂ· Moon {meta.get('moon')} ÃÂ· Rising {meta.get('rising')}  |  "
             f"Female / Unisex only"
         )
         if not picks:
@@ -3480,7 +3480,7 @@ with tab_play:
         if mystery and not st.session_state.get("blind_revealed"):
             st.info(
                 f"**Notes:** {mystery['notes']}\\n\\n"
-                f"**Season:** {mystery['season']} Â· **Category:** {', '.join(mystery['category'])}"
+                f"**Season:** {mystery['season']} ÃÂ· **Category:** {', '.join(mystery['category'])}"
             )
             guess = st.selectbox(
                 "Your guess",
@@ -3521,7 +3521,7 @@ with tab_play:
             st.caption(f"Twins of {last_twins.get('base')}")
             for s, f in last_twins.get("twins") or []:
                 st.info(
-                    f"**{f['name']}** ({f['brand']}) Â· score {s}\\n\\n"
+                    f"**{f['name']}** ({f['brand']}) ÃÂ· score {s}\\n\\n"
                     f"{', '.join(f['category'])}\\n\\n{f['notes']}"
                 )
 
@@ -3531,7 +3531,7 @@ with tab_play:
             st.session_state["last_least"] = least_worn(top_n=8)
         for wears, f in st.session_state.get("last_least") or []:
             st.write(
-                f"**{f['name']}** Â· *{f['brand']}* Â· worn {wears}x  \\n"
+                f"**{f['name']}** ÃÂ· *{f['brand']}* ÃÂ· worn {wears}x  \\n"
                 f"{f['gender']} | {', '.join(f['category'])}"
             )
             if st.button("Wear today", key=f"least_wear_{f['name']}"):
@@ -3578,7 +3578,7 @@ with tab_play:
         m2.metric("Blind plays", stats.get("blind_played", 0))
         m3.metric("Blind correct", stats.get("blind_correct", 0))
         if badges:
-            st.success(" Â· ".join(badges))
+            st.success(" ÃÂ· ".join(badges))
         else:
             st.info("Log a scent, star bottles, layer, or play blind bottle to earn badges.")
 
@@ -3602,16 +3602,65 @@ with tab_collection:
     m2.metric("Favorites", len(favs))
     m3.metric("Banished", len(dislikes))
     m4.metric("SOTD logs", len(st.session_state["sotd_history"]))
+
+    # Gender breakdown (using normalize_gender for consistency)
+    female_count = 0
+    male_count = 0
+    unisex_count = 0
+    for f in st.session_state["fragrances_db"]:
+        g = normalize_gender(f.get("gender", ""))
+        if g in ("Female", "Female-leaning"):
+            female_count += 1
+        elif g in ("Male", "Male-leaning"):
+            male_count += 1
+        else:
+            unisex_count += 1
+
+    g1, g2, g3 = st.columns(3)
+    g1.metric("Women / F-leaning", female_count)
+    g2.metric("Unisex", unisex_count)
+    g3.metric("Men / M-leaning", male_count)
+
     badges = compute_badges()
     if badges:
         st.caption("Badges: " + " Â· ".join(badges))
 
-    browse_sort = st.selectbox(
-        "Sort by",
-        ["Name (A-Z)", "Brand (A-Z)", "Most worn", "Category"],
-        key="browse_sort",
-    )
+    filter_col, sort_col = st.columns(2)
+    with filter_col:
+        browse_gender = st.selectbox(
+            "Filter by gender",
+            ["Any", "Women / F-leaning", "Unisex", "Men / M-leaning"],
+            key="browse_gender",
+        )
+    with sort_col:
+        browse_sort = st.selectbox(
+            "Sort by",
+            ["Name (A-Z)", "Brand (A-Z)", "Most worn", "Category"],
+            key="browse_sort",
+        )
+
     db = list(st.session_state["fragrances_db"])
+
+    # Apply gender filter
+    if browse_gender == "Women / F-leaning":
+        db = [
+            f
+            for f in db
+            if normalize_gender(f.get("gender", "")) in ("Female", "Female-leaning")
+        ]
+    elif browse_gender == "Men / M-leaning":
+        db = [
+            f
+            for f in db
+            if normalize_gender(f.get("gender", "")) in ("Male", "Male-leaning")
+        ]
+    elif browse_gender == "Unisex":
+        db = [
+            f
+            for f in db
+            if normalize_gender(f.get("gender", "")) == "Unisex"
+        ]
+
     if browse_sort == "Name (A-Z)":
         db.sort(key=lambda x: x["name"].lower())
     elif browse_sort == "Brand (A-Z)":
@@ -3621,7 +3670,9 @@ with tab_collection:
     else:
         db.sort(key=lambda x: (",".join(x.get("category", [])), x["name"].lower()))
 
-    with st.expander(f"Browse all {len(db)} bottles", expanded=False):
+    with st.expander(f"Browse {len(db)} bottles", expanded=False):
+        if not db:
+            st.info("No bottles match this gender filter.")
         for i, f in enumerate(db):
             wears = wear_counts.get(f["name"], 0)
             wear_str = f" | worn {wears}x" if wears else ""
