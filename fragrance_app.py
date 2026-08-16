@@ -2380,51 +2380,61 @@ if st.button("Spin the Roulette", type="primary", key="spin_roulette_btn"):
 # Show last roulette result (survives reaction button presses)
 if "last_roulette" in st.session_state and st.session_state["last_roulette"]:
     chosen = st.session_state["last_roulette"]
-    current_reaction = st.session_state["user_reactions"].get(chosen["name"])
-    status_badge = (
-        " ð¤ Favorite"
-        if current_reaction == "fav"
-        else (" ð« Disliked" if current_reaction == "dislike" else "")
-    )
+    # Drop stale result if the bottle was banished from the vault
+    if not any(f["name"] == chosen.get("name") for f in st.session_state["fragrances_db"]):
+        st.session_state["last_roulette"] = None
+        chosen = None
+    if chosen:
+        current_reaction = st.session_state["user_reactions"].get(chosen["name"])
+        status_badge = (
+            " ð¤ Favorite"
+            if current_reaction == "fav"
+            else (" ð« Disliked" if current_reaction == "dislike" else "")
+        )
 
-    st.markdown(
-        """
-        <div class="bat-container">
-            <span class="floating-bat bat1">ð¦</span>
-            <span class="floating-bat bat2">ð¦</span>
-            <span class="floating-bat bat3">ð¦</span>
-            <span class="floating-bat bat4">ð¦</span>
-        </div>
-    """,
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            """
+            <div class="bat-container">
+                <span class="floating-bat bat1">ð¦</span>
+                <span class="floating-bat bat2">ð¦</span>
+                <span class="floating-bat bat3">ð¦</span>
+                <span class="floating-bat bat4">ð¦</span>
+            </div>
+        """,
+            unsafe_allow_html=True,
+        )
 
-    st.success("### The roulette has spoken...")
-    st.markdown(f"## **{chosen['name']}**{status_badge}")
-    st.markdown(f"### by *{chosen['brand']}*")
-    st.write(f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}")
-    st.write(f"**Category:** {', '.join(chosen['category'])}")
-    st.caption(f"Notes: {chosen['notes']}")
+        st.success("### The roulette has spoken...")
+        st.markdown(f"## **{chosen['name']}**{status_badge}")
+        st.markdown(f"### by *{chosen['brand']}*")
+        st.write(f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}")
+        st.write(f"**Category:** {', '.join(chosen['category'])}")
+        st.caption(f"Notes: {chosen['notes']}")
 
-    rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
-    with rcol1:
-        if st.button("Love it", key=f"roulette_fav_{chosen['name']}"):
-            st.session_state["user_reactions"][chosen["name"]] = "fav"
-            save_persisted_data()
-            st.rerun()
-    with rcol2:
-        if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}"):
-            st.session_state["user_reactions"][chosen["name"]] = "dislike"
-            save_persisted_data()
-            st.rerun()
+        rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
+        with rcol1:
+            if st.button("Love it", key=f"roulette_fav_{chosen['name']}"):
+                st.session_state["user_reactions"][chosen["name"]] = "fav"
+                save_persisted_data()
+                st.rerun()
+        with rcol2:
+            if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}"):
+                st.session_state["user_reactions"][chosen["name"]] = "dislike"
+                save_persisted_data()
+                st.rerun()
 
 # Scent of the Day (SOTD) Section
 st.markdown("---")
 st.subheader("Scent of the Day (SOTD) Logger")
 all_frag_names = sorted([f["name"] for f in st.session_state["fragrances_db"]])
 
-if "sotd_prefill" not in st.session_state:
+# Apply pending prefill into the multiselect widget state *before* the widget is drawn
+if st.session_state["sotd_prefill"]:
+    st.session_state["sotd_multiselect"] = list(st.session_state["sotd_prefill"])
     st.session_state["sotd_prefill"] = []
+    # Soft-suggest a layering note only when prefill brings 2+ scents
+    if len(st.session_state.get("sotd_multiselect", [])) > 1:
+        st.session_state["sotd_notes_input"] = "Layered combo"
 
 st.caption(
     "Select one fragrance for a single wear, or multiple for a layering combo."
@@ -2432,21 +2442,12 @@ st.caption(
 sotd_choices = st.multiselect(
     "What are you wearing today? (select one or more)",
     options=all_frag_names,
-    default=st.session_state["sotd_prefill"],
     placeholder="Choose fragrance(s)...",
     key="sotd_multiselect",
 )
 
-if st.session_state["sotd_prefill"]:
-    st.session_state["sotd_prefill"] = []
-
-default_note = ""
-if len(sotd_choices) > 1:
-    default_note = "Layered combo"
-
 sotd_notes = st.text_input(
     "Optional comments/vibe for today:",
-    value=default_note if default_note else "",
     placeholder="e.g. Perfect for a rainy gothic afternoon. / Layered for depth.",
     key="sotd_notes_input",
 )
@@ -2496,14 +2497,25 @@ if st.button("Log Today's Scent", type="primary"):
             },
         )
         save_persisted_data()
+        # Clear selection so the next log starts fresh
+        st.session_state["sotd_multiselect"] = []
+        st.session_state["sotd_notes_input"] = ""
         if is_layering:
-            st.success(
+            st.session_state["_sotd_flash"] = (
                 f"Successfully logged layering combo: **{scent_display}** for today!"
             )
         else:
-            st.success(f"Successfully logged **{scent_display}** for today!")
+            st.session_state["_sotd_flash"] = (
+                f"Successfully logged **{scent_display}** for today!"
+            )
+        st.rerun()
     else:
         st.warning("Please select at least one fragrance to log.")
+
+# Show one-shot confirmation after a successful log + rerun
+_flash = st.session_state.pop("_sotd_flash", None)
+if _flash:
+    st.success(_flash)
 
 if st.session_state["sotd_history"]:
     with st.expander("SOTD Journal History"):
