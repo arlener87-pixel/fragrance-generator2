@@ -2044,46 +2044,108 @@ def chart_category_weights(sun: str, moon: str, rising: str) -> dict:
     return weights
 
 
-def score_fragrance_for_chart(f: dict, cat_weights: dict, sun: str, moon: str, rising: str) -> int:
+# Traditional day rulers -> scent leanings
+DAY_RULER = {
+    "Monday": {
+        "planet": "Moon",
+        "vibe": "Soft, emotional, milky-musk comfort",
+        "categories": ["Gourmand", "Floral", "Sweet", "Fresh"],
+        "notes_keywords": ["milk", "musk", "vanilla", "coconut", "powder", "white flower"],
+    },
+    "Tuesday": {
+        "planet": "Mars",
+        "vibe": "Bold, spicy, energetic heat",
+        "categories": ["Spicy", "Oriental", "Woody", "Fruity"],
+        "notes_keywords": ["pepper", "ginger", "cinnamon", "saffron", "dark fruit"],
+    },
+    "Wednesday": {
+        "planet": "Mercury",
+        "vibe": "Light, airy, clean and curious",
+        "categories": ["Fresh", "Citrus", "Floral", "Fruity"],
+        "notes_keywords": ["citrus", "bergamot", "green", "tea", "pear", "light musk"],
+    },
+    "Thursday": {
+        "planet": "Jupiter",
+        "vibe": "Warm, expansive, golden sweetness",
+        "categories": ["Oriental", "Gourmand", "Spicy", "Sweet"],
+        "notes_keywords": ["amber", "honey", "vanilla", "cinnamon", "tonka", "pineapple"],
+    },
+    "Friday": {
+        "planet": "Venus",
+        "vibe": "Romantic, floral, beauty-forward (Libra/Taurus)",
+        "categories": ["Floral", "Sweet", "Gourmand", "Fruity"],
+        "notes_keywords": ["rose", "iris", "vanilla", "pear", "soft floral", "musk"],
+    },
+    "Saturday": {
+        "planet": "Saturn",
+        "vibe": "Polished, structured, amber-wood depth",
+        "categories": ["Woody", "Oriental", "Gourmand", "Spicy"],
+        "notes_keywords": ["amber", "cedar", "vanilla", "tonka", "leather", "incense"],
+    },
+    "Sunday": {
+        "planet": "Sun",
+        "vibe": "Radiant, warm, confident glow (Leo)",
+        "categories": ["Gourmand", "Floral", "Sweet", "Oriental"],
+        "notes_keywords": ["vanilla", "orange blossom", "honey", "amber", "cinnamon"],
+    },
+}
+
+
+def is_female_or_unisex(f: dict) -> bool:
+    g = normalize_gender(f.get("gender", ""))
+    return g in ("Female", "Female-leaning", "Unisex")
+
+
+def score_fragrance_for_day(f: dict, day: str, sun: str, moon: str, rising: str) -> int:
     if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+        return -999
+    if not is_female_or_unisex(f):
         return -999
 
     score = 0
     if st.session_state["user_reactions"].get(f["name"]) == "fav":
-        score += 25
+        score += 30
 
+    # Day ruler categories / notes (primary)
+    day_prof = DAY_RULER.get(day, {})
     for c in f.get("category", []):
-        score += cat_weights.get(c, 0) * 4
+        if c in day_prof.get("categories", []):
+            score += 18
+            if f.get("category") and f["category"][0] == c:
+                score += 6
 
     notes_l = f.get("notes", "").lower()
+    for kw in day_prof.get("notes_keywords", []):
+        if kw.lower() in notes_l:
+            score += 8
+
+    # Chart Big Three (secondary blend)
+    cat_weights = chart_category_weights(sun, moon, rising)
+    for c in f.get("category", []):
+        score += cat_weights.get(c, 0) * 3
+
     for sign in (sun, moon, rising):
         for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
             if kw.lower() in notes_l:
-                score += 6
+                score += 5
 
-    score += _stable_tiebreak(f["name"])
+    # Prefer Female over pure Unisex slightly for this feature
+    g = normalize_gender(f.get("gender", ""))
+    if g == "Female":
+        score += 8
+    elif g == "Female-leaning":
+        score += 6
+    elif g == "Unisex":
+        score += 3
+
+    score += _stable_tiebreak(f["name"] + day)
     return score
 
 
-def get_chart_fragrances(
-    sun: str,
-    moon: str,
-    rising: str,
-    top_n: int = 5,
-    gender: str = "Female",
-    weather: str = "Any",
-    category: str = "Any",
-) -> list:
-    weights = chart_category_weights(sun, moon, rising)
+def get_day_fragrances(day: str, sun: str, moon: str, rising: str, top_n: int = 5) -> list:
     scored = []
     for f in st.session_state["fragrances_db"]:
-        if not matches_gender(f, gender):
-            continue
-        if not matches_weather(f, weather):
-            continue
-        if not matches_category(f, category):
-            continue
-        s = score_fragrance_for_chart(f, weights, sun, moon, rising)
+        s = score_fragrance_for_day(f, day, sun, moon, rising)
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
@@ -2816,12 +2878,9 @@ with tab_sotd:
 with tab_horoscope:
     st.subheader("Stars & scent")
     st.caption(
-        "Interpretive chart-to-fragrance mapping for Female / Unisex bottles. "
-        "Not a full ephemeris engine - a sanctuary vibe guide."
+        "Day-of-week horoscope picks for Female and Unisex bottles, "
+        "blended with your birth chart."
     )
-
-    if "chart_gender" not in st.session_state:
-        st.session_state["chart_gender"] = "Female"
 
     st.markdown("#### Your chart")
     st.info(
@@ -2856,83 +2915,46 @@ with tab_horoscope:
             key="chart_rising",
         )
 
-    st.markdown("#### Sign scents")
-    for label, sign in (("Sun", sun_s), ("Moon", moon_s), ("Rising", rise_s)):
-        p = SIGN_SCENT_PROFILE[sign]
-        st.write(
-            f"**{label} Â· {sign}** ({p['element']}) - {p['vibe']}  \n"
-            f"Families: {', '.join(p['categories'])}"
-        )
+    st.markdown("#### Day of the week")
+    weekdays = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    # Default to Pacific "today" weekday
+    today_name = pacific_today().strftime("%A")
+    default_day_idx = weekdays.index(today_name) if today_name in weekdays else 0
+    if "chart_day" not in st.session_state:
+        st.session_state["chart_day"] = today_name
 
-    st.markdown("#### Filters")
-    if st.session_state.pop("_clear_chart_filters", False):
-        st.session_state["chart_gender"] = "Female"
-        st.session_state["chart_weather"] = "Any"
-        st.session_state["chart_category"] = "Any"
-        st.session_state.pop("last_chart_picks", None)
-
-    cf1, cf2, cf3 = st.columns(3)
-    with cf1:
-        chart_gender = st.selectbox(
-            "Gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="chart_gender",
-        )
-    with cf2:
-        chart_weather = st.selectbox(
-            "Season / weather",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="chart_weather",
-        )
-    with cf3:
-        chart_category = st.selectbox(
-            "Category",
-            [
-                "Any",
-                "Gourmand",
-                "Floral",
-                "Woody",
-                "Oriental",
-                "Fresh",
-                "Fruity",
-                "Spicy",
-                "Citrus",
-                "Aromatic",
-                "Sweet",
-                "Oud",
-                "Leather",
-            ],
-            key="chart_category",
-        )
+    day_s = st.selectbox(
+        "Choose day",
+        weekdays,
+        key="chart_day",
+        help="Each day is ruled by a planet that steers the scent mood.",
+    )
+    day_prof = DAY_RULER[day_s]
+    st.write(
+        f"**{day_s}** Â· ruled by **{day_prof['planet']}**  \n"
+        f"{day_prof['vibe']}  \n"
+        f"Families: {', '.join(day_prof['categories'])}"
+    )
 
     chart_n = st.radio("How many picks", [3, 5, 7], index=1, horizontal=True, key="chart_n")
-    b_draw, b_clear = st.columns(2)
-    with b_draw:
-        draw_clicked = st.button("Draw chart scents", type="primary", use_container_width=True, key="chart_draw_btn")
-    with b_clear:
-        if st.button("Clear filters", use_container_width=True, key="chart_clear_btn"):
-            st.session_state["_clear_chart_filters"] = True
-            st.rerun()
-
-    if draw_clicked:
-        picks = get_chart_fragrances(
-            sun_s,
-            moon_s,
-            rise_s,
-            top_n=chart_n,
-            gender=chart_gender,
-            weather=chart_weather,
-            category=chart_category,
-        )
+    if st.button("Draw day scents", type="primary", key="chart_draw_btn"):
+        picks = get_day_fragrances(day_s, sun_s, moon_s, rise_s, top_n=chart_n)
         st.session_state["last_chart_picks"] = {
             "picks": picks,
             "meta": {
+                "day": day_s,
+                "planet": day_prof["planet"],
                 "sun": sun_s,
                 "moon": moon_s,
                 "rising": rise_s,
-                "gender": chart_gender,
-                "weather": chart_weather,
-                "category": chart_category,
             },
         }
 
@@ -2940,15 +2962,16 @@ with tab_horoscope:
     if last_chart is not None:
         meta = last_chart.get("meta") or {}
         picks = last_chart.get("picks") or []
-        st.subheader("Chart picks")
+        st.subheader(f"{meta.get('day', 'Day')} scents")
         st.caption(
+            f"{meta.get('day')} Â· {meta.get('planet')}  |  "
             f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· Rising {meta.get('rising')}  |  "
-            f"{meta.get('gender')} Â· {meta.get('weather')} Â· {meta.get('category')}"
+            f"Female / Unisex only"
         )
         if not picks:
             st.warning(
-                "Nothing matched this chart + filter blend. "
-                "Try **Any** on season/category, or clear filters."
+                "No Female/Unisex matches for this day + chart blend. "
+                "Try another day or clear some DEL marks."
             )
         else:
             for i, f in enumerate(picks, 1):
@@ -2971,11 +2994,14 @@ with tab_horoscope:
                         st.rerun()
                 st.markdown("---")
             st.caption(
-                "Libra Sun/Venus leans floral-balanced; Capricorn Moon deepens amber-wood; "
-                "Leo rising warms the blend toward radiant gourmand-floral."
+                "Friday (Venus) loves your Libra Sun; Saturday (Saturn) echoes Capricorn Moon; "
+                "Sunday (Sun) amplifies Leo rising."
             )
     else:
-        st.info("Hit **Draw chart scents** for Female / Unisex picks tuned to this chart.")
+        st.info(
+            f"Today is **{today_name}**. Pick a day and hit **Draw day scents** "
+            "for Female / Unisex recommendations."
+        )
 
 # ===== COLLECTION =====
 with tab_collection:
