@@ -51,271 +51,212 @@ st.set_page_config(
 # Deep black, blood-crimson accents, spectral blue, floating bats
 st.markdown(
     """
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
-    <style>
-    /* Gothic aesthetic: Cinzel (headings) + Cormorant Garamond (body)
-       Emoji fonts kept first so hearts/bats still render on mobile */
-    html, body, [class*="css"], .stApp, .stMarkdown, p, span, div, label, input, textarea, button, h1, h2, h3, h4, h5, h6 {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji,
-                     'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
-    }
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 
-    /* Deep void background */
-    .stApp {
-        background: radial-gradient(ellipse at top, #0a0e18 0%, #020408 45%, #000000 100%);
-        color: #c8d0e0;
-    }
+/* Base - Cormorant Garamond body, emoji fonts first */
+html, body, .stApp, [class*="css"], .stMarkdown, p, span, div, label, input, textarea, button {
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
+}
 
-    /* Headings - Cinzel for monumental gothic feel */
-    h1, h2, h3, h4 {
-        color: #9ec5ff !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
-                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
-        text-shadow: 0 0 12px rgba(80, 140, 255, 0.55), 0 0 4px rgba(180, 40, 60, 0.3), 2px 2px 6px rgba(0, 0, 0, 0.95);
-        letter-spacing: 1.5px;
-        font-weight: 600 !important;
-    }
+.stApp {
+    background: radial-gradient(ellipse at top, #0a0e18 0%, #020408 45%, #000000 100%);
+    color: #c8d0e0;
+}
 
-    h1 {
-        font-size: 2.5rem !important;
-        border-bottom: 1px solid #2a1a30;
-        padding-bottom: 0.5rem;
-        background: linear-gradient(90deg, transparent, rgba(40, 20, 50, 0.4), transparent);
-        letter-spacing: 2px;
-    }
+/* Headings - Cinzel */
+h1, h2, h3, h4, h5, h6 {
+    color: #9ec5ff !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cinzel', Georgia, serif !important;
+    text-shadow: 0 0 12px rgba(80, 140, 255, 0.55), 0 0 4px rgba(180, 40, 60, 0.3), 2px 2px 6px rgba(0, 0, 0, 0.95);
+    letter-spacing: 1.5px;
+    font-weight: 600 !important;
+}
 
-    /* Body text - Cormorant Garamond (elegant, readable serif) */
-    p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
-                     'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
-        color: #b0c0d8 !important;
-        font-size: 1.08rem !important;
-    }
+h1 {
+    font-size: 2.4rem !important;
+    border-bottom: 1px solid #2a1a30;
+    padding-bottom: 0.5rem;
+    background: linear-gradient(90deg, transparent, rgba(40, 20, 50, 0.4), transparent);
+    letter-spacing: 2px;
+}
 
-    /* Sidebar - deeper crypt */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #05070e 0%, #0a0f1a 50%, #08060c 100%) !important;
-        border-right: 1px solid #1a1525;
-        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.6);
-    }
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 {
-        color: #8ab4ff !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
-                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
-        text-shadow: 0 0 8px rgba(60, 100, 200, 0.4);
-        letter-spacing: 1.2px;
-    }
+p, .stMarkdown, .stCaption, label, .stText, .stInfo, .stSuccess, .stWarning, .stError {
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cormorant Garamond', Georgia, serif !important;
+    color: #b0c0d8 !important;
+    font-size: 1.1rem !important;
+}
 
-    /* Buttons - dark steel with blue glow */
-    .stButton > button {
-        background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
-        color: #a0c8ff !important;
-        border: 1px solid #2a4068 !important;
-        border-radius: 2px !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
-                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
-        font-weight: 600 !important;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-        box-shadow: 0 0 8px rgba(30, 70, 150, 0.2);
-    }
-    .stButton > button:hover {
-        background: linear-gradient(180deg, #152545 0%, #0c1830 100%) !important;
-        border-color: #4a7ac8 !important;
-        color: #e8f0ff !important;
-        box-shadow: 0 0 18px rgba(70, 130, 255, 0.5);
-        transform: translateY(-1px);
-    }
-    .stButton > button:active {
-        background: #0a1220 !important;
-    }
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #05070e 0%, #0a0f1a 50%, #08060c 100%) !important;
+    border-right: 1px solid #1a1525;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.6);
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #8ab4ff !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cinzel', Georgia, serif !important;
+    text-shadow: 0 0 8px rgba(60, 100, 200, 0.4);
+    letter-spacing: 1.2px;
+}
 
-    /* Primary buttons - deeper emphasis */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(180deg, #121e38 0%, #0a1428 100%) !important;
-        border: 1px solid #3a6aaa !important;
-        color: #d0e4ff !important;
-        box-shadow: 0 0 10px rgba(50, 100, 200, 0.3);
-    }
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
+    color: #a0c8ff !important;
+    border: 1px solid #2a4068 !important;
+    border-radius: 2px !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cinzel', Georgia, serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px rgba(30, 70, 150, 0.2);
+}
+.stButton > button:hover {
+    background: linear-gradient(180deg, #152545 0%, #0c1830 100%) !important;
+    border-color: #4a7ac8 !important;
+    color: #e8f0ff !important;
+    box-shadow: 0 0 18px rgba(70, 130, 255, 0.5);
+    transform: translateY(-1px);
+}
+.stButton > button:active {
+    background: #0a1220 !important;
+}
+.stButton > button[kind="primary"] {
+    background: linear-gradient(180deg, #121e38 0%, #0a1428 100%) !important;
+    border: 1px solid #3a6aaa !important;
+    color: #d0e4ff !important;
+    box-shadow: 0 0 10px rgba(50, 100, 200, 0.3);
+}
 
-    /* Inputs */
-    .stTextInput > div > div > input,
-    .stSelectbox > div > div > select,
-    .stMultiSelect > div > div,
-    .stTextArea > div > div > textarea {
-        background-color: #080c16 !important;
-        color: #d0e0f8 !important;
-        border: 1px solid #1e2a48 !important;
-        border-radius: 2px !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
-    }
-    .stTextInput > div > div > input:focus,
-    .stSelectbox > div > div > select:focus {
-        border-color: #4a80d0 !important;
-        box-shadow: 0 0 10px rgba(60, 120, 220, 0.45) !important;
-    }
+/* Inputs */
+.stTextInput > div > div > input,
+.stSelectbox > div > div > select,
+.stMultiSelect > div > div,
+.stTextArea > div > div > textarea {
+    background-color: #080c16 !important;
+    color: #d0e0f8 !important;
+    border: 1px solid #1e2a48 !important;
+    border-radius: 2px !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cormorant Garamond', Georgia, serif !important;
+}
+.stTextInput > div > div > input:focus,
+.stSelectbox > div > div > select:focus {
+    border-color: #4a80d0 !important;
+    box-shadow: 0 0 10px rgba(60, 120, 220, 0.45) !important;
+}
 
-    /* Radio & checkbox */
-    .stRadio label, .stCheckbox label {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
-        color: #a8bdd8 !important;
-    }
+.stRadio label, .stCheckbox label {
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cormorant Garamond', Georgia, serif !important;
+    color: #a8bdd8 !important;
+}
 
-    /* Alerts */
-    .stAlert {
-        background-color: #0a101c !important;
-        border: 1px solid #1e2a48 !important;
-        color: #b8cce8 !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
-    }
+.stAlert {
+    background-color: #0a101c !important;
+    border: 1px solid #1e2a48 !important;
+    color: #b8cce8 !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cormorant Garamond', Georgia, serif !important;
+}
 
-    /* Expander */
-    .streamlit-expanderHeader {
-        background-color: #0a0e18 !important;
-        color: #8ab0e8 !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
-                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
-        border: 1px solid #1a2540 !important;
-        letter-spacing: 1px;
-    }
+/* Expanders - hide broken material icon text (arrow_right, double_arrow_right, etc.) */
+[data-testid="stExpanderToggleIcon"],
+[data-testid="stExpander"] summary svg,
+[data-testid="stIconMaterial"],
+.streamlit-expanderHeader svg,
+span[data-testid="stIconMaterial"],
+[data-testid="baseButton-headerNoPadding"] svg {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    font-size: 0 !important;
+}
 
-    /* ===== FIX BROKEN arrow_right / icon glyphs on mobile ===== */
-    [data-testid="stExpanderToggleIcon"],
-    [data-testid="stExpander"] summary svg,
-    [data-testid="stExpander"] summary > div:first-child,
-    .streamlit-expanderHeader svg,
-    .streamlit-expanderHeader [data-testid="stIconMaterial"],
-    [data-testid="stIconMaterial"],
-    [data-testid="baseButton-headerNoPadding"] svg,
-    .st-emotion-cache-1mwk4bt,
-    .st-emotion-cache-1h9usn1,
-    span[data-testid="stIconMaterial"],
-    /* Hide any text node that contains the broken material icon name */
-    [data-testid="stExpander"] summary span:empty {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        font-size: 0 !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        position: absolute !important;
-        pointer-events: none !important;
-    }
+[data-testid="stExpander"] summary,
+.streamlit-expanderHeader {
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cinzel', Georgia, serif !important;
+    color: #9ec5ff !important;
+    background: linear-gradient(90deg, #0a0e18 0%, #0c1220 100%) !important;
+    border: 1px solid #1e2a48 !important;
+    border-radius: 4px !important;
+    padding: 0.6rem 1rem !important;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(80, 140, 255, 0.35);
+    overflow: hidden !important;
+}
+[data-testid="stExpander"] summary:hover {
+    border-color: #3a6aaa !important;
+    box-shadow: 0 0 12px rgba(60, 120, 220, 0.25);
+}
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary div {
+    color: #9ec5ff !important;
+    font-size: 1rem !important;
+}
+/* Hide leftover icon name text nodes on mobile */
+[data-testid="stExpander"] summary > div > span:first-child {
+    display: none !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+}
 
-    /* Clean expander headers - gothic style */
-    [data-testid="stExpander"] summary,
-    .streamlit-expanderHeader {
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji,
-                     'Cinzel', Georgia, 'Times New Roman', Times, serif !important;
-        color: #9ec5ff !important;
-        background: linear-gradient(90deg, #0a0e18 0%, #0c1220 100%) !important;
-        border: 1px solid #1e2a48 !important;
-        border-radius: 4px !important;
-        padding: 0.6rem 1rem !important;
-        letter-spacing: 1px;
-        text-shadow: 0 0 8px rgba(80, 140, 255, 0.35);
-    }
+.stDownloadButton > button {
+    background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
+    color: #a0c8ff !important;
+    border: 1px solid #2a4068 !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', emoji, 'Cinzel', Georgia, serif !important;
+}
 
-    [data-testid="stExpander"] summary:hover {
-        border-color: #3a6aaa !important;
-        box-shadow: 0 0 12px rgba(60, 120, 220, 0.25);
-    }
+.stFileUploader {
+    border: 1px dashed #2a3050 !important;
+    background-color: #060a12 !important;
+}
 
-    /* Make sure the actual label text is clean and readable */
-    [data-testid="stExpander"] summary p,
-    [data-testid="stExpander"] summary div {
-        color: #9ec5ff !important;
-        font-size: 1rem !important;
-    }
+hr {
+    border-color: #1a2035 !important;
+    opacity: 0.7;
+}
 
-    /* Download button */
-    .stDownloadButton > button {
-        background: linear-gradient(180deg, #0c1528 0%, #070e1a 100%) !important;
-        color: #a0c8ff !important;
-        border: 1px solid #2a4068 !important;
-        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, 'Cormorant Garamond', Georgia, 'Times New Roman', Times, serif !important;
-    }
+/* Floating bats */
+@keyframes flyBats {
+    0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(-420px) translateX(160px) rotate(25deg); opacity: 0; }
+}
+.bat-container {
+    position: relative;
+    height: 130px;
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.floating-bat {
+    position: absolute;
+    bottom: 0px;
+    font-size: 26px;
+    animation: flyBats 3.2s ease-in-out infinite;
+    filter: drop-shadow(0 0 4px rgba(100, 60, 180, 0.5));
+}
+.bat1 { left: 8%; animation-delay: 0s; }
+.bat2 { left: 32%; animation-delay: 0.55s; }
+.bat3 { left: 58%; animation-delay: 0.25s; }
+.bat4 { left: 82%; animation-delay: 0.85s; }
 
-    /* File uploader */
-    .stFileUploader {
-        border: 1px dashed #2a3050 !important;
-        background-color: #060a12 !important;
-    }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #030508; }
+::-webkit-scrollbar-thumb { background: #1a2540; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2a4068; }
 
-    /* Horizontal rules */
-    hr {
-        border-color: #1a2035 !important;
-        opacity: 0.7;
-    }
-
-    /* Floating Bats Animation */
-    @keyframes flyBats {
-        0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0; }
-        15% { opacity: 1; }
-        85% { opacity: 1; }
-        100% { transform: translateY(-420px) translateX(160px) rotate(25deg); opacity: 0; }
-    }
-
-    .bat-container {
-        position: relative;
-        height: 130px;
-        width: 100%;
-        overflow: hidden;
-        margin-bottom: 12px;
-    }
-
-    .floating-bat {
-        position: absolute;
-        bottom: 0px;
-        font-size: 26px;
-        animation: flyBats 3.2s ease-in-out infinite;
-        filter: drop-shadow(0 0 4px rgba(100, 60, 180, 0.5));
-    }
-
-    .bat1 { left: 8%; animation-delay: 0s; }
-    .bat2 { left: 32%; animation-delay: 0.55s; }
-    .bat3 { left: 58%; animation-delay: 0.25s; }
-    .bat4 { left: 82%; animation-delay: 0.85s; }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #030508;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #1a2540;
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #2a4068;
-    }
-
-    /* Subtle crimson accent for success messages */
-    div[data-testid="stNotification"] {
-        border-left: 3px solid #6a2030 !important;
-    }
-
-    /* Nuclear option for broken material icon text on mobile */
-    [data-testid="stExpander"] summary {
-        overflow: hidden !important;
-    }
-    /* Hide any leftover icon text nodes */
-    [data-testid="stExpander"] summary > div > span:first-child {
-        display: none !important;
-        width: 0 !important;
-        max-width: 0 !important;
-        overflow: hidden !important;
-        font-size: 0 !important;
-    }
-
-    </style>
+div[data-testid="stNotification"] {
+    border-left: 3px solid #6a2030 !important;
+}
+</style>
 """,
     unsafe_allow_html=True,
 )
