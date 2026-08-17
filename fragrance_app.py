@@ -1848,12 +1848,12 @@ def temp_c_to_f(temp_c: float) -> float:
 def temp_band_label(temp_f: float) -> str:
     band = temp_f_to_band(temp_f)
     tips = {
-        "Hot / Summer": "favor fresh, citrus, light floral, aquatic â go easy on heavy gourmands",
+        "Hot / Summer": "favor fresh, citrus, light floral, aquatic - go easy on heavy gourmands",
         "Warm / Mild": "versatile, fruity, soft floral, light sweet",
         "Cool / Autumn": "woody, soft spice, light gourmand, amber",
         "Cold / Winter": "gourmand, oriental, oud, vanilla, rich woods",
     }
-    return f"{band} Â· {tips.get(band, '')}"
+    return f"{band} - {tips.get(band, '')}"
 
 
 
@@ -3224,7 +3224,64 @@ with st.sidebar:
             st.warning("No match.")
 
     st.markdown("---")
+    st.markdown("### Temp search")
+    st.caption("Victorville, CA High Desert - pick degrees (F) + gender, then search.")
+    ca_default = int(default_ca_temp_f())
+    if st.session_state.pop("_reset_temp_search", False):
+        st.session_state["temp_search_f"] = ca_default
+        st.session_state["temp_search_gender"] = "Any"
+    if "temp_search_f" not in st.session_state:
+        st.session_state["temp_search_f"] = ca_default
+    if "temp_search_gender" not in st.session_state:
+        st.session_state["temp_search_gender"] = "Any"
+
+    temp_search_gender = st.selectbox(
+        "Gender for temp search",
+        ["Any", "Male", "Female", "Unisex"],
+        key="temp_search_gender",
+    )
+    temp_search_f = st.slider(
+        "Temperature (F)",
+        min_value=30,
+        max_value=115,
+        key="temp_search_f",
+    )
+    band = temp_f_to_band(float(temp_search_f))
+    st.caption(
+        f"{int(temp_search_f)} F -> {temp_band_label(float(temp_search_f))} | "
+        f"Victorville typical this month: {ca_default} F"
+    )
+    ts1, ts2 = st.columns(2)
+    with ts1:
+        temp_search_clicked = st.button(
+            "Search by temp", type="primary", use_container_width=True, key="temp_search_btn"
+        )
+    with ts2:
+        if st.button("Reset temp", use_container_width=True, key="temp_search_reset"):
+            st.session_state["_reset_temp_search"] = True
+            st.session_state.pop("last_temp_search", None)
+            st.rerun()
+    if temp_search_clicked:
+        picks = get_top_fragrances(
+            temp_search_gender,
+            "Any",
+            "Any",
+            "Any",
+            5,
+            favorites_only=False,
+            temp_f=float(temp_search_f),
+        )
+        st.session_state["last_temp_search"] = {
+            "picks": picks,
+            "temp_f": float(temp_search_f),
+            "gender": temp_search_gender,
+            "band": band,
+        }
+        st.rerun()
+
+    st.markdown("---")
     st.markdown("### Recommend filters")
+
     # Reset filters to defaults before widgets if flagged
     if st.session_state.pop("_clear_filters", False):
         st.session_state["filter_gender"] = "Any"
@@ -3233,8 +3290,6 @@ with st.sidebar:
         st.session_state["filter_occasion"] = "Any"
         st.session_state["filter_num_recs"] = 3
         st.session_state["filter_favorites_only"] = False
-        st.session_state["filter_use_temp"] = True
-        st.session_state["filter_temp_f"] = int(default_ca_temp_f())
         st.session_state.pop("last_recs", None)
 
     gender = st.selectbox(
@@ -3242,42 +3297,6 @@ with st.sidebar:
         ["Any", "Male", "Female", "Unisex"],
         key="filter_gender",
     )
-
-    st.markdown("**Outdoor temperature (Â°F)**")
-    ca_default = int(default_ca_temp_f())
-    # Flags must run BEFORE the slider/checkbox widgets exist
-    if st.session_state.pop("_reset_temp_f", False):
-        st.session_state["filter_temp_f"] = ca_default
-    if "filter_temp_f" not in st.session_state:
-        st.session_state["filter_temp_f"] = ca_default
-    if "filter_use_temp" not in st.session_state:
-        st.session_state["filter_use_temp"] = True
-
-    use_temp = st.checkbox(
-        "Use temperature for ranking",
-        key="filter_use_temp",
-        help="Degrees (Â°F) drive ranking. Default is typical Victorville, CA High Desert daytime temp for this month.",
-    )
-    temp_f = None
-    if use_temp:
-        temp_val = st.slider(
-            "Temperature (Â°F)",
-            min_value=30,
-            max_value=115,
-            key="filter_temp_f",
-        )
-        temp_f = float(temp_val)
-        st.caption(
-            f"{temp_f:.0f}Â°F -> {temp_band_label(temp_f)} Â· "
-            f"Victorville typical this month: **{ca_default}Â°F**"
-        )
-        if st.button(
-            "Reset to Victorville monthly norm",
-            key="reset_ca_temp",
-            use_container_width=True,
-        ):
-            st.session_state["_reset_temp_f"] = True
-            st.rerun()
 
     weather = st.selectbox(
         "Season / weather",
@@ -3461,6 +3480,44 @@ with tab_discover:
         "Filter from the sidebar, search by name or note, then generate picks and layering ideas."
     )
 
+    # Results from dedicated Temp search (sidebar)
+    last_temp = st.session_state.get("last_temp_search")
+    if last_temp is not None:
+        picks = last_temp.get("picks") or []
+        st.subheader("Temp search results")
+        st.caption(
+            f"{int(last_temp.get('temp_f', 0))} F -> {last_temp.get('band', '')} | "
+            f"Gender: {last_temp.get('gender', 'Any')}"
+        )
+        if not picks:
+            st.warning("No bottles matched this temperature + gender. Try Any gender or nudge the slider.")
+        else:
+            for i, f in enumerate(picks, 1):
+                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
+                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
+                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
+                st.write(f"**Category:** {', '.join(f['category'])}")
+                st.caption(f"Notes: {f['notes']}")
+                b1, b2, b3, _ = st.columns([1, 1, 1, 3])
+                with b1:
+                    if st.button("YAY", key=f"temp_fav_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f["name"]] = "fav"
+                        save_persisted_data()
+                        st.rerun()
+                with b2:
+                    if st.button("DEL", key=f"temp_dislike_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f["name"]] = "dislike"
+                        save_persisted_data()
+                        st.rerun()
+                with b3:
+                    if st.button("Wear", key=f"temp_wear_{f['name']}_{i}"):
+                        st.session_state["sotd_prefill"] = [f["name"]]
+                        st.rerun()
+                st.markdown("---")
+        if st.button("Clear temp results", key="clear_temp_results"):
+            st.session_state.pop("last_temp_search", None)
+            st.rerun()
+
     # ---- What should I wear right now ----
     with st.expander("What should I wear right now?", expanded=False):
         ca_default = int(default_ca_temp_f())
@@ -3471,14 +3528,14 @@ with tab_discover:
         if "rn_use_temp" not in st.session_state:
             st.session_state["rn_use_temp"] = True
 
-        rn_use_temp = st.checkbox("Use temperature (Â°F)", key="rn_use_temp")
+        rn_use_temp = st.checkbox("Use temperature (F)", key="rn_use_temp")
         rn_temp_f = None
         if rn_use_temp:
             rn_temp_f = float(
-                st.slider("Temp (Â°F)", 30, 115, key="rn_temp_f")
+                st.slider("Temp (F)", 30, 115, key="rn_temp_f")
             )
             st.caption(
-                f"{temp_band_label(rn_temp_f)} Â· Victorville typical this month: **{ca_default}Â°F**"
+                f"{temp_band_label(rn_temp_f)} Â· Victorville typical this month: **{ca_default} F**"
             )
             rn_weather = temp_f_to_band(rn_temp_f)
         else:
@@ -3565,24 +3622,17 @@ with tab_discover:
             occasion,
             num_recs,
             favorites_only=favorites_only,
-            temp_f=temp_f,
+            temp_f=None,
         )
-        meta_weather = weather
-        if temp_f is not None:
-            band = temp_f_to_band(temp_f)
-            meta_weather = f"{temp_f:.0f}Â°F â {band}" + (
-                f" (filter: {weather})" if weather != "Any" else ""
-            )
         st.session_state["last_recs"] = {
             "selected": selected,
             "num": num_recs,
             "meta": {
                 "gender": gender,
-                "weather": meta_weather,
+                "weather": weather,
                 "category": category,
                 "occasion": occasion,
                 "favorites_only": favorites_only,
-                "temp_f": temp_f,
             },
         }
 
