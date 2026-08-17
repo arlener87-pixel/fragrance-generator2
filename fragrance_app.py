@@ -40,6 +40,7 @@ def save_persisted_data():
             "rising": st.session_state.get("chart_rising"),
             "venus": st.session_state.get("chart_venus"),
         },
+        "wishlist": st.session_state.get("wishlist", []),
     }
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -1682,6 +1683,10 @@ if "sotd_history" not in st.session_state:
 if "layer_recipes" not in st.session_state:
     st.session_state["layer_recipes"] = _persisted.get("layer_recipes", [])
 
+if "wishlist" not in st.session_state:
+    # list of {name, brand, notes, checked}
+    st.session_state["wishlist"] = _persisted.get("wishlist", [])
+
 if "play_stats" not in st.session_state:
     st.session_state["play_stats"] = _persisted.get(
         "play_stats",
@@ -3170,6 +3175,160 @@ def get_wear_counts() -> dict:
     return counts
 
 
+
+def _image_to_data_url(uploaded_file, max_side: int = 640) -> str:
+    """Compress uploaded image to a small JPEG data URL for SOTD storage."""
+    import base64
+    import io
+    try:
+        from PIL import Image
+    except ImportError:
+        raw = uploaded_file.getvalue()
+        b64 = base64.b64encode(raw).decode("ascii")
+        mime = getattr(uploaded_file, "type", None) or "image/jpeg"
+        return f"data:{mime};base64,{b64}"
+    img = Image.open(uploaded_file).convert("RGB")
+    w, h = img.size
+    scale = min(1.0, float(max_side) / max(w, h))
+    if scale < 1.0:
+        img = img.resize((int(w * scale), int(h * scale)))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=72, optimize=True)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{b64}"
+
+
+def build_wishlist_pdf(items: list) -> bytes:
+    """Simple PDF checklist of wishlist entries."""
+    from fpdf import FPDF
+    import io
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "ScentedDeadGirl Wishlist", ln=True)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 8, f"Exported {pacific_today().isoformat()} (Pacific)", ln=True)
+    pdf.ln(4)
+    if not items:
+        pdf.cell(0, 8, "Wishlist is empty.", ln=True)
+    for i, item in enumerate(items, 1):
+        mark = "[x]" if item.get("checked") else "[ ]"
+        line = f"{mark}  {item.get('name', '?')}"
+        if item.get("brand"):
+            line += f"  ({item.get('brand')})"
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.multi_cell(0, 7, line)
+        if item.get("notes"):
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(0, 6, f"    {item['notes']}")
+        pdf.ln(2)
+    out = io.BytesIO()
+    pdf.output(out)
+    return out.getvalue()
+
+
+def build_sotd_week_pdf(week_key: str = None) -> bytes:
+    """PDF of SOTD entries for one ISO week (default: current Pacific week)."""
+    from fpdf import FPDF
+    import io
+    today = pacific_today()
+    if week_key:
+        # expect YYYY-Www
+        try:
+            year = int(week_key.split("-W")[0])
+            week = int(week_key.split("-W")[1])
+            # Monday of that ISO week
+            monday = datetime.date.fromisocalendar(year, week, 1)
+        except Exception:
+            monday = today - datetime.timedelta(days=today.weekday())
+            week_key = f"{monday.isocalendar()[0]}-W{monday.isocalendar()[1]:02d}"
+    else:
+        monday = today - datetime.timedelta(days=today.weekday())
+        week_key = f"{monday.isocalendar()[0]}-W{monday.isocalendar()[1]:02d}"
+    sunday = monday + datetime.timedelta(days=6)
+
+    entries = []
+    for e in st.session_state.get("sotd_history") or []:
+        d = e.get("date")
+        if not d:
+            continue
+        try:
+            dd = datetime.date.fromisoformat(d)
+        except ValueError:
+            continue
+        if monday <= dd <= sunday:
+            entries.append(e)
+    entries.sort(key=lambda x: x.get("date", ""))
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "ScentedDeadGirl SOTD - Weekly", ln=True)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 8, f"Week {week_key}  ({monday.isoformat()} to {sunday.isoformat()})", ln=True)
+    pdf.cell(0, 8, f"Exported {today.isoformat()} (Pacific)", ln=True)
+    pdf.ln(4)
+    if not entries:
+        pdf.cell(0, 8, "No SOTD logs in this week.", ln=True)
+    for e in entries:
+        pdf.set_font("Helvetica", "B", 12)
+        layer = " [layer]" if e.get("is_layering") else ""
+        pdf.multi_cell(0, 7, f"{e.get('date', '?')}: {e.get('scent', '?')}{layer}")
+        bits = []
+        if e.get("his_scent"):
+            bits.append(f"his: {e['his_scent']}")
+        if e.get("sillage"):
+            bits.append(f"sillage {e['sillage']}/5")
+        if e.get("longevity"):
+            bits.append(f"longevity {e['longevity']}/5")
+        if e.get("notes"):
+            bits.append(str(e["notes"]))
+        if bits:
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(0, 6, "  " + " | ".join(bits))
+        pdf.ln(2)
+    out = io.BytesIO()
+    pdf.output(out)
+    return out.getvalue()
+
+
+OCCASION_PRESETS = {
+    "Office": {
+        "occasion": "Work / Office",
+        "category": "Any",
+        "weather": "Any",
+        "blurb": "Office-safe - skip heavy winter gourmands when possible.",
+    },
+    "Date night": {
+        "occasion": "Date / Evening",
+        "category": "Any",
+        "weather": "Any",
+        "blurb": "Evening intensity - oriental, gourmand, woody, spicy.",
+    },
+    "Errands": {
+        "occasion": "Daily / Casual",
+        "category": "Any",
+        "weather": "Any",
+        "blurb": "Easy daily wear - keep it comfortable.",
+    },
+    "Outdoor": {
+        "occasion": "Outdoor / Sporty",
+        "category": "Fresh",
+        "weather": "Hot / Summer",
+        "blurb": "Fresh and light for moving around outside.",
+    },
+    "Formal": {
+        "occasion": "Formal / Event",
+        "category": "Any",
+        "weather": "Any",
+        "blurb": "Polished - oriental, woody, floral, oud families.",
+    },
+}
+
+
+
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
@@ -3335,6 +3494,22 @@ with st.sidebar:
         ],
         key="filter_occasion",
     )
+
+    st.caption("Occasion presets")
+    preset_cols = st.columns(len(OCCASION_PRESETS))
+    for col, (pname, preset) in zip(preset_cols, OCCASION_PRESETS.items()):
+        with col:
+            if st.button(pname, key=f"preset_{pname}", use_container_width=True):
+                st.session_state["filter_occasion"] = preset["occasion"]
+                st.session_state["filter_category"] = preset.get("category", "Any")
+                if preset.get("weather"):
+                    st.session_state["filter_weather"] = preset["weather"]
+                st.session_state["_preset_flash"] = preset.get("blurb", pname)
+                st.rerun()
+    _pflash = st.session_state.pop("_preset_flash", None)
+    if _pflash:
+        st.caption(_pflash)
+
     num_recs = st.radio(
         "How many",
         [1, 3, 5],
@@ -3517,67 +3692,6 @@ with tab_discover:
         if st.button("Clear temp results", key="clear_temp_results"):
             st.session_state.pop("last_temp_search", None)
             st.rerun()
-
-    # ---- What should I wear right now ----
-    with st.expander("What should I wear right now?", expanded=False):
-        ca_default = int(default_ca_temp_f())
-        if st.session_state.pop("_reset_rn_temp_f", False):
-            st.session_state["rn_temp_f"] = ca_default
-        if "rn_temp_f" not in st.session_state:
-            st.session_state["rn_temp_f"] = ca_default
-        if "rn_use_temp" not in st.session_state:
-            st.session_state["rn_use_temp"] = True
-
-        rn_use_temp = st.checkbox("Use temperature (F)", key="rn_use_temp")
-        rn_temp_f = None
-        if rn_use_temp:
-            rn_temp_f = float(
-                st.slider("Temp (F)", 30, 115, key="rn_temp_f")
-            )
-            st.caption(
-                f"{temp_band_label(rn_temp_f)} Â· Victorville typical this month: **{ca_default} F**"
-            )
-            rn_weather = temp_f_to_band(rn_temp_f)
-        else:
-            rn_weather = st.selectbox(
-                "Weather right now",
-                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-                key="rn_weather",
-            )
-        rn_favs = st.checkbox("Favorites only", key="rn_favs")
-        if st.button("Pick for me", type="primary", key="rn_pick_btn"):
-            picks = suggest_right_now(
-                rn_weather, favorites_only=rn_favs, top_n=3
-            )
-            # Re-rank with temperature if set
-            if rn_temp_f is not None and picks:
-                picks = get_top_fragrances(
-                    "Any",
-                    rn_weather,
-                    "Any",
-                    "Any",
-                    3,
-                    favorites_only=rn_favs,
-                    temp_f=rn_temp_f,
-                )
-            label = rn_weather
-            if rn_temp_f is not None:
-                label = f"{rn_temp_f:.0f}Â°F â {rn_weather}"
-            st.session_state["last_right_now"] = {
-                "picks": picks,
-                "weather": label,
-            }
-        last_rn = st.session_state.get("last_right_now")
-        if last_rn:
-            st.caption(f"Weather: {last_rn.get('weather')} Â· blended with today's planetary vibe")
-            for i, f in enumerate(last_rn.get("picks") or [], 1):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                st.success(f"**#{i} Â· {f['name']}** by *{f['brand']}*{badge}")
-                st.caption(f"{f['gender']} | {f['season']} | {', '.join(f['category'])}")
-                if st.button("Wear today", key=f"rn_wear_{i}"):
-                    st.session_state["sotd_prefill"] = [f["name"]]
-                    st.rerun()
-
 
     # Name / brand search (ranked: YAY â most worn â complete notes)
     if search_query:
@@ -4107,6 +4221,13 @@ with tab_sotd:
                         st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
                         st.rerun()
 
+    sotd_photo = st.file_uploader(
+        "Optional photo (bottle / flat lay)",
+        type=["jpg", "jpeg", "png", "webp"],
+        key="sotd_photo_up",
+        help="Stored as a small compressed image with this log.",
+    )
+
     if st.button("Log today's scent", type="primary"):
         if sotd_choices:
             today_date = sotd_date.strftime("%Y-%m-%d") if hasattr(sotd_date, "strftime") else str(sotd_date)
@@ -4125,6 +4246,11 @@ with tab_sotd:
                 entry["longevity"] = int(sotd_longevity)
             if sotd_his and sotd_his != "- none -":
                 entry["his_scent"] = sotd_his
+            if sotd_photo is not None:
+                try:
+                    entry["photo"] = _image_to_data_url(sotd_photo)
+                except Exception as ex:
+                    st.warning(f"Photo skipped: {ex}")
             st.session_state["sotd_history"].insert(0, entry)
             save_persisted_data()
             st.session_state["_clear_sotd_form"] = True
@@ -4140,6 +4266,32 @@ with tab_sotd:
     _flash = st.session_state.pop("_sotd_flash", None)
     if _flash:
         st.success(_flash)
+
+    st.markdown("#### Weekly SOTD PDF")
+    today = pacific_today()
+    monday = today - datetime.timedelta(days=today.weekday())
+    # Build recent week options (current + last 7 weeks)
+    week_opts = []
+    for wback in range(0, 8):
+        m = monday - datetime.timedelta(weeks=wback)
+        iso = m.isocalendar()
+        key = f"{iso[0]}-W{iso[1]:02d}"
+        label = f"{key} ({m.isoformat()} - {(m + datetime.timedelta(days=6)).isoformat()})"
+        week_opts.append((label, key))
+    week_labels = [x[0] for x in week_opts]
+    pick_label = st.selectbox("Week", week_labels, key="sotd_week_pick")
+    pick_key = dict(week_opts)[pick_label]
+    try:
+        pdf_bytes = build_sotd_week_pdf(pick_key)
+        st.download_button(
+            "Download week as PDF",
+            data=pdf_bytes,
+            file_name=f"sotd_{pick_key}.pdf",
+            mime="application/pdf",
+            key="sotd_week_pdf_btn",
+        )
+    except Exception as ex:
+        st.caption(f"PDF unavailable: {ex}")
 
     if st.session_state["sotd_history"]:
         with st.expander("Journal history", expanded=True):
@@ -4158,6 +4310,11 @@ with tab_sotd:
                     st.write(
                         f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{his_txt}{perf_txt}{notes_text}"
                     )
+                    if entry.get("photo"):
+                        try:
+                            st.image(entry["photo"], width=180)
+                        except Exception:
+                            pass
                 with xcol:
                     if st.button("DEL", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
                         st.session_state["sotd_history"].pop(i)
@@ -4172,15 +4329,13 @@ with tab_sotd:
 # ===== STARS / HOROSCOPE =====
 with tab_horoscope:
     st.subheader("Stars & scent")
-    st.caption(
-        "Daily planetary vibe + your chart, translated into Female / Unisex scent picks."
-    )
+    st.caption("Your birth chart signs - saved with the vault.")
 
     st.markdown("#### Your chart")
     st.caption(
-        f"Default sanctuary chart Â· born {DEFAULT_CHART['birth_date']} "
-        f"{DEFAULT_CHART['birth_time']} Â· {DEFAULT_CHART['birth_place']}. "
-        "Adjust signs below anytime â picks follow the dropdowns, not the locked defaults."
+        f"Default sanctuary chart - born {DEFAULT_CHART['birth_date']} "
+        f"{DEFAULT_CHART['birth_time']} - {DEFAULT_CHART['birth_place']}. "
+        "Adjust signs below anytime; Save chart stores them."
     )
 
     signs = list(SIGN_SCENT_PROFILE.keys())
@@ -4210,145 +4365,41 @@ with tab_horoscope:
     rise_p = SIGN_SCENT_PROFILE.get(rise_s, {})
     ven_p = SIGN_SCENT_PROFILE.get(venus_s, {})
     st.caption(
-        f"Sun {sun_s} ({sun_p.get('element', '?')} Â· {sun_p.get('vibe', '')}) Â· "
-        f"Moon {moon_s} ({moon_p.get('element', '?')} Â· {moon_p.get('vibe', '')}) Â· "
-        f"Rising {rise_s} ({rise_p.get('element', '?')} Â· {rise_p.get('vibe', '')}) Â· "
+        f"Sun {sun_s} ({sun_p.get('element', '?')} - {sun_p.get('vibe', '')}) | "
+        f"Moon {moon_s} ({moon_p.get('element', '?')} - {moon_p.get('vibe', '')}) | "
+        f"Rising {rise_s} ({rise_p.get('element', '?')} - {rise_p.get('vibe', '')}) | "
         f"Venus {venus_s} ({ven_p.get('vibe', '')})"
     )
 
-    st.markdown("#### Day of the week")
-    weekdays = [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday",
-    ]
-    today_name = pacific_today().strftime("%A")
-    if "chart_day" not in st.session_state:
-        st.session_state["chart_day"] = today_name
-
-    day_s = st.selectbox(
-        "Choose day",
-        weekdays,
-        key="chart_day",
-        help="Each day is ruled by a planet that steers the scent mood.",
-    )
-    day_prof = DAY_RULER[day_s]
-    st.write(
-        f"**{day_s}** Â· ruled by **{day_prof['planet']}**  \n"
-        f"{day_prof['vibe']}  \n"
-        f"Families: {', '.join(day_prof['categories'])}"
-    )
-
-    # Written day horoscope (always visible for the selected day)
-    blurb = write_day_horoscope(day_s, sun_s, moon_s, rise_s, venus=venus_s)
-    st.markdown(blurb)
-
-    chart_n = st.radio("How many scent picks", [3, 5, 7], index=1, horizontal=True, key="chart_n")
     if st.button("Save chart", key="chart_save_btn"):
         save_persisted_data()
-        st.success("Chart saved to sanctuary data.")
+        st.success("Chart saved.")
         st.rerun()
 
-    if st.button("Draw day scents", type="primary", key="chart_draw_btn"):
-        save_persisted_data()  # persist chart signs with the draw
-        picks = get_day_fragrances(
-            day_s, sun_s, moon_s, rise_s, top_n=chart_n, venus=venus_s
-        )
-        st.session_state["last_chart_picks"] = {
-            "picks": picks,
-            "meta": {
-                "day": day_s,
-                "planet": day_prof["planet"],
-                "sun": sun_s,
-                "moon": moon_s,
-                "rising": rise_s,
-                "venus": venus_s,
-            },
-        }
-
-    last_chart = st.session_state.get("last_chart_picks")
-    if last_chart is not None:
-        meta = last_chart.get("meta") or {}
-        picks = last_chart.get("picks") or []
-        st.subheader(f"{meta.get('day', 'Day')} scents")
-        st.caption(
-            f"{meta.get('day')} Â· {meta.get('planet')}  |  "
-            f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· "
-            f"Rising {meta.get('rising')} Â· Venus {meta.get('venus', 'â')}  |  "
-            f"Female / Unisex only"
-        )
-        if not picks:
-            st.warning(
-                "No Female/Unisex matches for this day + chart blend. "
-                "Try another day or clear some DEL marks."
-            )
-        else:
-            for i, f in enumerate(picks, 1):
-                current_reaction = st.session_state["user_reactions"].get(f["name"])
-                badge = " YAY" if current_reaction == "fav" else ""
-                why = explain_day_match(
-                    f,
-                    meta.get("day", day_s),
-                    meta.get("sun", sun_s),
-                    meta.get("moon", moon_s),
-                    meta.get("rising", rise_s),
-                    venus=meta.get("venus", venus_s),
-                )
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Why: {why}")
-                st.caption(f"Notes: {f['notes']}")
-                c1, c2, c3, _ = st.columns([1, 1, 1, 3])
-                with c1:
-                    if st.button("YAY", key=f"chart_fav_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "fav"
-                        save_persisted_data()
-                        st.rerun()
-                with c2:
-                    if st.button("DEL", key=f"chart_dislike_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "dislike"
-                        save_persisted_data()
-                        st.rerun()
-                with c3:
-                    if st.button("Wear", key=f"chart_wear_{f['name']}_{i}"):
-                        st.session_state["sotd_prefill"] = [f["name"]]
-                        st.rerun()
-                st.markdown("---")
-
-            # Dynamic tip from selected chart (not hardcoded defaults only)
-            tips = []
-            if meta.get("sun") == "Libra" or meta.get("venus") in ("Libra", "Taurus"):
-                tips.append("Friday (Venus) loves your beauty placements.")
-            if meta.get("moon") == "Capricorn":
-                tips.append("Saturday (Saturn) echoes Capricorn Moon depth.")
-            if meta.get("rising") == "Leo" or meta.get("sun") == "Leo":
-                tips.append("Sunday (Sun) amplifies Leo radiance.")
-            if not tips:
-                tips.append(
-                    f"Lean into {meta.get('day', day_s)} families and your "
-                    f"{meta.get('sun', sun_s)} Sun / {meta.get('venus', venus_s)} Venus note keywords."
-                )
-            st.caption(" Â· ".join(tips))
-    else:
-        st.info(
-            f"Today is **{today_name}**. Read the day horoscope above, then hit "
-            "**Draw day scents** for Female / Unisex recommendations."
-        )
+    st.info(
+        "Chart is stored with your vault. Weekday scent draws were removed to keep Stars simple."
+    )
 
 
 # ===== PLAY =====
 with tab_play:
     st.subheader("Play")
-    st.caption("Mood picks, blind bottle, twins, least-worn, compare, and badges.")
+    st.caption("Mood, blind, twins, this-or-that, family roulette, note match, and more.")
 
     play_mode = st.radio(
         "Game",
-        ["Mood board", "Blind bottle", "Twin finder", "Antipode", "Least worn", "Compare two", "Badges"],
+        [
+            "Mood board",
+            "Blind bottle",
+            "Twin finder",
+            "Antipode",
+            "Least worn",
+            "Compare two",
+            "This or that",
+            "Family roulette",
+            "Note match",
+            "Badges",
+        ],
         horizontal=True,
         key="play_mode",
     )
@@ -4535,6 +4586,109 @@ with tab_play:
             if shared:
                 st.caption(f"Shared families: {', '.join(shared)}")
 
+
+    elif play_mode == "This or that":
+        st.write("Two bottles. Pick one. Builds a quick preference lean.")
+        if st.button("Draw pair", type="primary", key="tot_draw"):
+            pool = [
+                f
+                for f in st.session_state["fragrances_db"]
+                if st.session_state["user_reactions"].get(f["name"]) != "dislike"
+            ]
+            if len(pool) >= 2:
+                a, b = random.sample(pool, 2)
+                st.session_state["tot_pair"] = (a["name"], b["name"])
+        pair = st.session_state.get("tot_pair")
+        if pair:
+            a, b = name_map.get(pair[0]), name_map.get(pair[1])
+            if a and b:
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown(f"### {a['name']}")
+                    st.caption(f"{a['brand']} | {', '.join(a.get('category', []))}")
+                    if st.button("Choose A", key="tot_a"):
+                        st.session_state["user_reactions"][a["name"]] = "fav"
+                        save_persisted_data()
+                        st.success(f"Leaning {a['name']}")
+                        st.rerun()
+                with c2:
+                    st.markdown(f"### {b['name']}")
+                    st.caption(f"{b['brand']} | {', '.join(b.get('category', []))}")
+                    if st.button("Choose B", key="tot_b"):
+                        st.session_state["user_reactions"][b["name"]] = "fav"
+                        save_persisted_data()
+                        st.success(f"Leaning {b['name']}")
+                        st.rerun()
+
+    elif play_mode == "Family roulette":
+        st.write("Spin a fragrance family, get three bottles from it.")
+        families = sorted(
+            {
+                c
+                for f in st.session_state["fragrances_db"]
+                for c in (f.get("category") or [])
+            }
+        )
+        if st.button("Spin family", type="primary", key="fam_spin"):
+            if families:
+                fam = random.choice(families)
+                pool = [
+                    f
+                    for f in st.session_state["fragrances_db"]
+                    if fam in (f.get("category") or [])
+                    and st.session_state["user_reactions"].get(f["name"]) != "dislike"
+                ]
+                random.shuffle(pool)
+                st.session_state["last_family_spin"] = {
+                    "family": fam,
+                    "picks": pool[:3],
+                }
+        last_fs = st.session_state.get("last_family_spin")
+        if last_fs:
+            st.success(f"Family: **{last_fs.get('family')}**")
+            for i, f in enumerate(last_fs.get("picks") or [], 1):
+                st.write(
+                    f"**{i}. {f['name']}** ({f['brand']}) - {', '.join(f.get('category', []))}"
+                )
+                if st.button("Wear today", key=f"fam_wear_{i}"):
+                    st.session_state["sotd_prefill"] = [f["name"]]
+                    st.rerun()
+
+    elif play_mode == "Note match":
+        st.write("We show one note keyword. Find a bottle that contains it.")
+        if st.button("Draw a note", type="primary", key="note_match_draw"):
+            words = []
+            for f in st.session_state["fragrances_db"]:
+                words.extend(re.findall(r"[A-Za-z]{4,}", f.get("notes", "")))
+            stop = {"with", "from", "notes", "heart", "base", "top", "leaning", "style"}
+            words = [w for w in words if w.lower() not in stop]
+            if words:
+                st.session_state["note_match_kw"] = random.choice(words)
+        kw = st.session_state.get("note_match_kw")
+        if kw:
+            st.info(f"Find a bottle with: **{kw}**")
+            guess = st.selectbox(
+                "Your pick", ["- pick -"] + all_names, key="note_match_guess"
+            )
+            if st.button("Check", key="note_match_check"):
+                fr = name_map.get(guess)
+                if fr and kw.lower() in (fr.get("notes") or "").lower():
+                    st.success(f"Yes - {guess} has {kw}.")
+                    st.session_state["play_stats"]["note_match_wins"] = (
+                        st.session_state["play_stats"].get("note_match_wins", 0) + 1
+                    )
+                    save_persisted_data()
+                else:
+                    hits = [
+                        f["name"]
+                        for f in st.session_state["fragrances_db"]
+                        if kw.lower() in (f.get("notes") or "").lower()
+                    ][:5]
+                    st.warning(
+                        "Not in that bottle."
+                        + (f" Examples: {', '.join(hits)}" if hits else "")
+                    )
+
     else:  # Badges
         streak = sotd_streak()
         badges = compute_badges()
@@ -4590,6 +4744,67 @@ with tab_collection:
     badges = compute_badges()
     if badges:
         st.caption("Badges: " + " Â· ".join(badges))
+
+
+    # ----- Wishlist -----
+    with st.expander("Wishlist", expanded=False):
+        st.caption("Track bottles you want - check off when acquired, download a PDF list.")
+        wl_name = st.text_input("Name", key="wl_name")
+        wl_brand = st.text_input("Brand (optional)", key="wl_brand")
+        wl_notes = st.text_input("Notes (optional)", key="wl_notes")
+        if st.button("Add to wishlist", key="wl_add"):
+            if wl_name.strip():
+                st.session_state["wishlist"].insert(
+                    0,
+                    {
+                        "name": wl_name.strip(),
+                        "brand": (wl_brand or "").strip(),
+                        "notes": (wl_notes or "").strip(),
+                        "checked": False,
+                    },
+                )
+                save_persisted_data()
+                st.rerun()
+            else:
+                st.warning("Name is required.")
+        if st.session_state.get("wishlist"):
+            try:
+                st.download_button(
+                    "Download wishlist PDF",
+                    data=build_wishlist_pdf(st.session_state["wishlist"]),
+                    file_name="wishlist.pdf",
+                    mime="application/pdf",
+                    key="wl_pdf",
+                )
+            except Exception as ex:
+                st.caption(f"PDF unavailable: {ex}")
+        for wi, item in enumerate(list(st.session_state.get("wishlist") or [])):
+            c1, c2, c3 = st.columns([1, 5, 1])
+            with c1:
+                checked = st.checkbox(
+                    "got",
+                    value=bool(item.get("checked")),
+                    key=f"wl_chk_{wi}_{item.get('name','')}",
+                    label_visibility="collapsed",
+                )
+                if checked != bool(item.get("checked")):
+                    st.session_state["wishlist"][wi]["checked"] = checked
+                    save_persisted_data()
+                    st.rerun()
+            with c2:
+                mark = "[x]" if item.get("checked") else "[ ]"
+                extra = f" - {item.get('brand')}" if item.get("brand") else ""
+                line = f"{mark} **{item.get('name')}**{extra}"
+                if item.get("notes"):
+                    line = line + "  \n*" + str(item.get("notes")) + "*"
+                st.markdown(line)
+            with c3:
+                if st.button("DEL", key=f"wl_del_{wi}"):
+                    st.session_state["wishlist"].pop(wi)
+                    save_persisted_data()
+                    st.rerun()
+        if not st.session_state.get("wishlist"):
+            st.caption("Wishlist is empty.")
 
     # Favorite notes cloud
     fav_notes = get_favorite_notes(10)
@@ -4917,6 +5132,7 @@ with tab_vault:
             "rising": st.session_state.get("chart_rising"),
             "venus": st.session_state.get("chart_venus"),
         },
+        "wishlist": st.session_state.get("wishlist", []),
     }
     json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
     if st.download_button(
@@ -4963,6 +5179,8 @@ with tab_vault:
                     st.session_state["chart_rising"] = ch["rising"]
                 if ch.get("venus"):
                     st.session_state["chart_venus"] = ch["venus"]
+            if "wishlist" in imported_data:
+                st.session_state["wishlist"] = imported_data["wishlist"]
             save_persisted_data()
             st.success("Vault restored.")
             st.rerun()
