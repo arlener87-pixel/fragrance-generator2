@@ -5183,20 +5183,136 @@ with tab_vault:
         st.rerun()
 
     st.markdown("---")
-    st.markdown("#### Edit or remove")
-    manage_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
-    selected_manage = st.selectbox(
-        "Choose a bottle",
-        ["- select -"] + manage_names,
-        key="manage_select",
+    st.markdown("#### Find a bottle")
+    st.caption("Shared search for Edit and Remove below.")
+
+    if st.session_state.pop("_clear_manage", False):
+        st.session_state["manage_search"] = ""
+        st.session_state["manage_gender"] = "Any"
+        st.session_state["manage_brand"] = "Any"
+        st.session_state["manage_sort"] = "Name (A-Z)"
+        st.session_state["edit_select"] = "- select -"
+        st.session_state["remove_select"] = "- select -"
+
+    if "manage_search" not in st.session_state:
+        st.session_state["manage_search"] = ""
+    if "manage_gender" not in st.session_state:
+        st.session_state["manage_gender"] = "Any"
+    if "manage_brand" not in st.session_state:
+        st.session_state["manage_brand"] = "Any"
+    if "manage_sort" not in st.session_state:
+        st.session_state["manage_sort"] = "Name (A-Z)"
+
+    ms1, ms2 = st.columns(2)
+    with ms1:
+        manage_search = st.text_input(
+            "Search name or notes",
+            key="manage_search",
+            placeholder="e.g. Eclaire, vanilla, oud",
+        )
+    with ms2:
+        manage_gender = st.selectbox(
+            "Gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="manage_gender",
+        )
+
+    brands = sorted(
+        {
+            (f.get("brand") or "").strip()
+            for f in st.session_state["fragrances_db"]
+            if (f.get("brand") or "").strip()
+        }
+    )
+    ms3, ms4 = st.columns(2)
+    with ms3:
+        manage_brand = st.selectbox(
+            "Brand",
+            ["Any"] + brands,
+            key="manage_brand",
+        )
+    with ms4:
+        manage_sort = st.selectbox(
+            "Sort",
+            ["Name (A-Z)", "Brand (A-Z)", "Gender"],
+            key="manage_sort",
+        )
+
+    if st.button("Clear find filters", key="manage_clear_btn"):
+        st.session_state["_clear_manage"] = True
+        st.rerun()
+
+    manage_pool = list(st.session_state["fragrances_db"])
+    if manage_gender != "Any":
+        manage_pool = [f for f in manage_pool if matches_gender(f, manage_gender)]
+    if manage_brand != "Any":
+        manage_pool = [
+            f for f in manage_pool if (f.get("brand") or "").strip() == manage_brand
+        ]
+    q = (manage_search or "").strip().lower()
+    if q:
+        manage_pool = [
+            f
+            for f in manage_pool
+            if q in (f.get("name") or "").lower()
+            or q in (f.get("brand") or "").lower()
+            or q in (f.get("notes") or "").lower()
+        ]
+
+    if manage_sort == "Brand (A-Z)":
+        manage_pool.sort(
+            key=lambda f: (
+                (f.get("brand") or "").lower(),
+                (f.get("name") or "").lower(),
+            )
+        )
+    elif manage_sort == "Gender":
+        manage_pool.sort(
+            key=lambda f: (
+                normalize_gender(f.get("gender", "")),
+                (f.get("name") or "").lower(),
+            )
+        )
+    else:
+        manage_pool.sort(key=lambda f: (f.get("name") or "").lower())
+
+    label_to_name = {}
+    manage_labels = []
+    for f in manage_pool:
+        label = f"{f.get('name', '?')} - {f.get('brand', '?')}"
+        if label in label_to_name:
+            label = f"{label} [{normalize_gender(f.get('gender', ''))}]"
+        label_to_name[label] = f.get("name")
+        manage_labels.append(label)
+
+    st.caption(f"{len(manage_labels)} bottle(s) match")
+    manage_options = ["- select -"] + manage_labels
+
+    # ---------- EDIT (only) ----------
+    st.markdown("---")
+    st.markdown("#### Edit bottle")
+    st.caption("Update name, brand, gender, season, notes, or categories.")
+
+    if st.session_state.get("edit_select") not in manage_options:
+        st.session_state["edit_select"] = "- select -"
+
+    edit_label = st.selectbox(
+        "Bottle to edit",
+        manage_options,
+        key="edit_select",
+    )
+    edit_name = (
+        label_to_name.get(edit_label, "- select -")
+        if edit_label != "- select -"
+        else "- select -"
     )
 
-    if selected_manage != "- select -":
+    if edit_name != "- select -":
         idx = next(
             (
                 i
                 for i, f in enumerate(st.session_state["fragrances_db"])
-                if f["name"] == selected_manage
+                if f["name"] == edit_name
             ),
             None,
         )
@@ -5214,7 +5330,7 @@ with tab_vault:
                 if frag["gender"] in gender_opts
                 else 0
             )
-            with st.form(key=f"edit_form_{selected_manage}"):
+            with st.form(key=f"edit_form_{edit_name}"):
                 e_name = st.text_input("Name", value=frag["name"])
                 e_brand = st.text_input("Brand", value=frag["brand"])
                 e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
@@ -5241,11 +5357,7 @@ with tab_vault:
                     cat_opts,
                     default=[c for c in frag.get("category", []) if c in cat_opts],
                 )
-                col_save, col_del = st.columns(2)
-                with col_save:
-                    save_edit = st.form_submit_button("Save changes")
-                with col_del:
-                    delete_it = st.form_submit_button("Banish forever")
+                save_edit = st.form_submit_button("Save changes", type="primary")
 
                 if save_edit:
                     name_lower = e_name.strip().lower()
@@ -5270,22 +5382,65 @@ with tab_vault:
                             "category": e_cats if e_cats else ["Gourmand"],
                         }
                         if (
-                            e_name != selected_manage
-                            and selected_manage in st.session_state["user_reactions"]
+                            e_name != edit_name
+                            and edit_name in st.session_state["user_reactions"]
                         ):
                             st.session_state["user_reactions"][e_name] = (
-                                st.session_state["user_reactions"].pop(selected_manage)
+                                st.session_state["user_reactions"].pop(edit_name)
                             )
                         save_persisted_data()
                         st.success(f"Updated **{e_name}**")
                         st.rerun()
 
-                if delete_it:
-                    st.session_state["fragrances_db"].pop(idx)
-                    st.session_state["user_reactions"].pop(selected_manage, None)
-                    save_persisted_data()
-                    st.success(f"Banished **{selected_manage}**.")
-                    st.rerun()
+    # ---------- REMOVE (only) ----------
+    st.markdown("---")
+    st.markdown("#### Remove bottle")
+    st.caption("Permanently delete a bottle from the vault. This cannot be undone.")
+
+    if st.session_state.get("remove_select") not in manage_options:
+        st.session_state["remove_select"] = "- select -"
+
+    remove_label = st.selectbox(
+        "Bottle to remove",
+        manage_options,
+        key="remove_select",
+    )
+    remove_name = (
+        label_to_name.get(remove_label, "- select -")
+        if remove_label != "- select -"
+        else "- select -"
+    )
+
+    if remove_name != "- select -":
+        frag_rm = next(
+            (f for f in st.session_state["fragrances_db"] if f["name"] == remove_name),
+            None,
+        )
+        if frag_rm:
+            st.warning(
+                f"About to remove **{frag_rm.get('name')}** by *{frag_rm.get('brand')}* "
+                f"({frag_rm.get('gender')})."
+            )
+            confirm = st.checkbox(
+                f"Yes, permanently remove {remove_name}",
+                key=f"remove_confirm_{remove_name}",
+            )
+            if st.button(
+                "Banish forever",
+                type="primary",
+                key="remove_btn",
+                disabled=not confirm,
+            ):
+                st.session_state["fragrances_db"] = [
+                    f
+                    for f in st.session_state["fragrances_db"]
+                    if f["name"] != remove_name
+                ]
+                st.session_state["user_reactions"].pop(remove_name, None)
+                save_persisted_data()
+                st.session_state["remove_select"] = "- select -"
+                st.success(f"Banished **{remove_name}**.")
+                st.rerun()
 
     st.markdown("---")
     st.markdown("#### Backup & restore")
