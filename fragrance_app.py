@@ -117,7 +117,7 @@ h2, h3 {
 }
 
 p, .stMarkdown, .stCaption, label, .stText {
-    font-family: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif !important;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
     color: var(--text) !important;
     font-size: 0.95rem !important;
     line-height: 1.5 !important;
@@ -625,12 +625,12 @@ if "fragrances_db" not in st.session_state:
                 "brand": "Lattafa",
                 "gender": "Unisex/Female",
                 "season": "Fall-Winter",
-                "notes": "Banana-toffee/ÃÂ©clair gourmand",
+                "notes": "Banana-toffee/Ã©clair gourmand",
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "ÃÂclat Parfumerie Al Gazal",
-                "brand": "ÃÂclat Parfumerie",
+                "name": "Ãclat Parfumerie Al Gazal",
+                "brand": "Ãclat Parfumerie",
                 "gender": "Unisex (leans masculine)",
                 "season": "Versatile to cooler",
                 "notes": "Limited public data; typically woody-oriental or spicy",
@@ -717,7 +717,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Oriental", "Woody"],
             },
             {
-                "name": "Fragrance World CrÃÂ¨me of Clouds",
+                "name": "Fragrance World CrÃ¨me of Clouds",
                 "brand": "Fragrance World",
                 "gender": "Unisex",
                 "season": "Fall, Winter",
@@ -773,7 +773,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Gulf Orchid PiÃÂ±a Colada Musk Collection Body Spray",
+                "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
                 "brand": "Gulf Orchid",
                 "gender": "Unisex",
                 "season": "Spring, Summer",
@@ -1261,7 +1261,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Melt CrÃÂ¨me Caramel",
+                "name": "Melt CrÃ¨me Caramel",
                 "brand": "Mamlakat Al Oud",
                 "gender": "Unisex (leans feminine)",
                 "season": "Fall, Winter",
@@ -3234,7 +3234,7 @@ with st.sidebar:
         st.session_state["filter_num_recs"] = 3
         st.session_state["filter_favorites_only"] = False
         st.session_state["filter_use_temp"] = True
-        st.session_state["filter_temp_f"] = default_ca_temp_f()
+        st.session_state["filter_temp_f"] = int(default_ca_temp_f())
         st.session_state.pop("last_recs", None)
 
     gender = st.selectbox(
@@ -3244,17 +3244,19 @@ with st.sidebar:
     )
 
     st.markdown("**Outdoor temperature (Â°F)**")
-    ca_default = default_ca_temp_f()
-    # Seed slider default once per session from CA monthly norm
+    ca_default = int(default_ca_temp_f())
+    # Flags must run BEFORE the slider/checkbox widgets exist
+    if st.session_state.pop("_reset_temp_f", False):
+        st.session_state["filter_temp_f"] = ca_default
     if "filter_temp_f" not in st.session_state:
         st.session_state["filter_temp_f"] = ca_default
     if "filter_use_temp" not in st.session_state:
-        st.session_state["filter_use_temp"] = True  # on by default for CA users
+        st.session_state["filter_use_temp"] = True
 
     use_temp = st.checkbox(
         "Use temperature for ranking",
         key="filter_use_temp",
-        help="Degrees (Â°F) drive the season band and ranking. Default follows typical Victorville, CA (High Desert) daytime temps for this month.",
+        help="Degrees (Â°F) drive ranking. Default is typical Victorville, CA High Desert daytime temp for this month.",
     )
     temp_f = None
     if use_temp:
@@ -3266,11 +3268,15 @@ with st.sidebar:
         )
         temp_f = float(temp_val)
         st.caption(
-            f"{temp_f:.0f}Â°F â {temp_band_label(temp_f)}  Â·  "
+            f"{temp_f:.0f}Â°F -> {temp_band_label(temp_f)} Â· "
             f"Victorville typical this month: **{ca_default}Â°F**"
         )
-        if st.button("Reset to Victorville monthly norm", key="reset_ca_temp", use_container_width=True):
-            st.session_state["filter_temp_f"] = ca_default
+        if st.button(
+            "Reset to Victorville monthly norm",
+            key="reset_ca_temp",
+            use_container_width=True,
+        ):
+            st.session_state["_reset_temp_f"] = True
             st.rerun()
 
     weather = st.selectbox(
@@ -3457,7 +3463,9 @@ with tab_discover:
 
     # ---- What should I wear right now ----
     with st.expander("What should I wear right now?", expanded=False):
-        ca_default = default_ca_temp_f()
+        ca_default = int(default_ca_temp_f())
+        if st.session_state.pop("_reset_rn_temp_f", False):
+            st.session_state["rn_temp_f"] = ca_default
         if "rn_temp_f" not in st.session_state:
             st.session_state["rn_temp_f"] = ca_default
         if "rn_use_temp" not in st.session_state:
@@ -3470,7 +3478,7 @@ with tab_discover:
                 st.slider("Temp (Â°F)", 30, 115, key="rn_temp_f")
             )
             st.caption(
-                f"{temp_band_label(rn_temp_f)}  Â·  Victorville typical this month: **{ca_default}Â°F**"
+                f"{temp_band_label(rn_temp_f)} Â· Victorville typical this month: **{ca_default}Â°F**"
             )
             rn_weather = temp_f_to_band(rn_temp_f)
         else:
@@ -3645,7 +3653,7 @@ with tab_layer:
         base_f = name_to_frag.get(base_choice)
         if base_f:
             st.caption(
-                f"{base_f['brand']} ÃÂ· {base_f['gender']} ÃÂ· {base_f['season']} ÃÂ· "
+                f"{base_f['brand']} Â· {base_f['gender']} Â· {base_f['season']} Â· "
                 f"{', '.join(base_f.get('category', []))}"
             )
             partners = suggest_partners_for(base_f, num=5)
@@ -3750,7 +3758,7 @@ with tab_layer:
             st.warning("Need a name and at least two bottles.")
 
     for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
-        st.write(f"**{recipe['name']}** ÃÂ· {' + '.join(recipe.get('bottles') or [])}")
+        st.write(f"**{recipe['name']}** Â· {' + '.join(recipe.get('bottles') or [])}")
         rb1, rb2 = st.columns(2)
         with rb1:
             if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
@@ -3987,7 +3995,7 @@ with tab_sotd:
                     with row_a:
                         mark = " (already selected)" if already else ""
                         st.markdown(
-                            f"**{pf['name']}** ÃÂ· *{pf['brand']}*{mark}  \n"
+                            f"**{pf['name']}** Â· *{pf['brand']}*{mark}  \n"
                             f"{', '.join(pf.get('category', []))}  \n"
                             f"*{reason}*"
                         )
@@ -4016,8 +4024,8 @@ with tab_sotd:
         else:
             for hi, (hf, reason) in enumerate(his_matches):
                 st.info(
-                    f"**{hf['name']}** ÃÂ· *{hf['brand']}*\n\n"
-                    f"{hf['gender']} ÃÂ· {hf['season']} ÃÂ· {', '.join(hf.get('category', []))}\n\n"
+                    f"**{hf['name']}** Â· *{hf['brand']}*\n\n"
+                    f"{hf['gender']} Â· {hf['season']} Â· {', '.join(hf.get('category', []))}\n\n"
                     f"*{reason}*\n\n"
                     f"Notes: {hf['notes']}"
                 )
@@ -4407,7 +4415,7 @@ with tab_play:
             st.caption(f"Twins of {last_twins.get('base')}")
             for s, f in last_twins.get("twins") or []:
                 st.info(
-                    f"**{f['name']}** ({f['brand']}) ÃÂ· score {s}\\n\\n"
+                    f"**{f['name']}** ({f['brand']}) Â· score {s}\\n\\n"
                     f"{', '.join(f['category'])}\\n\\n{f['notes']}"
                 )
 
@@ -4439,7 +4447,7 @@ with tab_play:
             st.session_state["last_least"] = least_worn(top_n=8)
         for wears, f in st.session_state.get("last_least") or []:
             st.write(
-                f"**{f['name']}** ÃÂ· *{f['brand']}* ÃÂ· worn {wears}x  \\n"
+                f"**{f['name']}** Â· *{f['brand']}* Â· worn {wears}x  \\n"
                 f"{f['gender']} | {', '.join(f['category'])}"
             )
             if st.button("Wear today", key=f"least_wear_{f['name']}"):
@@ -4486,7 +4494,7 @@ with tab_play:
         m2.metric("Blind plays", stats.get("blind_played", 0))
         m3.metric("Blind correct", stats.get("blind_correct", 0))
         if badges:
-            st.success(" ÃÂ· ".join(badges))
+            st.success(" Â· ".join(badges))
         else:
             st.info("Log a scent, star bottles, layer, or play blind bottle to earn badges.")
 
