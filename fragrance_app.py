@@ -34,6 +34,12 @@ def save_persisted_data():
         "layer_recipes": st.session_state.get("layer_recipes", []),
         "play_stats": st.session_state.get("play_stats", {}),
         "last_export_date": st.session_state.get("last_export_date"),
+        "chart": {
+            "sun": st.session_state.get("chart_sun"),
+            "moon": st.session_state.get("chart_moon"),
+            "rising": st.session_state.get("chart_rising"),
+            "venus": st.session_state.get("chart_venus"),
+        },
     }
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -1687,6 +1693,17 @@ st.session_state["play_stats"].setdefault("challenges_done", 0)
 if "last_export_date" not in st.session_state:
     st.session_state["last_export_date"] = _persisted.get("last_export_date")
 
+# Restore persisted birth-chart signs (Stars tab)
+_chart = _persisted.get("chart") or {}
+if "chart_sun" not in st.session_state and _chart.get("sun"):
+    st.session_state["chart_sun"] = _chart["sun"]
+if "chart_moon" not in st.session_state and _chart.get("moon"):
+    st.session_state["chart_moon"] = _chart["moon"]
+if "chart_rising" not in st.session_state and _chart.get("rising"):
+    st.session_state["chart_rising"] = _chart["rising"]
+if "chart_venus" not in st.session_state and _chart.get("venus"):
+    st.session_state["chart_venus"] = _chart["venus"]
+
 
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
@@ -1812,6 +1829,136 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
     return True
 
 
+
+def temp_f_to_band(temp_f: float) -> str:
+    """Map outdoor temperature (Â°F) to the app's weather band."""
+    if temp_f >= 85:
+        return "Hot / Summer"
+    if temp_f >= 70:
+        return "Warm / Mild"
+    if temp_f >= 55:
+        return "Cool / Autumn"
+    return "Cold / Winter"
+
+
+def temp_c_to_f(temp_c: float) -> float:
+    return temp_c * 9.0 / 5.0 + 32.0
+
+
+def temp_band_label(temp_f: float) -> str:
+    band = temp_f_to_band(temp_f)
+    tips = {
+        "Hot / Summer": "favor fresh, citrus, light floral, aquatic â go easy on heavy gourmands",
+        "Warm / Mild": "versatile, fruity, soft floral, light sweet",
+        "Cool / Autumn": "woody, soft spice, light gourmand, amber",
+        "Cold / Winter": "gourmand, oriental, oud, vanilla, rich woods",
+    }
+    return f"{band} Â· {tips.get(band, '')}"
+
+
+
+# Typical daytime outdoor temps (Â°F) by month for inland / Southern California
+# (FontanaâLA basin style: warm dry summers, mild winters)
+# Typical daytime outdoor temps (Â°F) â Victorville, CA (High Desert / Mojave)
+# Hotter summers, cooler winters than the LA basin
+CA_MONTHLY_TEMP_F = {
+    1: 60,   # January
+    2: 63,   # February
+    3: 68,   # March
+    4: 74,   # April
+    5: 83,   # May
+    6: 92,   # June
+    7: 98,   # July
+    8: 97,   # August
+    9: 91,   # September
+    10: 79,  # October
+    11: 67,  # November
+    12: 58,  # December
+}
+
+CA_LOCATION_LABEL = "Victorville, CA (High Desert)"
+
+
+def default_ca_temp_f(day=None) -> int:
+    """Suggested outdoor Â°F for Victorville, CA today (Pacific date)."""
+    d = day or pacific_today()
+    return int(CA_MONTHLY_TEMP_F.get(d.month, 75))
+
+
+def score_for_temperature(f: dict, temp_f: float) -> int:
+    """Extra score from actual outdoor temp vs season labels + families."""
+    if temp_f is None:
+        return 0
+    season = (f.get("season") or "").lower()
+    cats = set(f.get("category") or [])
+    score = 0
+    band = temp_f_to_band(temp_f)
+
+    # Season string alignment
+    if band == "Hot / Summer":
+        if "summer" in season:
+            score += 20
+        elif "spring" in season or "mild" in season:
+            score += 12
+        elif "year-round" in season or "year round" in season:
+            score += 8
+        if "winter" in season and "summer" not in season:
+            score -= 18
+        if "cooler" in season and "summer" not in season:
+            score -= 10
+        # Families that wear well in heat
+        for c in ("Fresh", "Citrus", "Aromatic", "Fruity"):
+            if c in cats:
+                score += 10
+        for c in ("Gourmand", "Oud", "Oriental", "Leather"):
+            if c in cats:
+                score -= 8
+        if "Sweet" in cats and "Fresh" not in cats and "Fruity" not in cats:
+            score -= 4
+    elif band == "Warm / Mild":
+        if any(x in season for x in ("spring", "fall", "autumn", "mild", "versatile")):
+            score += 14
+        if "year-round" in season or "year round" in season:
+            score += 10
+        for c in ("Floral", "Fruity", "Fresh", "Sweet"):
+            if c in cats:
+                score += 8
+        if "Oud" in cats:
+            score -= 4
+    elif band == "Cool / Autumn":
+        if any(x in season for x in ("fall", "autumn", "cooler")):
+            score += 18
+        elif "winter" in season:
+            score += 12
+        elif "versatile" in season or "year-round" in season:
+            score += 8
+        if "summer" in season and "fall" not in season and "winter" not in season:
+            score -= 10
+        for c in ("Woody", "Spicy", "Oriental", "Gourmand", "Sweet"):
+            if c in cats:
+                score += 8
+        if "Citrus" in cats and not any(c in cats for c in ("Woody", "Spicy", "Gourmand")):
+            score -= 3
+    else:  # Cold / Winter
+        if "winter" in season:
+            score += 20
+        elif any(x in season for x in ("fall", "autumn", "cooler")):
+            score += 14
+        elif "versatile" in season or "year-round" in season:
+            score += 8
+        if "summer" in season and "winter" not in season:
+            score -= 16
+        for c in ("Gourmand", "Oriental", "Oud", "Woody", "Spicy", "Sweet", "Leather"):
+            if c in cats:
+                score += 10
+        for c in ("Fresh", "Citrus"):
+            if c in cats and not any(x in cats for x in ("Woody", "Gourmand", "Oriental", "Spicy")):
+                score -= 6
+
+    return score
+
+
+
 def matches_category(fragrance: dict, category: str) -> bool:
     if category == "Any":
         return True
@@ -1845,7 +1992,7 @@ def _stable_tiebreak(name: str) -> int:
 
 
 def score_fragrance(
-    f: dict, gender: str, weather: str, category: str, occasion: str
+    f: dict, gender: str, weather: str, category: str, occasion: str, temp_f=None
 ) -> int:
     score = 0
     name = f["name"]
@@ -1944,14 +2091,29 @@ def score_fragrance(
             else 4
         )
 
+    # Temperature-aware fine-tuning (degrees beat vague season labels when set)
+    if temp_f is not None:
+        score += score_for_temperature(f, float(temp_f))
+
     # Stable tie-breaker instead of random so rankings don't jump every rerun
     score += _stable_tiebreak(name)
     return score
 
 
 def get_top_fragrances(
-    gender: str, weather: str, category: str, occasion: str, top_n: int, favorites_only: bool = False
+    gender: str,
+    weather: str,
+    category: str,
+    occasion: str,
+    top_n: int,
+    favorites_only: bool = False,
+    temp_f=None,
 ) -> list:
+    # If a real temperature is provided, derive the weather band when set to Any
+    effective_weather = weather
+    if temp_f is not None and (not weather or weather == "Any"):
+        effective_weather = temp_f_to_band(float(temp_f))
+
     scored = []
     for f in st.session_state["fragrances_db"]:
         if st.session_state["user_reactions"].get(f["name"]) == "dislike":
@@ -1960,11 +2122,13 @@ def get_top_fragrances(
             continue
         if (
             matches_gender(f, gender)
-            and matches_weather(f, weather)
+            and matches_weather(f, effective_weather)
             and matches_category(f, category)
             and matches_occasion(f, occasion)
         ):
-            s = score_fragrance(f, gender, weather, category, occasion)
+            s = score_fragrance(
+                f, gender, effective_weather, category, occasion, temp_f=temp_f
+            )
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [f for score, f in scored[:top_n]]
@@ -2123,7 +2287,9 @@ def is_female_or_unisex(f: dict) -> bool:
     return g in ("Female", "Female-leaning", "Unisex")
 
 
-def score_fragrance_for_day(f: dict, day: str, sun: str, moon: str, rising: str) -> int:
+def score_fragrance_for_day(
+    f: dict, day: str, sun: str, moon: str, rising: str, venus: str = None
+) -> int:
     if st.session_state["user_reactions"].get(f["name"]) == "dislike":
         return -999
     if not is_female_or_unisex(f):
@@ -2146,12 +2312,17 @@ def score_fragrance_for_day(f: dict, day: str, sun: str, moon: str, rising: str)
         if kw.lower() in notes_l:
             score += 8
 
-    # Chart Big Three (secondary blend)
+    # Chart Big Three + Venus (beauty planet â strong for fragrance)
+    venus = venus or sun
     cat_weights = chart_category_weights(sun, moon, rising)
+    # Venus categories get an extra nudge
+    for c in SIGN_SCENT_PROFILE.get(venus, {}).get("categories", []):
+        cat_weights[c] = cat_weights.get(c, 0) + 2
+
     for c in f.get("category", []):
         score += cat_weights.get(c, 0) * 3
 
-    for sign in (sun, moon, rising):
+    for sign in (sun, moon, rising, venus):
         for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
             if kw.lower() in notes_l:
                 score += 5
@@ -2169,14 +2340,150 @@ def score_fragrance_for_day(f: dict, day: str, sun: str, moon: str, rising: str)
     return score
 
 
-def get_day_fragrances(day: str, sun: str, moon: str, rising: str, top_n: int = 5) -> list:
+def explain_day_match(f: dict, day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
+    """Short why-this-bottle line for Stars results."""
+    bits = []
+    day_prof = DAY_RULER.get(day, {})
+    cats = set(f.get("category", []))
+    day_hits = [c for c in day_prof.get("categories", []) if c in cats]
+    if day_hits:
+        bits.append(f"{day_prof.get('planet', day)} day Â· {', '.join(day_hits[:2])}")
+    notes_l = (f.get("notes") or "").lower()
+    kw_hits = [kw for kw in day_prof.get("notes_keywords", []) if kw.lower() in notes_l]
+    venus = venus or sun
+    for sign, label in ((sun, "Sun"), (moon, "Moon"), (rising, "Rising"), (venus, "Venus")):
+        for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
+            if kw.lower() in notes_l and kw not in kw_hits:
+                kw_hits.append(kw)
+                bits.append(f"{label} {sign} Â· {kw}")
+                break
+    if kw_hits and not any("Â·" in b and "day" not in b for b in bits):
+        bits.append("notes: " + ", ".join(kw_hits[:3]))
+    return " Â· ".join(bits[:3]) if bits else "chart + day blend"
+
+
+def get_day_fragrances(
+    day: str, sun: str, moon: str, rising: str, top_n: int = 5, venus: str = None
+) -> list:
     scored = []
     for f in st.session_state["fragrances_db"]:
-        s = score_fragrance_for_day(f, day, sun, moon, rising)
+        s = score_fragrance_for_day(f, day, sun, moon, rising, venus=venus)
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [f for _, f in scored[:top_n]]
+
+
+def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
+    """Fun interpretive scent-horoscope blurb for the selected day + chart."""
+    day_prof = DAY_RULER.get(day, {})
+    planet = day_prof.get("planet", "the sky")
+    vibe = day_prof.get("vibe", "a shifting mood")
+    sun_p = SIGN_SCENT_PROFILE.get(sun, {})
+    moon_p = SIGN_SCENT_PROFILE.get(moon, {})
+    rise_p = SIGN_SCENT_PROFILE.get(rising, {})
+    venus = venus or sun
+    ven_p = SIGN_SCENT_PROFILE.get(venus, {})
+
+    echoes = []
+    day_cats = set(day_prof.get("categories", []))
+
+    if day == "Friday":
+        if sun in ("Libra", "Taurus") or venus in ("Libra", "Taurus") or rising in ("Libra", "Taurus"):
+            echoes.append(
+                "Venus day flatters your beauty placements â soft florals, polished sweetness, and skin-close musk."
+            )
+        else:
+            echoes.append(
+                "Venus day invites charm: floral-fruity or creamy gourmand, whichever feels like a compliment."
+            )
+    elif day == "Saturday":
+        if moon == "Capricorn" or sun == "Capricorn" or rising == "Capricorn":
+            echoes.append(
+                "Saturn day steadies Capricorn energy â amber, woods, and structured gourmands feel like armor."
+            )
+        else:
+            echoes.append(
+                "Saturn day favors polish and depth â woody, oriental, or ambered bottles over pure fluff."
+            )
+    elif day == "Sunday":
+        if rising == "Leo" or sun == "Leo" or moon == "Leo":
+            echoes.append(
+                "Sun day turns up Leo heat â radiant vanilla, honey, and warm florals read as main-character."
+            )
+        else:
+            echoes.append(
+                "Sun day asks for confidence and glow â warm gourmand, golden floral, or a bold oriental."
+            )
+    elif day == "Monday":
+        if moon_p.get("element") == "Water":
+            echoes.append(
+                "Moon day over a water Moon favors milky, musky comfort over sharp edges."
+            )
+        else:
+            echoes.append(
+                "Moon day softens the pace â powder, milk, white florals, or a gentle gourmand hug."
+            )
+    elif day == "Tuesday":
+        if sun_p.get("element") == "Fire" or rise_p.get("element") == "Fire":
+            echoes.append(
+                "Mars day stokes fire placements â spice, projection, and heat without apology."
+            )
+        else:
+            echoes.append(
+                "Mars day wants drive â pepper, ginger, dark fruit, or a spicy oriental edge."
+            )
+    elif day == "Wednesday":
+        if sun_p.get("element") == "Air" or rise_p.get("element") == "Air":
+            echoes.append(
+                "Mercury day loves air signs â keep it light, citrus-bright, or softly floral."
+            )
+        else:
+            echoes.append(
+                "Mercury day stays curious and clean â citrus, green, pear, or a breezy floral."
+            )
+    elif day == "Thursday":
+        if any(SIGN_SCENT_PROFILE.get(s, {}).get("element") == "Fire" for s in (sun, rising)):
+            echoes.append(
+                "Jupiter day expands fire energy â golden, honeyed, or warmly spiced trails."
+            )
+        else:
+            echoes.append(
+                "Jupiter day goes generous â amber, vanilla, tonka, or a lush oriental-gourmand."
+            )
+
+    chart_cats = set()
+    for sign in (sun, moon, rising, venus):
+        chart_cats.update(SIGN_SCENT_PROFILE.get(sign, {}).get("categories", []))
+    overlap = list(day_cats & chart_cats)[:3]
+    if overlap:
+        echoes.append(f"Chart overlap with today: **{', '.join(overlap)}** â lean there first.")
+
+    if not echoes:
+        echoes.append(
+            f"Let {planet}'s mood lead: {vibe.lower()}. "
+            f"Your {sun} Sun wants {sun_p.get('vibe', 'balance').lower()}; "
+            f"your {moon} Moon reaches for {moon_p.get('vibe', 'comfort').lower()}; "
+            f"{rising} rising adds {rise_p.get('vibe', 'presence').lower()}."
+        )
+
+    families = ", ".join(day_prof.get("categories", [])[:4])
+    venus_line = (
+        f"Venus in {venus} steers beauty toward "
+        f"{', '.join(ven_p.get('categories', [])[:3]) or 'soft allure'}."
+    )
+    body = echoes[0]
+    if len(echoes) > 1:
+        body = echoes[0] + " " + echoes[1]
+
+    nl = "\n"
+    return (
+        f"**{day} â ruled by {planet}.** {vibe}{nl}{nl}"
+        f"{body}{nl}{nl}"
+        f"{venus_line} Favor these families today: **{families}**."
+    )
+
+
 
 
 
@@ -2588,6 +2895,50 @@ def is_incomplete_notes(f: dict) -> bool:
     return any(v in notes for v in vague)
 
 
+
+def search_rank_key(f: dict) -> tuple:
+    """Sort key for search results: YAY first, then wear count, complete notes, name."""
+    name = f.get("name", "")
+    reaction = st.session_state.get("user_reactions", {}).get(name)
+    yay = 0 if reaction == "fav" else 1
+    dislike = 0 if reaction != "dislike" else 1
+    wears = -get_wear_counts().get(name, 0)
+    incomplete = 1 if is_incomplete_notes(f) else 0
+    return (dislike, yay, incomplete, wears, name.lower())
+
+
+def rank_search_results(matches: list) -> list:
+    return sorted(matches, key=search_rank_key)
+
+
+def performance_leaderboard(top_n: int = 5) -> dict:
+    """Best average sillage / longevity from SOTD logs."""
+    # Collect per-bottle samples
+    sil_map = {}  # name -> list
+    lon_map = {}
+    for entry in st.session_state.get("sotd_history") or []:
+        scents = entry.get("scents") or []
+        if not scents and entry.get("scent"):
+            scents = [p.strip() for p in entry["scent"].split(" + ")]
+        for s in scents:
+            if entry.get("sillage"):
+                sil_map.setdefault(s, []).append(int(entry["sillage"]))
+            if entry.get("longevity"):
+                lon_map.setdefault(s, []).append(int(entry["longevity"]))
+
+    def top_avg(m):
+        rows = []
+        for name, vals in m.items():
+            if not vals:
+                continue
+            rows.append((sum(vals) / len(vals), len(vals), name))
+        rows.sort(key=lambda x: (-x[0], -x[1], x[2]))
+        return rows[:top_n]
+
+    return {"sillage": top_avg(sil_map), "longevity": top_avg(lon_map)}
+
+
+
 def get_favorite_notes(top_n: int = 12) -> list:
     """Ranked note keywords from YAY bottles."""
     from collections import Counter
@@ -2648,7 +2999,8 @@ def suggest_right_now(weather: str = "Any", favorites_only: bool = False, top_n:
     sun = st.session_state.get("chart_sun", DEFAULT_CHART["sun"])
     moon = st.session_state.get("chart_moon", DEFAULT_CHART["moon"])
     rising = st.session_state.get("chart_rising", DEFAULT_CHART["rising"])
-    day_picks = get_day_fragrances(day, sun, moon, rising, top_n=15)
+    venus = st.session_state.get("chart_venus", DEFAULT_CHART.get("venus", sun))
+    day_picks = get_day_fragrances(day, sun, moon, rising, top_n=15, venus=venus)
     # re-score with weather preference
     scored = []
     for f in day_picks:
@@ -2656,7 +3008,7 @@ def suggest_right_now(weather: str = "Any", favorites_only: bool = False, top_n:
             continue
         if not matches_weather(f, weather):
             continue
-        s = score_fragrance_for_day(f, day, sun, moon, rising)
+        s = score_fragrance_for_day(f, day, sun, moon, rising, venus=venus)
         if weather != "Any":
             s += 10 if matches_weather(f, weather) else 0
         scored.append((s, f))
@@ -2881,6 +3233,8 @@ with st.sidebar:
         st.session_state["filter_occasion"] = "Any"
         st.session_state["filter_num_recs"] = 3
         st.session_state["filter_favorites_only"] = False
+        st.session_state["filter_use_temp"] = True
+        st.session_state["filter_temp_f"] = default_ca_temp_f()
         st.session_state.pop("last_recs", None)
 
     gender = st.selectbox(
@@ -2888,10 +3242,42 @@ with st.sidebar:
         ["Any", "Male", "Female", "Unisex"],
         key="filter_gender",
     )
+
+    st.markdown("**Outdoor temperature (Â°F)**")
+    ca_default = default_ca_temp_f()
+    # Seed slider default once per session from CA monthly norm
+    if "filter_temp_f" not in st.session_state:
+        st.session_state["filter_temp_f"] = ca_default
+    if "filter_use_temp" not in st.session_state:
+        st.session_state["filter_use_temp"] = True  # on by default for CA users
+
+    use_temp = st.checkbox(
+        "Use temperature for ranking",
+        key="filter_use_temp",
+        help="Degrees (Â°F) drive the season band and ranking. Default follows typical Victorville, CA (High Desert) daytime temps for this month.",
+    )
+    temp_f = None
+    if use_temp:
+        temp_val = st.slider(
+            "Temperature (Â°F)",
+            min_value=30,
+            max_value=115,
+            key="filter_temp_f",
+        )
+        temp_f = float(temp_val)
+        st.caption(
+            f"{temp_f:.0f}Â°F â {temp_band_label(temp_f)}  Â·  "
+            f"Victorville typical this month: **{ca_default}Â°F**"
+        )
+        if st.button("Reset to Victorville monthly norm", key="reset_ca_temp", use_container_width=True):
+            st.session_state["filter_temp_f"] = ca_default
+            st.rerun()
+
     weather = st.selectbox(
         "Season / weather",
         ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
         key="filter_weather",
+        help="Used as a hard filter. If temperature is on and this is Any, the temp band is applied automatically.",
     )
     category = st.selectbox(
         "Category",
@@ -3071,17 +3457,50 @@ with tab_discover:
 
     # ---- What should I wear right now ----
     with st.expander("What should I wear right now?", expanded=False):
-        rn_weather = st.selectbox(
-            "Weather right now",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="rn_weather",
-        )
+        ca_default = default_ca_temp_f()
+        if "rn_temp_f" not in st.session_state:
+            st.session_state["rn_temp_f"] = ca_default
+        if "rn_use_temp" not in st.session_state:
+            st.session_state["rn_use_temp"] = True
+
+        rn_use_temp = st.checkbox("Use temperature (Â°F)", key="rn_use_temp")
+        rn_temp_f = None
+        if rn_use_temp:
+            rn_temp_f = float(
+                st.slider("Temp (Â°F)", 30, 115, key="rn_temp_f")
+            )
+            st.caption(
+                f"{temp_band_label(rn_temp_f)}  Â·  Victorville typical this month: **{ca_default}Â°F**"
+            )
+            rn_weather = temp_f_to_band(rn_temp_f)
+        else:
+            rn_weather = st.selectbox(
+                "Weather right now",
+                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+                key="rn_weather",
+            )
         rn_favs = st.checkbox("Favorites only", key="rn_favs")
         if st.button("Pick for me", type="primary", key="rn_pick_btn"):
-            picks = suggest_right_now(rn_weather, favorites_only=rn_favs, top_n=3)
+            picks = suggest_right_now(
+                rn_weather, favorites_only=rn_favs, top_n=3
+            )
+            # Re-rank with temperature if set
+            if rn_temp_f is not None and picks:
+                picks = get_top_fragrances(
+                    "Any",
+                    rn_weather,
+                    "Any",
+                    "Any",
+                    3,
+                    favorites_only=rn_favs,
+                    temp_f=rn_temp_f,
+                )
+            label = rn_weather
+            if rn_temp_f is not None:
+                label = f"{rn_temp_f:.0f}Â°F â {rn_weather}"
             st.session_state["last_right_now"] = {
                 "picks": picks,
-                "weather": rn_weather,
+                "weather": label,
             }
         last_rn = st.session_state.get("last_right_now")
         if last_rn:
@@ -3095,7 +3514,7 @@ with tab_discover:
                     st.rerun()
 
 
-    # Name / brand search
+    # Name / brand search (ranked: YAY â most worn â complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
         query_lower = search_query.lower()
@@ -3104,14 +3523,15 @@ with tab_discover:
             for f in st.session_state["fragrances_db"]
             if query_lower in f["name"].lower() or query_lower in f["brand"].lower()
         ]
+        matching = rank_search_results(matching)
         if not matching:
             st.warning("No fragrances matched that name or brand.")
         else:
-            st.caption(f"{len(matching)} match(es)")
+            st.caption(f"{len(matching)} match(es) Â· ranked by favorites, wears, note quality")
             for f in matching:
                 render_fragrance_card(f, key_prefix=f"search_{search_query}")
 
-    # Note search
+    # Note search (same ranking)
     if note_query:
         st.subheader(f'Notes | "{note_query}"')
         note_q = note_query.lower()
@@ -3120,27 +3540,41 @@ with tab_discover:
             for f in st.session_state["fragrances_db"]
             if note_q in f["notes"].lower()
         ]
+        matching_notes = rank_search_results(matching_notes)
         if not matching_notes:
             st.warning("No fragrances contain that note.")
         else:
-            st.caption(f"{len(matching_notes)} match(es)")
+            st.caption(f"{len(matching_notes)} match(es) Â· ranked by favorites, wears, note quality")
             for f in matching_notes:
                 render_fragrance_card(f, key_prefix=f"note_{note_query}")
 
     # Recommendations (persist so Love/Trash does not wipe the list)
     if generate_clicked:
         selected = get_top_fragrances(
-            gender, weather, category, occasion, num_recs, favorites_only=favorites_only
+            gender,
+            weather,
+            category,
+            occasion,
+            num_recs,
+            favorites_only=favorites_only,
+            temp_f=temp_f,
         )
+        meta_weather = weather
+        if temp_f is not None:
+            band = temp_f_to_band(temp_f)
+            meta_weather = f"{temp_f:.0f}Â°F â {band}" + (
+                f" (filter: {weather})" if weather != "Any" else ""
+            )
         st.session_state["last_recs"] = {
             "selected": selected,
             "num": num_recs,
             "meta": {
                 "gender": gender,
-                "weather": weather,
+                "weather": meta_weather,
                 "category": category,
                 "occasion": occasion,
                 "favorites_only": favorites_only,
+                "temp_f": temp_f,
             },
         }
 
@@ -3681,42 +4115,48 @@ with tab_sotd:
 with tab_horoscope:
     st.subheader("Stars & scent")
     st.caption(
-        "Day-of-week horoscope picks for Female and Unisex bottles, "
-        "blended with your birth chart."
+        "Daily planetary vibe + your chart, translated into Female / Unisex scent picks."
     )
 
     st.markdown("#### Your chart")
-    st.info(
-        f"**Born** {DEFAULT_CHART['birth_date']} ÃÂ· {DEFAULT_CHART['birth_time']} ÃÂ· "
-        f"{DEFAULT_CHART['birth_place']}\n\n"
-        f"**Sun** {DEFAULT_CHART['sun']} ÃÂ· **Moon** {DEFAULT_CHART['moon']} ÃÂ· "
-        f"**Rising** {DEFAULT_CHART['rising']} ÃÂ· **Venus** {DEFAULT_CHART['venus']}\n\n"
-        f"*{DEFAULT_CHART['notes']}*"
+    st.caption(
+        f"Default sanctuary chart Â· born {DEFAULT_CHART['birth_date']} "
+        f"{DEFAULT_CHART['birth_time']} Â· {DEFAULT_CHART['birth_place']}. "
+        "Adjust signs below anytime â picks follow the dropdowns, not the locked defaults."
     )
 
     signs = list(SIGN_SCENT_PROFILE.keys())
-    hc1, hc2, hc3 = st.columns(3)
+    # Seed session defaults once so selectboxes don't fight index= vs key=
+    if "chart_sun" not in st.session_state:
+        st.session_state["chart_sun"] = DEFAULT_CHART["sun"]
+    if "chart_moon" not in st.session_state:
+        st.session_state["chart_moon"] = DEFAULT_CHART["moon"]
+    if "chart_rising" not in st.session_state:
+        st.session_state["chart_rising"] = DEFAULT_CHART["rising"]
+    if "chart_venus" not in st.session_state:
+        st.session_state["chart_venus"] = DEFAULT_CHART.get("venus", DEFAULT_CHART["sun"])
+
+    hc1, hc2, hc3, hc4 = st.columns(4)
     with hc1:
-        sun_s = st.selectbox(
-            "Sun",
-            signs,
-            index=signs.index(DEFAULT_CHART["sun"]),
-            key="chart_sun",
-        )
+        sun_s = st.selectbox("Sun", signs, key="chart_sun")
     with hc2:
-        moon_s = st.selectbox(
-            "Moon",
-            signs,
-            index=signs.index(DEFAULT_CHART["moon"]),
-            key="chart_moon",
-        )
+        moon_s = st.selectbox("Moon", signs, key="chart_moon")
     with hc3:
-        rise_s = st.selectbox(
-            "Rising",
-            signs,
-            index=signs.index(DEFAULT_CHART["rising"]),
-            key="chart_rising",
-        )
+        rise_s = st.selectbox("Rising", signs, key="chart_rising")
+    with hc4:
+        venus_s = st.selectbox("Venus", signs, key="chart_venus")
+
+    # Live chart vibe summary
+    sun_p = SIGN_SCENT_PROFILE.get(sun_s, {})
+    moon_p = SIGN_SCENT_PROFILE.get(moon_s, {})
+    rise_p = SIGN_SCENT_PROFILE.get(rise_s, {})
+    ven_p = SIGN_SCENT_PROFILE.get(venus_s, {})
+    st.caption(
+        f"Sun {sun_s} ({sun_p.get('element', '?')} Â· {sun_p.get('vibe', '')}) Â· "
+        f"Moon {moon_s} ({moon_p.get('element', '?')} Â· {moon_p.get('vibe', '')}) Â· "
+        f"Rising {rise_s} ({rise_p.get('element', '?')} Â· {rise_p.get('vibe', '')}) Â· "
+        f"Venus {venus_s} ({ven_p.get('vibe', '')})"
+    )
 
     st.markdown("#### Day of the week")
     weekdays = [
@@ -3728,9 +4168,7 @@ with tab_horoscope:
         "Saturday",
         "Sunday",
     ]
-    # Default to Pacific "today" weekday
     today_name = pacific_today().strftime("%A")
-    default_day_idx = weekdays.index(today_name) if today_name in weekdays else 0
     if "chart_day" not in st.session_state:
         st.session_state["chart_day"] = today_name
 
@@ -3742,14 +4180,26 @@ with tab_horoscope:
     )
     day_prof = DAY_RULER[day_s]
     st.write(
-        f"**{day_s}** ÃÂ· ruled by **{day_prof['planet']}**  \n"
+        f"**{day_s}** Â· ruled by **{day_prof['planet']}**  \n"
         f"{day_prof['vibe']}  \n"
         f"Families: {', '.join(day_prof['categories'])}"
     )
 
-    chart_n = st.radio("How many picks", [3, 5, 7], index=1, horizontal=True, key="chart_n")
+    # Written day horoscope (always visible for the selected day)
+    blurb = write_day_horoscope(day_s, sun_s, moon_s, rise_s, venus=venus_s)
+    st.markdown(blurb)
+
+    chart_n = st.radio("How many scent picks", [3, 5, 7], index=1, horizontal=True, key="chart_n")
+    if st.button("Save chart", key="chart_save_btn"):
+        save_persisted_data()
+        st.success("Chart saved to sanctuary data.")
+        st.rerun()
+
     if st.button("Draw day scents", type="primary", key="chart_draw_btn"):
-        picks = get_day_fragrances(day_s, sun_s, moon_s, rise_s, top_n=chart_n)
+        save_persisted_data()  # persist chart signs with the draw
+        picks = get_day_fragrances(
+            day_s, sun_s, moon_s, rise_s, top_n=chart_n, venus=venus_s
+        )
         st.session_state["last_chart_picks"] = {
             "picks": picks,
             "meta": {
@@ -3758,6 +4208,7 @@ with tab_horoscope:
                 "sun": sun_s,
                 "moon": moon_s,
                 "rising": rise_s,
+                "venus": venus_s,
             },
         }
 
@@ -3767,8 +4218,9 @@ with tab_horoscope:
         picks = last_chart.get("picks") or []
         st.subheader(f"{meta.get('day', 'Day')} scents")
         st.caption(
-            f"{meta.get('day')} ÃÂ· {meta.get('planet')}  |  "
-            f"Sun {meta.get('sun')} ÃÂ· Moon {meta.get('moon')} ÃÂ· Rising {meta.get('rising')}  |  "
+            f"{meta.get('day')} Â· {meta.get('planet')}  |  "
+            f"Sun {meta.get('sun')} Â· Moon {meta.get('moon')} Â· "
+            f"Rising {meta.get('rising')} Â· Venus {meta.get('venus', 'â')}  |  "
             f"Female / Unisex only"
         )
         if not picks:
@@ -3780,11 +4232,20 @@ with tab_horoscope:
             for i, f in enumerate(picks, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
                 badge = " YAY" if current_reaction == "fav" else ""
+                why = explain_day_match(
+                    f,
+                    meta.get("day", day_s),
+                    meta.get("sun", sun_s),
+                    meta.get("moon", moon_s),
+                    meta.get("rising", rise_s),
+                    venus=meta.get("venus", venus_s),
+                )
                 st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
+                st.caption(f"Why: {why}")
                 st.caption(f"Notes: {f['notes']}")
-                c1, c2, _ = st.columns([1, 1, 4])
+                c1, c2, c3, _ = st.columns([1, 1, 1, 3])
                 with c1:
                     if st.button("YAY", key=f"chart_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
@@ -3795,15 +4256,30 @@ with tab_horoscope:
                         st.session_state["user_reactions"][f["name"]] = "dislike"
                         save_persisted_data()
                         st.rerun()
+                with c3:
+                    if st.button("Wear", key=f"chart_wear_{f['name']}_{i}"):
+                        st.session_state["sotd_prefill"] = [f["name"]]
+                        st.rerun()
                 st.markdown("---")
-            st.caption(
-                "Friday (Venus) loves your Libra Sun; Saturday (Saturn) echoes Capricorn Moon; "
-                "Sunday (Sun) amplifies Leo rising."
-            )
+
+            # Dynamic tip from selected chart (not hardcoded defaults only)
+            tips = []
+            if meta.get("sun") == "Libra" or meta.get("venus") in ("Libra", "Taurus"):
+                tips.append("Friday (Venus) loves your beauty placements.")
+            if meta.get("moon") == "Capricorn":
+                tips.append("Saturday (Saturn) echoes Capricorn Moon depth.")
+            if meta.get("rising") == "Leo" or meta.get("sun") == "Leo":
+                tips.append("Sunday (Sun) amplifies Leo radiance.")
+            if not tips:
+                tips.append(
+                    f"Lean into {meta.get('day', day_s)} families and your "
+                    f"{meta.get('sun', sun_s)} Sun / {meta.get('venus', venus_s)} Venus note keywords."
+                )
+            st.caption(" Â· ".join(tips))
     else:
         st.info(
-            f"Today is **{today_name}**. Pick a day and hit **Draw day scents** "
-            "for Female / Unisex recommendations."
+            f"Today is **{today_name}**. Read the day horoscope above, then hit "
+            "**Draw day scents** for Female / Unisex recommendations."
         )
 
 
@@ -4070,8 +4546,27 @@ with tab_collection:
         fam_bits = " Â· ".join(f"{k}: {v}" for k, v in list(fam.items())[:8])
         st.write(fam_bits)
 
+    # Performance leaderboard from logged sillage / longevity
+    with st.expander("Performance leaderboard (from SOTD logs)", expanded=False):
+        board = performance_leaderboard(top_n=5)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Best projection (sillage)**")
+            if not board["sillage"]:
+                st.caption("Log sillage on SOTD entries to unlock.")
+            else:
+                for avg, n, name in board["sillage"]:
+                    st.write(f"**{name}** Â· {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
+        with c2:
+            st.markdown("**Longest wear (longevity)**")
+            if not board["longevity"]:
+                st.caption("Log longevity on SOTD entries to unlock.")
+            else:
+                for avg, n, name in board["longevity"]:
+                    st.write(f"**{name}** Â· {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
 
-    filter_col, sort_col = st.columns(2)
+
+    filter_col, sort_col, flag_col = st.columns(3)
     with filter_col:
         browse_gender = st.selectbox(
             "Filter by gender",
@@ -4083,6 +4578,12 @@ with tab_collection:
             "Sort by",
             ["Name (A-Z)", "Brand (A-Z)", "Most worn", "Category"],
             key="browse_sort",
+        )
+    with flag_col:
+        browse_incomplete = st.checkbox(
+            "Needs notes only",
+            key="browse_incomplete",
+            help="Show bottles with thin or vague note text.",
         )
 
     db = list(st.session_state["fragrances_db"])
@@ -4107,6 +4608,9 @@ with tab_collection:
             if normalize_gender(f.get("gender", "")) == "Unisex"
         ]
 
+    if browse_incomplete:
+        db = [f for f in db if is_incomplete_notes(f)]
+
     if browse_sort == "Name (A-Z)":
         db.sort(key=lambda x: x["name"].lower())
     elif browse_sort == "Brand (A-Z)":
@@ -4116,7 +4620,39 @@ with tab_collection:
     else:
         db.sort(key=lambda x: (",".join(x.get("category", [])), x["name"].lower()))
 
+    # Quick-edit incomplete notes without full Vault form
+    incomplete_list = [f for f in st.session_state["fragrances_db"] if is_incomplete_notes(f)]
+    with st.expander(
+        f"Quick-edit notes ({len(incomplete_list)} need work)", expanded=False
+    ):
+        if not incomplete_list:
+            st.caption("All bottles have solid notes. Nice.")
+        else:
+            edit_names = sorted(f["name"] for f in incomplete_list)
+            pick = st.selectbox("Bottle to fill in", edit_names, key="quick_edit_pick")
+            frag = next(
+                (f for f in st.session_state["fragrances_db"] if f["name"] == pick),
+                None,
+            )
+            if frag:
+                st.caption(f"{frag.get('brand', '')} Â· current: {frag.get('notes', '')[:120]}")
+                new_notes = st.text_area(
+                    "Notes (Top / Heart / Base)",
+                    value=frag.get("notes") or "",
+                    key=f"quick_notes_{pick}",
+                    height=100,
+                )
+                if st.button("Save notes", key="quick_notes_save"):
+                    for i, f in enumerate(st.session_state["fragrances_db"]):
+                        if f["name"] == pick:
+                            st.session_state["fragrances_db"][i]["notes"] = new_notes.strip() or "Not specified"
+                            break
+                    save_persisted_data()
+                    st.success(f"Updated notes for **{pick}**")
+                    st.rerun()
+
     with st.expander(f"Browse {len(db)} bottles", expanded=False):
+
         if not db:
             st.info("No bottles match this gender filter.")
         for i, f in enumerate(db):
@@ -4316,6 +4852,13 @@ with tab_vault:
         "sotd_history": st.session_state["sotd_history"],
         "layer_recipes": st.session_state.get("layer_recipes", []),
         "play_stats": st.session_state.get("play_stats", {}),
+        "last_export_date": st.session_state.get("last_export_date"),
+        "chart": {
+            "sun": st.session_state.get("chart_sun"),
+            "moon": st.session_state.get("chart_moon"),
+            "rising": st.session_state.get("chart_rising"),
+            "venus": st.session_state.get("chart_venus"),
+        },
     }
     json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
     if st.download_button(
@@ -4350,6 +4893,18 @@ with tab_vault:
                 st.session_state["layer_recipes"] = imported_data["layer_recipes"]
             if "play_stats" in imported_data:
                 st.session_state["play_stats"] = imported_data["play_stats"]
+            if "last_export_date" in imported_data:
+                st.session_state["last_export_date"] = imported_data["last_export_date"]
+            if "chart" in imported_data and isinstance(imported_data["chart"], dict):
+                ch = imported_data["chart"]
+                if ch.get("sun"):
+                    st.session_state["chart_sun"] = ch["sun"]
+                if ch.get("moon"):
+                    st.session_state["chart_moon"] = ch["moon"]
+                if ch.get("rising"):
+                    st.session_state["chart_rising"] = ch["rising"]
+                if ch.get("venus"):
+                    st.session_state["chart_venus"] = ch["venus"]
             save_persisted_data()
             st.success("Vault restored.")
             st.rerun()
