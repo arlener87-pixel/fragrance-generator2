@@ -3198,47 +3198,168 @@ def _image_to_data_url(uploaded_file, max_side: int = 640) -> str:
     return f"data:image/jpeg;base64,{b64}"
 
 
+def _pdf_escape(s: str) -> str:
+    return (
+        str(s)
+        .replace("\\", "\\\\")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+        .replace("\r", " ")
+        .replace("\n", " ")
+    )
+
+
+def build_simple_pdf(title: str, lines: list) -> bytes:
+    """Minimal single/multi-page PDF using only the standard library (no fpdf)."""
+    # Page size letter, 72 pt = 1 inch
+    page_w, page_h = 612, 792
+    margin = 50
+    font_size = 11
+    leading = 16
+    max_chars = 90
+
+    def wrap(text, width=max_chars):
+        text = str(text or "")
+        words = text.split()
+        rows, cur = [], ""
+        for w in words:
+            trial = (cur + " " + w).strip()
+            if len(trial) <= width:
+                cur = trial
+            else:
+                if cur:
+                    rows.append(cur)
+                cur = w
+        if cur:
+            rows.append(cur)
+        return rows or [""]
+
+    # Build page content streams
+    pages = []
+    y = page_h - margin
+    content = []
+
+    def new_page():
+        nonlocal y, content
+        if content:
+            pages.append(content)
+        content = []
+        y = page_h - margin
+
+    def add_line(text, size=font_size, bold=False):
+        nonlocal y
+        for row in wrap(text):
+            if y < margin + leading:
+                new_page()
+            # Helvetica
+            content.append(f"BT /F1 {size} Tf 50 {y} Td ({_pdf_escape(row)}) Tj ET")
+            y -= leading
+
+    add_line(title, size=16)
+    y -= 6
+    for line in lines:
+        add_line(line, size=11)
+    new_page()
+    if not pages:
+        pages = [["BT /F1 11 Tf 50 742 Td (Empty) Tj ET"]]
+
+    # Assemble PDF objects
+    out = []
+    out.append(b"%PDF-1.4\n")
+    offsets = [0]
+
+    def add_obj(data: bytes):
+        offsets.append(sum(len(x) for x in out))
+        out.append(f"{len(offsets)-1} 0 obj\n".encode("latin-1"))
+        out.append(data)
+        out.append(b"\nendobj\n")
+
+    # 1: Catalog
+    add_obj(b"<< /Type /Catalog /Pages 2 0 R >>")
+    # 2: Pages
+    kids = " ".join(f"{3+i} 0 R" for i in range(len(pages)))
+    add_obj(f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode("latin-1"))
+    # Page objects + content streams
+    # Layout: pages start at 3, content streams after all pages
+    content_ids = []
+    for i, page_ops in enumerate(pages):
+        stream_id = 3 + len(pages) + i
+        content_ids.append(stream_id)
+        page_obj = (
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_w} {page_h}] "
+            f"/Contents {stream_id} 0 R /Resources << /Font << /F1  {3+2*len(pages)} 0 R >> >> >>"
+        )
+        # Fix font id - use fixed font object after all streams
+    # Rebuild with correct references
+    out = [b"%PDF-1.4\n"]
+    offsets = [0]
+    objects = []
+
+    def obj(data: bytes):
+        objects.append(data)
+
+    font_id = 3 + 2 * len(pages)  # after pages + streams
+    obj(b"<< /Type /Catalog /Pages 2 0 R >>")  # 1
+    kids = " ".join(f"{3+i} 0 R" for i in range(len(pages)))
+    obj(f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode("latin-1"))  # 2
+    for i, page_ops in enumerate(pages):
+        stream_id = 3 + len(pages) + i
+        obj(
+            (
+                f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_w} {page_h}] "
+                f"/Contents {stream_id} 0 R /Resources << /Font << /F1 {font_id} 0 R >> >> >>"
+            ).encode("latin-1")
+        )
+    for page_ops in pages:
+        body = "\n".join(page_ops).encode("latin-1", errors="replace")
+        obj(f"<< /Length {len(body)} >>\nstream\n".encode("latin-1") + body + b"\nendstream")
+    obj(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+
+    # Write with offsets
+    result = [b"%PDF-1.4\n"]
+    offs = [0]
+    for i, data in enumerate(objects, 1):
+        offs.append(sum(len(x) for x in result))
+        result.append(f"{i} 0 obj\n".encode("latin-1"))
+        result.append(data)
+        result.append(b"\nendobj\n")
+    xref_pos = sum(len(x) for x in result)
+    result.append(f"xref\n0 {len(objects)+1}\n".encode("latin-1"))
+    result.append(b"0000000000 65535 f \n")
+    for o in offs[1:]:
+        result.append(f"{o:010d} 00000 n \n".encode("latin-1"))
+    result.append(
+        f"trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode(
+            "latin-1"
+        )
+    )
+    return b"".join(result)
+
+
 def build_wishlist_pdf(items: list) -> bytes:
-    """Simple PDF checklist of wishlist entries."""
-    from fpdf import FPDF
-    import io
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "ScentedDeadGirl Wishlist", ln=True)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Exported {pacific_today().isoformat()} (Pacific)", ln=True)
-    pdf.ln(4)
+    """PDF checklist of wishlist entries (no external PDF library required)."""
+    lines = [f"Exported {pacific_today().isoformat()} (Pacific)", ""]
     if not items:
-        pdf.cell(0, 8, "Wishlist is empty.", ln=True)
-    for i, item in enumerate(items, 1):
+        lines.append("Wishlist is empty.")
+    for item in items:
         mark = "[x]" if item.get("checked") else "[ ]"
         line = f"{mark}  {item.get('name', '?')}"
         if item.get("brand"):
             line += f"  ({item.get('brand')})"
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.multi_cell(0, 7, line)
+        lines.append(line)
         if item.get("notes"):
-            pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, f"    {item['notes']}")
-        pdf.ln(2)
-    out = io.BytesIO()
-    pdf.output(out)
-    return out.getvalue()
+            lines.append(f"    {item['notes']}")
+        lines.append("")
+    return build_simple_pdf("ScentedDeadGirl Wishlist", lines)
 
 
 def build_sotd_week_pdf(week_key: str = None) -> bytes:
     """PDF of SOTD entries for one ISO week (default: current Pacific week)."""
-    from fpdf import FPDF
-    import io
     today = pacific_today()
     if week_key:
-        # expect YYYY-Www
         try:
             year = int(week_key.split("-W")[0])
             week = int(week_key.split("-W")[1])
-            # Monday of that ISO week
             monday = datetime.date.fromisocalendar(year, week, 1)
         except Exception:
             monday = today - datetime.timedelta(days=today.weekday())
@@ -3261,21 +3382,16 @@ def build_sotd_week_pdf(week_key: str = None) -> bytes:
             entries.append(e)
     entries.sort(key=lambda x: x.get("date", ""))
 
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "ScentedDeadGirl SOTD - Weekly", ln=True)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Week {week_key}  ({monday.isoformat()} to {sunday.isoformat()})", ln=True)
-    pdf.cell(0, 8, f"Exported {today.isoformat()} (Pacific)", ln=True)
-    pdf.ln(4)
+    lines = [
+        f"Week {week_key}  ({monday.isoformat()} to {sunday.isoformat()})",
+        f"Exported {today.isoformat()} (Pacific)",
+        "",
+    ]
     if not entries:
-        pdf.cell(0, 8, "No SOTD logs in this week.", ln=True)
+        lines.append("No SOTD logs in this week.")
     for e in entries:
-        pdf.set_font("Helvetica", "B", 12)
         layer = " [layer]" if e.get("is_layering") else ""
-        pdf.multi_cell(0, 7, f"{e.get('date', '?')}: {e.get('scent', '?')}{layer}")
+        lines.append(f"{e.get('date', '?')}: {e.get('scent', '?')}{layer}")
         bits = []
         if e.get("his_scent"):
             bits.append(f"his: {e['his_scent']}")
@@ -3286,15 +3402,9 @@ def build_sotd_week_pdf(week_key: str = None) -> bytes:
         if e.get("notes"):
             bits.append(str(e["notes"]))
         if bits:
-            pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, "  " + " | ".join(bits))
-        pdf.ln(2)
-    out = io.BytesIO()
-    pdf.output(out)
-    return out.getvalue()
-
-
-
+            lines.append("  " + " | ".join(bits))
+        lines.append("")
+    return build_simple_pdf("ScentedDeadGirl SOTD - Weekly", lines)
 
 
 # ==========================================
@@ -4753,11 +4863,23 @@ with tab_collection:
     # ----- Wishlist -----
     with st.expander("Wishlist", expanded=False):
         st.caption("Track bottles you want - check off when acquired, download a PDF list.")
+        # Clear form fields before widgets if flagged
+        if st.session_state.pop("_clear_wishlist_form", False):
+            st.session_state["wl_name"] = ""
+            st.session_state["wl_brand"] = ""
+            st.session_state["wl_notes"] = ""
         wl_name = st.text_input("Name", key="wl_name")
         wl_brand = st.text_input("Brand (optional)", key="wl_brand")
         wl_notes = st.text_input("Notes (optional)", key="wl_notes")
-        if st.button("Add to wishlist", key="wl_add"):
-            if wl_name.strip():
+        wa, wb = st.columns(2)
+        with wa:
+            add_clicked = st.button("Add to wishlist", key="wl_add", use_container_width=True)
+        with wb:
+            if st.button("Clear fields", key="wl_clear_fields", use_container_width=True):
+                st.session_state["_clear_wishlist_form"] = True
+                st.rerun()
+        if add_clicked:
+            if (wl_name or "").strip():
                 st.session_state["wishlist"].insert(
                     0,
                     {
@@ -4768,6 +4890,7 @@ with tab_collection:
                     },
                 )
                 save_persisted_data()
+                st.session_state["_clear_wishlist_form"] = True
                 st.rerun()
             else:
                 st.warning("Name is required.")
