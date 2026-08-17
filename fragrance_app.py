@@ -3294,38 +3294,6 @@ def build_sotd_week_pdf(week_key: str = None) -> bytes:
     return out.getvalue()
 
 
-OCCASION_PRESETS = {
-    "Office": {
-        "occasion": "Work / Office",
-        "category": "Any",
-        "weather": "Any",
-        "blurb": "Office-safe - skip heavy winter gourmands when possible.",
-    },
-    "Date night": {
-        "occasion": "Date / Evening",
-        "category": "Any",
-        "weather": "Any",
-        "blurb": "Evening intensity - oriental, gourmand, woody, spicy.",
-    },
-    "Errands": {
-        "occasion": "Daily / Casual",
-        "category": "Any",
-        "weather": "Any",
-        "blurb": "Easy daily wear - keep it comfortable.",
-    },
-    "Outdoor": {
-        "occasion": "Outdoor / Sporty",
-        "category": "Fresh",
-        "weather": "Hot / Summer",
-        "blurb": "Fresh and light for moving around outside.",
-    },
-    "Formal": {
-        "occasion": "Formal / Event",
-        "category": "Any",
-        "weather": "Any",
-        "blurb": "Polished - oriental, woody, floral, oud families.",
-    },
-}
 
 
 
@@ -3461,7 +3429,7 @@ with st.sidebar:
         "Season / weather",
         ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
         key="filter_weather",
-        help="Used as a hard filter. If temperature is on and this is Any, the temp band is applied automatically.",
+        help="Season band used as a hard filter for recommendations.",
     )
     category = st.selectbox(
         "Category",
@@ -3494,22 +3462,6 @@ with st.sidebar:
         ],
         key="filter_occasion",
     )
-
-    st.caption("Occasion presets")
-    preset_cols = st.columns(len(OCCASION_PRESETS))
-    for col, (pname, preset) in zip(preset_cols, OCCASION_PRESETS.items()):
-        with col:
-            if st.button(pname, key=f"preset_{pname}", use_container_width=True):
-                st.session_state["filter_occasion"] = preset["occasion"]
-                st.session_state["filter_category"] = preset.get("category", "Any")
-                if preset.get("weather"):
-                    st.session_state["filter_weather"] = preset["weather"]
-                st.session_state["_preset_flash"] = preset.get("blurb", pname)
-                st.rerun()
-    _pflash = st.session_state.pop("_preset_flash", None)
-    if _pflash:
-        st.caption(_pflash)
-
     num_recs = st.radio(
         "How many",
         [1, 3, 5],
@@ -4376,9 +4328,61 @@ with tab_horoscope:
         st.success("Chart saved.")
         st.rerun()
 
-    st.info(
-        "Chart is stored with your vault. Weekday scent draws were removed to keep Stars simple."
+    st.markdown("#### Chart scent picks")
+    st.caption(
+        "Female / Unisex bottles ranked for your Sun, Moon, Rising, and Venus. "
+        "Uses today's planetary day quietly in the background (no weekday picker)."
     )
+    chart_n = st.radio("How many", [3, 5, 8], index=1, horizontal=True, key="chart_n_picks")
+    if st.button("Draw chart scents", type="primary", key="chart_draw_btn"):
+        save_persisted_data()
+        today_name = pacific_today().strftime("%A")
+        picks = get_day_fragrances(
+            today_name, sun_s, moon_s, rise_s, top_n=chart_n, venus=venus_s
+        )
+        st.session_state["last_chart_picks"] = {
+            "picks": picks,
+            "sun": sun_s,
+            "moon": moon_s,
+            "rising": rise_s,
+            "venus": venus_s,
+            "day": today_name,
+        }
+        st.rerun()
+
+    last_cp = st.session_state.get("last_chart_picks")
+    if last_cp is not None:
+        st.caption(
+            f"Sun {last_cp.get('sun')} | Moon {last_cp.get('moon')} | "
+            f"Rising {last_cp.get('rising')} | Venus {last_cp.get('venus')} | "
+            f"{last_cp.get('day', '')}"
+        )
+        picks = last_cp.get("picks") or []
+        if not picks:
+            st.warning("No matching Female / Unisex bottles for this chart right now.")
+        else:
+            for i, f in enumerate(picks, 1):
+                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
+                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
+                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
+                st.write(f"**Category:** {', '.join(f['category'])}")
+                st.caption(f"Notes: {f['notes']}")
+                b1, b2, b3, _ = st.columns([1, 1, 1, 3])
+                with b1:
+                    if st.button("YAY", key=f"chart_fav_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f["name"]] = "fav"
+                        save_persisted_data()
+                        st.rerun()
+                with b2:
+                    if st.button("DEL", key=f"chart_dislike_{f['name']}_{i}"):
+                        st.session_state["user_reactions"][f["name"]] = "dislike"
+                        save_persisted_data()
+                        st.rerun()
+                with b3:
+                    if st.button("Wear", key=f"chart_wear_{f['name']}_{i}"):
+                        st.session_state["sotd_prefill"] = [f["name"]]
+                        st.rerun()
+                st.markdown("---")
 
 
 # ===== PLAY =====
