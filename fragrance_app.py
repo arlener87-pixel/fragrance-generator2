@@ -2744,7 +2744,7 @@ def compute_badges() -> list:
     return badges
 
 
-def suggest_partners_for(base: dict, num: int = 4) -> list:
+def suggest_partners_for(base: dict, num: int = 4, gender: str = "Any") -> list:
     """Best layering partners for a single selected fragrance."""
     if not base:
         return []
@@ -2752,6 +2752,8 @@ def suggest_partners_for(base: dict, num: int = 4) -> list:
     candidates = []
     for f in pool:
         if f["name"] == base["name"]:
+            continue
+        if gender and gender != "Any" and not matches_gender(f, gender):
             continue
         s = layer_score(base, f)
         if s <= -50:
@@ -3867,10 +3869,44 @@ with tab_layer:
         "Pick a base bottle for partner ideas, or generate free combos from filters."
     )
 
-    all_layer_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
+    # Clear layer studio state before widgets if flagged
+    if st.session_state.pop("_clear_layer", False):
+        st.session_state["layer_partner_gender"] = "Any"
+        st.session_state["layer_base_select"] = "- select a bottle -"
+        st.session_state["layer_gender"] = "Any"
+        st.session_state["layer_season"] = "Any"
+        st.session_state["layer_favs_only"] = False
+        st.session_state["layer_n"] = 3
+        st.session_state.pop("last_layer", None)
+
+    if "layer_partner_gender" not in st.session_state:
+        st.session_state["layer_partner_gender"] = "Any"
+
+    lp1, lp2 = st.columns(2)
+    with lp1:
+        layer_partner_gender = st.selectbox(
+            "Filter by gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="layer_partner_gender",
+            help="Limits the base list and partner suggestions.",
+        )
+    with lp2:
+        if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
+            st.session_state["_clear_layer"] = True
+            st.rerun()
+
+    all_layer_names = sorted(
+        f["name"]
+        for f in st.session_state["fragrances_db"]
+        if matches_gender(f, layer_partner_gender)
+    )
+    base_options = ["- select a bottle -"] + all_layer_names
+    if st.session_state.get("layer_base_select") not in base_options:
+        st.session_state["layer_base_select"] = "- select a bottle -"
+
     base_choice = st.selectbox(
         "Base fragrance",
-        ["- select a bottle -"] + all_layer_names,
+        base_options,
         key="layer_base_select",
     )
 
@@ -3879,18 +3915,22 @@ with tab_layer:
         base_f = name_to_frag.get(base_choice)
         if base_f:
             st.caption(
-                f"{base_f['brand']} Â· {base_f['gender']} Â· {base_f['season']} Â· "
+                f"{base_f['brand']} | {base_f['gender']} | {base_f['season']} | "
                 f"{', '.join(base_f.get('category', []))}"
             )
-            partners = suggest_partners_for(base_f, num=5)
+            partners = suggest_partners_for(
+                base_f, num=5, gender=layer_partner_gender
+            )
             if not partners:
-                st.warning("No strong partners for this bottle.")
+                st.warning(
+                    "No strong partners for this bottle with the current gender filter."
+                )
             else:
                 st.markdown(f"#### Partners for **{base_choice}**")
                 for pi, (pf, reason) in enumerate(partners, 1):
                     st.info(
                         f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
-                        f"{', '.join(pf.get('category', []))}\n\n"
+                        f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}\n\n"
                         f"*{reason}*"
                     )
                     if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
@@ -3959,6 +3999,9 @@ with tab_layer:
                         st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
                         st.rerun()
             st.caption("Tip: spray the richer scent first, then the lighter one.")
+        if st.button("Clear combo results", key="layer_clear_results"):
+            st.session_state.pop("last_layer", None)
+            st.rerun()
     else:
         st.info("Set filters and hit **Suggest layering combos** to get pairings.")
 
