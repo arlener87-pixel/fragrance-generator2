@@ -1902,6 +1902,48 @@ def default_ca_temp_f(day=None) -> int:
     return int(CA_MONTHLY_TEMP_F.get(d.month, 75))
 
 
+# Victorville, CA coordinates (High Desert)
+CA_LAT = 34.5362
+CA_LON = -117.2912
+
+
+def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
+    """
+    Current outdoor temperature via Open-Meteo (no API key).
+    Returns {ok, temp_f, source, detail} or ok=False on failure.
+    """
+    import json as _json
+    import urllib.request
+
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        "&current=temperature_2m"
+        "&temperature_unit=fahrenheit"
+        "&timezone=America%2FLos_Angeles"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            payload = _json.loads(resp.read().decode("utf-8"))
+        cur = payload.get("current") or {}
+        temp = cur.get("temperature_2m")
+        if temp is None:
+            return {"ok": False, "detail": "No temperature in response"}
+        temp_f = int(round(float(temp)))
+        # clamp to slider range
+        temp_f = max(30, min(115, temp_f))
+        return {
+            "ok": True,
+            "temp_f": temp_f,
+            "source": "Open-Meteo",
+            "detail": f"Victorville area ({lat:.2f}, {lon:.2f})",
+            "observed": cur.get("time"),
+        }
+    except Exception as ex:
+        return {"ok": False, "detail": str(ex)}
+
+
 def score_for_temperature(f: dict, temp_f: float) -> int:
     """Extra score from actual outdoor temp vs season labels + families."""
     if temp_f is None:
@@ -2861,8 +2903,6 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     st.write(f"**Gender:** {f['gender']}  |  **Season:** {f['season']}")
     st.write(f"**Category:** {', '.join(f['category'])}")
     st.caption(f"Notes: {f['notes']}")
-    if f.get("dupe_of"):
-        st.caption(f"Dupe of: {f['dupe_of']}")
     bits = []
     if f.get("shelf_status"):
         bits.append(str(f["shelf_status"]))
@@ -3428,8 +3468,6 @@ def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
         lines.append(f"Size: {frag.get('size_ml')} ml")
     if frag.get("price"):
         lines.append(f"Price: ${frag.get('price')}")
-    if frag.get("dupe_of"):
-        lines.append(f"Dupe of: {frag.get('dupe_of')}")
     lines.append("")
     lines.append("Notes:")
     notes = frag.get("notes") or "Not specified"
@@ -3542,6 +3580,32 @@ def build_sotd_week_pdf(week_key: str = None) -> bytes:
     return build_simple_pdf("ScentedDeadGirl SOTD - Weekly", lines)
 
 
+
+def sun_sign_from_date(month: int, day: int) -> str:
+    """Tropical sun sign from month/day (no birth time needed)."""
+    md = (month, day)
+    # (end_month, end_day, sign) boundaries
+    ranges = [
+        (1, 19, "Capricorn"),
+        (2, 18, "Aquarius"),
+        (3, 20, "Pisces"),
+        (4, 19, "Aries"),
+        (5, 20, "Taurus"),
+        (6, 20, "Gemini"),
+        (7, 22, "Cancer"),
+        (8, 22, "Leo"),
+        (9, 22, "Virgo"),
+        (10, 22, "Libra"),
+        (11, 21, "Scorpio"),
+        (12, 21, "Sagittarius"),
+        (12, 31, "Capricorn"),
+    ]
+    for em, ed, sign in ranges:
+        if md <= (em, ed):
+            return sign
+    return "Capricorn"
+
+
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
@@ -3605,11 +3669,19 @@ with st.sidebar:
     st.caption("Export JSON from Vault after big changes so Cloud redeploys cannot wipe edits.")
 
     st.markdown("### Temp search")
-    st.caption("Victorville, CA High Desert - pick degrees (F) + gender, then search.")
+    st.caption(
+        "Victorville, CA High Desert - use live outdoor temp or set degrees (F) + gender."
+    )
     ca_default = int(default_ca_temp_f())
     if st.session_state.pop("_reset_temp_search", False):
         st.session_state["temp_search_f"] = ca_default
         st.session_state["temp_search_gender"] = "Any"
+        st.session_state.pop("live_temp_meta", None)
+    # Apply live temp BEFORE slider widget exists
+    if st.session_state.pop("_apply_live_temp", False):
+        live = st.session_state.get("live_temp_meta") or {}
+        if live.get("ok") and live.get("temp_f") is not None:
+            st.session_state["temp_search_f"] = int(live["temp_f"])
     if "temp_search_f" not in st.session_state:
         st.session_state["temp_search_f"] = ca_default
     if "temp_search_gender" not in st.session_state:
@@ -3627,20 +3699,41 @@ with st.sidebar:
         key="temp_search_f",
     )
     band = temp_f_to_band(float(temp_search_f))
+    live_meta = st.session_state.get("live_temp_meta") or {}
+    live_note = ""
+    if live_meta.get("ok"):
+        live_note = (
+            f" | Live: {live_meta.get('temp_f')} F"
+            f" ({live_meta.get('source', 'weather')}"
+            f"{', ' + live_meta['observed'] if live_meta.get('observed') else ''})"
+        )
     st.caption(
         f"{int(temp_search_f)} F -> {temp_band_label(float(temp_search_f))} | "
-        f"Victorville typical this month: {ca_default} F"
+        f"Monthly norm: {ca_default} F{live_note}"
     )
-    ts1, ts2 = st.columns(2)
+    ts1, ts2, ts3 = st.columns(3)
     with ts1:
         temp_search_clicked = st.button(
             "Search by temp", type="primary", use_container_width=True, key="temp_search_btn"
         )
     with ts2:
+        if st.button("Use live temp", use_container_width=True, key="temp_live_btn"):
+            result = fetch_live_temp_f()
+            st.session_state["live_temp_meta"] = result
+            if result.get("ok"):
+                st.session_state["_apply_live_temp"] = True
+                st.rerun()
+            else:
+                st.session_state["_live_temp_error"] = result.get("detail", "Lookup failed")
+                st.rerun()
+    with ts3:
         if st.button("Reset temp", use_container_width=True, key="temp_search_reset"):
             st.session_state["_reset_temp_search"] = True
             st.session_state.pop("last_temp_search", None)
             st.rerun()
+    _live_err = st.session_state.pop("_live_temp_error", None)
+    if _live_err:
+        st.warning(f"Live temp unavailable: {_live_err}. Using slider / monthly norm.")
     if temp_search_clicked:
         picks = get_top_fragrances(
             temp_search_gender,
@@ -3818,7 +3911,6 @@ with st.sidebar:
             placeholder="Top - ... / Heart - ... / Base - ...",
             key="add_notes_field",
         )
-        new_dupe = st.text_input("Dupe of (optional)", placeholder="e.g. Baccarat Rouge 540")
         new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
         new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
         new_price = st.text_input("Price (optional)", placeholder="e.g. 35")
@@ -3876,7 +3968,7 @@ with st.sidebar:
                         "season": new_season or "Versatile",
                         "notes": new_notes if new_notes else "Not specified",
                         "category": new_cats if new_cats else ["Gourmand"],
-                        "dupe_of": (new_dupe or "").strip(),
+                        "dupe_of": "",
                         "shelf_status": new_shelf,
                         "size_ml": (
                             float(new_size)
@@ -3911,8 +4003,6 @@ with st.sidebar:
             f"{last_added.get('gender')} | {', '.join(last_added.get('category') or [])}"
         )
         st.caption(f"Notes: {last_added.get('notes', '')}")
-        if last_added.get("dupe_of"):
-            st.caption(f"Dupe of: {last_added.get('dupe_of')}")
         try:
             pdf_bytes = build_fragrance_sheet_pdf(
                 last_added, title=f"Added - {last_added.get('name', 'bottle')}"
@@ -4129,11 +4219,8 @@ with tab_discover:
 # ===== LAYER =====
 with tab_layer:
     st.subheader("Layering Studio")
-    st.write(
-        "Pick a base bottle for partner ideas, or generate free combos from filters."
-    )
+    st.caption("Partners for a base bottle, free combos, or saved recipes.")
 
-    # Clear layer studio state before widgets if flagged
     if st.session_state.pop("_clear_layer", False):
         st.session_state["layer_partner_gender"] = "Any"
         st.session_state["layer_base_select"] = "- select a bottle -"
@@ -4146,162 +4233,157 @@ with tab_layer:
     if "layer_partner_gender" not in st.session_state:
         st.session_state["layer_partner_gender"] = "Any"
 
-    lp1, lp2 = st.columns(2)
-    with lp1:
-        layer_partner_gender = st.selectbox(
-            "Filter by gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="layer_partner_gender",
-            help="Limits the base list and partner suggestions.",
+    with st.expander("Base + partners", expanded=True):
+        lp1, lp2 = st.columns(2)
+        with lp1:
+            layer_partner_gender = st.selectbox(
+                "Filter by gender",
+                ["Any", "Male", "Female", "Unisex"],
+                key="layer_partner_gender",
+            )
+        with lp2:
+            if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
+                st.session_state["_clear_layer"] = True
+                st.rerun()
+
+        all_layer_names = sorted(
+            f["name"]
+            for f in st.session_state["fragrances_db"]
+            if matches_gender(f, layer_partner_gender)
         )
-    with lp2:
-        if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
-            st.session_state["_clear_layer"] = True
-            st.rerun()
+        base_options = ["- select a bottle -"] + all_layer_names
+        if st.session_state.get("layer_base_select") not in base_options:
+            st.session_state["layer_base_select"] = "- select a bottle -"
 
-    all_layer_names = sorted(
-        f["name"]
-        for f in st.session_state["fragrances_db"]
-        if matches_gender(f, layer_partner_gender)
-    )
-    base_options = ["- select a bottle -"] + all_layer_names
-    if st.session_state.get("layer_base_select") not in base_options:
-        st.session_state["layer_base_select"] = "- select a bottle -"
+        base_choice = st.selectbox(
+            "Base fragrance",
+            base_options,
+            key="layer_base_select",
+        )
 
-    base_choice = st.selectbox(
-        "Base fragrance",
-        base_options,
-        key="layer_base_select",
-    )
-
-    if base_choice != "- select a bottle -":
-        name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
-        base_f = name_to_frag.get(base_choice)
-        if base_f:
-            st.caption(
-                f"{base_f['brand']} | {base_f['gender']} | {base_f['season']} | "
-                f"{', '.join(base_f.get('category', []))}"
-            )
-            partners = suggest_partners_for(
-                base_f, num=5, gender=layer_partner_gender
-            )
-            if not partners:
-                st.warning(
-                    "No strong partners for this bottle with the current gender filter."
+        if base_choice != "- select a bottle -":
+            name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
+            base_f = name_to_frag.get(base_choice)
+            if base_f:
+                st.caption(
+                    f"{base_f['brand']} | {base_f['gender']} | {base_f['season']} | "
+                    f"{', '.join(base_f.get('category', []))}"
                 )
+                partners = suggest_partners_for(
+                    base_f, num=5, gender=layer_partner_gender
+                )
+                if not partners:
+                    st.warning("No strong partners with this gender filter.")
+                else:
+                    st.markdown(f"**Partners for {base_choice}**")
+                    for pi, (pf, reason) in enumerate(partners, 1):
+                        st.info(
+                            f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
+                            f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}\n\n"
+                            f"*{reason}*"
+                        )
+                        if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
+                            st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
+                            st.rerun()
+
+    with st.expander("Free combos from filters", expanded=False):
+        lc1, lc2 = st.columns(2)
+        with lc1:
+            layer_gender = st.selectbox(
+                "Gender", ["Any", "Male", "Female", "Unisex"], key="layer_gender"
+            )
+        with lc2:
+            layer_season = st.selectbox(
+                "Season / weather",
+                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+                key="layer_season",
+            )
+        layer_favs_only = st.checkbox("Favorites only", value=False, key="layer_favs_only")
+        layer_n = st.radio(
+            "How many combos", [1, 3, 5], index=1, horizontal=True, key="layer_n"
+        )
+
+        if st.button("Suggest layering combos", type="primary", key="layer_gen_btn"):
+            pool = get_top_fragrances(
+                layer_gender,
+                layer_season,
+                "Any",
+                "Any",
+                min(40, len(st.session_state["fragrances_db"])),
+                favorites_only=layer_favs_only,
+            )
+            combos = suggest_layering_combos(pool, num_combos=layer_n)
+            st.session_state["last_layer"] = {
+                "combos": combos,
+                "meta": {
+                    "gender": layer_gender,
+                    "season": layer_season,
+                    "favorites_only": layer_favs_only,
+                    "pool": len(pool),
+                },
+            }
+
+        last_layer = st.session_state.get("last_layer")
+        if last_layer is not None:
+            combos = last_layer.get("combos") or []
+            meta = last_layer.get("meta") or {}
+            st.caption(
+                f"{meta.get('gender')} | {meta.get('season')} | pool {meta.get('pool', '?')}"
+                + (" | favorites only" if meta.get("favorites_only") else "")
+            )
+            if not combos:
+                st.warning("Need at least two matching bottles.")
             else:
-                st.markdown(f"#### Partners for **{base_choice}**")
-                for pi, (pf, reason) in enumerate(partners, 1):
+                for i, (f1, f2, reason) in enumerate(combos, 1):
                     st.info(
-                        f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
-                        f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}\n\n"
+                        f"**Combo {i}**\n\n"
+                        f"**Base:** {f1['name']} ({f1['brand']})\n\n"
+                        f"**Layer:** {f2['name']} ({f2['brand']})\n\n"
                         f"*{reason}*"
                     )
-                    if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
-                        st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
-                        st.rerun()
-
-    st.markdown("---")
-    st.markdown("#### Free combos from filters")
-    lc1, lc2 = st.columns(2)
-    with lc1:
-        layer_gender = st.selectbox(
-            "Gender", ["Any", "Male", "Female", "Unisex"], key="layer_gender"
-        )
-    with lc2:
-        layer_season = st.selectbox(
-            "Season / weather",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="layer_season",
-        )
-    layer_favs_only = st.checkbox("Favorites only", value=False, key="layer_favs_only")
-    layer_n = st.radio("How many combos", [1, 3, 5], index=1, horizontal=True, key="layer_n")
-
-    if st.button("Suggest layering combos", type="primary", key="layer_gen_btn"):
-        pool = get_top_fragrances(
-            layer_gender,
-            layer_season,
-            "Any",
-            "Any",
-            min(40, len(st.session_state["fragrances_db"])),
-            favorites_only=layer_favs_only,
-        )
-        combos = suggest_layering_combos(pool, num_combos=layer_n)
-        st.session_state["last_layer"] = {
-            "combos": combos,
-            "meta": {
-                "gender": layer_gender,
-                "season": layer_season,
-                "favorites_only": layer_favs_only,
-                "pool": len(pool),
-            },
-        }
-
-    last_layer = st.session_state.get("last_layer")
-    if last_layer is not None:
-        combos = last_layer.get("combos") or []
-        meta = last_layer.get("meta") or {}
-        st.caption(
-            f"{meta.get('gender')} | {meta.get('season')} | pool {meta.get('pool', '?')}"
-            + (" | favorites only" if meta.get("favorites_only") else "")
-        )
-        if not combos:
-            st.warning(
-                "Need at least two matching bottles. Loosen filters or add favorites."
-            )
-        else:
-            for i, (f1, f2, reason) in enumerate(combos, 1):
-                st.info(
-                    f"**Combo {i}**\n\n"
-                    f"**Base:** {f1['name']} ({f1['brand']})\n\n"
-                    f"**Layer:** {f2['name']} ({f2['brand']})\n\n"
-                    f"*{reason}*"
-                )
-                b1, b2, _ = st.columns([1, 1, 3])
-                with b1:
                     if st.button("Use in SOTD", key=f"layer_use_{i}"):
                         st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
                         st.rerun()
-            st.caption("Tip: spray the richer scent first, then the lighter one.")
-        if st.button("Clear combo results", key="layer_clear_results"):
-            st.session_state.pop("last_layer", None)
-            st.rerun()
-    else:
-        st.info("Set filters and hit **Suggest layering combos** to get pairings.")
-
-
-    st.markdown("---")
-    st.markdown("#### Saved layer recipes")
-    rec_name = st.text_input("Recipe name", placeholder="e.g. Office armor", key="recipe_name_in")
-    rec_pick = st.multiselect(
-        "Bottles in recipe",
-        sorted(f["name"] for f in st.session_state["fragrances_db"]),
-        key="recipe_bottles_in",
-    )
-    if st.button("Save recipe", key="save_recipe_btn"):
-        if rec_name.strip() and len(rec_pick) >= 2:
-            st.session_state["layer_recipes"].insert(
-                0,
-                {"name": rec_name.strip(), "bottles": list(rec_pick)},
-            )
-            save_persisted_data()
-            st.success(f"Saved **{rec_name.strip()}**")
-            st.rerun()
-        else:
-            st.warning("Need a name and at least two bottles.")
-
-    for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
-        st.write(f"**{recipe['name']}** Â· {' + '.join(recipe.get('bottles') or [])}")
-        rb1, rb2 = st.columns(2)
-        with rb1:
-            if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
-                st.session_state["sotd_prefill"] = list(recipe.get("bottles") or [])
+                st.caption("Tip: spray the richer scent first, then the lighter one.")
+            if st.button("Clear combo results", key="layer_clear_results"):
+                st.session_state.pop("last_layer", None)
                 st.rerun()
-        with rb2:
-            if st.button("Delete", key=f"recipe_del_{ri}"):
-                st.session_state["layer_recipes"].pop(ri)
+
+    with st.expander("Saved layer recipes", expanded=False):
+        rec_name = st.text_input(
+            "Recipe name", placeholder="e.g. Office armor", key="recipe_name_in"
+        )
+        rec_pick = st.multiselect(
+            "Bottles in recipe",
+            sorted(f["name"] for f in st.session_state["fragrances_db"]),
+            key="recipe_bottles_in",
+        )
+        if st.button("Save recipe", key="save_recipe_btn"):
+            if rec_name.strip() and len(rec_pick) >= 2:
+                st.session_state["layer_recipes"].insert(
+                    0,
+                    {"name": rec_name.strip(), "bottles": list(rec_pick)},
+                )
                 save_persisted_data()
+                st.success(f"Saved **{rec_name.strip()}**")
                 st.rerun()
+            else:
+                st.warning("Need a name and at least two bottles.")
+
+        for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
+            st.write(
+                f"**{recipe['name']}** | {' + '.join(recipe.get('bottles') or [])}"
+            )
+            rb1, rb2 = st.columns(2)
+            with rb1:
+                if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
+                    st.session_state["sotd_prefill"] = list(recipe.get("bottles") or [])
+                    st.rerun()
+            with rb2:
+                if st.button("Delete", key=f"recipe_del_{ri}"):
+                    st.session_state["layer_recipes"].pop(ri)
+                    save_persisted_data()
+                    st.rerun()
 
 
 # ===== ROULETTE =====
@@ -4542,27 +4624,26 @@ with tab_sotd:
                     st.markdown("---")
 
         # Husband / male match for her selection
-        st.markdown("#### His match")
-        st.caption(
-            "Male (and unisex) bottles from the vault that sit well beside what you're wearing."
-        )
-        his_matches = suggest_his_match(
-            [name_to_frag[n] for n in sotd_choices if n in name_to_frag],
-            num=4,
-        )
-        if not his_matches:
-            st.write(
-                "No strong male matches right now. Add more male bottles or loosen DEL marks."
+        with st.expander("His match", expanded=False):
+            st.caption(
+                "Male (and unisex) bottles from the vault that sit well beside what you're wearing."
             )
-        else:
-            for hi, (hf, reason) in enumerate(his_matches):
-                st.info(
-                    f"**{hf['name']}** Â· *{hf['brand']}*\n\n"
-                    f"{hf['gender']} Â· {hf['season']} Â· {', '.join(hf.get('category', []))}\n\n"
-                    f"*{reason}*\n\n"
-                    f"Notes: {hf['notes']}"
+            his_matches = suggest_his_match(
+                [name_to_frag[n] for n in sotd_choices if n in name_to_frag],
+                num=4,
+            )
+            if not his_matches:
+                st.write(
+                    "No strong male matches right now. Add more male bottles or loosen DEL marks."
                 )
-                st.markdown("---")
+            else:
+                for hi, (hf, reason) in enumerate(his_matches):
+                    st.info(
+                        f"**{hf['name']}** | *{hf['brand']}*\n\n"
+                        f"{hf['gender']} | {hf['season']} | {', '.join(hf.get('category', []))}\n\n"
+                        f"*{reason}*\n\n"
+                        f"Notes: {hf['notes']}"
+                    )
 
     with st.expander("Quick layering combos"):
         fav_names = [
@@ -4636,78 +4717,76 @@ with tab_sotd:
     if _flash:
         st.success(_flash)
 
-    st.markdown("#### Weekly SOTD")
-    st.caption("Browse past weeks on screen and download a PDF if you want a copy.")
-    today = pacific_today()
-    monday = today - datetime.timedelta(days=today.weekday())
-    # Current week + last 15 weeks
-    week_opts = []
-    for wback in range(0, 16):
-        m = monday - datetime.timedelta(weeks=wback)
-        iso = m.isocalendar()
-        key = f"{iso[0]}-W{iso[1]:02d}"
-        label = f"{key} ({m.isoformat()} - {(m + datetime.timedelta(days=6)).isoformat()})"
-        week_opts.append((label, key, m))
-    week_labels = [x[0] for x in week_opts]
-    pick_label = st.selectbox("Week", week_labels, key="sotd_week_pick")
-    pick_key = next(x[1] for x in week_opts if x[0] == pick_label)
-    pick_monday = next(x[2] for x in week_opts if x[0] == pick_label)
-    pick_sunday = pick_monday + datetime.timedelta(days=6)
+    with st.expander("Weekly SOTD browser", expanded=False):
+        st.caption("Browse past weeks on screen and download a PDF if you want a copy.")
+        today = pacific_today()
+        monday = today - datetime.timedelta(days=today.weekday())
+        week_opts = []
+        for wback in range(0, 16):
+            m = monday - datetime.timedelta(weeks=wback)
+            iso = m.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+            label = f"{key} ({m.isoformat()} - {(m + datetime.timedelta(days=6)).isoformat()})"
+            week_opts.append((label, key, m))
+        week_labels = [x[0] for x in week_opts]
+        pick_label = st.selectbox("Week", week_labels, key="sotd_week_pick")
+        pick_key = next(x[1] for x in week_opts if x[0] == pick_label)
+        pick_monday = next(x[2] for x in week_opts if x[0] == pick_label)
+        pick_sunday = pick_monday + datetime.timedelta(days=6)
 
-    week_entries = []
-    for e in st.session_state.get("sotd_history") or []:
-        d = e.get("date")
-        if not d:
-            continue
-        try:
-            dd = datetime.date.fromisoformat(d)
-        except ValueError:
-            continue
-        if pick_monday <= dd <= pick_sunday:
-            week_entries.append(e)
-    week_entries.sort(key=lambda x: x.get("date", ""))
+        week_entries = []
+        for e in st.session_state.get("sotd_history") or []:
+            d = e.get("date")
+            if not d:
+                continue
+            try:
+                dd = datetime.date.fromisoformat(d)
+            except ValueError:
+                continue
+            if pick_monday <= dd <= pick_sunday:
+                week_entries.append(e)
+        week_entries.sort(key=lambda x: x.get("date", ""))
 
-    st.write(
-        f"**{len(week_entries)}** log(s) in {pick_key} "
-        f"({pick_monday.isoformat()} to {pick_sunday.isoformat()})"
-    )
-    if not week_entries:
-        st.info("No SOTD entries in this week yet.")
-    else:
-        for entry in week_entries:
-            layer_badge = " [layer]" if entry.get("is_layering") else ""
-            his_txt = f" | his: {entry['his_scent']}" if entry.get("his_scent") else ""
-            perf_bits = []
-            if entry.get("sillage"):
-                perf_bits.append(f"sil {entry['sillage']}")
-            if entry.get("longevity"):
-                perf_bits.append(f"lon {entry['longevity']}")
-            perf_txt = (" | " + "/".join(perf_bits)) if perf_bits else ""
-            notes_text = f" | {entry['notes']}" if entry.get("notes") else ""
-            st.markdown(
-                f"**{entry.get('date')}:** *{entry.get('scent')}*{layer_badge}"
-                f"{his_txt}{perf_txt}{notes_text}"
-            )
-            if entry.get("photo"):
-                try:
-                    st.image(entry["photo"], width=160)
-                except Exception:
-                    pass
-
-    try:
-        pdf_bytes = build_sotd_week_pdf(pick_key)
-        st.download_button(
-            "Download this week as PDF",
-            data=pdf_bytes,
-            file_name=f"sotd_{pick_key}.pdf",
-            mime="application/pdf",
-            key="sotd_week_pdf_btn",
+        st.write(
+            f"**{len(week_entries)}** log(s) in {pick_key} "
+            f"({pick_monday.isoformat()} to {pick_sunday.isoformat()})"
         )
-    except Exception as ex:
-        st.caption(f"PDF unavailable: {ex}")
+        if not week_entries:
+            st.info("No SOTD entries in this week yet.")
+        else:
+            for entry in week_entries:
+                layer_badge = " [layer]" if entry.get("is_layering") else ""
+                his_txt = f" | his: {entry['his_scent']}" if entry.get("his_scent") else ""
+                perf_bits = []
+                if entry.get("sillage"):
+                    perf_bits.append(f"sil {entry['sillage']}")
+                if entry.get("longevity"):
+                    perf_bits.append(f"lon {entry['longevity']}")
+                perf_txt = (" | " + "/".join(perf_bits)) if perf_bits else ""
+                notes_text = f" | {entry['notes']}" if entry.get("notes") else ""
+                st.markdown(
+                    f"**{entry.get('date')}:** *{entry.get('scent')}*{layer_badge}"
+                    f"{his_txt}{perf_txt}{notes_text}"
+                )
+                if entry.get("photo"):
+                    try:
+                        st.image(entry["photo"], width=160)
+                    except Exception:
+                        pass
 
-    if st.session_state["sotd_history"]:
-        with st.expander("Journal history", expanded=True):
+        try:
+            pdf_bytes = build_sotd_week_pdf(pick_key)
+            st.download_button(
+                "Download this week as PDF",
+                data=pdf_bytes,
+                file_name=f"sotd_{pick_key}.pdf",
+                mime="application/pdf",
+                key="sotd_week_pdf_btn",
+            )
+        except Exception as ex:
+            st.caption(f"PDF unavailable: {ex}")
+
+    with st.expander("Journal history", expanded=False):
             for i, entry in enumerate(st.session_state["sotd_history"]):
                 layer_badge = " | layering" if entry.get("is_layering") else ""
                 notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
@@ -4789,6 +4868,34 @@ with tab_horoscope:
         st.success("Chart saved.")
         st.rerun()
 
+    with st.expander("Sun sign from birth date", expanded=False):
+        st.caption(
+            "Quick tropical Sun sign from month and day. "
+            "Moon, Rising, and Venus need birth time/place (not calculated here)."
+        )
+        bc1, bc2 = st.columns(2)
+        with bc1:
+            b_month = st.number_input("Birth month", 1, 12, 1, key="birth_calc_month")
+        with bc2:
+            b_day = st.number_input("Birth day", 1, 31, 1, key="birth_calc_day")
+        if st.button("Calculate Sun sign", key="birth_calc_btn"):
+            try:
+                # validate day roughly
+                import calendar
+                max_d = calendar.monthrange(2000, int(b_month))[1]
+                day_use = min(int(b_day), max_d)
+                sign = sun_sign_from_date(int(b_month), day_use)
+                st.session_state["birth_calc_result"] = sign
+            except Exception as ex:
+                st.session_state["birth_calc_result"] = None
+                st.warning(str(ex))
+        res = st.session_state.get("birth_calc_result")
+        if res:
+            st.success(f"Sun sign: **{res}**")
+            if st.button(f"Apply {res} as Sun", key="apply_sun_calc"):
+                st.session_state["chart_sun"] = res
+                st.rerun()
+
     st.markdown("#### Chart scent picks")
     st.caption(
         "Female / Unisex bottles ranked for your Sun, Moon, Rising, and Venus. "
@@ -4849,22 +4956,16 @@ with tab_horoscope:
 # ===== PLAY =====
 with tab_play:
     st.subheader("Play")
-    st.caption("Mood, blind, twins, this-or-that, family roulette, note match, and more.")
+    st.caption("Three games only - Mood, Blind bottle, Family roulette.")
+
+    # Reset invalid play_mode from older builds
+    _allowed_play = ["Mood board", "Blind bottle", "Family roulette"]
+    if st.session_state.get("play_mode") not in _allowed_play:
+        st.session_state["play_mode"] = "Mood board"
 
     play_mode = st.radio(
         "Game",
-        [
-            "Mood board",
-            "Blind bottle",
-            "Twin finder",
-            "Antipode",
-            "Least worn",
-            "Compare two",
-            "This or that",
-            "Family roulette",
-            "Note match",
-            "Badges",
-        ],
+        _allowed_play,
         horizontal=True,
         key="play_mode",
     )
@@ -4872,9 +4973,53 @@ with tab_play:
     name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
     all_names = sorted(name_map.keys())
 
+    MOOD_VISUAL = {
+        "Cozy": ("#3d2a1a", "Warm amber glow"),
+        "Seductive": ("#2a1520", "Deep rose & shadow"),
+        "Fresh": ("#152530", "Cool air & light"),
+        "Power": ("#1a2030", "Steel & spice"),
+        "Soft": ("#222030", "Powder & quiet"),
+        "Gourmand": ("#2a2218", "Sugar & cocoa"),
+    }
+
+    FAMILY_COLOR = {
+        "Gourmand": "#4a3020",
+        "Sweet": "#4a2840",
+        "Floral": "#3a2040",
+        "Woody": "#2a3018",
+        "Oriental": "#302018",
+        "Fresh": "#183040",
+        "Fruity": "#402030",
+        "Spicy": "#402018",
+        "Citrus": "#303818",
+        "Aromatic": "#203028",
+        "Leather": "#281818",
+        "Oud": "#201810",
+        "Boozy": "#302010",
+        "Smoky": "#181818",
+        "Powdery": "#282838",
+    }
+
     if play_mode == "Mood board":
+        st.markdown(
+            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
+            'background:linear-gradient(135deg,#12101a,#0b101a);margin-bottom:0.5rem;">'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Mood board</div>'
+            '<div style="color:#8a9bb8;font-size:0.85rem;">Pick a feeling - three bottles that match the vibe.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         mood = st.selectbox("Mood", list(MOOD_PROFILES.keys()), key="play_mood")
-        st.write(f"Lean: {', '.join(MOOD_PROFILES[mood]['categories'])}")
+        bg, vibe = MOOD_VISUAL.get(mood, ("#101826", MOOD_PROFILES[mood].get("vibe", "")))
+        st.markdown(
+            f'<div style="border-radius:8px;padding:0.65rem 0.9rem;margin:0.35rem 0 0.75rem 0;'
+            f'background:{bg};border:1px solid #2a3a58;">'
+            f'<strong style="color:#c8d2e4;">{mood}</strong> '
+            f'<span style="color:#8a9bb8;">- {vibe}</span><br>'
+            f'<span style="color:#a0b4d0;font-size:0.85rem;">Lean: {", ".join(MOOD_PROFILES[mood]["categories"])}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         if st.button("Draw mood scents", type="primary", key="mood_draw"):
             picks = get_mood_picks(mood, top_n=3)
             st.session_state["last_mood"] = {"mood": mood, "picks": picks}
@@ -4884,21 +5029,42 @@ with tab_play:
             save_persisted_data()
         last_mood = st.session_state.get("last_mood")
         if last_mood:
-            st.caption(f"Mood: {last_mood.get('mood')}")
-            for i, f in enumerate(last_mood.get("picks") or [], 1):
+            st.caption(f"Drawn for: {last_mood.get('mood')}")
+            cols = st.columns(min(3, max(1, len(last_mood.get("picks") or []))))
+            for i, f in enumerate(last_mood.get("picks") or []):
                 badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"{f['gender']} | {f['season']} | {', '.join(f['category'])}")
-                st.caption(f["notes"])
-                if st.button("Wear today", key=f"mood_wear_{i}"):
-                    st.session_state["sotd_prefill"] = [f["name"]]
-                    st.rerun()
+                with cols[i % len(cols)]:
+                    st.markdown(
+                        f'<div style="border:1px solid #1e2a42;border-radius:8px;padding:0.7rem;'
+                        f'background:#0b101a;min-height:120px;">'
+                        f'<div style="color:#7eb0ff;font-weight:600;">#{i+1} {f["name"]}{badge}</div>'
+                        f'<div style="color:#8a9bb8;font-size:0.8rem;">{f["brand"]}</div>'
+                        f'<div style="color:#c8d2e4;font-size:0.82rem;margin-top:0.35rem;">'
+                        f'{", ".join(f.get("category", []))}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("Wear today", key=f"mood_wear_{i}"):
+                        st.session_state["sotd_prefill"] = [f["name"]]
+                        st.rerun()
 
     elif play_mode == "Blind bottle":
-        st.write("Notes only. Guess the bottle, then reveal.")
+        st.markdown(
+            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
+            'background:linear-gradient(135deg,#0e1018,#12101c);margin-bottom:0.5rem;">'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Blind bottle</div>'
+            '<div style="color:#8a9bb8;font-size:0.85rem;">Mystery card - notes only. Guess, then reveal.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         blind_diff = st.selectbox(
             "Difficulty",
-            ["Normal (full notes)", "Hard (top notes only)", "Expert (base notes only)", "Scrambled keywords"],
+            [
+                "Normal (full notes)",
+                "Hard (top notes only)",
+                "Expert (base notes only)",
+                "Scrambled keywords",
+            ],
             key="blind_diff",
         )
         if st.button("Draw a mystery bottle", type="primary", key="blind_draw"):
@@ -4911,7 +5077,6 @@ with tab_play:
                 chosen = random.choice(pool)
                 st.session_state["blind_bottle"] = chosen
                 st.session_state["blind_revealed"] = False
-                st.session_state["blind_guess"] = ""
                 st.session_state["play_stats"]["blind_played"] = (
                     st.session_state["play_stats"].get("blind_played", 0) + 1
                 )
@@ -4922,15 +5087,20 @@ with tab_play:
             diff = st.session_state.get("blind_diff", "Normal (full notes)")
             if "Hard" in diff:
                 if "Heart" in notes_full:
-                    shown = notes_full.split("Heart")[0].replace("Top -", "").replace("Top:", "").strip(" /")
+                    shown = (
+                        notes_full.split("Heart")[0]
+                        .replace("Top -", "")
+                        .replace("Top:", "")
+                        .strip(" /")
+                    )
                 else:
-                    shown = notes_full[: max(20, len(notes_full)//3)]
+                    shown = notes_full[: max(20, len(notes_full) // 3)]
                 shown = f"Top-ish: {shown}"
             elif "Expert" in diff:
                 if "Base" in notes_full:
                     shown = notes_full.split("Base")[-1].strip(" -:")
                 else:
-                    shown = notes_full[-max(20, len(notes_full)//3):]
+                    shown = notes_full[-max(20, len(notes_full) // 3) :]
                 shown = f"Base-ish: {shown}"
             elif "Scrambled" in diff:
                 tokens = re.findall(r"[A-Za-z]{3,}", notes_full)
@@ -4938,155 +5108,61 @@ with tab_play:
                 shown = ", ".join(tokens[:12])
             else:
                 shown = notes_full
-            st.info(
-                f"**Clue:** {shown}\n\n"
-                f"**Season:** {mystery['season']} Â· **Category:** {', '.join(mystery['category'])}"
+            st.markdown(
+                f'<div style="border:1px dashed #3a5a8a;border-radius:12px;padding:1rem;'
+                f'background:#080c14;text-align:center;margin:0.5rem 0;">'
+                f'<div style="font-size:2rem;letter-spacing:0.2em;color:#4a7ac8;">?</div>'
+                f'<div style="color:#c8d2e4;margin-top:0.5rem;"><strong>Clue</strong></div>'
+                f'<div style="color:#a0b4d0;font-size:0.9rem;margin-top:0.35rem;">{shown}</div>'
+                f'<div style="color:#8a9bb8;font-size:0.8rem;margin-top:0.5rem;">'
+                f'{mystery.get("season", "")} | {", ".join(mystery.get("category") or [])}'
+                f'</div></div>',
+                unsafe_allow_html=True,
             )
             guess = st.selectbox(
                 "Your guess",
                 ["- pick -"] + all_names,
                 key="blind_guess_select",
             )
-            if st.button("Reveal", key="blind_reveal"):
-                st.session_state["blind_revealed"] = True
-                if guess == mystery["name"]:
-                    st.session_state["play_stats"]["blind_correct"] = (
-                        st.session_state["play_stats"].get("blind_correct", 0) + 1
-                    )
-                    st.session_state["blind_result"] = "correct"
-                else:
-                    st.session_state["blind_result"] = "miss"
-                save_persisted_data()
-                st.rerun()
-        elif mystery and st.session_state.get("blind_revealed"):
-            result = st.session_state.get("blind_result")
-            if result == "correct":
-                st.success(f"Correct - **{mystery['name']}** by {mystery['brand']}")
-            else:
-                st.warning(f"It was **{mystery['name']}** by {mystery['brand']}")
-            st.write(f"{mystery['gender']} | {mystery['season']} | {', '.join(mystery['category'])}")
-            st.caption(mystery["notes"])
-
-    elif play_mode == "Twin finder":
-        base_n = st.selectbox("Find twins of", all_names, key="twin_base")
-        if st.button("Find twins", type="primary", key="twin_go"):
-            base = name_map.get(base_n)
-            if base:
-                st.session_state["last_twins"] = {
-                    "base": base_n,
-                    "twins": find_twins(base, top_n=5),
-                }
-        last_twins = st.session_state.get("last_twins")
-        if last_twins:
-            st.caption(f"Twins of {last_twins.get('base')}")
-            for s, f in last_twins.get("twins") or []:
-                st.info(
-                    f"**{f['name']}** ({f['brand']}) Â· score {s}\\n\\n"
-                    f"{', '.join(f['category'])}\\n\\n{f['notes']}"
-                )
-
-    elif play_mode == "Antipode":
-        st.write("Find bottles that are the *opposite* of a chosen one â different families, opposite lean.")
-        anti_base = st.selectbox("Opposite of", all_names, key="anti_base")
-        if st.button("Find antipodes", type="primary", key="anti_go"):
-            base = name_map.get(anti_base)
-            if base:
-                st.session_state["last_antipodes"] = {
-                    "base": anti_base,
-                    "items": find_antipodes(base, top_n=5),
-                }
-        last_anti = st.session_state.get("last_antipodes")
-        if last_anti:
-            st.caption(f"Antipodes of {last_anti.get('base')}")
-            for s, f in last_anti.get("items") or []:
-                st.info(
-                    f"**{f['name']}** ({f['brand']}) Â· contrast {s}\n\n"
-                    f"{f['gender']} | {', '.join(f['category'])}\n\n{f['notes']}"
-                )
-                if st.button("Wear today", key=f"anti_wear_{f['name']}"):
-                    st.session_state["sotd_prefill"] = [f["name"]]
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Check guess", key="blind_check"):
+                    if guess == mystery["name"]:
+                        st.session_state["play_stats"]["blind_correct"] = (
+                            st.session_state["play_stats"].get("blind_correct", 0) + 1
+                        )
+                        save_persisted_data()
+                        st.session_state["blind_revealed"] = True
+                        st.success("Correct.")
+                    elif guess != "- pick -":
+                        st.warning("Not that one.")
+            with c2:
+                if st.button("Reveal", key="blind_reveal"):
+                    st.session_state["blind_revealed"] = True
                     st.rerun()
-
-    elif play_mode == "Least worn":
-        st.write("Bottles that need love (lowest SOTD counts, DEL skipped).")
-        if st.button("Show neglected bottles", type="primary", key="least_go"):
-            st.session_state["last_least"] = least_worn(top_n=8)
-        for wears, f in st.session_state.get("last_least") or []:
-            st.write(
-                f"**{f['name']}** Â· *{f['brand']}* Â· worn {wears}x  \\n"
-                f"{f['gender']} | {', '.join(f['category'])}"
+        if mystery and st.session_state.get("blind_revealed"):
+            st.markdown(
+                f'<div style="border:1px solid #3a5a8a;border-radius:12px;padding:1rem;'
+                f'background:#0c1420;margin:0.5rem 0;">'
+                f'<div style="color:#7eb0ff;font-size:1.1rem;font-weight:600;">{mystery["name"]}</div>'
+                f'<div style="color:#8a9bb8;">{mystery.get("brand", "")}</div>'
+                f'<div style="color:#c8d2e4;font-size:0.88rem;margin-top:0.4rem;">{mystery.get("notes", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
             )
-            if st.button("Wear today", key=f"least_wear_{f['name']}"):
-                st.session_state["sotd_prefill"] = [f["name"]]
+            if st.button("Wear today", key="blind_wear"):
+                st.session_state["sotd_prefill"] = [mystery["name"]]
                 st.rerun()
-            st.markdown("---")
-
-    elif play_mode == "Compare two":
-        c1, c2 = st.columns(2)
-        with c1:
-            left = st.selectbox("Bottle A", all_names, key="cmp_a")
-        with c2:
-            right = st.selectbox("Bottle B", all_names, key="cmp_b")
-        if left and right and left != right:
-            fa, fb = name_map[left], name_map[right]
-            counts = get_wear_counts()
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown(f"### {fa['name']}")
-                st.write(f"*{fa['brand']}*")
-                st.write(f"**Gender:** {fa['gender']}")
-                st.write(f"**Season:** {fa['season']}")
-                st.write(f"**Category:** {', '.join(fa['category'])}")
-                st.write(f"**Worn:** {counts.get(fa['name'], 0)}x")
-                st.caption(fa["notes"])
-            with col_b:
-                st.markdown(f"### {fb['name']}")
-                st.write(f"*{fb['brand']}*")
-                st.write(f"**Gender:** {fb['gender']}")
-                st.write(f"**Season:** {fb['season']}")
-                st.write(f"**Category:** {', '.join(fb['category'])}")
-                st.write(f"**Worn:** {counts.get(fb['name'], 0)}x")
-                st.caption(fb["notes"])
-            shared = set(fa["category"]) & set(fb["category"])
-            if shared:
-                st.caption(f"Shared families: {', '.join(shared)}")
-
-
-    elif play_mode == "This or that":
-        st.write("Two bottles. Pick one. Builds a quick preference lean.")
-        if st.button("Draw pair", type="primary", key="tot_draw"):
-            pool = [
-                f
-                for f in st.session_state["fragrances_db"]
-                if st.session_state["user_reactions"].get(f["name"]) != "dislike"
-            ]
-            if len(pool) >= 2:
-                a, b = random.sample(pool, 2)
-                st.session_state["tot_pair"] = (a["name"], b["name"])
-        pair = st.session_state.get("tot_pair")
-        if pair:
-            a, b = name_map.get(pair[0]), name_map.get(pair[1])
-            if a and b:
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown(f"### {a['name']}")
-                    st.caption(f"{a['brand']} | {', '.join(a.get('category', []))}")
-                    if st.button("Choose A", key="tot_a"):
-                        st.session_state["user_reactions"][a["name"]] = "fav"
-                        save_persisted_data()
-                        st.success(f"Leaning {a['name']}")
-                        st.rerun()
-                with c2:
-                    st.markdown(f"### {b['name']}")
-                    st.caption(f"{b['brand']} | {', '.join(b.get('category', []))}")
-                    if st.button("Choose B", key="tot_b"):
-                        st.session_state["user_reactions"][b["name"]] = "fav"
-                        save_persisted_data()
-                        st.success(f"Leaning {b['name']}")
-                        st.rerun()
 
     elif play_mode == "Family roulette":
-        st.write("Spin a fragrance family, get three bottles from it.")
+        st.markdown(
+            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
+            'background:linear-gradient(135deg,#141018,#0b101a);margin-bottom:0.5rem;">'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Family roulette</div>'
+            '<div style="color:#8a9bb8;font-size:0.85rem;">Spin a category - three bottles land on the board.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         families = sorted(
             {
                 c
@@ -5110,62 +5186,36 @@ with tab_play:
                 }
         last_fs = st.session_state.get("last_family_spin")
         if last_fs:
-            st.success(f"Family: **{last_fs.get('family')}**")
-            for i, f in enumerate(last_fs.get("picks") or [], 1):
-                st.write(
-                    f"**{i}. {f['name']}** ({f['brand']}) - {', '.join(f.get('category', []))}"
-                )
-                if st.button("Wear today", key=f"fam_wear_{i}"):
-                    st.session_state["sotd_prefill"] = [f["name"]]
-                    st.rerun()
-
-    elif play_mode == "Note match":
-        st.write("We show one note keyword. Find a bottle that contains it.")
-        if st.button("Draw a note", type="primary", key="note_match_draw"):
-            words = []
-            for f in st.session_state["fragrances_db"]:
-                words.extend(re.findall(r"[A-Za-z]{4,}", f.get("notes", "")))
-            stop = {"with", "from", "notes", "heart", "base", "top", "leaning", "style"}
-            words = [w for w in words if w.lower() not in stop]
-            if words:
-                st.session_state["note_match_kw"] = random.choice(words)
-        kw = st.session_state.get("note_match_kw")
-        if kw:
-            st.info(f"Find a bottle with: **{kw}**")
-            guess = st.selectbox(
-                "Your pick", ["- pick -"] + all_names, key="note_match_guess"
+            fam = last_fs.get("family") or "?"
+            color = FAMILY_COLOR.get(fam, "#1a2030")
+            st.markdown(
+                f'<div style="text-align:center;margin:0.6rem 0;">'
+                f'<div style="display:inline-block;padding:0.55rem 1.25rem;border-radius:999px;'
+                f'background:{color};border:1px solid #3a5a8a;color:#e8f0ff;'
+                f'font-family:Cinzel,Georgia,serif;font-size:1.05rem;">{fam}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
             )
-            if st.button("Check", key="note_match_check"):
-                fr = name_map.get(guess)
-                if fr and kw.lower() in (fr.get("notes") or "").lower():
-                    st.success(f"Yes - {guess} has {kw}.")
-                    st.session_state["play_stats"]["note_match_wins"] = (
-                        st.session_state["play_stats"].get("note_match_wins", 0) + 1
-                    )
-                    save_persisted_data()
-                else:
-                    hits = [
-                        f["name"]
-                        for f in st.session_state["fragrances_db"]
-                        if kw.lower() in (f.get("notes") or "").lower()
-                    ][:5]
-                    st.warning(
-                        "Not in that bottle."
-                        + (f" Examples: {', '.join(hits)}" if hits else "")
-                    )
-
-    else:  # Badges
-        streak = sotd_streak()
-        badges = compute_badges()
-        stats = st.session_state.get("play_stats") or {}
-        m1, m2, m3 = st.columns(3)
-        m1.metric("SOTD streak", streak)
-        m2.metric("Blind plays", stats.get("blind_played", 0))
-        m3.metric("Blind correct", stats.get("blind_correct", 0))
-        if badges:
-            st.success(" Â· ".join(badges))
-        else:
-            st.info("Log a scent, star bottles, layer, or play blind bottle to earn badges.")
+            picks = last_fs.get("picks") or []
+            if not picks:
+                st.warning("No bottles in that family right now.")
+            else:
+                cols = st.columns(min(3, len(picks)))
+                for i, f in enumerate(picks):
+                    with cols[i]:
+                        st.markdown(
+                            f'<div style="border:1px solid #1e2a42;border-radius:8px;padding:0.7rem;'
+                            f'background:#0b101a;min-height:110px;">'
+                            f'<div style="color:#7eb0ff;font-weight:600;">{f["name"]}</div>'
+                            f'<div style="color:#8a9bb8;font-size:0.8rem;">{f.get("brand", "")}</div>'
+                            f'<div style="color:#a0b4d0;font-size:0.78rem;margin-top:0.3rem;">'
+                            f'{", ".join(f.get("category") or [])}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                        if st.button("Wear today", key=f"fam_wear_{i}"):
+                            st.session_state["sotd_prefill"] = [f["name"]]
+                            st.rerun()
 
 # ===== COLLECTION =====
 with tab_collection:
@@ -5214,25 +5264,8 @@ with tab_collection:
         shelf_bits = ", ".join(f"{k}: {n}" for k, n in sorted(val["by_shelf"].items()))
         v3.caption(f"Shelf: {shelf_bits}" if shelf_bits else "")
 
-    with st.expander("Dupe search", expanded=False):
-        st.caption("Find bottles tagged as a dupe of a designer/niche scent.")
-        dupe_q = st.text_input("Dupe of...", key="dupe_search_q", placeholder="e.g. BR540, Delina")
-        if dupe_q.strip():
-            dq = dupe_q.strip().lower()
-            hits = [
-                f
-                for f in st.session_state["fragrances_db"]
-                if dq in (f.get("dupe_of") or "").lower()
-            ]
-            if not hits:
-                st.warning("No bottles tagged with that dupe target.")
-            else:
-                st.caption(f"{len(hits)} match(es)")
-                for f in hits:
-                    st.write(
-                        f"**{f['name']}** ({f.get('brand')}) - dupe of *{f.get('dupe_of')}*"
-                    )
 
+    badges = compute_badges()
     badges = compute_badges()
     if badges:
         st.caption("Badges: " + " Â· ".join(badges))
@@ -5681,12 +5714,6 @@ with tab_vault:
                 e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
                 e_season = st.text_input("Season", value=frag["season"])
                 e_notes = st.text_area("Notes", value=frag["notes"])
-                e_dupe = st.text_input(
-                    "Dupe of (optional)",
-                    value=frag.get("dupe_of") or "",
-                    placeholder="e.g. Baccarat Rouge 540, Delina, etc.",
-                    help="Designer or niche scent this bottle is inspired by / dupes.",
-                )
                 shelf_opts = SHELF_STATUSES
                 cur_shelf = frag.get("shelf_status") or "Own"
                 s_idx = shelf_opts.index(cur_shelf) if cur_shelf in shelf_opts else 0
@@ -5752,7 +5779,7 @@ with tab_vault:
                             "season": e_season,
                             "notes": e_notes,
                             "category": e_cats if e_cats else ["Gourmand"],
-                            "dupe_of": (e_dupe or "").strip(),
+                            "dupe_of": frag.get("dupe_of") or "",
                             "shelf_status": e_shelf,
                             "size_ml": _num(e_size),
                             "price": _num(e_price),
