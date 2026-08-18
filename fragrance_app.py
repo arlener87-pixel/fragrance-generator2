@@ -3477,7 +3477,7 @@ def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
 
 
 def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
-    """Local vault matches + online search links to help fill notes."""
+    """Local vault matches + online links for notes, gender, season, categories."""
     name = (name or "").strip()
     brand = (brand or "").strip()
     q = f"{brand} {name}".strip() or name
@@ -3488,24 +3488,42 @@ def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
         for f in st.session_state.get("fragrances_db") or []:
             fn = (f.get("name") or "").lower()
             fb = (f.get("brand") or "").lower()
-            if nl in fn or fn in nl or (bl and bl in fb and nl[:4] in fn):
+            if nl in fn or fn in nl or (bl and bl in fb and len(nl) >= 3 and nl[:4] in fn):
                 local.append(f)
             elif bl and bl == fb and abs(len(fn) - len(nl)) <= 3:
                 local.append(f)
-    # de-dupe by name
     seen = set()
     uniq = []
     for f in local:
         if f.get("name") not in seen:
             seen.add(f.get("name"))
             uniq.append(f)
+
     links = {}
     if q:
-        enc = urllib.parse.quote_plus(q + " perfume notes")
-        enc2 = urllib.parse.quote_plus(q)
-        links["Google"] = f"https://www.google.com/search?q={enc}"
-        links["Fragrantica"] = f"https://www.fragrantica.com/search/?query={urllib.parse.quote_plus(q)}"
-        links["Parfumo"] = f"https://www.parfumo.com/s_j_perfumes.php?in={urllib.parse.quote_plus(q)}"
+        q_enc = urllib.parse.quote_plus(q)
+        links["Notes (Google)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume notes pyramid')}"
+        )
+        links["Gender (Google)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume for men or women unisex')}"
+        )
+        links["Season (Google)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume best season weather')}"
+        )
+        links["Category / accords (Google)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume accords main notes family')}"
+        )
+        links["Fragrantica search"] = (
+            f"https://www.fragrantica.com/search/?query={q_enc}"
+        )
+        links["Parfumo search"] = (
+            f"https://www.parfumo.com/s_j_perfumes.php?in={q_enc}"
+        )
+        links["Fragrantica (full page tips)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:fragrantica.com ' + q)}"
+        )
+
     return {"local": uniq[:8], "links": links, "query": q}
 
 
@@ -3832,12 +3850,12 @@ with st.sidebar:
     st.markdown("### Add fragrance")
 
     # Notes helper (outside form so links work without submitting)
-    with st.expander("Find notes helper", expanded=False):
+    with st.expander("Fragrance lookup helper", expanded=False):
         st.caption(
-            "Type a name/brand, check similar bottles already in your vault, "
-            "or open Fragrantica / Google / Parfumo to copy notes."
+            "Search your vault and open Google / Fragrantica / Parfumo for notes, "
+            "gender, season, and category. Sites are not auto-scraped (they block that); "
+            "use the links and copy what you need into the form."
         )
-        # Clear finder fields before widgets if flagged
         if st.session_state.pop("_clear_notes_help", False):
             st.session_state["notes_help_name"] = ""
             st.session_state["notes_help_brand"] = ""
@@ -3851,7 +3869,7 @@ with st.sidebar:
             help_brand = st.text_input("Lookup brand", key="notes_help_brand")
         hb1, hb2 = st.columns(2)
         with hb1:
-            if st.button("Find notes ideas", key="notes_help_btn", use_container_width=True):
+            if st.button("Look up", key="notes_help_btn", use_container_width=True):
                 st.session_state["notes_help_result"] = notes_lookup_suggestions(
                     help_name, help_brand
                 )
@@ -3859,40 +3877,67 @@ with st.sidebar:
             if st.button("Clear finder", key="notes_help_clear", use_container_width=True):
                 st.session_state["_clear_notes_help"] = True
                 st.rerun()
+
         help_res = st.session_state.get("notes_help_result")
         if help_res:
             if help_res.get("local"):
                 st.markdown("**Similar in your vault**")
                 for f in help_res["local"]:
+                    cats = ", ".join(f.get("category") or [])
                     st.write(
-                        f"**{f.get('name')}** ({f.get('brand')}) - "
-                        f"{(f.get('notes') or '')[:180]}"
+                        f"**{f.get('name')}** ({f.get('brand')})  \n"
+                        f"Gender: {f.get('gender', '?')} | Season: {f.get('season', '?')} | "
+                        f"Category: {cats}  \n"
+                        f"Notes: {(f.get('notes') or '')[:160]}"
                     )
-                    if st.button(
-                        f"Use notes from {f.get('name')}",
-                        key=f"use_notes_{f.get('name')}",
-                    ):
-                        st.session_state["prefill_new_notes"] = f.get("notes") or ""
-                        st.session_state["add_notes_field"] = f.get("notes") or ""
-                        st.success(
-                            "Notes copied into the Add form Notes field below. "
-                            "Edit if needed, then Add to collection."
-                        )
-                        st.rerun()
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button(
+                            "Use notes",
+                            key=f"use_notes_{f.get('name')}",
+                        ):
+                            st.session_state["prefill_new_notes"] = f.get("notes") or ""
+                            st.session_state["add_notes_field"] = f.get("notes") or ""
+                            st.success("Notes prefilled in the Add form.")
+                            st.rerun()
+                    with b2:
+                        if st.button(
+                            "Use full profile",
+                            key=f"use_profile_{f.get('name')}",
+                        ):
+                            st.session_state["prefill_new_notes"] = f.get("notes") or ""
+                            st.session_state["add_notes_field"] = f.get("notes") or ""
+                            st.session_state["lookup_profile_hint"] = {
+                                "gender": f.get("gender"),
+                                "season": f.get("season"),
+                                "category": list(f.get("category") or []),
+                                "from": f.get("name"),
+                            }
+                            st.success(
+                                "Notes prefilled. Gender / season / category shown below "
+                                "to copy into the Add form."
+                            )
+                            st.rerun()
+
+            hint = st.session_state.get("lookup_profile_hint")
+            if hint:
+                st.info(
+                    f"Suggested from **{hint.get('from')}**:  \n"
+                    f"**Gender:** {hint.get('gender')}  \n"
+                    f"**Season:** {hint.get('season')}  \n"
+                    f"**Categories:** {', '.join(hint.get('category') or [])}"
+                )
+
             links = help_res.get("links") or {}
             if links:
                 st.markdown("**Search online**")
+                st.caption(
+                    "On Fragrantica look for: main accords (category), "
+                    "for women/men/unisex (gender), and 'wear in' / season tags."
+                )
                 for label, url in links.items():
                     st.markdown(f"- [{label}]({url})")
-            st.caption(
-                "Tip: copy Top / Heart / Base from the site into the Notes field below. "
-                "Clear finder resets name, brand, and results."
-            )
-            if st.session_state.get("add_notes_field"):
-                st.info(
-                    "Notes field is prefilled from a vault match. "
-                    "Clear finder does not wipe the Add form Notes unless you clear the form."
-                )
+            st.caption("Clear finder resets lookup fields and results.")
 
     # Prefill notes if helper requested it
     if "prefill_new_notes" in st.session_state and "add_notes_field" not in st.session_state:
