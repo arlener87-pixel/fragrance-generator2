@@ -2729,6 +2729,57 @@ def layer_score(f1: dict, f2: dict) -> int:
     return score
 
 
+def evaluate_layer_recipe(bottle_names: list) -> dict:
+    """Score a multi-bottle layer recipe and build a short verdict."""
+    name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
+    frags = [name_map[n] for n in bottle_names if n in name_map]
+    missing = [n for n in bottle_names if n not in name_map]
+    if len(frags) < 2:
+        return {
+            "score": 0,
+            "verdict": "Need at least two bottles still in the vault.",
+            "label": "Incomplete",
+            "pairs": [],
+            "frags": frags,
+            "missing": missing,
+        }
+    pairs = []
+    scores = []
+    for i in range(len(frags)):
+        for j in range(i + 1, len(frags)):
+            s = layer_score(frags[i], frags[j])
+            scores.append(s)
+            c1 = ", ".join(frags[i].get("category") or [])
+            c2 = ", ".join(frags[j].get("category") or [])
+            pairs.append(
+                {
+                    "a": frags[i]["name"],
+                    "b": frags[j]["name"],
+                    "score": s,
+                    "cats": f"{c1} + {c2}",
+                }
+            )
+    avg = sum(scores) / max(1, len(scores))
+    if avg >= 25:
+        label, verdict = "Strong layer", "Categories support each other - worth wearing together."
+    elif avg >= 12:
+        label, verdict = "Good layer", "Solid pairing - a little contrast or overlap works."
+    elif avg >= 5:
+        label, verdict = "Mixed", "Wearable, but may compete. Try less sprays of the louder one."
+    else:
+        label, verdict = "Risky", "Families may clash. Test on skin before a full wear."
+    if any(s <= -50 for s in scores):
+        label, verdict = "Avoid", "Includes a DEL bottle or a very weak pair."
+    return {
+        "score": round(avg, 1),
+        "verdict": verdict,
+        "label": label,
+        "pairs": pairs,
+        "frags": frags,
+        "missing": missing,
+    }
+
+
 def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
     source_pool = (
         pool if len(pool) >= 5 else st.session_state["fragrances_db"]
@@ -4933,19 +4984,40 @@ with tab_layer:
                 st.warning("Need a name and at least two bottles.")
 
         for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
-            st.write(
-                f"**{recipe['name']}** | {' + '.join(recipe.get('bottles') or [])}"
-            )
+            bottles = list(recipe.get("bottles") or [])
+            st.markdown(f"**{recipe.get('name', 'Recipe')}**")
+            st.caption(" + ".join(bottles))
+            ev = evaluate_layer_recipe(bottles)
+            # Verdict banner
+            if ev["label"] in ("Strong layer", "Good layer"):
+                st.success(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
+            elif ev["label"] == "Mixed":
+                st.warning(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
+            else:
+                st.info(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
+            # Notes for each bottle
+            for f in ev.get("frags") or []:
+                cats = ", ".join(f.get("category") or [])
+                st.markdown(
+                    f"**{f.get('name')}** ({f.get('brand', '?')})  \n"
+                    f"*{f.get('gender', '')} | {f.get('season', '')} | {cats}*  \n"
+                    f"Notes: {f.get('notes') or 'Not specified'}"
+                )
+            if ev.get("missing"):
+                st.caption(
+                    "Missing from vault: " + ", ".join(ev["missing"])
+                )
             rb1, rb2 = st.columns(2)
             with rb1:
                 if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
-                    st.session_state["sotd_prefill"] = list(recipe.get("bottles") or [])
+                    st.session_state["sotd_prefill"] = bottles
                     st.rerun()
             with rb2:
                 if st.button("Delete", key=f"recipe_del_{ri}"):
                     st.session_state["layer_recipes"].pop(ri)
                     save_persisted_data()
                     st.rerun()
+            st.markdown("---")
 
 
 # ===== ROULETTE =====
