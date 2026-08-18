@@ -3602,7 +3602,6 @@ def build_sotd_week_pdf(week_key: str = None) -> bytes:
 def sun_sign_from_date(month: int, day: int) -> str:
     """Tropical sun sign from month/day (no birth time needed)."""
     md = (month, day)
-    # (end_month, end_day, sign) boundaries
     ranges = [
         (1, 19, "Capricorn"),
         (2, 18, "Aquarius"),
@@ -3622,6 +3621,185 @@ def sun_sign_from_date(month: int, day: int) -> str:
         if md <= (em, ed):
             return sign
     return "Capricorn"
+
+
+_SIGN_ABBREV = {
+    "ari": "Aries",
+    "tau": "Taurus",
+    "gem": "Gemini",
+    "can": "Cancer",
+    "leo": "Leo",
+    "vir": "Virgo",
+    "lib": "Libra",
+    "sco": "Scorpio",
+    "sag": "Sagittarius",
+    "cap": "Capricorn",
+    "aqu": "Aquarius",
+    "pis": "Pisces",
+}
+
+
+def normalize_sign_name(sign: str) -> str:
+    if not sign:
+        return ""
+    s = str(sign).strip()
+    if s in SIGN_SCENT_PROFILE:
+        return s
+    key = s[:3].lower()
+    return _SIGN_ABBREV.get(key, s.title())
+
+
+def geocode_birth_place(city: str, country: str = "United States") -> dict:
+    """Resolve city to lat/lon via Open-Meteo geocoding (no API key)."""
+    import json as _json
+    import urllib.request
+
+    city = (city or "").strip()
+    if not city:
+        return {"ok": False, "detail": "City is required"}
+    q = urllib.parse.quote_plus(f"{city}")
+    url = (
+        "https://geocoding-api.open-meteo.com/v1/search"
+        f"?name={q}&count=5&language=en&format=json"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            payload = _json.loads(resp.read().decode("utf-8"))
+        results = payload.get("results") or []
+        if not results:
+            return {"ok": False, "detail": f"No location found for '{city}'"}
+        # Prefer matching country name when possible
+        country_l = (country or "").strip().lower()
+        chosen = results[0]
+        if country_l:
+            for r in results:
+                ctry = (r.get("country") or "").lower()
+                if country_l in ctry or ctry in country_l:
+                    chosen = r
+                    break
+        lat = float(chosen["latitude"])
+        lon = float(chosen["longitude"])
+        label = ", ".join(
+            p
+            for p in [
+                chosen.get("name"),
+                chosen.get("admin1"),
+                chosen.get("country"),
+            ]
+            if p
+        )
+        # Simple US timezone guess by longitude bands (good enough for chart calc input)
+        tz = "UTC"
+        ctry = (chosen.get("country") or "").lower()
+        if "united states" in ctry or ctry == "usa":
+            if lon <= -115:
+                tz = "America/Los_Angeles"
+            elif lon <= -100:
+                tz = "America/Denver"
+            elif lon <= -85:
+                tz = "America/Chicago"
+            else:
+                tz = "America/New_York"
+        elif "canada" in ctry:
+            tz = "America/Toronto"
+        elif "united kingdom" in ctry or ctry == "uk":
+            tz = "Europe/London"
+        return {
+            "ok": True,
+            "lat": lat,
+            "lon": lon,
+            "label": label,
+            "tz_str": tz,
+            "country": chosen.get("country") or country,
+        }
+    except Exception as ex:
+        return {"ok": False, "detail": str(ex)}
+
+
+def calculate_full_chart(
+    year: int,
+    month: int,
+    day: int,
+    hour: int,
+    minute: int,
+    city: str,
+    nation: str = "US",
+    lat: float = None,
+    lon: float = None,
+    tz_str: str = None,
+) -> dict:
+    """
+    Full tropical chart when kerykeion is installed.
+    Always returns at least Sun from the calendar date.
+    """
+    sun = sun_sign_from_date(month, day)
+    result = {
+        "ok": True,
+        "sun": sun,
+        "moon": None,
+        "rising": None,
+        "venus": None,
+        "engine": "sun-only",
+        "detail": "",
+        "place_label": city,
+    }
+    try:
+        from kerykeion import AstrologicalSubject
+    except Exception:
+        result["detail"] = (
+            "Sun calculated from date. Install kerykeion for Moon, Rising, and Venus "
+            "(add 'kerykeion' to requirements.txt)."
+        )
+        return result
+
+    try:
+        kwargs = {}
+        if lat is not None and lon is not None:
+            kwargs["lat"] = float(lat)
+            kwargs["lng"] = float(lon)
+        if tz_str:
+            kwargs["tz_str"] = tz_str
+        subject = AstrologicalSubject(
+            "ScentedDeadGirl",
+            int(year),
+            int(month),
+            int(day),
+            int(hour),
+            int(minute),
+            city or "Unknown",
+            nation or "US",
+            **kwargs,
+        )
+
+        def _sign(obj):
+            # kerykeion versions differ: attribute or dict
+            if obj is None:
+                return None
+            if isinstance(obj, dict):
+                return normalize_sign_name(obj.get("sign") or "")
+            return normalize_sign_name(getattr(obj, "sign", "") or "")
+
+        sun_s = _sign(getattr(subject, "sun", None)) or sun
+        moon_s = _sign(getattr(subject, "moon", None))
+        rising_s = _sign(getattr(subject, "first_house", None)) or _sign(
+            getattr(subject, "ascendant", None)
+        )
+        venus_s = _sign(getattr(subject, "venus", None))
+        result.update(
+            {
+                "sun": sun_s,
+                "moon": moon_s,
+                "rising": rising_s,
+                "venus": venus_s,
+                "engine": "kerykeion",
+                "detail": "Tropical chart from birth date, time, and place.",
+            }
+        )
+        return result
+    except Exception as ex:
+        result["detail"] = f"Full chart failed ({ex}). Sun from date only."
+        return result
 
 
 # ==========================================
@@ -4913,33 +5091,133 @@ with tab_horoscope:
         st.success("Chart saved.")
         st.rerun()
 
-    with st.expander("Sun sign from birth date", expanded=False):
+    with st.expander("Birth chart calculator", expanded=False):
         st.caption(
-            "Quick tropical Sun sign from month and day. "
-            "Moon, Rising, and Venus need birth time/place (not calculated here)."
+            "Enter birth date, time, and place for Sun, Moon, Rising, and Venus. "
+            "Full chart needs the kerykeion package; Sun still works from date alone."
         )
-        bc1, bc2 = st.columns(2)
+        # Apply calculated signs to chart widgets on next run
+        if st.session_state.pop("_apply_birth_chart", False):
+            calc = st.session_state.get("birth_calc_full") or {}
+            if calc.get("sun"):
+                st.session_state["chart_sun"] = calc["sun"]
+            if calc.get("moon"):
+                st.session_state["chart_moon"] = calc["moon"]
+            if calc.get("rising"):
+                st.session_state["chart_rising"] = calc["rising"]
+            if calc.get("venus"):
+                st.session_state["chart_venus"] = calc["venus"]
+
+        if st.session_state.pop("_clear_birth_calc", False):
+            for k, v in [
+                ("birth_calc_year", 1990),
+                ("birth_calc_month", 1),
+                ("birth_calc_day", 1),
+                ("birth_calc_hour", 12),
+                ("birth_calc_minute", 0),
+                ("birth_calc_city", "Victorville"),
+                ("birth_calc_country", "United States"),
+                ("birth_calc_nation", "US"),
+            ]:
+                st.session_state[k] = v
+            st.session_state.pop("birth_calc_full", None)
+            st.session_state.pop("birth_geo", None)
+
+        r1, r2, r3 = st.columns(3)
+        with r1:
+            b_year = st.number_input("Year", 1920, 2030, 1990, key="birth_calc_year")
+        with r2:
+            b_month = st.number_input("Month", 1, 12, 1, key="birth_calc_month")
+        with r3:
+            b_day = st.number_input("Day", 1, 31, 1, key="birth_calc_day")
+        r4, r5 = st.columns(2)
+        with r4:
+            b_hour = st.number_input("Hour (0-23)", 0, 23, 12, key="birth_calc_hour")
+        with r5:
+            b_minute = st.number_input("Minute", 0, 59, 0, key="birth_calc_minute")
+        r6, r7 = st.columns(2)
+        with r6:
+            b_city = st.text_input("Birth city", key="birth_calc_city", placeholder="Victorville")
+        with r7:
+            b_country = st.text_input(
+                "Country", key="birth_calc_country", placeholder="United States"
+            )
+        b_nation = st.text_input(
+            "Country code (for chart engine)",
+            key="birth_calc_nation",
+            placeholder="US",
+            help="Two-letter code when possible, e.g. US, GB, MX.",
+        )
+
+        bc1, bc2, bc3 = st.columns(3)
         with bc1:
-            b_month = st.number_input("Birth month", 1, 12, 1, key="birth_calc_month")
+            do_calc = st.button(
+                "Calculate chart", type="primary", key="birth_calc_btn", use_container_width=True
+            )
         with bc2:
-            b_day = st.number_input("Birth day", 1, 31, 1, key="birth_calc_day")
-        if st.button("Calculate Sun sign", key="birth_calc_btn"):
-            try:
-                # validate day roughly
-                import calendar
-                max_d = calendar.monthrange(2000, int(b_month))[1]
-                day_use = min(int(b_day), max_d)
-                sign = sun_sign_from_date(int(b_month), day_use)
-                st.session_state["birth_calc_result"] = sign
-            except Exception as ex:
-                st.session_state["birth_calc_result"] = None
-                st.warning(str(ex))
-        res = st.session_state.get("birth_calc_result")
-        if res:
-            st.success(f"Sun sign: **{res}**")
-            if st.button(f"Apply {res} as Sun", key="apply_sun_calc"):
-                st.session_state["chart_sun"] = res
+            if st.button("Clear", key="birth_calc_clear", use_container_width=True):
+                st.session_state["_clear_birth_calc"] = True
                 st.rerun()
+        with bc3:
+            apply_btn = st.button(
+                "Apply to chart", key="birth_calc_apply", use_container_width=True
+            )
+
+        if do_calc:
+            import calendar
+
+            max_d = calendar.monthrange(int(b_year), int(b_month))[1]
+            day_use = min(int(b_day), max_d)
+            geo = geocode_birth_place(b_city or "Victorville", b_country or "United States")
+            st.session_state["birth_geo"] = geo
+            lat = geo.get("lat") if geo.get("ok") else None
+            lon = geo.get("lon") if geo.get("ok") else None
+            tz = geo.get("tz_str") if geo.get("ok") else None
+            calc = calculate_full_chart(
+                int(b_year),
+                int(b_month),
+                day_use,
+                int(b_hour),
+                int(b_minute),
+                b_city or "Unknown",
+                (b_nation or "US").strip() or "US",
+                lat=lat,
+                lon=lon,
+                tz_str=tz,
+            )
+            if geo.get("ok"):
+                calc["place_label"] = geo.get("label") or calc.get("place_label")
+                calc["geo_detail"] = f"{geo.get('lat'):.3f}, {geo.get('lon'):.3f} | {geo.get('tz_str')}"
+            else:
+                calc["geo_detail"] = geo.get("detail", "Place lookup failed")
+            st.session_state["birth_calc_full"] = calc
+
+        calc = st.session_state.get("birth_calc_full")
+        if calc:
+            st.markdown(
+                f"**Place:** {calc.get('place_label', '?')}  \n"
+                f"**Engine:** {calc.get('engine', '?')}  \n"
+                f"{calc.get('geo_detail', '')}"
+            )
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("Sun", calc.get("sun") or "-")
+            s2.metric("Moon", calc.get("moon") or "-")
+            s3.metric("Rising", calc.get("rising") or "-")
+            s4.metric("Venus", calc.get("venus") or "-")
+            if calc.get("detail"):
+                st.caption(calc["detail"])
+            if calc.get("engine") != "kerykeion":
+                st.info(
+                    "For complete Moon / Rising / Venus, add this line to requirements.txt and reboot:  \n"
+                    "`kerykeion`"
+                )
+
+        if apply_btn:
+            if st.session_state.get("birth_calc_full"):
+                st.session_state["_apply_birth_chart"] = True
+                st.rerun()
+            else:
+                st.warning("Calculate a chart first.")
 
     st.markdown("#### Chart scent picks")
     st.caption(
