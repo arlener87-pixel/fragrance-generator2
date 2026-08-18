@@ -41,6 +41,7 @@ def save_persisted_data():
             "venus": st.session_state.get("chart_venus"),
         },
         "wishlist": st.session_state.get("wishlist", []),
+        "vault_log": st.session_state.get("vault_log", []),
     }
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -1687,6 +1688,10 @@ if "wishlist" not in st.session_state:
     # list of {name, brand, notes, checked}
     st.session_state["wishlist"] = _persisted.get("wishlist", [])
 
+if "vault_log" not in st.session_state:
+    # list of {when, action, name, detail}
+    st.session_state["vault_log"] = _persisted.get("vault_log", [])
+
 if "play_stats" not in st.session_state:
     st.session_state["play_stats"] = _persisted.get(
         "play_stats",
@@ -2849,6 +2854,17 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     st.write(f"**Gender:** {f['gender']}  |  **Season:** {f['season']}")
     st.write(f"**Category:** {', '.join(f['category'])}")
     st.caption(f"Notes: {f['notes']}")
+    if f.get("dupe_of"):
+        st.caption(f"Dupe of: {f['dupe_of']}")
+    bits = []
+    if f.get("shelf_status"):
+        bits.append(str(f["shelf_status"]))
+    if f.get("size_ml"):
+        bits.append(f"{f['size_ml']} ml")
+    if f.get("price"):
+        bits.append(f"${f['price']}")
+    if bits:
+        st.caption(" | ".join(bits))
 
     if show_actions:
         col1, col2, col3 = st.columns([1, 1, 4])
@@ -3338,6 +3354,56 @@ def build_simple_pdf(title: str, lines: list) -> bytes:
     return b"".join(result)
 
 
+
+SHELF_STATUSES = ["Own", "Decant", "Traveling", "Finished", "Wishlist-bound"]
+
+
+def log_vault_action(action: str, name: str, detail: str = "") -> None:
+    """Append a short vault activity entry (newest first)."""
+    entry = {
+        "when": pacific_today().isoformat(),
+        "action": action,
+        "name": name,
+        "detail": detail or "",
+    }
+    log = st.session_state.setdefault("vault_log", [])
+    log.insert(0, entry)
+    st.session_state["vault_log"] = log[:200]  # cap
+
+
+def collection_value_summary(db: list) -> dict:
+    """Rough totals from optional size_ml / price fields."""
+    total_ml = 0.0
+    total_price = 0.0
+    priced = 0
+    sized = 0
+    by_shelf = {}
+    for f in db:
+        shelf = f.get("shelf_status") or "Own"
+        by_shelf[shelf] = by_shelf.get(shelf, 0) + 1
+        try:
+            ml = float(f.get("size_ml") or 0)
+            if ml > 0:
+                total_ml += ml
+                sized += 1
+        except (TypeError, ValueError):
+            pass
+        try:
+            px = float(f.get("price") or 0)
+            if px > 0:
+                total_price += px
+                priced += 1
+        except (TypeError, ValueError):
+            pass
+    return {
+        "total_ml": total_ml,
+        "total_price": total_price,
+        "priced": priced,
+        "sized": sized,
+        "by_shelf": by_shelf,
+    }
+
+
 def build_wishlist_pdf(items: list) -> bytes:
     """PDF checklist of wishlist entries (no external PDF library required)."""
     lines = [f"Exported {pacific_today().isoformat()} (Pacific)", ""]
@@ -3559,6 +3625,7 @@ with st.sidebar:
             "Sweet",
             "Oud",
             "Leather",
+            "Boozy",
         ],
         key="filter_category",
     )
@@ -3604,6 +3671,10 @@ with st.sidebar:
         )
         new_season = st.text_input("Season", value="Fall, Winter")
         new_notes = st.text_input("Notes", placeholder="Top - ... / Heart - ... / Base - ...")
+        new_dupe = st.text_input("Dupe of (optional)", placeholder="e.g. Baccarat Rouge 540")
+        new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
+        new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
+        new_price = st.text_input("Price (optional)", placeholder="e.g. 35")
         new_cats = st.multiselect(
             "Categories",
             [
@@ -3658,6 +3729,10 @@ with st.sidebar:
                             "season": new_season or "Versatile",
                             "notes": new_notes if new_notes else "Not specified",
                             "category": new_cats if new_cats else ["Gourmand"],
+                            "dupe_of": (new_dupe or "").strip(),
+                            "shelf_status": new_shelf,
+                            "size_ml": (float(new_size) if str(new_size or "").strip().replace(".", "", 1).isdigit() else None),
+                            "price": (float(new_price) if str(new_price or "").strip().replace(".", "", 1).isdigit() else None),
                         }
                     )
                     save_persisted_data()
@@ -4898,6 +4973,33 @@ with tab_collection:
     g2.metric("Unisex", unisex_count)
     g3.metric("Men / M-leaning", male_count)
 
+    val = collection_value_summary(st.session_state["fragrances_db"])
+    if val["priced"] or val["sized"] or val["by_shelf"]:
+        v1, v2, v3 = st.columns(3)
+        v1.metric("Logged ml", f"{val['total_ml']:.0f}" if val["sized"] else "-")
+        v2.metric("Logged value", f"${val['total_price']:.0f}" if val["priced"] else "-")
+        shelf_bits = ", ".join(f"{k}: {n}" for k, n in sorted(val["by_shelf"].items()))
+        v3.caption(f"Shelf: {shelf_bits}" if shelf_bits else "")
+
+    with st.expander("Dupe search", expanded=False):
+        st.caption("Find bottles tagged as a dupe of a designer/niche scent.")
+        dupe_q = st.text_input("Dupe of...", key="dupe_search_q", placeholder="e.g. BR540, Delina")
+        if dupe_q.strip():
+            dq = dupe_q.strip().lower()
+            hits = [
+                f
+                for f in st.session_state["fragrances_db"]
+                if dq in (f.get("dupe_of") or "").lower()
+            ]
+            if not hits:
+                st.warning("No bottles tagged with that dupe target.")
+            else:
+                st.caption(f"{len(hits)} match(es)")
+                for f in hits:
+                    st.write(
+                        f"**{f['name']}** ({f.get('brand')}) - dupe of *{f.get('dupe_of')}*"
+                    )
+
     badges = compute_badges()
     if badges:
         st.caption("Badges: " + " Â· ".join(badges))
@@ -5009,7 +5111,7 @@ with tab_collection:
                     st.write(f"**{name}** Â· {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
 
 
-    filter_col, sort_col, flag_col = st.columns(3)
+    filter_col, sort_col, flag_col, shelf_col = st.columns(4)
     with filter_col:
         browse_gender = st.selectbox(
             "Filter by gender",
@@ -5027,6 +5129,12 @@ with tab_collection:
             "Needs notes only",
             key="browse_incomplete",
             help="Show bottles with thin or vague note text.",
+        )
+    with shelf_col:
+        browse_shelf = st.selectbox(
+            "Shelf",
+            ["Any"] + SHELF_STATUSES,
+            key="browse_shelf",
         )
 
     db = list(st.session_state["fragrances_db"])
@@ -5053,6 +5161,8 @@ with tab_collection:
 
     if browse_incomplete:
         db = [f for f in db if is_incomplete_notes(f)]
+    if browse_shelf != "Any":
+        db = [f for f in db if (f.get("shelf_status") or "Own") == browse_shelf]
 
     if browse_sort == "Name (A-Z)":
         db.sort(key=lambda x: x["name"].lower())
@@ -5336,6 +5446,26 @@ with tab_vault:
                 e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
                 e_season = st.text_input("Season", value=frag["season"])
                 e_notes = st.text_area("Notes", value=frag["notes"])
+                e_dupe = st.text_input(
+                    "Dupe of (optional)",
+                    value=frag.get("dupe_of") or "",
+                    placeholder="e.g. Baccarat Rouge 540, Delina, etc.",
+                    help="Designer or niche scent this bottle is inspired by / dupes.",
+                )
+                shelf_opts = SHELF_STATUSES
+                cur_shelf = frag.get("shelf_status") or "Own"
+                s_idx = shelf_opts.index(cur_shelf) if cur_shelf in shelf_opts else 0
+                e_shelf = st.selectbox("Shelf status", shelf_opts, index=s_idx)
+                e_size = st.text_input(
+                    "Size (ml)",
+                    value=str(frag.get("size_ml") or ""),
+                    placeholder="e.g. 100",
+                )
+                e_price = st.text_input(
+                    "Price (optional)",
+                    value=str(frag.get("price") or ""),
+                    placeholder="e.g. 35",
+                )
                 cat_opts = [
                     "Gourmand",
                     "Sweet",
@@ -5349,6 +5479,7 @@ with tab_vault:
                     "Aromatic",
                     "Leather",
                     "Oud",
+                    "Boozy",
                     "Smoky",
                     "Powdery",
                 ]
@@ -5373,6 +5504,12 @@ with tab_vault:
                             f"Another bottle already uses '{e_name}' by {e_brand}."
                         )
                     else:
+                        def _num(v):
+                            try:
+                                return float(str(v).strip()) if str(v).strip() else None
+                            except ValueError:
+                                return None
+
                         st.session_state["fragrances_db"][idx] = {
                             "name": e_name.strip(),
                             "brand": e_brand.strip(),
@@ -5380,6 +5517,10 @@ with tab_vault:
                             "season": e_season,
                             "notes": e_notes,
                             "category": e_cats if e_cats else ["Gourmand"],
+                            "dupe_of": (e_dupe or "").strip(),
+                            "shelf_status": e_shelf,
+                            "size_ml": _num(e_size),
+                            "price": _num(e_price),
                         }
                         if (
                             e_name != edit_name
@@ -5388,6 +5529,7 @@ with tab_vault:
                             st.session_state["user_reactions"][e_name] = (
                                 st.session_state["user_reactions"].pop(edit_name)
                             )
+                        log_vault_action("edited", e_name.strip(), e_brand.strip())
                         save_persisted_data()
                         st.success(f"Updated **{e_name}**")
                         st.rerun()
@@ -5397,8 +5539,14 @@ with tab_vault:
     st.markdown("#### Remove bottle")
     st.caption("Permanently delete a bottle from the vault. This cannot be undone.")
 
+    if st.session_state.pop("_reset_remove_select", False):
+        st.session_state["remove_select"] = "- select -"
     if st.session_state.get("remove_select") not in manage_options:
         st.session_state["remove_select"] = "- select -"
+
+    _rm_flash = st.session_state.pop("_remove_flash", None)
+    if _rm_flash:
+        st.success(f"Banished **{_rm_flash}**.")
 
     remove_label = st.selectbox(
         "Bottle to remove",
@@ -5437,10 +5585,66 @@ with tab_vault:
                     if f["name"] != remove_name
                 ]
                 st.session_state["user_reactions"].pop(remove_name, None)
+                log_vault_action("removed", remove_name)
                 save_persisted_data()
-                st.session_state["remove_select"] = "- select -"
-                st.success(f"Banished **{remove_name}**.")
+                # Reset select on NEXT run before the widget is created
+                st.session_state["_reset_remove_select"] = True
+                st.session_state["_remove_flash"] = remove_name
                 st.rerun()
+
+
+    # ---------- BATCH REMOVE ----------
+    st.markdown("---")
+    st.markdown("#### Batch remove")
+    st.caption("Select several bottles, confirm once, remove together.")
+    batch_labels = manage_labels[:]
+    batch_pick = st.multiselect(
+        "Bottles to remove",
+        batch_labels,
+        key="batch_remove_pick",
+    )
+    batch_confirm = st.checkbox(
+        f"Yes, permanently remove {len(batch_pick)} selected bottle(s)",
+        key="batch_remove_confirm",
+        disabled=not batch_pick,
+    )
+    if st.button(
+        "Banish selected",
+        type="primary",
+        key="batch_remove_btn",
+        disabled=not (batch_pick and batch_confirm),
+    ):
+        names = [label_to_name[l] for l in batch_pick if l in label_to_name]
+        st.session_state["fragrances_db"] = [
+            f
+            for f in st.session_state["fragrances_db"]
+            if f.get("name") not in names
+        ]
+        for n in names:
+            st.session_state["user_reactions"].pop(n, None)
+            log_vault_action("removed", n, "batch")
+        save_persisted_data()
+        st.session_state["batch_remove_pick"] = []
+        st.success(f"Banished {len(names)} bottle(s).")
+        st.rerun()
+
+    # ---------- ACTIVITY LOG ----------
+    st.markdown("---")
+    st.markdown("#### Vault activity log")
+    vlog = st.session_state.get("vault_log") or []
+    if not vlog:
+        st.caption("No edits or removals logged yet.")
+    else:
+        for entry in vlog[:25]:
+            detail = f" - {entry.get('detail')}" if entry.get("detail") else ""
+            st.write(
+                f"**{entry.get('when', '?')}** | {entry.get('action', '?')} | "
+                f"**{entry.get('name', '?')}**{detail}"
+            )
+        if st.button("Clear activity log", key="clear_vault_log"):
+            st.session_state["vault_log"] = []
+            save_persisted_data()
+            st.rerun()
 
     st.markdown("---")
     st.markdown("#### Backup & restore")
@@ -5458,6 +5662,7 @@ with tab_vault:
             "venus": st.session_state.get("chart_venus"),
         },
         "wishlist": st.session_state.get("wishlist", []),
+        "vault_log": st.session_state.get("vault_log", []),
     }
     json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
     if st.download_button(
@@ -5506,6 +5711,8 @@ with tab_vault:
                     st.session_state["chart_venus"] = ch["venus"]
             if "wishlist" in imported_data:
                 st.session_state["wishlist"] = imported_data["wishlist"]
+            if "vault_log" in imported_data:
+                st.session_state["vault_log"] = imported_data["vault_log"]
             save_persisted_data()
             st.success("Vault restored.")
             st.rerun()
