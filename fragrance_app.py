@@ -59,8 +59,9 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="S",
+    page_icon="ð",
     layout="centered",
+    initial_sidebar_state="expanded",
 )
 
 # Custom Gothic Styling - polished, professional, mobile-friendly
@@ -70,17 +71,17 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
-    --bg-deep: #05070c;
-    --bg-card: #0b101a;
-    --bg-elevated: #101826;
-    --border: #1e2a42;
-    --border-hover: #3a5a8a;
-    --text: #c8d2e4;
-    --text-muted: #8a9bb8;
-    --accent: #7eb0ff;
-    --accent-dim: #4a7ac8;
-    --success-bg: #0c1a14;
-    --danger: #a04050;
+    --bg-deep: #03050a;
+    --bg-card: #080d16;
+    --bg-elevated: #0c1422;
+    --border: #1a2740;
+    --border-hover: #3d6cb0;
+    --text: #c5d0e4;
+    --text-muted: #7f91b0;
+    --accent: #6ea4ff;
+    --accent-dim: #3d6cb0;
+    --success-bg: #0a1520;
+    --danger: #4a6a9a;
 }
 
 html, body, .stApp, [class*="css"], .stMarkdown, p, span, div, label, input, textarea, button {
@@ -90,7 +91,7 @@ html, body, .stApp, [class*="css"], .stMarkdown, p, span, div, label, input, tex
 }
 
 .stApp {
-    background: radial-gradient(ellipse at top, #0a101c 0%, #05070c 50%, #020306 100%);
+    background: radial-gradient(ellipse at top, #0a1224 0%, #04070f 45%, #010205 100%);
     color: var(--text);
 }
 
@@ -137,7 +138,7 @@ p, .stMarkdown, .stCaption, label, .stText {
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #060912 0%, #0a0f18 55%, #080a10 100%) !important;
+    background: linear-gradient(180deg, #040810 0%, #070c16 55%, #03050a 100%) !important;
     border-right: 1px solid var(--border);
 }
 section[data-testid="stSidebar"] h1,
@@ -210,7 +211,7 @@ div[data-baseweb="select"] > div {
     font-family: 'Inter', system-ui, sans-serif !important;
 }
 div[data-testid="stNotification"] {
-    border-left: 3px solid #6a2030 !important;
+    border-left: 3px solid #3a5a8a !important;
 }
 
 /* Metrics */
@@ -337,7 +338,7 @@ hr {
     line-height: 1;
     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, sans-serif !important;
     animation: flyBats 2.6s ease-in-out infinite;
-    filter: drop-shadow(0 0 3px rgba(100, 60, 180, 0.5));
+    filter: drop-shadow(0 0 3px rgba(70, 120, 200, 0.45));
     letter-spacing: normal !important;
 }
 .bat1 { left: 12%; animation-delay: 0s; }
@@ -369,7 +370,135 @@ h1 {
 ::-webkit-scrollbar-track { background: #030508; }
 ::-webkit-scrollbar-thumb { background: #1a2540; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #2a4068; }
+
+/* ---- Design system extras ---- */
+.sdg-hero {
+    position: relative;
+    border: 1px solid #1a2740;
+    border-radius: 14px;
+    padding: 1.1rem 1.15rem 1rem 1.15rem;
+    margin: 0.15rem 0 1rem 0;
+    background:
+        radial-gradient(ellipse at 15% 0%, rgba(50, 100, 180, 0.22), transparent 55%),
+        radial-gradient(ellipse at 100% 80%, rgba(20, 40, 90, 0.25), transparent 45%),
+        linear-gradient(180deg, #0a101c 0%, #04070e 100%);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+}
+.sdg-hero-kicker {
+    font-family: 'Inter', system-ui, sans-serif !important;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.16em !important;
+    text-transform: uppercase;
+    color: #8a9bb8 !important;
+    margin-bottom: 0.35rem;
+}
+.sdg-hero-title {
+    font-family: 'Cinzel', Georgia, serif !important;
+    font-size: 1.55rem !important;
+    font-weight: 700 !important;
+    color: #9ec0ff !important;
+    text-shadow: 0 0 14px rgba(100, 150, 255, 0.35);
+    margin: 0 0 0.25rem 0 !important;
+    line-height: 1.2 !important;
+}
+.sdg-hero-sub {
+    font-family: 'Inter', system-ui, sans-serif !important;
+    color: #a8b6cc !important;
+    font-size: 0.9rem !important;
+    margin: 0 !important;
+}
+.sdg-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+}
+.sdg-chip {
+    font-family: 'Inter', system-ui, sans-serif !important;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.04em;
+    color: #c5d4ee !important;
+    border: 1px solid #2a3c5c;
+    background: rgba(20, 30, 50, 0.7);
+    border-radius: 999px;
+    padding: 0.22rem 0.65rem;
+}
+.sdg-section {
+    border-left: 2px solid #3a5a8a;
+    padding-left: 0.75rem;
+    margin: 0.75rem 0 0.5rem 0;
+}
+.sdg-section-title {
+    font-family: 'Cinzel', Georgia, serif !important;
+    color: #8eb4ff !important;
+    font-size: 1.05rem !important;
+    margin: 0 !important;
+}
+.sdg-card {
+    background: linear-gradient(180deg, #101826 0%, #0b101a 100%);
+    border: 1px solid #1e2a42;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    margin: 0.45rem 0 0.7rem 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+}
+.sdg-card:hover {
+    border-color: #3a5a8a;
+}
+.sdg-divider {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(90deg, transparent, #2a3c5c, transparent);
+    margin: 1rem 0;
+}
+div[data-testid="stMetric"] {
+    background: #0b101a;
+    border: 1px solid #1e2a42;
+    border-radius: 10px;
+    padding: 0.55rem 0.7rem;
+}
+.stTabs [data-baseweb="tab-list"] {
+    background: rgba(8, 12, 20, 0.6);
+    border-radius: 10px 10px 0 0;
+    padding: 0.15rem 0.15rem 0 0.15rem;
+}
+section[data-testid="stSidebar"] {
+    box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+}
+section[data-testid="stSidebar"] .block-container {
+    padding-top: 1rem;
+}
+
+@media (max-width: 640px) {
+    .sdg-hero-title { font-size: 1.3rem !important; }
+    .sdg-hero { padding: 0.9rem; }
+}
+
+/* Cool success/info - no red/pink alerts */
+div[data-testid="stAlert"] {
+    background: #0a1220 !important;
+    border: 1px solid #2a4570 !important;
+    color: #c5d0e4 !important;
+}
+[data-baseweb="notification"],
+div[role="alert"] {
+    border-color: #2a4570 !important;
+}
+/* success-ish */
+.stSuccess, div[data-testid="stNotificationContentSuccess"] {
+    background-color: #0a1524 !important;
+    color: #b8d0f0 !important;
+}
+.stWarning {
+    background-color: #121820 !important;
+    border-left: 3px solid #5a7ab0 !important;
+}
+.stError {
+    background-color: #0e1420 !important;
+    border-left: 3px solid #4a6a9a !important;
+}
 </style>
+
 """,
     unsafe_allow_html=True,
 )
@@ -4002,8 +4131,21 @@ def calculate_full_chart(
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
-st.title("ScentedDeadGirl")
-st.caption("Fragrance sanctuary  |  recommend  |  layer  |  log  |  curate")
+st.markdown(
+    """
+<div class="sdg-hero">
+  <div class="sdg-hero-kicker">Fragrance sanctuary</div>
+  <div class="sdg-hero-title">ScentedDeadGirl</div>
+  <p class="sdg-hero-sub">Recommend Â· layer Â· log Â· curate â High Desert nights, bottle by bottle.</p>
+  <div class="sdg-chip-row">
+    <span class="sdg-chip">Victorville Â· Â°F</span>
+    <span class="sdg-chip">Navy vault</span>
+    <span class="sdg-chip">Night palette</span>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
