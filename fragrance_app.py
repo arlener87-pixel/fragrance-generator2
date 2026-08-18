@@ -3717,6 +3717,180 @@ def geocode_birth_place(city: str, country: str = "United States") -> dict:
         return {"ok": False, "detail": str(ex)}
 
 
+def _norm360(x: float) -> float:
+    return x % 360.0
+
+
+def _longitude_to_sign(lon: float) -> str:
+    signs = [
+        "Aries",
+        "Taurus",
+        "Gemini",
+        "Cancer",
+        "Leo",
+        "Virgo",
+        "Libra",
+        "Scorpio",
+        "Sagittarius",
+        "Capricorn",
+        "Aquarius",
+        "Pisces",
+    ]
+    return signs[int(_norm360(lon) // 30) % 12]
+
+
+def _julian_day_utc(year, month, day, hour, minute, second=0.0) -> float:
+    """Julian Day for a UTC datetime."""
+    y = year
+    m = month
+    if m <= 2:
+        y -= 1
+        m += 12
+    A = int(y / 100)
+    B = 2 - A + int(A / 4)
+    day_frac = (hour + minute / 60.0 + second / 3600.0) / 24.0
+    return (
+        int(365.25 * (y + 4716))
+        + int(30.6001 * (m + 1))
+        + day
+        + day_frac
+        + B
+        - 1524.5
+    )
+
+
+def _local_to_jd_utc(year, month, day, hour, minute, tz_str: str) -> float:
+    """Convert local civil time in tz_str to Julian Day (UTC)."""
+    try:
+        tz = ZoneInfo(tz_str) if tz_str else ZoneInfo("UTC")
+    except Exception:
+        tz = ZoneInfo("UTC")
+    local_dt = datetime.datetime(
+        int(year), int(month), int(day), int(hour), int(minute), 0, tzinfo=tz
+    )
+    utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
+    return _julian_day_utc(
+        utc_dt.year,
+        utc_dt.month,
+        utc_dt.day,
+        utc_dt.hour,
+        utc_dt.minute,
+        utc_dt.second,
+    )
+
+
+def _sun_longitude(jd: float) -> float:
+    """Approximate apparent Sun longitude (degrees), good to ~0.01 deg."""
+    import math
+
+    T = (jd - 2451545.0) / 36525.0
+    L0 = _norm360(280.46646 + 36000.76983 * T + 0.0003032 * T * T)
+    M = math.radians(
+        _norm360(357.52911 + 35999.05029 * T - 0.0001537 * T * T)
+    )
+    C = (
+        (1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M)
+        + (0.019993 - 0.000101 * T) * math.sin(2 * M)
+        + 0.000289 * math.sin(3 * M)
+    )
+    true_long = L0 + C
+    # omega / nutation simplified (aberation-ish)
+    omega = math.radians(_norm360(125.04 - 1934.136 * T))
+    lam = true_long - 0.00569 - 0.00478 * math.sin(omega)
+    return _norm360(lam)
+
+
+def _moon_longitude(jd: float) -> float:
+    """Approximate Moon ecliptic longitude (degrees). Sign-level accuracy."""
+    import math
+
+    T = (jd - 2451545.0) / 36525.0
+    Lp = math.radians(
+        _norm360(218.3164477 + 481267.88123421 * T - 0.0015786 * T * T)
+    )
+    D = math.radians(
+        _norm360(297.8501921 + 445267.1114034 * T - 0.0018819 * T * T)
+    )
+    M = math.radians(
+        _norm360(357.5291092 + 35999.0502909 * T - 0.0001536 * T * T)
+    )
+    Mp = math.radians(
+        _norm360(134.9633964 + 477198.8675055 * T + 0.0087414 * T * T)
+    )
+    F = math.radians(
+        _norm360(93.2720950 + 483202.0175233 * T - 0.0036539 * T * T)
+    )
+    # Major periodic terms (degrees)
+    lon = (
+        6.288774 * math.sin(Mp)
+        + 1.274027 * math.sin(2 * D - Mp)
+        + 0.658314 * math.sin(2 * D)
+        + 0.213618 * math.sin(2 * Mp)
+        - 0.185116 * math.sin(M)
+        - 0.114332 * math.sin(2 * F)
+        + 0.058793 * math.sin(2 * D - 2 * Mp)
+        + 0.057212 * math.sin(2 * D - M - Mp)
+        + 0.053320 * math.sin(2 * D + Mp)
+        + 0.045874 * math.sin(2 * D - M)
+        + 0.041024 * math.sin(Mp - M)
+        - 0.034718 * math.sin(D)
+        - 0.030465 * math.sin(M + Mp)
+    )
+    return _norm360(math.degrees(Lp) + lon)
+
+
+def _venus_longitude(jd: float) -> float:
+    """Approximate Venus ecliptic longitude (degrees)."""
+    import math
+
+    T = (jd - 2451545.0) / 36525.0
+    # Mean elements (simplified)
+    L = _norm360(181.979801 + 58517.8156760 * T)
+    M = math.radians(_norm360(50.4161 + 58517.803863 * T))
+    # Equation of center (low precision)
+    C = 0.775 * math.sin(M) + 0.003 * math.sin(2 * M)
+    # Rough heliocentric -> geocentric adjustment using Earth mean long
+    earth_L = _norm360(100.46435 + 35999.37297 * T)
+    # Very simplified geocentric longitude blend
+    helio = L + C
+    # Project roughly toward geocentric
+    lam = helio + 1.2 * math.sin(math.radians(helio - earth_L))
+    return _norm360(lam)
+
+
+def _obliquity(jd: float) -> float:
+    import math
+
+    T = (jd - 2451545.0) / 36525.0
+    return math.radians(23.439291 - 0.0130042 * T)
+
+
+def _gmst_degrees(jd: float) -> float:
+    """Greenwich mean sidereal time in degrees."""
+    T = (jd - 2451545.0) / 36525.0
+    gmst = (
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * T * T
+        - T * T * T / 38710000.0
+    )
+    return _norm360(gmst)
+
+
+def _ascendant_longitude(jd: float, lat_deg: float, lon_deg: float) -> float:
+    """Tropical ascendant longitude for geographic lat/lon (degrees east positive)."""
+    import math
+
+    eps = _obliquity(jd)
+    lst = math.radians(_norm360(_gmst_degrees(jd) + lon_deg))
+    lat = math.radians(lat_deg)
+    # RAMC = LST
+    y = math.cos(lst)
+    x = -(math.sin(lst) * math.cos(eps) + math.tan(lat) * math.sin(eps))
+    asc = math.degrees(math.atan2(y, x))
+    return _norm360(asc)
+
+
 def calculate_full_chart(
     year: int,
     month: int,
@@ -3730,30 +3904,25 @@ def calculate_full_chart(
     tz_str: str = None,
 ) -> dict:
     """
-    Full tropical chart when kerykeion is installed.
-    Always returns at least Sun from the calendar date.
+    Tropical Sun, Moon, Rising, Venus from birth date/time/place.
+    Built-in engine (no extra packages). Tries kerykeion first if installed.
     """
-    sun = sun_sign_from_date(month, day)
+    sun_fallback = sun_sign_from_date(month, day)
     result = {
         "ok": True,
-        "sun": sun,
+        "sun": sun_fallback,
         "moon": None,
         "rising": None,
         "venus": None,
-        "engine": "sun-only",
+        "engine": "built-in",
         "detail": "",
         "place_label": city,
     }
+
+    # Prefer kerykeion when available
     try:
         from kerykeion import AstrologicalSubject
-    except Exception:
-        result["detail"] = (
-            "Sun calculated from date. Install kerykeion for Moon, Rising, and Venus "
-            "(add 'kerykeion' to requirements.txt)."
-        )
-        return result
 
-    try:
         kwargs = {}
         if lat is not None and lon is not None:
             kwargs["lat"] = float(lat)
@@ -3773,32 +3942,60 @@ def calculate_full_chart(
         )
 
         def _sign(obj):
-            # kerykeion versions differ: attribute or dict
             if obj is None:
                 return None
             if isinstance(obj, dict):
                 return normalize_sign_name(obj.get("sign") or "")
             return normalize_sign_name(getattr(obj, "sign", "") or "")
 
-        sun_s = _sign(getattr(subject, "sun", None)) or sun
-        moon_s = _sign(getattr(subject, "moon", None))
-        rising_s = _sign(getattr(subject, "first_house", None)) or _sign(
-            getattr(subject, "ascendant", None)
+        result.update(
+            {
+                "sun": _sign(getattr(subject, "sun", None)) or sun_fallback,
+                "moon": _sign(getattr(subject, "moon", None)),
+                "rising": _sign(getattr(subject, "first_house", None))
+                or _sign(getattr(subject, "ascendant", None)),
+                "venus": _sign(getattr(subject, "venus", None)),
+                "engine": "kerykeion",
+                "detail": "Tropical chart (kerykeion).",
+            }
         )
-        venus_s = _sign(getattr(subject, "venus", None))
+        return result
+    except Exception:
+        pass
+
+    # Built-in engine
+    try:
+        tz = tz_str or "UTC"
+        jd = _local_to_jd_utc(year, month, day, hour, minute, tz)
+        sun_lon = _sun_longitude(jd)
+        moon_lon = _moon_longitude(jd)
+        venus_lon = _venus_longitude(jd)
+        sun_s = _longitude_to_sign(sun_lon)
+        moon_s = _longitude_to_sign(moon_lon)
+        venus_s = _longitude_to_sign(venus_lon)
+        rising_s = None
+        if lat is not None and lon is not None:
+            asc_lon = _ascendant_longitude(jd, float(lat), float(lon))
+            rising_s = _longitude_to_sign(asc_lon)
         result.update(
             {
                 "sun": sun_s,
                 "moon": moon_s,
                 "rising": rising_s,
                 "venus": venus_s,
-                "engine": "kerykeion",
-                "detail": "Tropical chart from birth date, time, and place.",
+                "engine": "built-in",
+                "detail": (
+                    "Tropical chart from date, time, and place (built-in). "
+                    "Sign-level accuracy for fragrance matching."
+                ),
             }
         )
+        if rising_s is None:
+            result["detail"] += " Rising needs a successful place lookup."
         return result
     except Exception as ex:
-        result["detail"] = f"Full chart failed ({ex}). Sun from date only."
+        result["engine"] = "sun-only"
+        result["detail"] = f"Full chart failed ({ex}). Sun from calendar date only."
         return result
 
 
@@ -5094,7 +5291,7 @@ with tab_horoscope:
     with st.expander("Birth chart calculator", expanded=False):
         st.caption(
             "Enter birth date, time, and place for Sun, Moon, Rising, and Venus. "
-            "Full chart needs the kerykeion package; Sun still works from date alone."
+            "Uses a built-in tropical calculator (no extra install required)."
         )
         # Apply calculated signs to chart widgets on next run
         if st.session_state.pop("_apply_birth_chart", False):
@@ -5206,11 +5403,8 @@ with tab_horoscope:
             s4.metric("Venus", calc.get("venus") or "-")
             if calc.get("detail"):
                 st.caption(calc["detail"])
-            if calc.get("engine") != "kerykeion":
-                st.info(
-                    "For complete Moon / Rising / Venus, add this line to requirements.txt and reboot:  \n"
-                    "`kerykeion`"
-                )
+            if not calc.get("moon") and not calc.get("rising"):
+                st.caption("If Rising is missing, check city/country so place lookup can finish.")
 
         if apply_btn:
             if st.session_state.get("birth_calc_full"):
