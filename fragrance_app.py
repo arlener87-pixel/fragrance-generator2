@@ -5251,6 +5251,20 @@ with tab_horoscope:
     )
 
     signs = list(SIGN_SCENT_PROFILE.keys())
+
+    # Must apply calculator results BEFORE chart selectboxes are created
+    if st.session_state.pop("_apply_birth_chart", False):
+        calc = st.session_state.get("birth_calc_full") or {}
+        if calc.get("sun") and calc["sun"] in signs:
+            st.session_state["chart_sun"] = calc["sun"]
+        if calc.get("moon") and calc["moon"] in signs:
+            st.session_state["chart_moon"] = calc["moon"]
+        if calc.get("rising") and calc["rising"] in signs:
+            st.session_state["chart_rising"] = calc["rising"]
+        if calc.get("venus") and calc["venus"] in signs:
+            st.session_state["chart_venus"] = calc["venus"]
+        st.session_state["_chart_apply_flash"] = True
+
     # Seed session defaults once so selectboxes don't fight index= vs key=
     if "chart_sun" not in st.session_state:
         st.session_state["chart_sun"] = DEFAULT_CHART["sun"]
@@ -5283,6 +5297,9 @@ with tab_horoscope:
         f"Venus {venus_s} ({ven_p.get('vibe', '')})"
     )
 
+    if st.session_state.pop("_chart_apply_flash", False):
+        st.success("Calculator signs applied to your chart. Save chart to keep them.")
+
     if st.button("Save chart", key="chart_save_btn"):
         save_persisted_data()
         st.success("Chart saved.")
@@ -5293,25 +5310,14 @@ with tab_horoscope:
             "Enter birth date, time, and place for Sun, Moon, Rising, and Venus. "
             "Uses a built-in tropical calculator (no extra install required)."
         )
-        # Apply calculated signs to chart widgets on next run
-        if st.session_state.pop("_apply_birth_chart", False):
-            calc = st.session_state.get("birth_calc_full") or {}
-            if calc.get("sun"):
-                st.session_state["chart_sun"] = calc["sun"]
-            if calc.get("moon"):
-                st.session_state["chart_moon"] = calc["moon"]
-            if calc.get("rising"):
-                st.session_state["chart_rising"] = calc["rising"]
-            if calc.get("venus"):
-                st.session_state["chart_venus"] = calc["venus"]
-
         if st.session_state.pop("_clear_birth_calc", False):
             for k, v in [
                 ("birth_calc_year", 1990),
                 ("birth_calc_month", 1),
                 ("birth_calc_day", 1),
-                ("birth_calc_hour", 12),
+                ("birth_calc_hour12", 12),
                 ("birth_calc_minute", 0),
+                ("birth_calc_ampm", "PM"),
                 ("birth_calc_city", "Victorville"),
                 ("birth_calc_country", "United States"),
                 ("birth_calc_nation", "US"),
@@ -5327,11 +5333,13 @@ with tab_horoscope:
             b_month = st.number_input("Month", 1, 12, 1, key="birth_calc_month")
         with r3:
             b_day = st.number_input("Day", 1, 31, 1, key="birth_calc_day")
-        r4, r5 = st.columns(2)
+        r4, r5, r6ampm = st.columns(3)
         with r4:
-            b_hour = st.number_input("Hour (0-23)", 0, 23, 12, key="birth_calc_hour")
+            b_hour12 = st.number_input("Hour", 1, 12, 12, key="birth_calc_hour12")
         with r5:
             b_minute = st.number_input("Minute", 0, 59, 0, key="birth_calc_minute")
+        with r6ampm:
+            b_ampm = st.selectbox("AM / PM", ["AM", "PM"], key="birth_calc_ampm")
         r6, r7 = st.columns(2)
         with r6:
             b_city = st.text_input("Birth city", key="birth_calc_city", placeholder="Victorville")
@@ -5370,11 +5378,17 @@ with tab_horoscope:
             lat = geo.get("lat") if geo.get("ok") else None
             lon = geo.get("lon") if geo.get("ok") else None
             tz = geo.get("tz_str") if geo.get("ok") else None
+            # Convert 12-hour + AM/PM to 24-hour for the engine
+            h12 = int(b_hour12) % 12
+            if b_ampm == "PM":
+                h24 = h12 + 12
+            else:
+                h24 = h12  # 12 AM -> 0
             calc = calculate_full_chart(
                 int(b_year),
                 int(b_month),
                 day_use,
-                int(b_hour),
+                h24,
                 int(b_minute),
                 b_city or "Unknown",
                 (b_nation or "US").strip() or "US",
