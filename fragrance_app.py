@@ -1977,7 +1977,7 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
 
 
 def temp_f_to_band(temp_f: float) -> str:
-    """Map outdoor temperature (Â°F) to the app's weather band."""
+    """Map outdoor temperature ( F) to the app's weather band."""
     if temp_f >= 85:
         return "Hot / Summer"
     if temp_f >= 70:
@@ -2003,9 +2003,9 @@ def temp_band_label(temp_f: float) -> str:
 
 
 
-# Typical daytime outdoor temps (Â°F) by month for inland / Southern California
-# (FontanaâLA basin style: warm dry summers, mild winters)
-# Typical daytime outdoor temps (Â°F) â Victorville, CA (High Desert / Mojave)
+# Typical daytime outdoor temps ( F) by month for inland / Southern California
+# (Fontana-LA basin style: warm dry summers, mild winters)
+# Typical daytime outdoor temps ( F)  -  Victorville, CA (High Desert / Mojave)
 # Hotter summers, cooler winters than the LA basin
 CA_MONTHLY_TEMP_F = {
     1: 60,   # January
@@ -2026,7 +2026,7 @@ CA_LOCATION_LABEL = "Victorville, CA (High Desert)"
 
 
 def default_ca_temp_f(day=None) -> int:
-    """Suggested outdoor Â°F for Victorville, CA today (Pacific date)."""
+    """Suggested outdoor  F for Victorville, CA today (Pacific date)."""
     d = day or pacific_today()
     return int(CA_MONTHLY_TEMP_F.get(d.month, 75))
 
@@ -2500,7 +2500,7 @@ def score_fragrance_for_day(
         if kw.lower() in notes_l:
             score += 8
 
-    # Chart Big Three + Venus (beauty planet â strong for fragrance)
+    # Chart Big Three + Venus (beauty planet  -  strong for fragrance)
     venus = venus or sun
     cat_weights = chart_category_weights(sun, moon, rising)
     # Venus categories get an extra nudge
@@ -2535,7 +2535,7 @@ def explain_day_match(f: dict, day: str, sun: str, moon: str, rising: str, venus
     cats = set(f.get("category", []))
     day_hits = [c for c in day_prof.get("categories", []) if c in cats]
     if day_hits:
-        bits.append(f"{day_prof.get('planet', day)} day Â· {', '.join(day_hits[:2])}")
+        bits.append(f"{day_prof.get('planet', day)} day  -  {', '.join(day_hits[:2])}")
     notes_l = (f.get("notes") or "").lower()
     kw_hits = [kw for kw in day_prof.get("notes_keywords", []) if kw.lower() in notes_l]
     venus = venus or sun
@@ -2543,11 +2543,11 @@ def explain_day_match(f: dict, day: str, sun: str, moon: str, rising: str, venus
         for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
             if kw.lower() in notes_l and kw not in kw_hits:
                 kw_hits.append(kw)
-                bits.append(f"{label} {sign} Â· {kw}")
+                bits.append(f"{label} {sign}  -  {kw}")
                 break
-    if kw_hits and not any("Â·" in b and "day" not in b for b in bits):
+    if kw_hits and not any(" - " in b and "day" not in b for b in bits):
         bits.append("notes: " + ", ".join(kw_hits[:3]))
-    return " Â· ".join(bits[:3]) if bits else "chart + day blend"
+    return "  -  ".join(bits[:3]) if bits else "chart + day blend"
 
 
 def get_day_fragrances(
@@ -2579,7 +2579,7 @@ def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str =
     if day == "Friday":
         if sun in ("Libra", "Taurus") or venus in ("Libra", "Taurus") or rising in ("Libra", "Taurus"):
             echoes.append(
-                "Venus day flatters your beauty placements â soft florals, polished sweetness, and skin-close musk."
+                "Venus day flatters your beauty placements  -  soft florals, polished sweetness, and skin-close musk."
             )
         else:
             echoes.append(
@@ -2588,20 +2588,20 @@ def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str =
     elif day == "Saturday":
         if moon == "Capricorn" or sun == "Capricorn" or rising == "Capricorn":
             echoes.append(
-                "Saturn day steadies Capricorn energy â amber, woods, and structured gourmands feel like armor."
+                "Saturn day steadies Capricorn energy  -  amber, woods, and structured gourmands feel like armor."
             )
         else:
             echoes.append(
-                "Saturn day favors polish and depth â woody, oriental, or ambered bottles over pure fluff."
+                "Saturn day favors polish and depth  -  woody, oriental, or ambered bottles over pure fluff."
             )
     elif day == "Sunday":
         if rising == "Leo" or sun == "Leo" or moon == "Leo":
             echoes.append(
-                "Sun day turns up Leo heat â radiant vanilla, honey, and warm florals read as main-character."
+                "Sun day turns up Leo heat  -  radiant vanilla, honey, and warm florals read as main-character."
             )
         else:
             echoes.append(
-                "Sun day asks for confidence and glow â warm gourmand, golden floral, or a bold oriental."
+                "Sun day asks for confidence and glow  -  warm gourmand, golden floral, or a bold oriental."
             )
     elif day == "Monday":
         if moon_p.get("element") == "Water":
@@ -2610,34 +2610,34 @@ def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str =
             )
         else:
             echoes.append(
-                "Moon day softens the pace â powder, milk, white florals, or a gentle gourmand hug."
+                "Moon day softens the pace  -  powder, milk, white florals, or a gentle gourmand hug."
             )
     elif day == "Tuesday":
         if sun_p.get("element") == "Fire" or rise_p.get("element") == "Fire":
             echoes.append(
-                "Mars day stokes fire placements â spice, projection, and heat without apology."
+                "Mars day stokes fire placements  -  spice, projection, and heat without apology."
             )
         else:
             echoes.append(
-                "Mars day wants drive â pepper, ginger, dark fruit, or a spicy oriental edge."
+                "Mars day wants drive  -  pepper, ginger, dark fruit, or a spicy oriental edge."
             )
     elif day == "Wednesday":
         if sun_p.get("element") == "Air" or rise_p.get("element") == "Air":
             echoes.append(
-                "Mercury day loves air signs â keep it light, citrus-bright, or softly floral."
+                "Mercury day loves air signs  -  keep it light, citrus-bright, or softly floral."
             )
         else:
             echoes.append(
-                "Mercury day stays curious and clean â citrus, green, pear, or a breezy floral."
+                "Mercury day stays curious and clean  -  citrus, green, pear, or a breezy floral."
             )
     elif day == "Thursday":
         if any(SIGN_SCENT_PROFILE.get(s, {}).get("element") == "Fire" for s in (sun, rising)):
             echoes.append(
-                "Jupiter day expands fire energy â golden, honeyed, or warmly spiced trails."
+                "Jupiter day expands fire energy  -  golden, honeyed, or warmly spiced trails."
             )
         else:
             echoes.append(
-                "Jupiter day goes generous â amber, vanilla, tonka, or a lush oriental-gourmand."
+                "Jupiter day goes generous  -  amber, vanilla, tonka, or a lush oriental-gourmand."
             )
 
     chart_cats = set()
@@ -2645,7 +2645,7 @@ def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str =
         chart_cats.update(SIGN_SCENT_PROFILE.get(sign, {}).get("categories", []))
     overlap = list(day_cats & chart_cats)[:3]
     if overlap:
-        echoes.append(f"Chart overlap with today: **{', '.join(overlap)}** â lean there first.")
+        echoes.append(f"Chart overlap with today: **{', '.join(overlap)}**  -  lean there first.")
 
     if not echoes:
         echoes.append(
@@ -2666,7 +2666,7 @@ def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str =
 
     nl = "\n"
     return (
-        f"**{day} â ruled by {planet}.** {vibe}{nl}{nl}"
+        f"**{day}  -  ruled by {planet}.** {vibe}{nl}{nl}"
         f"{body}{nl}{nl}"
         f"{venus_line} Favor these families today: **{families}**."
     )
@@ -3261,7 +3261,7 @@ CHALLENGE_DECK = [
     "Wear your least-worn YAY bottle.",
     "No vanilla-forward scents until tomorrow.",
     "Choose something with oud, leather, or incense.",
-    "All-floral day â no woody bases if you can help it.",
+    "All-floral day  -  no woody bases if you can help it.",
     "Blind-bottle yourself: pick without looking at the name.",
     "Wear the opposite family of yesterday's SOTD.",
     "Date-night intensity on an ordinary day.",
@@ -3315,7 +3315,7 @@ def export_journal_markdown() -> str:
     lines.append("")
     for entry in st.session_state.get("sotd_history") or []:
         layer = " _(layering)_" if entry.get("is_layering") else ""
-        notes = f" â {entry['notes']}" if entry.get("notes") else ""
+        notes = f"  -  {entry['notes']}" if entry.get("notes") else ""
         perf = ""
         if entry.get("sillage") or entry.get("longevity"):
             parts = []
@@ -4136,9 +4136,9 @@ st.markdown(
 <div class="sdg-hero">
   <div class="sdg-hero-kicker">Fragrance sanctuary</div>
   <div class="sdg-hero-title">ScentedDeadGirl</div>
-  <p class="sdg-hero-sub">Recommend Â· layer Â· log Â· curate â High Desert nights, bottle by bottle.</p>
+  <p class="sdg-hero-sub">Recommend - layer - log - curate - High Desert nights, bottle by bottle.</p>
   <div class="sdg-chip-row">
-    <span class="sdg-chip">Victorville Â· Â°F</span>
+    <span class="sdg-chip">Victorville - F</span>
     <span class="sdg-chip">Navy vault</span>
     <span class="sdg-chip">Night palette</span>
   </div>
@@ -4619,7 +4619,7 @@ with st.sidebar:
         try:
             days = (pacific_today() - datetime.date.fromisoformat(last_export)).days
             if days >= 30:
-                st.warning(f"Last export was {days} days ago â consider backing up.")
+                st.warning(f"Last export was {days} days ago  -  consider backing up.")
         except ValueError:
             pass
 
@@ -4686,7 +4686,7 @@ with tab_discover:
         if not matching:
             st.warning("No fragrances matched that name or brand.")
         else:
-            st.caption(f"{len(matching)} match(es) Â· ranked by favorites, wears, note quality")
+            st.caption(f"{len(matching)} match(es)  -  ranked by favorites, wears, note quality")
             for f in matching:
                 render_fragrance_card(f, key_prefix=f"search_{search_query}")
 
@@ -4703,7 +4703,7 @@ with tab_discover:
         if not matching_notes:
             st.warning("No fragrances contain that note.")
         else:
-            st.caption(f"{len(matching_notes)} match(es) Â· ranked by favorites, wears, note quality")
+            st.caption(f"{len(matching_notes)} match(es)  -  ranked by favorites, wears, note quality")
             for f in matching_notes:
                 render_fragrance_card(f, key_prefix=f"note_{note_query}")
 
@@ -5135,7 +5135,7 @@ with tab_sotd:
             options=[0, 1, 2, 3, 4, 5],
             value=0,
             key="sotd_sillage",
-            help="0 = skip Â· 1 soft Â· 5 room-filling",
+            help="0 = skip  -  1 soft  -  5 room-filling",
         )
     with perf_c2:
         sotd_longevity = st.select_slider(
@@ -5143,7 +5143,7 @@ with tab_sotd:
             options=[0, 1, 2, 3, 4, 5],
             value=0,
             key="sotd_longevity",
-            help="0 = skip Â· 1 brief Â· 5 all-day",
+            help="0 = skip  -  1 brief  -  5 all-day",
         )
     with perf_c3:
         all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
@@ -5172,7 +5172,7 @@ with tab_sotd:
                     with row_a:
                         mark = " (already selected)" if already else ""
                         st.markdown(
-                            f"**{pf['name']}** Â· *{pf['brand']}*{mark}  \n"
+                            f"**{pf['name']}**  -  *{pf['brand']}*{mark}  \n"
                             f"{', '.join(pf.get('category', []))}  \n"
                             f"*{reason}*"
                         )
@@ -5359,8 +5359,8 @@ with tab_sotd:
                         perf_bits.append(f"sil {entry['sillage']}/5")
                     if entry.get("longevity"):
                         perf_bits.append(f"lon {entry['longevity']}/5")
-                    perf_txt = f" Â· {', '.join(perf_bits)}" if perf_bits else ""
-                    his_txt = f" Â· his: {entry['his_scent']}" if entry.get("his_scent") else ""
+                    perf_txt = f"  -  {', '.join(perf_bits)}" if perf_bits else ""
+                    his_txt = f"  -  his: {entry['his_scent']}" if entry.get("his_scent") else ""
                     st.write(
                         f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{his_txt}{perf_txt}{notes_text}"
                     )
@@ -5941,7 +5941,7 @@ with tab_collection:
     badges = compute_badges()
     badges = compute_badges()
     if badges:
-        st.caption("Badges: " + " Â· ".join(badges))
+        st.caption("Badges: " + "  -  ".join(badges))
 
 
     # ----- Wishlist -----
@@ -6020,14 +6020,14 @@ with tab_collection:
     # Favorite notes cloud
     fav_notes = get_favorite_notes(10)
     if fav_notes:
-        cloud = " Â· ".join(f"**{n}** ({c})" for n, c in fav_notes)
+        cloud = "  -  ".join(f"**{n}** ({c})" for n, c in fav_notes)
         st.markdown(f"**Your note cloud (from YAY):** {cloud}")
 
     # 30-day family summary (simple heatmap substitute)
     fam = season_family_summary()
     if fam:
-        st.caption("Last 30 days Â· families worn")
-        fam_bits = " Â· ".join(f"{k}: {v}" for k, v in list(fam.items())[:8])
+        st.caption("Last 30 days  -  families worn")
+        fam_bits = "  -  ".join(f"{k}: {v}" for k, v in list(fam.items())[:8])
         st.write(fam_bits)
 
     # Performance leaderboard from logged sillage / longevity
@@ -6040,14 +6040,14 @@ with tab_collection:
                 st.caption("Log sillage on SOTD entries to unlock.")
             else:
                 for avg, n, name in board["sillage"]:
-                    st.write(f"**{name}** Â· {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
+                    st.write(f"**{name}**  -  {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
         with c2:
             st.markdown("**Longest wear (longevity)**")
             if not board["longevity"]:
                 st.caption("Log longevity on SOTD entries to unlock.")
             else:
                 for avg, n, name in board["longevity"]:
-                    st.write(f"**{name}** Â· {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
+                    st.write(f"**{name}**  -  {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
 
 
     filter_col, sort_col, flag_col, shelf_col = st.columns(4)
@@ -6127,7 +6127,7 @@ with tab_collection:
                 None,
             )
             if frag:
-                st.caption(f"{frag.get('brand', '')} Â· current: {frag.get('notes', '')[:120]}")
+                st.caption(f"{frag.get('brand', '')}  -  current: {frag.get('notes', '')[:120]}")
                 new_notes = st.text_area(
                     "Notes (Top / Heart / Base)",
                     value=frag.get("notes") or "",
@@ -6157,7 +6157,7 @@ with tab_collection:
             else:
                 since_str = f" | {since}d ago"
             wear_str = f" | worn {wears}x{since_str}" if wears else since_str
-            incomplete = " Â· needs notes" if is_incomplete_notes(f) else ""
+            incomplete = "  -  needs notes" if is_incomplete_notes(f) else ""
             perf = average_performance(f["name"])
             perf_str = ""
             if perf["sillage"] or perf["longevity"]:
@@ -6166,7 +6166,7 @@ with tab_collection:
                     bits.append(f"sil {perf['sillage']}")
                 if perf["longevity"]:
                     bits.append(f"lon {perf['longevity']}")
-                perf_str = " Â· avg " + "/".join(bits)
+                perf_str = "  -  avg " + "/".join(bits)
             current_reaction = st.session_state["user_reactions"].get(f["name"])
             status = (
                 " YAY"
