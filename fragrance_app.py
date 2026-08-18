@@ -1,6 +1,7 @@
 import datetime
 from zoneinfo import ZoneInfo
 import hashlib
+import urllib.parse
 import json
 import random
 import re
@@ -3404,6 +3405,66 @@ def collection_value_summary(db: list) -> dict:
     }
 
 
+def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
+    """One-page PDF summary for a single bottle (add receipt / share sheet)."""
+    title = title or "ScentedDeadGirl - Bottle sheet"
+    lines = [
+        f"Exported {pacific_today().isoformat()} (Pacific)",
+        "",
+        f"Name: {frag.get('name', '?')}",
+        f"Brand: {frag.get('brand', '?')}",
+        f"Gender: {frag.get('gender', '?')}",
+        f"Season: {frag.get('season', '?')}",
+        f"Categories: {', '.join(frag.get('category') or [])}",
+        f"Shelf: {frag.get('shelf_status') or 'Own'}",
+    ]
+    if frag.get("size_ml"):
+        lines.append(f"Size: {frag.get('size_ml')} ml")
+    if frag.get("price"):
+        lines.append(f"Price: ${frag.get('price')}")
+    if frag.get("dupe_of"):
+        lines.append(f"Dupe of: {frag.get('dupe_of')}")
+    lines.append("")
+    lines.append("Notes:")
+    notes = frag.get("notes") or "Not specified"
+    # soft-wrap long notes
+    lines.append(notes)
+    return build_simple_pdf(title, lines)
+
+
+def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
+    """Local vault matches + online search links to help fill notes."""
+    name = (name or "").strip()
+    brand = (brand or "").strip()
+    q = f"{brand} {name}".strip() or name
+    local = []
+    if name:
+        nl = name.lower()
+        bl = brand.lower()
+        for f in st.session_state.get("fragrances_db") or []:
+            fn = (f.get("name") or "").lower()
+            fb = (f.get("brand") or "").lower()
+            if nl in fn or fn in nl or (bl and bl in fb and nl[:4] in fn):
+                local.append(f)
+            elif bl and bl == fb and abs(len(fn) - len(nl)) <= 3:
+                local.append(f)
+    # de-dupe by name
+    seen = set()
+    uniq = []
+    for f in local:
+        if f.get("name") not in seen:
+            seen.add(f.get("name"))
+            uniq.append(f)
+    links = {}
+    if q:
+        enc = urllib.parse.quote_plus(q + " perfume notes")
+        enc2 = urllib.parse.quote_plus(q)
+        links["Google"] = f"https://www.google.com/search?q={enc}"
+        links["Fragrantica"] = f"https://www.fragrantica.com/search/?query={urllib.parse.quote_plus(q)}"
+        links["Parfumo"] = f"https://www.parfumo.com/s_j_perfumes.php?in={urllib.parse.quote_plus(q)}"
+    return {"local": uniq[:8], "links": links, "query": q}
+
+
 def build_wishlist_pdf(items: list) -> bytes:
     """PDF checklist of wishlist entries (no external PDF library required)."""
     lines = [f"Exported {pacific_today().isoformat()} (Pacific)", ""]
@@ -3662,6 +3723,50 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Add fragrance")
+
+    # Notes helper (outside form so links work without submitting)
+    with st.expander("Find notes helper", expanded=False):
+        st.caption(
+            "Type a name/brand, check similar bottles already in your vault, "
+            "or open Fragrantica / Google / Parfumo to copy notes."
+        )
+        h1, h2 = st.columns(2)
+        with h1:
+            help_name = st.text_input("Lookup name", key="notes_help_name")
+        with h2:
+            help_brand = st.text_input("Lookup brand", key="notes_help_brand")
+        if st.button("Find notes ideas", key="notes_help_btn"):
+            st.session_state["notes_help_result"] = notes_lookup_suggestions(
+                help_name, help_brand
+            )
+        help_res = st.session_state.get("notes_help_result")
+        if help_res:
+            if help_res.get("local"):
+                st.markdown("**Similar in your vault**")
+                for f in help_res["local"]:
+                    st.write(
+                        f"**{f.get('name')}** ({f.get('brand')}) - "
+                        f"{(f.get('notes') or '')[:180]}"
+                    )
+                    if st.button(
+                        f"Use notes from {f.get('name')}",
+                        key=f"use_notes_{f.get('name')}",
+                    ):
+                        st.session_state["prefill_new_notes"] = f.get("notes") or ""
+                        st.success("Notes ready - open the add form fields below (paste if needed).")
+            links = help_res.get("links") or {}
+            if links:
+                st.markdown("**Search online**")
+                for label, url in links.items():
+                    st.markdown(f"- [{label}]({url})")
+            st.caption(
+                "Tip: copy Top / Heart / Base from the site into the Notes field below."
+            )
+
+    # Prefill notes if helper requested it
+    if "prefill_new_notes" in st.session_state and "add_notes_field" not in st.session_state:
+        st.session_state["add_notes_field"] = st.session_state.pop("prefill_new_notes")
+
     with st.form("add_fragrance_form", clear_on_submit=True):
         new_name = st.text_input("Name")
         new_brand = st.text_input("Brand")
@@ -3670,7 +3775,11 @@ with st.sidebar:
             ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
         )
         new_season = st.text_input("Season", value="Fall, Winter")
-        new_notes = st.text_input("Notes", placeholder="Top - ... / Heart - ... / Base - ...")
+        new_notes = st.text_input(
+            "Notes",
+            placeholder="Top - ... / Heart - ... / Base - ...",
+            key="add_notes_field",
+        )
         new_dupe = st.text_input("Dupe of (optional)", placeholder="e.g. Baccarat Rouge 540")
         new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
         new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
@@ -3690,6 +3799,7 @@ with st.sidebar:
                 "Aromatic",
                 "Leather",
                 "Oud",
+                "Boozy",
                 "Smoky",
                 "Powdery",
             ],
@@ -3721,25 +3831,66 @@ with st.sidebar:
                 if already_exists:
                     st.error(f"'{new_name}' by {new_brand} is already in the vault.")
                 else:
-                    st.session_state["fragrances_db"].append(
-                        {
-                            "name": new_name.strip(),
-                            "brand": new_brand.strip(),
-                            "gender": new_gender,
-                            "season": new_season or "Versatile",
-                            "notes": new_notes if new_notes else "Not specified",
-                            "category": new_cats if new_cats else ["Gourmand"],
-                            "dupe_of": (new_dupe or "").strip(),
-                            "shelf_status": new_shelf,
-                            "size_ml": (float(new_size) if str(new_size or "").strip().replace(".", "", 1).isdigit() else None),
-                            "price": (float(new_price) if str(new_price or "").strip().replace(".", "", 1).isdigit() else None),
-                        }
-                    )
+                    new_frag = {
+                        "name": new_name.strip(),
+                        "brand": new_brand.strip(),
+                        "gender": new_gender,
+                        "season": new_season or "Versatile",
+                        "notes": new_notes if new_notes else "Not specified",
+                        "category": new_cats if new_cats else ["Gourmand"],
+                        "dupe_of": (new_dupe or "").strip(),
+                        "shelf_status": new_shelf,
+                        "size_ml": (
+                            float(new_size)
+                            if str(new_size or "").strip().replace(".", "", 1).isdigit()
+                            else None
+                        ),
+                        "price": (
+                            float(new_price)
+                            if str(new_price or "").strip().replace(".", "", 1).isdigit()
+                            else None
+                        ),
+                    }
+                    st.session_state["fragrances_db"].append(new_frag)
+                    try:
+                        log_vault_action("added", new_frag["name"], new_frag["brand"])
+                    except Exception:
+                        pass
+                    st.session_state["last_added_frag"] = new_frag
                     save_persisted_data()
-                    st.session_state["_add_flash"] = f"Added **{new_name.strip()}**."
+                    st.session_state["_add_flash"] = f"Added **{new_frag['name']}**."
                     st.rerun()
             else:
                 st.error("Name and brand are required.")
+
+
+    # Receipt for last added bottle
+    last_added = st.session_state.get("last_added_frag")
+    if last_added:
+        st.markdown("#### Just added")
+        st.success(
+            f"**{last_added.get('name')}** by *{last_added.get('brand')}* | "
+            f"{last_added.get('gender')} | {', '.join(last_added.get('category') or [])}"
+        )
+        st.caption(f"Notes: {last_added.get('notes', '')}")
+        if last_added.get("dupe_of"):
+            st.caption(f"Dupe of: {last_added.get('dupe_of')}")
+        try:
+            pdf_bytes = build_fragrance_sheet_pdf(
+                last_added, title=f"Added - {last_added.get('name', 'bottle')}"
+            )
+            st.download_button(
+                "Download PDF sheet for this bottle",
+                data=pdf_bytes,
+                file_name=f"added_{last_added.get('name', 'bottle').replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                key="last_added_pdf",
+            )
+        except Exception as ex:
+            st.caption(f"PDF unavailable: {ex}")
+        if st.button("Dismiss", key="dismiss_last_added"):
+            st.session_state.pop("last_added_frag", None)
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### Today")
