@@ -2866,9 +2866,71 @@ def score_for_mood(f: dict, mood: str) -> int:
     return score
 
 
-def get_mood_picks(mood: str, top_n: int = 3) -> list:
+def _norm_name(s: str) -> str:
+    s = (s or "").strip().lower()
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def find_duplicate_fragrances(name: str, brand: str) -> dict:
+    """Detect exact and near-duplicate bottles before adding."""
+    nl = _norm_name(name)
+    bl = _norm_name(brand)
+    exact = []
+    same_name = []
+    near = []
+    for f in st.session_state.get("fragrances_db") or []:
+        fn = _norm_name(f.get("name"))
+        fb = _norm_name(f.get("brand"))
+        if not fn:
+            continue
+        if fn == nl and fb == bl:
+            exact.append(f)
+        elif fn == nl:
+            same_name.append(f)
+        elif nl and (nl in fn or fn in nl) and (not bl or bl == fb or bl in fb or fb in bl):
+            near.append(f)
+    return {"exact": exact, "same_name": same_name, "near": near}
+
+
+def filter_play_pool(gender: str = "Any", season: str = "Any", priced_only: bool = False) -> list:
+    """Shared pool filter for Play games."""
+    pool = []
+    for f in st.session_state.get("fragrances_db") or []:
+        if st.session_state["user_reactions"].get(f.get("name")) == "dislike":
+            continue
+        if gender and gender != "Any" and not matches_gender(f, gender):
+            continue
+        if season and season != "Any" and not matches_weather(f, season):
+            continue
+        if priced_only and f.get("price") is None:
+            continue
+        pool.append(f)
+    return pool
+
+
+def fragrances_in_price_range(min_p: float, max_p: float, gender: str = "Any") -> list:
+    hits = []
+    for f in st.session_state.get("fragrances_db") or []:
+        try:
+            px = float(f.get("price")) if f.get("price") is not None else None
+        except (TypeError, ValueError):
+            px = None
+        if px is None:
+            continue
+        if px < min_p or px > max_p:
+            continue
+        if gender and gender != "Any" and not matches_gender(f, gender):
+            continue
+        hits.append(f)
+    hits.sort(key=lambda x: float(x.get("price") or 0))
+    return hits
+
+
+def get_mood_picks(mood: str, top_n: int = 3, pool: list = None) -> list:
+    source = pool if pool is not None else st.session_state["fragrances_db"]
     scored = []
-    for f in st.session_state["fragrances_db"]:
+    for f in source:
         s = score_for_mood(f, mood)
         if s > 0:
             scored.append((s, f))
@@ -4564,16 +4626,26 @@ with st.sidebar:
 
         if submit_added:
             if new_name and new_brand:
-                name_lower = new_name.strip().lower()
-                brand_lower = new_brand.strip().lower()
-                already_exists = any(
-                    f["name"].strip().lower() == name_lower
-                    and f["brand"].strip().lower() == brand_lower
-                    for f in st.session_state["fragrances_db"]
-                )
-                if already_exists:
-                    st.error(f"'{new_name}' by {new_brand} is already in the vault.")
+                dups = find_duplicate_fragrances(new_name, new_brand)
+                if dups["exact"]:
+                    st.error(
+                        f"Already in the vault: **{dups['exact'][0].get('name')}** by "
+                        f"*{dups['exact'][0].get('brand')}*. Duplicate not added."
+                    )
+                elif dups["same_name"]:
+                    brands = ", ".join(
+                        sorted({(x.get("brand") or "?") for x in dups["same_name"]})
+                    )
+                    st.error(
+                        f"A bottle named **{new_name.strip()}** already exists "
+                        f"(brand: {brands}). Change the name or edit the existing entry."
+                    )
                 else:
+                    if dups["near"]:
+                        near_list = ", ".join(
+                            f"{x.get('name')} ({x.get('brand')})" for x in dups["near"][:3]
+                        )
+                        st.warning(f"Similar bottles already in vault: {near_list}")
                     new_frag = {
                         "name": new_name.strip(),
                         "brand": new_brand.strip(),
@@ -5715,7 +5787,35 @@ with tab_play:
         key="play_mode",
     )
 
-    name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
+    # Shared gender + season filters for all Play games
+    if st.session_state.pop("_clear_play_filters", False):
+        st.session_state["play_gender"] = "Any"
+        st.session_state["play_season"] = "Any"
+    pf1, pf2, pf3 = st.columns([2, 2, 1])
+    with pf1:
+        play_gender = st.selectbox(
+            "Gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="play_gender",
+        )
+    with pf2:
+        play_season = st.selectbox(
+            "Season / weather",
+            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+            key="play_season",
+        )
+    with pf3:
+        st.write("")
+        st.write("")
+        if st.button("Clear", key="play_filter_clear"):
+            st.session_state["_clear_play_filters"] = True
+            st.rerun()
+
+    play_pool = filter_play_pool(play_gender, play_season)
+    st.caption(f"Play pool: **{len(play_pool)}** bottle(s) after filters")
+
+    name_map = {f["name"]: f for f in play_pool}
+    # Guess list can still show full vault so hard-mode blind is fair? use filtered
     all_names = sorted(name_map.keys())
 
     MOOD_VISUAL = {
@@ -5766,7 +5866,7 @@ with tab_play:
             unsafe_allow_html=True,
         )
         if st.button("Draw mood scents", type="primary", key="mood_draw"):
-            picks = get_mood_picks(mood, top_n=3)
+            picks = get_mood_picks(mood, top_n=3, pool=play_pool)
             st.session_state["last_mood"] = {"mood": mood, "picks": picks}
             st.session_state["play_stats"]["moods_drawn"] = (
                 st.session_state["play_stats"].get("moods_drawn", 0) + 1
@@ -5813,11 +5913,7 @@ with tab_play:
             key="blind_diff",
         )
         if st.button("Draw a mystery bottle", type="primary", key="blind_draw"):
-            pool = [
-                f
-                for f in st.session_state["fragrances_db"]
-                if st.session_state["user_reactions"].get(f["name"]) != "dislike"
-            ]
+            pool = list(play_pool)
             if pool:
                 chosen = random.choice(pool)
                 st.session_state["blind_bottle"] = chosen
@@ -5911,7 +6007,7 @@ with tab_play:
         families = sorted(
             {
                 c
-                for f in st.session_state["fragrances_db"]
+                for f in play_pool
                 for c in (f.get("category") or [])
             }
         )
@@ -5920,15 +6016,16 @@ with tab_play:
                 fam = random.choice(families)
                 pool = [
                     f
-                    for f in st.session_state["fragrances_db"]
+                    for f in play_pool
                     if fam in (f.get("category") or [])
-                    and st.session_state["user_reactions"].get(f["name"]) != "dislike"
                 ]
                 random.shuffle(pool)
                 st.session_state["last_family_spin"] = {
                     "family": fam,
                     "picks": pool[:3],
                 }
+            else:
+                st.warning("No families in the filtered play pool.")
         last_fs = st.session_state.get("last_family_spin")
         if last_fs:
             fam = last_fs.get("family") or "?"
@@ -5965,6 +6062,65 @@ with tab_play:
 # ===== COLLECTION =====
 with tab_collection:
     st.subheader("Collection browser")
+
+    with st.expander("Price range lookup", expanded=False):
+        st.caption(
+            "Find bottles you logged a price for. Leave wide range to see all priced bottles."
+        )
+        if st.session_state.pop("_clear_price_lookup", False):
+            st.session_state["price_min"] = 0
+            st.session_state["price_max"] = 500
+            st.session_state["price_gender"] = "Any"
+        pr1, pr2, pr3 = st.columns(3)
+        with pr1:
+            price_min = st.number_input("Min $", min_value=0, max_value=2000, value=0, key="price_min")
+        with pr2:
+            price_max = st.number_input("Max $", min_value=0, max_value=5000, value=500, key="price_max")
+        with pr3:
+            price_gender = st.selectbox(
+                "Gender",
+                ["Any", "Male", "Female", "Unisex"],
+                key="price_gender",
+            )
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            do_price = st.button("Search prices", type="primary", key="price_search_btn")
+        with pc2:
+            if st.button("Clear", key="price_clear_btn"):
+                st.session_state["_clear_price_lookup"] = True
+                st.session_state.pop("price_lookup_hits", None)
+                st.rerun()
+        if do_price:
+            lo, hi = float(min(price_min, price_max)), float(max(price_min, price_max))
+            hits = fragrances_in_price_range(lo, hi, price_gender)
+            st.session_state["price_lookup_hits"] = {
+                "hits": hits,
+                "lo": lo,
+                "hi": hi,
+                "gender": price_gender,
+            }
+        priced_n = sum(
+            1
+            for f in st.session_state.get("fragrances_db") or []
+            if f.get("price") is not None
+        )
+        st.caption(f"{priced_n} bottle(s) in the vault have a price logged.")
+        pl = st.session_state.get("price_lookup_hits")
+        if pl is not None:
+            hits = pl.get("hits") or []
+            st.write(
+                f"**{len(hits)}** match ${pl.get('lo'):.0f} - ${pl.get('hi'):.0f}"
+                f" ({pl.get('gender')})"
+            )
+            if not hits:
+                st.info("No priced bottles in that range. Add prices when editing bottles.")
+            else:
+                for f in hits:
+                    st.write(
+                        f"**${float(f.get('price')):.0f}** - **{f.get('name')}** "
+                        f"({f.get('brand')}) | {f.get('gender')} | "
+                        f"{', '.join(f.get('category') or [])}"
+                    )
     wear_counts = get_wear_counts()
     favs = [
         name
