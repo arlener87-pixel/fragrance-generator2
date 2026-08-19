@@ -2729,11 +2729,114 @@ def layer_score(f1: dict, f2: dict) -> int:
     return score
 
 
+def suggest_recipe_name_from_notes(bottle_names: list) -> str:
+    """Build a short poetic recipe name from shared notes and categories."""
+    name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
+    frags = [name_map[n] for n in bottle_names if n in name_map]
+    if not frags:
+        return "Untitled layer"
+
+    # Pull note tokens
+    stop = {
+        "top", "heart", "base", "and", "with", "notes", "the", "from", "leaning",
+        "style", "absolute", "extract", "oil", "of", "a", "an", "for", "into",
+    }
+    tokens = []
+    for f in frags:
+        tokens.extend(re.findall(r"[A-Za-z]{4,}", f.get("notes") or ""))
+        tokens.extend(f.get("category") or [])
+    cleaned = []
+    seen = set()
+    for t in tokens:
+        tl = t.lower()
+        if tl in stop or tl in seen:
+            continue
+        seen.add(tl)
+        cleaned.append(t.title())
+        if len(cleaned) >= 6:
+            break
+
+    # Prefer evocative words
+    preferred = [
+        "Vanilla", "Coconut", "Rose", "Oud", "Amber", "Musk", "Coffee", "Caramel",
+        "Jasmine", "Sandalwood", "Cherry", "Cocoa", "Tobacco", "Leather", "Iris",
+        "Peach", "Honey", "Smoke", "Wood", "Citrus", "Marshmallow", "Pistachio",
+    ]
+    picks = [w for w in preferred if any(w.lower() in (c.lower()) for c in cleaned)]
+    if not picks:
+        picks = cleaned[:3]
+    picks = picks[:3]
+    if len(picks) >= 2:
+        return f"{picks[0]} {picks[1]} night"
+    if picks:
+        return f"{picks[0]} veil"
+    # Fallback from bottle names
+    short = [n.split()[0] for n in bottle_names[:2] if n]
+    if len(short) >= 2:
+        return f"{short[0]} x {short[1]}"
+    return bottle_names[0] if bottle_names else "Untitled layer"
+
+
+def season_for_layer_recipe(frags: list) -> dict:
+    """Guess best seasons for a layer from bottle season labels + categories."""
+    if not frags:
+        return {"label": "Unknown", "detail": "No bottles", "bands": []}
+
+    band_score = {
+        "Hot / Summer": 0,
+        "Warm / Mild": 0,
+        "Cool / Autumn": 0,
+        "Cold / Winter": 0,
+    }
+    season_bits = []
+    for f in frags:
+        season = (f.get("season") or "").lower()
+        season_bits.append(f.get("season") or "Versatile")
+        cats = set(f.get("category") or [])
+        if "summer" in season or "hot" in season:
+            band_score["Hot / Summer"] += 3
+        if "spring" in season or "mild" in season or "warm" in season:
+            band_score["Warm / Mild"] += 2
+        if "fall" in season or "autumn" in season or "cool" in season:
+            band_score["Cool / Autumn"] += 3
+        if "winter" in season or "cold" in season:
+            band_score["Cold / Winter"] += 3
+        if "versatile" in season:
+            for k in band_score:
+                band_score[k] += 1
+        # Category leans
+        if cats & {"Fresh", "Citrus", "Fruity"}:
+            band_score["Hot / Summer"] += 2
+            band_score["Warm / Mild"] += 1
+        if cats & {"Floral"}:
+            band_score["Warm / Mild"] += 1
+            band_score["Cool / Autumn"] += 1
+        if cats & {"Gourmand", "Sweet", "Boozy", "Oriental", "Oud", "Spicy"}:
+            band_score["Cool / Autumn"] += 2
+            band_score["Cold / Winter"] += 2
+        if cats & {"Woody", "Leather", "Smoky"}:
+            band_score["Cool / Autumn"] += 1
+            band_score["Cold / Winter"] += 1
+
+    ranked = sorted(band_score.items(), key=lambda x: x[1], reverse=True)
+    top = [b for b, s in ranked if s > 0][:2]
+    if not top:
+        top = ["Warm / Mild"]
+    label = " / ".join(top)
+    detail = (
+        f"Best for {label}. "
+        f"From bottle seasons: {', '.join(season_bits)}."
+    )
+    return {"label": label, "detail": detail, "bands": top}
+
+
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer recipe and build a short verdict."""
     name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
     frags = [name_map[n] for n in bottle_names if n in name_map]
     missing = [n for n in bottle_names if n not in name_map]
+    season_info = season_for_layer_recipe(frags)
+    suggested_name = suggest_recipe_name_from_notes(bottle_names)
     if len(frags) < 2:
         return {
             "score": 0,
@@ -2742,6 +2845,8 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
             "pairs": [],
             "frags": frags,
             "missing": missing,
+            "season": season_info,
+            "suggested_name": suggested_name,
         }
     pairs = []
     scores = []
@@ -2777,6 +2882,8 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         "pairs": pairs,
         "frags": frags,
         "missing": missing,
+        "season": season_info,
+        "suggested_name": suggested_name,
     }
 
 
@@ -5146,31 +5253,79 @@ with tab_layer:
                 st.rerun()
 
     with st.expander("Saved layer recipes", expanded=False):
-        rec_name = st.text_input(
-            "Recipe name", placeholder="e.g. Office armor", key="recipe_name_in"
-        )
         rec_pick = st.multiselect(
             "Bottles in recipe",
             sorted(f["name"] for f in st.session_state["fragrances_db"]),
             key="recipe_bottles_in",
         )
-        if st.button("Save recipe", key="save_recipe_btn"):
-            if rec_name.strip() and len(rec_pick) >= 2:
+        preview = evaluate_layer_recipe(list(rec_pick)) if len(rec_pick) >= 1 else None
+        suggested = (preview or {}).get("suggested_name") or ""
+        if preview and len(rec_pick) >= 2:
+            season = preview.get("season") or {}
+            st.caption(
+                f"Suggested name from notes: **{suggested}** | "
+                f"Season: **{season.get('label', '?')}**"
+            )
+            st.caption(season.get("detail", ""))
+
+        # Name field - can use suggested
+        if st.session_state.pop("_apply_recipe_name", False) and suggested:
+            st.session_state["recipe_name_in"] = suggested
+        rec_name = st.text_input(
+            "Recipe name",
+            placeholder=suggested or "e.g. Coconut vanilla night",
+            key="recipe_name_in",
+        )
+        rn1, rn2 = st.columns(2)
+        with rn1:
+            if st.button(
+                "Use name from notes",
+                key="recipe_use_suggested_name",
+                disabled=len(rec_pick) < 2,
+            ):
+                st.session_state["_apply_recipe_name"] = True
+                st.rerun()
+        with rn2:
+            save_clicked = st.button("Save recipe", key="save_recipe_btn")
+
+        if save_clicked:
+            final_name = (rec_name or "").strip() or suggested or "Untitled layer"
+            if len(rec_pick) >= 2:
+                season = (preview or {}).get("season") or {}
                 st.session_state["layer_recipes"].insert(
                     0,
-                    {"name": rec_name.strip(), "bottles": list(rec_pick)},
+                    {
+                        "name": final_name,
+                        "bottles": list(rec_pick),
+                        "season_label": season.get("label", ""),
+                        "season_detail": season.get("detail", ""),
+                        "suggested_name": suggested,
+                    },
                 )
                 save_persisted_data()
-                st.success(f"Saved **{rec_name.strip()}**")
+                st.session_state["_recipe_save_flash"] = (
+                    f"Saved **{final_name}** - best season: {season.get('label', '?')}"
+                )
                 st.rerun()
             else:
-                st.warning("Need a name and at least two bottles.")
+                st.warning("Need at least two bottles.")
+
+        _rsf = st.session_state.pop("_recipe_save_flash", None)
+        if _rsf:
+            st.success(_rsf)
 
         for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
             bottles = list(recipe.get("bottles") or [])
             st.markdown(f"**{recipe.get('name', 'Recipe')}**")
             st.caption(" + ".join(bottles))
             ev = evaluate_layer_recipe(bottles)
+            season = ev.get("season") or {}
+            saved_season = recipe.get("season_label") or season.get("label")
+            if saved_season:
+                st.caption(
+                    f"Season: **{saved_season}** - "
+                    f"{recipe.get('season_detail') or season.get('detail', '')}"
+                )
             # Verdict banner
             if ev["label"] in ("Strong layer", "Good layer"):
                 st.success(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
