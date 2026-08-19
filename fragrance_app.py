@@ -43,6 +43,7 @@ def save_persisted_data():
             "moon": st.session_state.get("chart_moon"),
             "rising": st.session_state.get("chart_rising"),
             "venus": st.session_state.get("chart_venus"),
+            "full": st.session_state.get("birth_calc_full"),
         },
         "wishlist": st.session_state.get("wishlist", []),
         "vault_log": st.session_state.get("vault_log", []),
@@ -4232,34 +4233,88 @@ def _moon_longitude(jd: float) -> float:
     return _norm360(math.degrees(Lp) + lon)
 
 
-def _venus_longitude(jd: float) -> float:
-    """Approximate Venus ecliptic longitude (degrees)."""
+def _helio_planet_longitude(jd: float, L0, nL, M0, nM, e_c1, e_c2=0.0) -> float:
+    """Very simplified mean heliocentric longitude + equation of center."""
     import math
-
     T = (jd - 2451545.0) / 36525.0
-    # Mean elements (simplified)
+    L = _norm360(L0 + nL * T)
+    M = math.radians(_norm360(M0 + nM * T))
+    C = e_c1 * math.sin(M) + e_c2 * math.sin(2 * M)
+    return _norm360(L + C)
+
+
+def _venus_longitude(jd: float) -> float:
+    import math
+    T = (jd - 2451545.0) / 36525.0
     L = _norm360(181.979801 + 58517.8156760 * T)
     M = math.radians(_norm360(50.4161 + 58517.803863 * T))
-    # Equation of center (low precision)
     C = 0.775 * math.sin(M) + 0.003 * math.sin(2 * M)
-    # Rough heliocentric -> geocentric adjustment using Earth mean long
     earth_L = _norm360(100.46435 + 35999.37297 * T)
-    # Very simplified geocentric longitude blend
     helio = L + C
-    # Project roughly toward geocentric
-    lam = helio + 1.2 * math.sin(math.radians(helio - earth_L))
-    return _norm360(lam)
+    return _norm360(helio + 1.2 * math.sin(math.radians(helio - earth_L)))
+
+
+def _mercury_longitude(jd: float) -> float:
+    import math
+    T = (jd - 2451545.0) / 36525.0
+    L = _norm360(252.250906 + 149472.6746358 * T)
+    M = math.radians(_norm360(174.7948 + 149472.5153 * T))
+    C = 23.4400 * math.sin(M) + 2.9818 * math.sin(2 * M)
+    earth_L = _norm360(100.46435 + 35999.37297 * T)
+    helio = L + C
+    return _norm360(helio + 3.0 * math.sin(math.radians(helio - earth_L)))
+
+
+def _mars_longitude(jd: float) -> float:
+    import math
+    T = (jd - 2451545.0) / 36525.0
+    L = _norm360(355.433 + 19140.3023 * T)
+    M = math.radians(_norm360(19.3730 + 19140.2993 * T))
+    C = 10.691 * math.sin(M) + 0.623 * math.sin(2 * M)
+    earth_L = _norm360(100.46435 + 35999.37297 * T)
+    helio = L + C
+    return _norm360(helio + 1.5 * math.sin(math.radians(earth_L - helio)))
+
+
+def _jupiter_longitude(jd: float) -> float:
+    return _helio_planet_longitude(jd, 34.351519, 3034.9057, 19.8950, 3034.6920, 5.555, 0.168)
+
+
+def _saturn_longitude(jd: float) -> float:
+    return _helio_planet_longitude(jd, 50.0774, 1222.1138, 317.0207, 1221.5515, 6.406, 0.223)
+
+
+def _uranus_longitude(jd: float) -> float:
+    return _helio_planet_longitude(jd, 314.0550, 428.4669, 141.0498, 428.4952, 5.347, 0.0)
+
+
+def _neptune_longitude(jd: float) -> float:
+    return _helio_planet_longitude(jd, 304.3487, 218.4862, 256.2250, 218.4862, 1.024, 0.0)
+
+
+def _pluto_longitude(jd: float) -> float:
+    # Very rough mean motion for sign-level only
+    return _helio_planet_longitude(jd, 238.958, 145.178, 14.862, 145.178, 10.0, 0.0)
+
+
+def _lilith_longitude(jd: float) -> float:
+    """Mean Black Moon Lilith (lunar apogee) approximation, degrees."""
+    import math
+    T = (jd - 2451545.0) / 36525.0
+    # Mean longitude of lunar apogee (Meeus-style approx)
+    return _norm360(
+        83.353 + 4069.0137 * T - 0.01032 * T * T
+        - 0.00015 * T * T * T
+    )
 
 
 def _obliquity(jd: float) -> float:
     import math
-
     T = (jd - 2451545.0) / 36525.0
     return math.radians(23.439291 - 0.0130042 * T)
 
 
 def _gmst_degrees(jd: float) -> float:
-    """Greenwich mean sidereal time in degrees."""
     T = (jd - 2451545.0) / 36525.0
     gmst = (
         280.46061837
@@ -4271,17 +4326,33 @@ def _gmst_degrees(jd: float) -> float:
 
 
 def _ascendant_longitude(jd: float, lat_deg: float, lon_deg: float) -> float:
-    """Tropical ascendant longitude for geographic lat/lon (degrees east positive)."""
     import math
-
     eps = _obliquity(jd)
     lst = math.radians(_norm360(_gmst_degrees(jd) + lon_deg))
     lat = math.radians(lat_deg)
-    # RAMC = LST
     y = math.cos(lst)
     x = -(math.sin(lst) * math.cos(eps) + math.tan(lat) * math.sin(eps))
-    asc = math.degrees(math.atan2(y, x))
-    return _norm360(asc)
+    return _norm360(math.degrees(math.atan2(y, x)))
+
+
+def _equal_houses_from_asc(asc_lon: float) -> dict:
+    """Equal house system: House 1 cusp = Ascendant, each house +30 deg."""
+    houses = {}
+    for n in range(1, 13):
+        cusp = _norm360(asc_lon + (n - 1) * 30.0)
+        houses[n] = {
+            "cusp": round(cusp, 2),
+            "sign": _longitude_to_sign(cusp),
+        }
+    return houses
+
+
+def _planet_block(lon: float) -> dict:
+    return {
+        "lon": round(_norm360(lon), 2),
+        "sign": _longitude_to_sign(lon),
+        "deg_in_sign": round(_norm360(lon) % 30.0, 2),
+    }
 
 
 def calculate_full_chart(
@@ -4297,8 +4368,8 @@ def calculate_full_chart(
     tz_str: str = None,
 ) -> dict:
     """
-    Tropical Sun, Moon, Rising, Venus from birth date/time/place.
-    Built-in engine (no extra packages). Tries kerykeion first if installed.
+    Tropical chart: luminaries, classical + modern planets, Lilith, 12 equal houses.
+    Sign-level accuracy for fragrance / vibe use (not a pro natal service).
     """
     sun_fallback = sun_sign_from_date(month, day)
     result = {
@@ -4307,15 +4378,17 @@ def calculate_full_chart(
         "moon": None,
         "rising": None,
         "venus": None,
+        "planets": {},
+        "houses": {},
+        "lilith": None,
         "engine": "built-in",
         "detail": "",
         "place_label": city,
     }
 
-    # Prefer kerykeion when available
+    # Optional kerykeion enrichment for core points if installed
     try:
         from kerykeion import AstrologicalSubject
-
         kwargs = {}
         if lat is not None and lon is not None:
             kwargs["lat"] = float(lat)
@@ -4324,67 +4397,67 @@ def calculate_full_chart(
             kwargs["tz_str"] = tz_str
         subject = AstrologicalSubject(
             "ScentedDeadGirl",
-            int(year),
-            int(month),
-            int(day),
-            int(hour),
-            int(minute),
-            city or "Unknown",
-            nation or "US",
-            **kwargs,
+            int(year), int(month), int(day), int(hour), int(minute),
+            city or "Unknown", nation or "US", **kwargs,
         )
-
         def _sign(obj):
             if obj is None:
                 return None
             if isinstance(obj, dict):
                 return normalize_sign_name(obj.get("sign") or "")
             return normalize_sign_name(getattr(obj, "sign", "") or "")
-
-        result.update(
-            {
-                "sun": _sign(getattr(subject, "sun", None)) or sun_fallback,
-                "moon": _sign(getattr(subject, "moon", None)),
-                "rising": _sign(getattr(subject, "first_house", None))
-                or _sign(getattr(subject, "ascendant", None)),
-                "venus": _sign(getattr(subject, "venus", None)),
-                "engine": "kerykeion",
-                "detail": "Tropical chart (kerykeion).",
-            }
+        result["sun"] = _sign(getattr(subject, "sun", None)) or sun_fallback
+        result["moon"] = _sign(getattr(subject, "moon", None))
+        result["rising"] = _sign(getattr(subject, "first_house", None)) or _sign(
+            getattr(subject, "ascendant", None)
         )
-        return result
+        result["venus"] = _sign(getattr(subject, "venus", None))
+        result["engine"] = "kerykeion+built-in"
     except Exception:
         pass
 
-    # Built-in engine
     try:
         tz = tz_str or "UTC"
         jd = _local_to_jd_utc(year, month, day, hour, minute, tz)
-        sun_lon = _sun_longitude(jd)
-        moon_lon = _moon_longitude(jd)
-        venus_lon = _venus_longitude(jd)
-        sun_s = _longitude_to_sign(sun_lon)
-        moon_s = _longitude_to_sign(moon_lon)
-        venus_s = _longitude_to_sign(venus_lon)
+        bodies = {
+            "Sun": _sun_longitude(jd),
+            "Moon": _moon_longitude(jd),
+            "Mercury": _mercury_longitude(jd),
+            "Venus": _venus_longitude(jd),
+            "Mars": _mars_longitude(jd),
+            "Jupiter": _jupiter_longitude(jd),
+            "Saturn": _saturn_longitude(jd),
+            "Uranus": _uranus_longitude(jd),
+            "Neptune": _neptune_longitude(jd),
+            "Pluto": _pluto_longitude(jd),
+            "Lilith": _lilith_longitude(jd),
+        }
+        planets = {name: _planet_block(lon) for name, lon in bodies.items()}
+        result["planets"] = planets
+        result["lilith"] = planets.get("Lilith")
+        result["sun"] = planets["Sun"]["sign"]
+        result["moon"] = planets["Moon"]["sign"]
+        result["venus"] = planets["Venus"]["sign"]
+
         rising_s = None
+        houses = {}
         if lat is not None and lon is not None:
             asc_lon = _ascendant_longitude(jd, float(lat), float(lon))
             rising_s = _longitude_to_sign(asc_lon)
-        result.update(
-            {
-                "sun": sun_s,
-                "moon": moon_s,
-                "rising": rising_s,
-                "venus": venus_s,
-                "engine": "built-in",
-                "detail": (
-                    "Tropical chart from date, time, and place (built-in). "
-                    "Sign-level accuracy for fragrance matching."
-                ),
-            }
+            houses = _equal_houses_from_asc(asc_lon)
+            planets["Ascendant"] = _planet_block(asc_lon)
+            # Midheaven approx: RAMC-based rough MC = LST projected - use asc+90 for equal
+            mc_lon = _norm360(asc_lon + 90.0)
+            planets["MC"] = _planet_block(mc_lon)
+        result["rising"] = rising_s
+        result["houses"] = houses
+        result["engine"] = "built-in-full"
+        result["detail"] = (
+            "Tropical signs for Sun through Pluto, Mean Lilith, and 12 equal houses "
+            "(House 1 = Rising). Sign-level accuracy for sanctuary use."
         )
         if rising_s is None:
-            result["detail"] += " Rising needs a successful place lookup."
+            result["detail"] += " Rising/houses need a successful place lookup."
         return result
     except Exception as ex:
         result["engine"] = "sun-only"
@@ -5967,10 +6040,52 @@ with tab_horoscope:
             s2.metric("Moon", calc.get("moon") or "-")
             s3.metric("Rising", calc.get("rising") or "-")
             s4.metric("Venus", calc.get("venus") or "-")
+
+            planets = calc.get("planets") or {}
+            if planets:
+                st.markdown("**Planets & points**")
+                order = [
+                    "Sun", "Moon", "Mercury", "Venus", "Mars",
+                    "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto",
+                    "Lilith", "Ascendant", "MC",
+                ]
+                rows = []
+                for name in order:
+                    p = planets.get(name)
+                    if not p:
+                        continue
+                    rows.append(
+                        f"**{name}** {p.get('sign', '?')} "
+                        f"({p.get('deg_in_sign', '?')} deg)"
+                    )
+                # show in two columns of text
+                mid = (len(rows) + 1) // 2
+                c_a, c_b = st.columns(2)
+                with c_a:
+                    for line in rows[:mid]:
+                        st.markdown(line)
+                with c_b:
+                    for line in rows[mid:]:
+                        st.markdown(line)
+
+            houses = calc.get("houses") or {}
+            if houses:
+                st.markdown("**12 houses (equal system)**")
+                st.caption("House 1 cusp = Rising. Each house is 30 degrees.")
+                hcols = st.columns(4)
+                for n in range(1, 13):
+                    h = houses.get(n) or houses.get(str(n)) or {}
+                    with hcols[(n - 1) % 4]:
+                        st.markdown(
+                            f"**H{n}** {h.get('sign', '-')}"
+                        )
+
             if calc.get("detail"):
                 st.caption(calc["detail"])
-            if not calc.get("moon") and not calc.get("rising"):
-                st.caption("If Rising is missing, check city/country so place lookup can finish.")
+            st.caption(
+                "Fragrance picks still use Sun, Moon, Rising, and Venus. "
+                "Full chart is for reference and Save/Apply of those four."
+            )
 
         if apply_btn:
             if st.session_state.get("birth_calc_full"):
