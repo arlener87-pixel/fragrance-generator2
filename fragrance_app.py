@@ -3756,14 +3756,26 @@ def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
         links["Category / accords (Google)"] = (
             f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume accords main notes family')}"
         )
+        links["Price (Google)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume price buy')}"
+        )
+        links["Price shopping (Google)"] = (
+            f"https://www.google.com/search?tbm=shop&q={urllib.parse.quote_plus(q + ' perfume')}"
+        )
         links["Fragrantica search"] = (
             f"https://www.fragrantica.com/search/?query={q_enc}"
         )
         links["Parfumo search"] = (
             f"https://www.parfumo.com/s_j_perfumes.php?in={q_enc}"
         )
-        links["Fragrantica (full page tips)"] = (
+        links["Fragrantica (Google site)"] = (
             f"https://www.google.com/search?q={urllib.parse.quote_plus('site:fragrantica.com ' + q)}"
+        )
+        links["FragranceNet (Google site)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:fragrancenet.com ' + q)}"
+        )
+        links["Jomashop (Google site)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:jomashop.com ' + q + ' perfume')}"
         )
 
     return {"local": uniq[:8], "links": links, "query": q}
@@ -4401,6 +4413,59 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
+    st.markdown("### Price lookup")
+    st.caption("Bottles with a logged price in range.")
+    if st.session_state.pop("_clear_price_sb", False):
+        st.session_state["price_sb_min"] = 0
+        st.session_state["price_sb_max"] = 100
+        st.session_state["price_sb_gender"] = "Any"
+        st.session_state.pop("price_sb_hits", None)
+    if "price_sb_min" not in st.session_state:
+        st.session_state["price_sb_min"] = 0
+    if "price_sb_max" not in st.session_state:
+        st.session_state["price_sb_max"] = 100
+    if "price_sb_gender" not in st.session_state:
+        st.session_state["price_sb_gender"] = "Any"
+
+    st.number_input("Min $", min_value=0, max_value=2000, key="price_sb_min")
+    st.number_input("Max $", min_value=0, max_value=5000, key="price_sb_max")
+    st.selectbox(
+        "Gender",
+        ["Any", "Male", "Female", "Unisex"],
+        key="price_sb_gender",
+    )
+    psb1, psb2 = st.columns(2)
+    with psb1:
+        if st.button("Find prices", type="primary", use_container_width=True, key="price_sb_btn"):
+            lo = float(min(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
+            hi = float(max(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
+            hits = fragrances_in_price_range(lo, hi, st.session_state["price_sb_gender"])
+            st.session_state["price_sb_hits"] = {"hits": hits, "lo": lo, "hi": hi}
+    with psb2:
+        if st.button("Reset", use_container_width=True, key="price_sb_reset"):
+            st.session_state["_clear_price_sb"] = True
+            st.rerun()
+    priced_n = sum(
+        1
+        for f in st.session_state.get("fragrances_db") or []
+        if f.get("price") is not None
+    )
+    st.caption(f"{priced_n} priced bottle(s) in vault")
+    psb = st.session_state.get("price_sb_hits")
+    if psb is not None:
+        hits = psb.get("hits") or []
+        st.write(f"**{len(hits)}** in ${psb.get('lo'):.0f}-${psb.get('hi'):.0f}")
+        if not hits:
+            st.caption("None in range. Add prices in Edit bottle.")
+        else:
+            for f in hits[:12]:
+                st.caption(
+                    f"${float(f.get('price')):.0f} - {f.get('name')} ({f.get('brand')})"
+                )
+            if len(hits) > 12:
+                st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
+
+    st.markdown("---")
     st.markdown("### Recommend filters")
 
     # Reset filters to defaults before widgets if flagged
@@ -4483,7 +4548,7 @@ with st.sidebar:
     with st.expander("Fragrance lookup helper", expanded=False):
         st.caption(
             "Search your vault and open Google / Fragrantica / Parfumo for notes, "
-            "gender, season, and category. Sites are not auto-scraped (they block that); "
+            "gender, season, category, and price. Sites are not auto-scraped; "
             "use the links and copy what you need into the form."
         )
         if st.session_state.pop("_clear_notes_help", False):
@@ -4514,10 +4579,16 @@ with st.sidebar:
                 st.markdown("**Similar in your vault**")
                 for f in help_res["local"]:
                     cats = ", ".join(f.get("category") or [])
+                    price_bit = ""
+                    if f.get("price") is not None:
+                        try:
+                            price_bit = f" | Price: ${float(f.get('price')):.0f}"
+                        except (TypeError, ValueError):
+                            price_bit = ""
                     st.write(
                         f"**{f.get('name')}** ({f.get('brand')})  \n"
                         f"Gender: {f.get('gender', '?')} | Season: {f.get('season', '?')} | "
-                        f"Category: {cats}  \n"
+                        f"Category: {cats}{price_bit}  \n"
                         f"Notes: {(f.get('notes') or '')[:160]}"
                     )
                     b1, b2 = st.columns(2)
@@ -4541,29 +4612,37 @@ with st.sidebar:
                                 "gender": f.get("gender"),
                                 "season": f.get("season"),
                                 "category": list(f.get("category") or []),
+                                "price": f.get("price"),
                                 "from": f.get("name"),
                             }
                             st.success(
-                                "Notes prefilled. Gender / season / category shown below "
+                                "Notes prefilled. Gender / season / category / price shown below "
                                 "to copy into the Add form."
                             )
                             st.rerun()
 
             hint = st.session_state.get("lookup_profile_hint")
             if hint:
+                price_line = ""
+                if hint.get("price") is not None:
+                    try:
+                        price_line = f"  \n**Price:** ${float(hint.get('price')):.0f}"
+                    except (TypeError, ValueError):
+                        price_line = ""
                 st.info(
                     f"Suggested from **{hint.get('from')}**:  \n"
                     f"**Gender:** {hint.get('gender')}  \n"
                     f"**Season:** {hint.get('season')}  \n"
                     f"**Categories:** {', '.join(hint.get('category') or [])}"
+                    f"{price_line}"
                 )
 
             links = help_res.get("links") or {}
             if links:
                 st.markdown("**Search online**")
                 st.caption(
-                    "On Fragrantica look for: main accords (category), "
-                    "for women/men/unisex (gender), and 'wear in' / season tags."
+                    "Google / Fragrantica / Parfumo for notes, gender, season, category, and price. "
+                    "Copy what you find into the Add form. Sites are not auto-filled."
                 )
                 for label, url in links.items():
                     st.markdown(f"- [{label}]({url})")
@@ -6063,7 +6142,7 @@ with tab_play:
 with tab_collection:
     st.subheader("Collection browser")
 
-    with st.expander("Price range lookup", expanded=False):
+    with st.expander("Price range lookup", expanded=True):
         st.caption(
             "Find bottles you logged a price for. Leave wide range to see all priced bottles."
         )
