@@ -2148,10 +2148,17 @@ def score_for_temperature(f: dict, temp_f: float) -> int:
 
 
 
-def matches_category(fragrance: dict, category: str) -> bool:
-    if category == "Any":
+def matches_category(fragrance: dict, category) -> bool:
+    """category: 'Any', a single str, or a list of category names."""
+    if not category or category == "Any":
         return True
-    return category in fragrance["category"]
+    cats = fragrance.get("category") or []
+    if isinstance(category, (list, tuple, set)):
+        wanted = [c for c in category if c and c != "Any"]
+        if not wanted:
+            return True
+        return any(c in cats for c in wanted)
+    return category in cats
 
 
 def matches_occasion(fragrance: dict, occasion: str) -> bool:
@@ -2241,8 +2248,18 @@ def score_fragrance(
         elif any(x in season for x in ["fall", "autumn", "cooler"]):
             score += 12
 
-    if category == "Any":
+    if not category or category == "Any":
         score += 5
+    elif isinstance(category, (list, tuple, set)):
+        wanted = [c for c in category if c and c != "Any"]
+        if not wanted:
+            score += 5
+        else:
+            hits = sum(1 for c in wanted if c in cats)
+            if hits:
+                score += 12 + min(hits, 3) * 4
+                if cats and cats[0] in wanted:
+                    score += 5
     elif category in cats:
         score += 15
         if cats and cats[0] == category:
@@ -4779,50 +4796,75 @@ with st.sidebar:
                 st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
 
     st.markdown("---")
-    st.markdown("### Recommend filters")
+    st.markdown(
+        '<div class="sdg-section"><p class="sdg-section-title">Recommend</p></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Stack filters, pick one or more families, then generate or refresh.")
 
     # Reset filters to defaults before widgets if flagged
     if st.session_state.pop("_clear_filters", False):
         st.session_state["filter_gender"] = "Any"
         st.session_state["filter_weather"] = "Any"
-        st.session_state["filter_category"] = "Any"
+        st.session_state["filter_categories"] = []
         st.session_state["filter_occasion"] = "Any"
         st.session_state["filter_num_recs"] = 3
         st.session_state["filter_favorites_only"] = False
         st.session_state.pop("last_recs", None)
+        # legacy single-category key
+        st.session_state.pop("filter_category", None)
 
-    gender = st.selectbox(
-        "Gender",
-        ["Any", "Male", "Female", "Unisex"],
-        key="filter_gender",
-    )
+    # Migrate old single category session value once
+    if "filter_categories" not in st.session_state:
+        old_c = st.session_state.get("filter_category", "Any")
+        if old_c and old_c != "Any":
+            st.session_state["filter_categories"] = [old_c]
+        else:
+            st.session_state["filter_categories"] = []
 
-    weather = st.selectbox(
-        "Season / weather",
-        ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-        key="filter_weather",
-        help="Season band used as a hard filter for recommendations.",
+    CAT_OPTIONS = [
+        "Gourmand",
+        "Floral",
+        "Woody",
+        "Oriental",
+        "Fresh",
+        "Fruity",
+        "Spicy",
+        "Citrus",
+        "Aromatic",
+        "Sweet",
+        "Oud",
+        "Leather",
+        "Boozy",
+        "Smoky",
+        "Powdery",
+    ]
+
+    r1, r2 = st.columns(2)
+    with r1:
+        gender = st.selectbox(
+            "Gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="filter_gender",
+        )
+    with r2:
+        weather = st.selectbox(
+            "Season",
+            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+            key="filter_weather",
+            help="Hard filter for recommendations.",
+        )
+
+    categories = st.multiselect(
+        "Categories (pick several)",
+        CAT_OPTIONS,
+        key="filter_categories",
+        placeholder="Any family if empty",
+        help="Leave empty for any category. Match if the bottle has at least one selected family.",
     )
-    category = st.selectbox(
-        "Category",
-        [
-            "Any",
-            "Gourmand",
-            "Floral",
-            "Woody",
-            "Oriental",
-            "Fresh",
-            "Fruity",
-            "Spicy",
-            "Citrus",
-            "Aromatic",
-            "Sweet",
-            "Oud",
-            "Leather",
-            "Boozy",
-        ],
-        key="filter_category",
-    )
+    # Empty multiselect = Any
+    category = categories if categories else "Any"
+
     occasion = st.selectbox(
         "Occasion",
         [
@@ -4835,28 +4877,34 @@ with st.sidebar:
         ],
         key="filter_occasion",
     )
-    num_recs = st.radio(
-        "How many",
-        [1, 3, 5],
-        index=1,
-        horizontal=True,
-        key="filter_num_recs",
-    )
-    favorites_only = st.checkbox(
-        "Favorites only",
-        value=False,
-        key="filter_favorites_only",
-    )
+
+    r3, r4 = st.columns(2)
+    with r3:
+        num_recs = st.radio(
+            "How many",
+            [1, 3, 5],
+            index=1,
+            horizontal=True,
+            key="filter_num_recs",
+        )
+    with r4:
+        st.write("")
+        favorites_only = st.checkbox(
+            "YAY only",
+            value=False,
+            key="filter_favorites_only",
+        )
+
     generate_clicked = st.button(
-        "Generate recommendations", type="primary", use_container_width=True
+        "Generate", type="primary", use_container_width=True, key="gen_recs_btn"
     )
     regenerate_clicked = st.button(
-        "Regenerate / refresh",
+        "Refresh picks",
         use_container_width=True,
         key="regen_recs_btn",
-        help="Same filters, different bottles from the matching pool.",
+        help="Same filters, different bottles.",
     )
-    if st.button("Clear filters", use_container_width=True, key="clear_filters_btn"):
+    if st.button("Clear", use_container_width=True, key="clear_filters_btn"):
         st.session_state["_clear_filters"] = True
         st.rerun()
 
@@ -5277,10 +5325,15 @@ with tab_discover:
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
         if meta:
+            cat_meta = meta.get("category")
+            if isinstance(cat_meta, (list, tuple)):
+                cat_txt = ", ".join(cat_meta) if cat_meta else "Any"
+            else:
+                cat_txt = cat_meta or "Any"
             st.caption(
                 f"{meta.get('gender')} | {meta.get('weather')} | "
-                f"{meta.get('category')} | {meta.get('occasion')}"
-                + (" | favorites only" if meta.get("favorites_only") else "")
+                f"{cat_txt} | {meta.get('occasion')}"
+                + (" | YAY only" if meta.get("favorites_only") else "")
                 + (" | refreshed" if meta.get("shuffled") else "")
             )
         if not selected:
