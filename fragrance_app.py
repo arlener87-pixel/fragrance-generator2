@@ -2297,14 +2297,19 @@ def get_top_fragrances(
     top_n: int,
     favorites_only: bool = False,
     temp_f=None,
+    shuffle: bool = False,
+    exclude_names: list = None,
 ) -> list:
     # If a real temperature is provided, derive the weather band when set to Any
     effective_weather = weather
     if temp_f is not None and (not weather or weather == "Any"):
         effective_weather = temp_f_to_band(float(temp_f))
 
+    exclude = set(exclude_names or [])
     scored = []
     for f in st.session_state["fragrances_db"]:
+        if f.get("name") in exclude:
+            continue
         if st.session_state["user_reactions"].get(f["name"]) == "dislike":
             continue
         if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
@@ -2320,6 +2325,23 @@ def get_top_fragrances(
             )
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
+
+    if not scored:
+        return []
+
+    if shuffle:
+        # Draw from a wider top pool so refresh feels different but still on-brief
+        pool_size = min(len(scored), max(top_n * 4, top_n + 8))
+        pool = scored[:pool_size]
+        # Weighted-ish: shuffle within pool, keep a bit of score bias via stable salt
+        random.shuffle(pool)
+        # re-sort lightly with random jitter so order changes
+        jittered = [
+            (s + random.random() * 6.0, f) for s, f in pool
+        ]
+        jittered.sort(key=lambda x: x[0], reverse=True)
+        return [f for _, f in jittered[:top_n]]
+
     return [f for score, f in scored[:top_n]]
 
 
@@ -4828,6 +4850,12 @@ with st.sidebar:
     generate_clicked = st.button(
         "Generate recommendations", type="primary", use_container_width=True
     )
+    regenerate_clicked = st.button(
+        "Regenerate / refresh",
+        use_container_width=True,
+        key="regen_recs_btn",
+        help="Same filters, different bottles from the matching pool.",
+    )
     if st.button("Clear filters", use_container_width=True, key="clear_filters_btn"):
         st.session_state["_clear_filters"] = True
         st.rerun()
@@ -5201,7 +5229,11 @@ with tab_discover:
                 render_fragrance_card(f, key_prefix=f"note_{note_query}")
 
     # Recommendations (persist so Love/Trash does not wipe the list)
-    if generate_clicked:
+    if generate_clicked or regenerate_clicked:
+        prev = st.session_state.get("last_recs") or {}
+        prev_names = []
+        if regenerate_clicked and prev.get("selected"):
+            prev_names = [f.get("name") for f in prev["selected"] if f.get("name")]
         selected = get_top_fragrances(
             gender,
             weather,
@@ -5210,7 +5242,21 @@ with tab_discover:
             num_recs,
             favorites_only=favorites_only,
             temp_f=None,
+            shuffle=bool(regenerate_clicked),
+            exclude_names=prev_names if regenerate_clicked else None,
         )
+        # If exclude emptied the pool, shuffle without exclude
+        if regenerate_clicked and not selected:
+            selected = get_top_fragrances(
+                gender,
+                weather,
+                category,
+                occasion,
+                num_recs,
+                favorites_only=favorites_only,
+                temp_f=None,
+                shuffle=True,
+            )
         st.session_state["last_recs"] = {
             "selected": selected,
             "num": num_recs,
@@ -5220,6 +5266,7 @@ with tab_discover:
                 "category": category,
                 "occasion": occasion,
                 "favorites_only": favorites_only,
+                "shuffled": bool(regenerate_clicked),
             },
         }
 
@@ -5234,6 +5281,7 @@ with tab_discover:
                 f"{meta.get('gender')} | {meta.get('weather')} | "
                 f"{meta.get('category')} | {meta.get('occasion')}"
                 + (" | favorites only" if meta.get("favorites_only") else "")
+                + (" | refreshed" if meta.get("shuffled") else "")
             )
         if not selected:
             st.warning(
