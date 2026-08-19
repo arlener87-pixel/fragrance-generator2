@@ -3358,8 +3358,25 @@ def suggest_his_match(her_frags: list, num: int = 4) -> list:
     return [(f, reason) for _, f, reason in candidates[:num]]
 
 
+def send_to_sotd(names, notes: str = "") -> None:
+    """Prefill SOTD form with bottle name(s) and optional notes."""
+    if isinstance(names, str):
+        names = [names]
+    names = [n for n in names if n]
+    if not names:
+        return
+    st.session_state["sotd_prefill"] = list(names)
+    if notes:
+        st.session_state["sotd_notes_input"] = notes
+    elif len(names) > 1:
+        st.session_state["sotd_notes_input"] = "Layer: " + " + ".join(names)
+    st.session_state["_sotd_ready_flash"] = (
+        f"Ready on SOTD: **{' + '.join(names)}** - open the SOTD tab and tap Log."
+    )
+
+
 def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
-    """Consistent card display for a fragrance with optional Love/Trash buttons."""
+    """Consistent card display with YAY / DEL / Wear actions."""
     current_reaction = st.session_state["user_reactions"].get(f["name"])
     status_badge = (
         " YAY"
@@ -3382,7 +3399,7 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
         st.caption(" | ".join(bits))
 
     if show_actions:
-        col1, col2, col3 = st.columns([1, 1, 4])
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
         with col1:
             if st.button("YAY", key=f"{key_prefix}_fav_{f['name']}"):
                 st.session_state["user_reactions"][f["name"]] = "fav"
@@ -3392,6 +3409,10 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
             if st.button("DEL", key=f"{key_prefix}_dislike_{f['name']}"):
                 st.session_state["user_reactions"][f["name"]] = "dislike"
                 save_persisted_data()
+                st.rerun()
+        with col3:
+            if st.button("Wear", key=f"{key_prefix}_wear_{f['name']}"):
+                send_to_sotd([f["name"]])
                 st.rerun()
     st.markdown("---")
 
@@ -5203,6 +5224,9 @@ with tab_discover:
     st.markdown(
         "Filter from the sidebar, search by name or note, then generate picks and layering ideas."
     )
+    _ready = st.session_state.pop("_sotd_ready_flash", None)
+    if _ready:
+        st.success(_ready)
 
     # Results from dedicated Temp search (sidebar)
     last_temp = st.session_state.get("last_temp_search")
@@ -5235,7 +5259,7 @@ with tab_discover:
                         st.rerun()
                 with b3:
                     if st.button("Wear", key=f"temp_wear_{f['name']}_{i}"):
-                        st.session_state["sotd_prefill"] = [f["name"]]
+                        send_to_sotd([f["name"]])
                         st.rerun()
                 st.markdown("---")
         if st.button("Clear temp results", key="clear_temp_results"):
@@ -5342,6 +5366,15 @@ with tab_discover:
                 "not favorited). Try **Any** on some filters or turn off Favorites only."
             )
         else:
+            names_all = [f.get("name") for f in selected if f.get("name")]
+            if len(names_all) >= 2:
+                if st.button(
+                    "Wear all as layer on SOTD",
+                    key="rec_wear_all_layer",
+                    type="primary",
+                ):
+                    send_to_sotd(names_all)
+                    st.rerun()
             for i, f in enumerate(selected, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
                 badge = " YAY" if current_reaction == "fav" else ""
@@ -5349,7 +5382,7 @@ with tab_discover:
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
-                c1, c2, _ = st.columns([1, 1, 4])
+                c1, c2, c3, c4 = st.columns([1, 1, 2, 2])
                 with c1:
                     if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
@@ -5359,6 +5392,17 @@ with tab_discover:
                     if st.button("DEL", key=f"rec_dislike_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "dislike"
                         save_persisted_data()
+                        st.rerun()
+                with c3:
+                    if st.button("Wear today", key=f"rec_wear_{f['name']}_{i}"):
+                        send_to_sotd([f["name"]])
+                        st.rerun()
+                with c4:
+                    if st.button("Add to SOTD layer", key=f"rec_layer_{f['name']}_{i}"):
+                        existing = list(st.session_state.get("sotd_multiselect") or [])
+                        if f["name"] not in existing:
+                            existing.append(f["name"])
+                        send_to_sotd(existing if existing else [f["name"]])
                         st.rerun()
                 st.markdown("---")
 
@@ -5749,6 +5793,9 @@ with tab_roulette:
 # ===== SOTD =====
 with tab_sotd:
     st.subheader("Scent of the Day")
+    _ready2 = st.session_state.pop("_sotd_ready_flash", None)
+    if _ready2:
+        st.success(_ready2)
     streak = sotd_streak()
     if streak:
         st.caption(f"Current log streak: **{streak}** day(s)")
