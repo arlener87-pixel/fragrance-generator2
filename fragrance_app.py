@@ -2924,6 +2924,85 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 
 
 
+
+HORROR_SCENT_PROFILES = {
+    "Gothic fog": {
+        "categories": ["Oriental", "Woody", "Powdery", "Smoky"],
+        "notes_keywords": [
+            "incense", "smoke", "oud", "amber", "rose", "violet", "iris",
+            "leather", "patchouli", "myrrh", "vetiver",
+        ],
+        "blurb": "Candlelit halls, fog machines, velvet and old churches.",
+        "vibe_note": "Gothic fog - horror night",
+    },
+    "Cabin in the woods": {
+        "categories": ["Woody", "Aromatic", "Smoky", "Fresh"],
+        "notes_keywords": [
+            "pine", "cedar", "wood", "smoke", "moss", "earth", "vetiver",
+            "fir", "cypress", "leather",
+        ],
+        "blurb": "Trees, damp earth, campfire - something is outside the cabin.",
+        "vibe_note": "Cabin in the woods - horror night",
+    },
+    "Slasher neon": {
+        "categories": ["Sweet", "Fruity", "Gourmand", "Spicy"],
+        "notes_keywords": [
+            "cherry", "berry", "pepper", "cinnamon", "caramel",
+            "plum", "rose", "metallic",
+        ],
+        "blurb": "Bright candy blood, 80s neon, popcorn and adrenaline.",
+        "vibe_note": "Slasher neon - horror night",
+    },
+    "Haunted gourmand": {
+        "categories": ["Gourmand", "Sweet", "Spicy", "Oriental"],
+        "notes_keywords": [
+            "vanilla", "cocoa", "coffee", "caramel", "smoke", "tobacco",
+            "rum", "almond", "marshmallow",
+        ],
+        "blurb": "Warm kitchen that should not be empty - sugar and shadow.",
+        "vibe_note": "Haunted gourmand - horror night",
+    },
+    "Vampire lounge": {
+        "categories": ["Oriental", "Floral", "Woody", "Leather"],
+        "notes_keywords": [
+            "rose", "oud", "incense", "musk", "amber",
+            "jasmine", "tobacco", "dark",
+        ],
+        "blurb": "Dark florals, incense, late-night velvet booths.",
+        "vibe_note": "Vampire lounge - horror night",
+    },
+}
+
+
+def score_for_horror(f: dict, mode: str) -> int:
+    profile = HORROR_SCENT_PROFILES.get(mode) or {}
+    score = 0
+    cats = set(f.get("category") or [])
+    notes = (f.get("notes") or "").lower()
+    for c in profile.get("categories") or []:
+        if c in cats:
+            score += 18
+    for kw in profile.get("notes_keywords") or []:
+        if kw.lower() in notes:
+            score += 8
+    if st.session_state["user_reactions"].get(f.get("name")) == "fav":
+        score += 10
+    if st.session_state["user_reactions"].get(f.get("name")) == "dislike":
+        score -= 50
+    score += _stable_tiebreak((f.get("name") or "") + mode) % 5
+    return score
+
+
+def get_horror_picks(mode: str, top_n: int = 3) -> list:
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        s = score_for_horror(f, mode)
+        if s > 0:
+            scored.append((s, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [f for _, f in scored[:top_n]]
+
+
 MOOD_PROFILES = {
     "Cozy": {
         "categories": ["Gourmand", "Sweet", "Woody"],
