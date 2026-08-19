@@ -5579,8 +5579,6 @@ with tab_sotd:
         st.session_state["sotd_multiselect"] = []
         st.session_state["sotd_notes_input"] = ""
         st.session_state["sotd_date"] = pacific_today()
-        st.session_state["sotd_sillage"] = 0
-        st.session_state["sotd_longevity"] = 0
         st.session_state["sotd_his_select"] = "- none -"
 
     # Prefill from quick layering combo (also before widgets)
@@ -5611,30 +5609,46 @@ with tab_sotd:
         placeholder="Rainy afternoon | office | date night",
         key="sotd_notes_input",
     )
-    perf_c1, perf_c2, perf_c3 = st.columns(3)
-    with perf_c1:
-        sotd_sillage = st.select_slider(
-            "Sillage (projection)",
-            options=[0, 1, 2, 3, 4, 5],
-            value=0,
-            key="sotd_sillage",
-            help="0 = skip  -  1 soft  -  5 room-filling",
+    all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
+    sotd_his = st.selectbox(
+        "His scent (optional)",
+        ["- none -"] + all_names_his,
+        key="sotd_his_select",
+    )
+
+    with st.expander("Horror night vibes", expanded=False):
+        st.caption(
+            "Scary-movie nights - gothic fog, cabin woods, slashers, haunted gourmand, vampires."
         )
-    with perf_c2:
-        sotd_longevity = st.select_slider(
-            "Longevity (hours feel)",
-            options=[0, 1, 2, 3, 4, 5],
-            value=0,
-            key="sotd_longevity",
-            help="0 = skip  -  1 brief  -  5 all-day",
+        horror_mode = st.selectbox(
+            "Horror mood",
+            list(HORROR_SCENT_PROFILES.keys()),
+            key="sotd_horror_mode",
         )
-    with perf_c3:
-        all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
-        sotd_his = st.selectbox(
-            "His scent (optional)",
-            ["- none -"] + all_names_his,
-            key="sotd_his_select",
-        )
+        hp = HORROR_SCENT_PROFILES[horror_mode]
+        st.write(hp.get("blurb", ""))
+        if st.button("Draw horror night scents", type="primary", key="sotd_horror_draw"):
+            picks = get_horror_picks(horror_mode, top_n=3)
+            st.session_state["last_horror_picks"] = {
+                "mode": horror_mode,
+                "picks": picks,
+                "vibe": hp.get("vibe_note", horror_mode),
+            }
+        last_h = st.session_state.get("last_horror_picks")
+        if last_h:
+            st.caption(f"Mode: {last_h.get('mode')}")
+            for i, f in enumerate(last_h.get("picks") or [], 1):
+                st.markdown(
+                    f"**{i}. {f.get('name')}** ({f.get('brand')}) - "
+                    f"{', '.join(f.get('category') or [])}"
+                )
+                if st.button("Use tonight", key=f"horror_use_{i}"):
+                    st.session_state["sotd_prefill"] = [f["name"]]
+                    st.session_state["sotd_notes_input"] = last_h.get(
+                        "vibe", "Horror night"
+                    )
+                    st.rerun()
+
 
 
     # Layering partners based on current selection
@@ -5690,31 +5704,48 @@ with tab_sotd:
                         f"Notes: {hf['notes']}"
                     )
 
-    with st.expander("Quick layering combos"):
+    with st.expander("Quick layering combos", expanded=False):
+        st.caption(
+            "Clear base + layer pairs (prefers YAY). Use fills Wearing today with two separate bottles."
+        )
         fav_names = [
             n for n, s in st.session_state["user_reactions"].items() if s == "fav"
         ]
-        pool = (
-            [f for f in st.session_state["fragrances_db"] if f["name"] in fav_names]
-            if fav_names
-            else st.session_state["fragrances_db"]
-        )
+        pool = [
+            f
+            for f in st.session_state["fragrances_db"]
+            if f["name"] in fav_names
+            and st.session_state["user_reactions"].get(f["name"]) != "dislike"
+        ]
         if len(pool) < 2:
-            pool = st.session_state["fragrances_db"]
+            pool = [
+                f
+                for f in st.session_state["fragrances_db"]
+                if st.session_state["user_reactions"].get(f["name"]) != "dislike"
+            ]
         quick_combos = suggest_layering_combos(pool, num_combos=4)
         if not quick_combos:
             st.write("Need at least two bottles to suggest layers.")
         else:
             for i, (f1, f2, reason) in enumerate(quick_combos, 1):
-                ca, cb = st.columns([4, 1])
-                with ca:
-                    st.markdown(
-                        f"**{i}.** `{f1['name']}` + `{f2['name']}`  \n*{reason}*"
+                if f1.get("name") == f2.get("name"):
+                    continue
+                st.markdown(
+                    f"**Pair {i}**  \n"
+                    f"Base: **{f1['name']}** ({f1.get('brand', '')})  \n"
+                    f"Layer: **{f2['name']}** ({f2.get('brand', '')})  \n"
+                    f"*{reason}*"
+                )
+                if st.button(
+                    "Use this pair",
+                    key=f"use_combo_{i}_{f1['name']}_{f2['name']}",
+                ):
+                    st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
+                    st.session_state["sotd_notes_input"] = (
+                        f"Layer: {f1['name']} + {f2['name']}"
                     )
-                with cb:
-                    if st.button("Use", key=f"use_combo_{i}"):
-                        st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
-                        st.rerun()
+                    st.rerun()
+                st.markdown("---")
 
     sotd_photo = st.file_uploader(
         "Optional photo (bottle / flat lay)",
@@ -5735,10 +5766,6 @@ with tab_sotd:
                 "is_layering": is_layering,
                 "notes": sotd_notes,
             }
-            if sotd_sillage and sotd_sillage > 0:
-                entry["sillage"] = int(sotd_sillage)
-            if sotd_longevity and sotd_longevity > 0:
-                entry["longevity"] = int(sotd_longevity)
             if sotd_his and sotd_his != "- none -":
                 entry["his_scent"] = sotd_his
             if sotd_photo is not None:
