@@ -3781,6 +3781,38 @@ def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
     return {"local": uniq[:8], "links": links, "query": q}
 
 
+def wishlist_item_to_vault(item: dict) -> dict:
+    """Add a wishlist entry into fragrances_db if not a duplicate."""
+    name = (item.get("name") or "").strip()
+    brand = (item.get("brand") or "").strip() or "Unknown"
+    if not name:
+        return {"ok": False, "message": "Missing name", "frag": None}
+    dups = find_duplicate_fragrances(name, brand)
+    if dups.get("exact") or dups.get("same_name"):
+        existing = (dups.get("exact") or dups.get("same_name") or [None])[0]
+        label = f"{existing.get('name')} ({existing.get('brand')})" if existing else name
+        return {"ok": False, "message": f"Already in vault: {label}", "frag": existing}
+    notes = (item.get("notes") or "").strip() or "From wishlist"
+    frag = {
+        "name": name,
+        "brand": brand,
+        "gender": "Unisex",
+        "season": "Versatile",
+        "notes": notes,
+        "category": ["Gourmand"],
+        "dupe_of": "",
+        "shelf_status": "Own",
+        "size_ml": None,
+        "price": None,
+    }
+    st.session_state["fragrances_db"].append(frag)
+    try:
+        log_vault_action("added", name, f"from wishlist / {brand}")
+    except Exception:
+        pass
+    return {"ok": True, "message": f"Added {name} to vault", "frag": frag}
+
+
 def build_wishlist_pdf(items: list) -> bytes:
     """PDF checklist of wishlist entries (no external PDF library required)."""
     lines = [f"Exported {pacific_today().isoformat()} (Pacific)", ""]
@@ -6253,7 +6285,7 @@ with tab_collection:
 
     # ----- Wishlist -----
     with st.expander("Wishlist", expanded=False):
-        st.caption("Track bottles you want - check off when acquired, download a PDF list.")
+        st.caption("Track bottles you want. Check off, then To vault (or move all checked) to add them to your collection.")
         # Clear form fields before widgets if flagged
         if st.session_state.pop("_clear_wishlist_form", False):
             st.session_state["wl_name"] = ""
@@ -6296,8 +6328,47 @@ with tab_collection:
                 )
             except Exception as ex:
                 st.caption(f"PDF unavailable: {ex}")
+        # Move all checked items into the vault
+        checked_items = [
+            (i, it)
+            for i, it in enumerate(st.session_state.get("wishlist") or [])
+            if it.get("checked")
+        ]
+        if checked_items:
+            st.caption(
+                f"{len(checked_items)} checked - move into your real collection when you own them."
+            )
+            if st.button(
+                f"Add {len(checked_items)} checked to vault",
+                type="primary",
+                key="wl_move_checked",
+            ):
+                added = 0
+                skipped = []
+                to_remove = []
+                for i, it in checked_items:
+                    result = wishlist_item_to_vault(it)
+                    if result.get("ok"):
+                        added += 1
+                        to_remove.append(i)
+                    else:
+                        skipped.append(result.get("message") or "Skipped")
+                for i in sorted(to_remove, reverse=True):
+                    if 0 <= i < len(st.session_state["wishlist"]):
+                        st.session_state["wishlist"].pop(i)
+                save_persisted_data()
+                msg = f"Moved {added} to vault."
+                if skipped:
+                    msg += " " + " | ".join(skipped[:3])
+                st.session_state["_wl_move_flash"] = msg
+                st.rerun()
+
+        _wl_flash = st.session_state.pop("_wl_move_flash", None)
+        if _wl_flash:
+            st.success(_wl_flash)
+
         for wi, item in enumerate(list(st.session_state.get("wishlist") or [])):
-            c1, c2, c3 = st.columns([1, 5, 1])
+            c1, c2, c3, c4 = st.columns([1, 4, 2, 1])
             with c1:
                 checked = st.checkbox(
                     "got",
@@ -6317,12 +6388,27 @@ with tab_collection:
                     line = line + "  \n*" + str(item.get("notes")) + "*"
                 st.markdown(line)
             with c3:
+                if item.get("checked"):
+                    if st.button("To vault", key=f"wl_to_vault_{wi}"):
+                        result = wishlist_item_to_vault(item)
+                        if result.get("ok"):
+                            st.session_state["wishlist"].pop(wi)
+                            save_persisted_data()
+                            st.session_state["_wl_move_flash"] = result["message"]
+                            st.rerun()
+                        else:
+                            st.session_state["_wl_move_flash"] = result.get(
+                                "message", "Could not add"
+                            )
+                            st.rerun()
+            with c4:
                 if st.button("DEL", key=f"wl_del_{wi}"):
                     st.session_state["wishlist"].pop(wi)
                     save_persisted_data()
                     st.rerun()
         if not st.session_state.get("wishlist"):
             st.caption("Wishlist is empty.")
+
 
     # Favorite notes cloud
     fav_notes = get_favorite_notes(10)
