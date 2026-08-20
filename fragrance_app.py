@@ -3448,12 +3448,38 @@ def days_since_worn(name: str):
         return None
 
 
+def note_char_count(f: dict) -> int:
+    return len((f.get("notes") or "").strip())
+
+
 def is_incomplete_notes(f: dict) -> bool:
     notes = (f.get("notes") or "").strip().lower()
     if len(notes) < 25:
         return True
     vague = ("limited public data", "not specified", "likely ", "typically ", "or oriental", "or floral")
     return any(v in notes for v in vague)
+
+
+def short_notes_bottles(max_chars: int = 40) -> list:
+    """Bottles whose notes are short or vague, sorted shortest first."""
+    rows = []
+    for f in st.session_state.get("fragrances_db") or []:
+        n = (f.get("notes") or "").strip()
+        low = n.lower()
+        vague = any(
+            v in low
+            for v in (
+                "not specified",
+                "limited public data",
+                "likely ",
+                "typically ",
+            )
+        )
+        chars = len(n)
+        if chars < max_chars or vague or is_incomplete_notes(f):
+            rows.append({"frag": f, "chars": chars, "preview": n[:80] or "(empty)"})
+    rows.sort(key=lambda r: (r["chars"], (r["frag"].get("name") or "").lower()))
+    return rows
 
 
 def profile_gaps(f: dict) -> list:
@@ -7191,6 +7217,80 @@ with tab_collection:
         db.sort(key=lambda x: wear_counts.get(x["name"], 0), reverse=True)
     else:
         db.sort(key=lambda x: (",".join(x.get("category", [])), x["name"].lower()))
+
+    # Short notes - easiest way to spot thin profiles
+    short_rows = short_notes_bottles(40)
+    with st.expander(
+        f"Short notes ({len(short_rows)} bottles)",
+        expanded=bool(short_rows),
+    ):
+        st.caption(
+            "Sorted shortest first. Under ~40 characters (or vague text) is flagged. "
+            "Pick one and expand notes with Top / Heart / Base."
+        )
+        if not short_rows:
+            st.success("No short notes - everything looks detailed enough.")
+        else:
+            # Quick length legend
+            st.write(
+                f"**{sum(1 for r in short_rows if r['chars'] < 15)}** very short "
+                f"(under 15 chars)  |  "
+                f"**{sum(1 for r in short_rows if 15 <= r['chars'] < 40)}** short "
+                f"(15-39)  |  "
+                f"**{sum(1 for r in short_rows if r['chars'] >= 40)}** vague but longer"
+            )
+            for r in short_rows[:50]:
+                f = r["frag"]
+                st.markdown(
+                    f"**{r['chars']} chars** - **{f.get('name')}** "
+                    f"(*{f.get('brand', '?')}*)  \n"
+                    f"`{r['preview']}`"
+                )
+            if len(short_rows) > 50:
+                st.caption(f"...and {len(short_rows) - 50} more")
+
+            pick_short = st.selectbox(
+                "Expand notes for",
+                [f"{r['frag'].get('name')} ({r['chars']} chars)" for r in short_rows],
+                key="short_notes_pick",
+            )
+            short_name = pick_short.rsplit(" (", 1)[0] if pick_short else ""
+            frag_s = next(
+                (
+                    f
+                    for f in st.session_state["fragrances_db"]
+                    if f.get("name") == short_name
+                ),
+                None,
+            )
+            if frag_s:
+                st.caption(
+                    f"Current ({note_char_count(frag_s)} chars): "
+                    f"{(frag_s.get('notes') or '')[:160]}"
+                )
+                new_n = st.text_area(
+                    "Fuller notes (Top / Heart / Base)",
+                    value=frag_s.get("notes") or "",
+                    key=f"short_notes_area_{short_name}",
+                    height=110,
+                )
+                if st.button("Save longer notes", type="primary", key="short_notes_save"):
+                    for i, f in enumerate(st.session_state["fragrances_db"]):
+                        if f.get("name") == short_name:
+                            st.session_state["fragrances_db"][i]["notes"] = (
+                                new_n.strip() or "Not specified"
+                            )
+                            break
+                    try:
+                        log_vault_action("edited", short_name, "short-notes")
+                    except Exception:
+                        pass
+                    save_persisted_data()
+                    st.success(
+                        f"Saved **{short_name}** "
+                        f"({len((new_n or '').strip())} chars)"
+                    )
+                    st.rerun()
 
     # Needs fix: notes, gender, season, category
     needs_all = fragrances_needing_fix("any")
