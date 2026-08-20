@@ -3621,17 +3621,108 @@ CHALLENGE_DECK = [
     "Wear your least-worn YAY bottle.",
     "No vanilla-forward scents until tomorrow.",
     "Choose something with oud, leather, or incense.",
-    "All-floral day  -  no woody bases if you can help it.",
+    "All-floral day - no woody bases if you can help it.",
     "Blind-bottle yourself: pick without looking at the name.",
     "Wear the opposite family of yesterday's SOTD.",
     "Date-night intensity on an ordinary day.",
+    "Horror night: wear something smoky, incense, or dark woody.",
+    "High Desert heat check: lightest, airiest bottle you own.",
+    "Coffee + desk day: soft office-safe scent only.",
+    "Layer two bottles you have never combined.",
+    "No sweet notes today - dry, green, or citrus only.",
+    "Reach for a decant or travel size if you have one.",
+    "Wear a fragrance purely for the top notes - reapply later.",
+    "Match your scent to the weather outside right now.",
+    "Pick a brand you rarely reach for.",
+    "One spray only - see if it still reads on skin.",
+    "Movie-night vibe: gothic fog or slasher neon energy.",
+    "Skip your usual top 3 - force a deep-shelf bottle.",
+    "Fruity opening, clean dry-down - no heavy ambers.",
+    "Powdery or iris-forward only today.",
+    "Leather or cedar must show up in the mix.",
+    "Write three words about the scent at hour two.",
 ]
 
 
+def _challenge_personal_pool() -> list:
+    """Extra challenges built from this vault and recent SOTD."""
+    extras = []
+    db = st.session_state.get("fragrances_db") or []
+    hist = st.session_state.get("sotd_history") or []
+    reactions = st.session_state.get("user_reactions") or {}
+    try:
+        wears = get_wear_counts()
+    except Exception:
+        wears = {}
+
+    if db:
+        ranked = sorted(
+            db,
+            key=lambda f: (wears.get(f.get("name"), 0), f.get("name") or ""),
+        )
+        least = ranked[0]
+        extras.append(
+            f"Reach for **{least.get('name')}** ({least.get('brand')}) - it needs airtime."
+        )
+        if len(ranked) > 3:
+            mid = ranked[len(ranked) // 2]
+            extras.append(f"Mid-shelf pull: wear **{mid.get('name')}** today.")
+
+    yay = [n for n, s in reactions.items() if s == "fav"]
+    if yay:
+        idx = int(hashlib.md5(pacific_today().isoformat().encode()).hexdigest()[:6], 16) % len(yay)
+        extras.append(f"YAY spotlight: wear **{yay[idx]}** (or layer it).")
+
+    if hist:
+        last = hist[0]
+        scents = last.get("scents") or []
+        if not scents and last.get("scent"):
+            scents = [p.strip() for p in str(last["scent"]).split(" + ")]
+        name_map = {f["name"]: f for f in db}
+        cats = set()
+        for n in scents:
+            f = name_map.get(n)
+            if f:
+                cats.update(f.get("category") or [])
+        opposites = {
+            "Gourmand": "Fresh",
+            "Sweet": "Woody",
+            "Fresh": "Oriental",
+            "Floral": "Spicy",
+            "Woody": "Fruity",
+            "Oriental": "Citrus",
+            "Citrus": "Leather",
+            "Spicy": "Powdery",
+        }
+        for c in list(cats)[:2]:
+            opp = opposites.get(c)
+            if opp:
+                extras.append(f"Yesterday leaned {c} - try **{opp}** today instead.")
+                break
+        if scents:
+            extras.append(f"Do not repeat yesterday's main bottle: avoid **{scents[0]}**.")
+
+    from collections import Counter
+    cat_c = Counter()
+    for f in db:
+        for c in f.get("category") or []:
+            cat_c[c] += 1
+    if cat_c:
+        rare = sorted(cat_c.items(), key=lambda x: x[1])[0][0]
+        extras.append(f"Underused family in your vault: lean into **{rare}** today.")
+
+    return extras
+
+
 def draw_challenge() -> str:
+    """Daily challenge - rotates by date; salt lets you reroll the same day."""
     today = pacific_today().isoformat()
-    seed = int(hashlib.md5(f"challenge-{today}".encode()).hexdigest()[:8], 16)
-    return CHALLENGE_DECK[seed % len(CHALLENGE_DECK)]
+    salt = st.session_state.get("challenge_salt", 0)
+    deck = list(CHALLENGE_DECK) + _challenge_personal_pool()
+    if not deck:
+        return "Wear something that feels like High Desert night air."
+    seed = int(hashlib.md5(f"challenge-{today}-{salt}".encode()).hexdigest()[:8], 16)
+    return deck[seed % len(deck)]
 
 
 def average_performance(name: str) -> dict:
@@ -5175,16 +5266,25 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Today")
     # Daily challenge
+    if "challenge_salt" not in st.session_state:
+        st.session_state["challenge_salt"] = 0
     challenge = draw_challenge()
-    st.caption("Daily challenge")
+    st.caption("Daily challenge - new each day, or reroll anytime")
     st.info(challenge)
-    if st.button("Mark challenge done", key="challenge_done_btn", use_container_width=True):
-        st.session_state["play_stats"]["challenges_done"] = (
-            st.session_state["play_stats"].get("challenges_done", 0) + 1
-        )
-        save_persisted_data()
-        st.success("Challenge noted.")
-        st.rerun()
+    ch1, ch2 = st.columns(2)
+    with ch1:
+        if st.button("New challenge", key="challenge_reroll_btn", use_container_width=True):
+            st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
+            st.rerun()
+    with ch2:
+        if st.button("Mark done", key="challenge_done_btn", use_container_width=True):
+            st.session_state["play_stats"]["challenges_done"] = (
+                st.session_state["play_stats"].get("challenges_done", 0) + 1
+            )
+            save_persisted_data()
+            st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
+            st.success("Challenge noted - next one ready.")
+            st.rerun()
 
     # Weekly recipe
     weekly = get_weekly_recipe()
@@ -5382,7 +5482,7 @@ with tab_discover:
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
-                c1, c2, c3, c4 = st.columns([1, 1, 2, 2])
+                c1, c2, c3 = st.columns([1, 1, 2])
                 with c1:
                     if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
@@ -5396,13 +5496,6 @@ with tab_discover:
                 with c3:
                     if st.button("Wear today", key=f"rec_wear_{f['name']}_{i}"):
                         send_to_sotd([f["name"]])
-                        st.rerun()
-                with c4:
-                    if st.button("Add to SOTD layer", key=f"rec_layer_{f['name']}_{i}"):
-                        existing = list(st.session_state.get("sotd_multiselect") or [])
-                        if f["name"] not in existing:
-                            existing.append(f["name"])
-                        send_to_sotd(existing if existing else [f["name"]])
                         st.rerun()
                 st.markdown("---")
 
