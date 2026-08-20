@@ -3456,6 +3456,40 @@ def is_incomplete_notes(f: dict) -> bool:
     return any(v in notes for v in vague)
 
 
+def profile_gaps(f: dict) -> list:
+    """List which core fields need fixing: notes, gender, season, category."""
+    gaps = []
+    if is_incomplete_notes(f):
+        gaps.append("notes")
+    g = (f.get("gender") or "").strip()
+    if not g or g.lower() in ("unknown", "n/a", "na", "?"):
+        gaps.append("gender")
+    season = (f.get("season") or "").strip().lower()
+    if (
+        not season
+        or season in ("unknown", "n/a", "na", "?", "not specified")
+        or len(season) < 3
+    ):
+        gaps.append("season")
+    cats = f.get("category") or []
+    if not cats:
+        gaps.append("category")
+    return gaps
+
+
+def fragrances_needing_fix(field: str = "any") -> list:
+    """Bottles missing notes, gender, season, and/or category."""
+    out = []
+    for f in st.session_state.get("fragrances_db") or []:
+        gaps = profile_gaps(f)
+        if not gaps:
+            continue
+        if field == "any" or field in gaps:
+            out.append({"frag": f, "gaps": gaps})
+    out.sort(key=lambda x: (x["frag"].get("name") or "").lower())
+    return out
+
+
 
 def search_rank_key(f: dict) -> tuple:
     """Sort key for search results: YAY first, then wear count, complete notes, name."""
@@ -7158,35 +7192,139 @@ with tab_collection:
     else:
         db.sort(key=lambda x: (",".join(x.get("category", [])), x["name"].lower()))
 
-    # Quick-edit incomplete notes without full Vault form
-    incomplete_list = [f for f in st.session_state["fragrances_db"] if is_incomplete_notes(f)]
+    # Needs fix: notes, gender, season, category
+    needs_all = fragrances_needing_fix("any")
+    n_notes = len(fragrances_needing_fix("notes"))
+    n_gender = len(fragrances_needing_fix("gender"))
+    n_season = len(fragrances_needing_fix("season"))
+    n_cat = len(fragrances_needing_fix("category"))
     with st.expander(
-        f"Quick-edit notes ({len(incomplete_list)} need work)", expanded=False
+        f"Needs fix ({len(needs_all)} bottles)",
+        expanded=len(needs_all) > 0,
     ):
-        if not incomplete_list:
-            st.caption("All bottles have solid notes. Nice.")
+        st.caption(
+            "Bottles missing solid notes, gender, season, or categories. "
+            "Fix here or in Vault - Edit."
+        )
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Notes", n_notes)
+        m2.metric("Gender", n_gender)
+        m3.metric("Season", n_season)
+        m4.metric("Category", n_cat)
+
+        gap_filter = st.selectbox(
+            "Show",
+            ["All gaps", "Notes only", "Gender only", "Season only", "Category only"],
+            key="needs_fix_filter",
+        )
+        field_map = {
+            "All gaps": "any",
+            "Notes only": "notes",
+            "Gender only": "gender",
+            "Season only": "season",
+            "Category only": "category",
+        }
+        filtered = fragrances_needing_fix(field_map[gap_filter])
+        if not filtered:
+            st.success("Nothing in this filter - profiles look complete.")
         else:
-            edit_names = sorted(f["name"] for f in incomplete_list)
-            pick = st.selectbox("Bottle to fill in", edit_names, key="quick_edit_pick")
+            st.write(f"**{len(filtered)}** to review")
+            for item in filtered[:40]:
+                f = item["frag"]
+                gap_txt = ", ".join(item["gaps"])
+                st.markdown(
+                    f"- **{f.get('name')}** (*{f.get('brand', '?')}*) - needs **{gap_txt}**"
+                )
+            if len(filtered) > 40:
+                st.caption(f"...and {len(filtered) - 40} more")
+
+            pick_labels = [
+                f"{it['frag'].get('name')} [{', '.join(it['gaps'])}]"
+                for it in filtered
+            ]
+            pick = st.selectbox("Fix this bottle", pick_labels, key="needs_fix_pick")
+            pick_name = pick.split(" [")[0] if pick else ""
             frag = next(
-                (f for f in st.session_state["fragrances_db"] if f["name"] == pick),
+                (
+                    f
+                    for f in st.session_state["fragrances_db"]
+                    if f.get("name") == pick_name
+                ),
                 None,
             )
             if frag:
-                st.caption(f"{frag.get('brand', '')}  -  current: {frag.get('notes', '')[:120]}")
-                new_notes = st.text_area(
+                gaps = profile_gaps(frag)
+                st.caption("Missing: " + ", ".join(gaps) if gaps else "Looks complete")
+                gender_opts = [
+                    "Unisex",
+                    "Female",
+                    "Male",
+                    "Female-leaning",
+                    "Male-leaning",
+                ]
+                g_cur = frag.get("gender") or "Unisex"
+                g_idx = gender_opts.index(g_cur) if g_cur in gender_opts else 0
+                cat_opts = [
+                    "Gourmand",
+                    "Sweet",
+                    "Floral",
+                    "Woody",
+                    "Oriental",
+                    "Fresh",
+                    "Fruity",
+                    "Spicy",
+                    "Citrus",
+                    "Aromatic",
+                    "Leather",
+                    "Oud",
+                    "Boozy",
+                    "Smoky",
+                    "Powdery",
+                ]
+                fx1, fx2 = st.columns(2)
+                with fx1:
+                    e_gender = st.selectbox(
+                        "Gender", gender_opts, index=g_idx, key=f"need_g_{pick_name}"
+                    )
+                with fx2:
+                    e_season = st.text_input(
+                        "Season",
+                        value=frag.get("season") or "",
+                        key=f"need_s_{pick_name}",
+                        placeholder="e.g. Fall, Winter",
+                    )
+                e_notes = st.text_area(
                     "Notes (Top / Heart / Base)",
                     value=frag.get("notes") or "",
-                    key=f"quick_notes_{pick}",
-                    height=100,
+                    key=f"need_n_{pick_name}",
+                    height=90,
                 )
-                if st.button("Save notes", key="quick_notes_save"):
+                e_cats = st.multiselect(
+                    "Categories",
+                    cat_opts,
+                    default=[c for c in (frag.get("category") or []) if c in cat_opts],
+                    key=f"need_c_{pick_name}",
+                )
+                if st.button("Save fixes", type="primary", key="needs_fix_save"):
                     for i, f in enumerate(st.session_state["fragrances_db"]):
-                        if f["name"] == pick:
-                            st.session_state["fragrances_db"][i]["notes"] = new_notes.strip() or "Not specified"
+                        if f.get("name") == pick_name:
+                            st.session_state["fragrances_db"][i]["gender"] = e_gender
+                            st.session_state["fragrances_db"][i]["season"] = (
+                                e_season.strip() or "Versatile"
+                            )
+                            st.session_state["fragrances_db"][i]["notes"] = (
+                                e_notes.strip() or "Not specified"
+                            )
+                            st.session_state["fragrances_db"][i]["category"] = (
+                                e_cats if e_cats else list(f.get("category") or ["Gourmand"])
+                            )
                             break
+                    try:
+                        log_vault_action("edited", pick_name, "needs-fix")
+                    except Exception:
+                        pass
                     save_persisted_data()
-                    st.success(f"Updated notes for **{pick}**")
+                    st.success(f"Updated **{pick_name}**")
                     st.rerun()
 
     with st.expander(f"Browse {len(db)} bottles", expanded=False):
@@ -7257,6 +7395,12 @@ with tab_vault:
     st.subheader("Sanctuary vault")
     n_bottles = len(st.session_state["fragrances_db"])
     st.write(f"**{n_bottles}** bottles in the vault")
+    _need = fragrances_needing_fix("any")
+    if _need:
+        st.warning(
+            f"**{len(_need)}** bottle(s) need notes, gender, season, or category - "
+            f"see Collection - Needs fix."
+        )
     if st.session_state.get("last_saved_at"):
         st.caption(f"Last saved: {st.session_state['last_saved_at']} (Pacific)")
     st.caption("Edits save to the data file. Export JSON after big changes.")
