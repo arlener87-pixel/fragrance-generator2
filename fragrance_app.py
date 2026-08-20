@@ -1,7 +1,5 @@
 import datetime
-from zoneinfo import ZoneInfo
 import hashlib
-import urllib.parse
 import json
 import random
 import re
@@ -27,26 +25,11 @@ def load_persisted_data():
 
 
 def save_persisted_data():
-    """Save current session data to disk. Edits survive script updates when this file exists."""
-    now = datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds")
-    st.session_state["last_saved_at"] = now
+    """Save current session data to disk."""
     data = {
         "fragrances_db": st.session_state.get("fragrances_db", []),
         "user_reactions": st.session_state.get("user_reactions", {}),
         "sotd_history": st.session_state.get("sotd_history", []),
-        "layer_recipes": st.session_state.get("layer_recipes", []),
-        "play_stats": st.session_state.get("play_stats", {}),
-        "last_export_date": st.session_state.get("last_export_date"),
-        "last_saved_at": now,
-        "chart": {
-            "sun": st.session_state.get("chart_sun"),
-            "moon": st.session_state.get("chart_moon"),
-            "rising": st.session_state.get("chart_rising"),
-            "venus": st.session_state.get("chart_venus"),
-            "full": st.session_state.get("birth_calc_full"),
-        },
-        "wishlist": st.session_state.get("wishlist", []),
-        "vault_log": st.session_state.get("vault_log", []),
     }
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -60,39 +43,38 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="ð",
+    page_icon="ð¤",
     layout="centered",
-    initial_sidebar_state="expanded",
 )
 
-# Custom Gothic Styling - polished, professional, mobile-friendly
+# Custom Gothic Styling â polished, professional, mobile-friendly
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
-    --bg-deep: #03050a;
-    --bg-card: #080d16;
-    --bg-elevated: #0c1422;
-    --border: #1a2740;
-    --border-hover: #3d6cb0;
-    --text: #c5d0e4;
-    --text-muted: #7f91b0;
-    --accent: #6ea4ff;
-    --accent-dim: #3d6cb0;
-    --success-bg: #0a1520;
-    --danger: #4a6a9a;
+    --bg-deep: #05070c;
+    --bg-card: #0b101a;
+    --bg-elevated: #101826;
+    --border: #1e2a42;
+    --border-hover: #3a5a8a;
+    --text: #c8d2e4;
+    --text-muted: #8a9bb8;
+    --accent: #7eb0ff;
+    --accent-dim: #4a7ac8;
+    --success-bg: #0c1a14;
+    --danger: #a04050;
 }
 
 html, body, .stApp, [class*="css"], .stMarkdown, p, span, div, label, input, textarea, button {
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
     letter-spacing: normal !important;
     word-spacing: normal !important;
 }
 
 .stApp {
-    background: radial-gradient(ellipse at top, #0a1224 0%, #04070f 45%, #010205 100%);
+    background: radial-gradient(ellipse at top, #0a101c 0%, #05070c 50%, #020306 100%);
     color: var(--text);
 }
 
@@ -125,7 +107,7 @@ h2, h3 {
 }
 
 p, .stMarkdown, .stCaption, label, .stText {
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif !important;
     color: var(--text) !important;
     font-size: 0.95rem !important;
     line-height: 1.5 !important;
@@ -139,7 +121,7 @@ p, .stMarkdown, .stCaption, label, .stText {
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #040810 0%, #070c16 55%, #03050a 100%) !important;
+    background: linear-gradient(180deg, #060912 0%, #0a0f18 55%, #080a10 100%) !important;
     border-right: 1px solid var(--border);
 }
 section[data-testid="stSidebar"] h1,
@@ -160,7 +142,7 @@ section[data-testid="stSidebar"] .stMarkdown p {
     color: var(--accent) !important;
     border: 1px solid var(--border) !important;
     border-radius: 6px !important;
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
     font-weight: 600 !important;
     font-size: 0.9rem !important;
     letter-spacing: 0.02em !important;
@@ -189,7 +171,7 @@ div[data-baseweb="select"] > div {
     color: var(--text) !important;
     border: 1px solid var(--border) !important;
     border-radius: 6px !important;
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
     font-size: 0.92rem !important;
 }
 .stTextInput > div > div > input:focus {
@@ -198,7 +180,7 @@ div[data-baseweb="select"] > div {
 }
 
 .stRadio label, .stCheckbox label {
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
     color: var(--text) !important;
     font-size: 0.9rem !important;
 }
@@ -209,10 +191,10 @@ div[data-baseweb="select"] > div {
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
     color: var(--text) !important;
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
 }
 div[data-testid="stNotification"] {
-    border-left: 3px solid #3a5a8a !important;
+    border-left: 3px solid #6a2030 !important;
 }
 
 /* Metrics */
@@ -226,14 +208,14 @@ div[data-testid="stNotification"] {
     color: var(--text-muted) !important;
 }
 
-/* Tabs - professional underline style */
+/* Tabs â professional underline style */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0.25rem;
     border-bottom: 1px solid var(--border);
     background: transparent;
 }
 .stTabs [data-baseweb="tab"] {
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
     font-weight: 600 !important;
     font-size: 0.88rem !important;
     color: var(--text-muted) !important;
@@ -263,7 +245,7 @@ span[data-testid="stIconMaterial"],
 }
 [data-testid="stExpander"] summary,
 .streamlit-expanderHeader {
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
     color: var(--accent) !important;
     background: var(--bg-elevated) !important;
     border: 1px solid var(--border) !important;
@@ -293,7 +275,7 @@ span[data-testid="stIconMaterial"],
     color: var(--accent) !important;
     border: 1px solid var(--border) !important;
     border-radius: 6px !important;
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Source Sans 3', system-ui, sans-serif !important;
 }
 
 .stFileUploader {
@@ -339,22 +321,13 @@ hr {
     line-height: 1;
     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', emoji, sans-serif !important;
     animation: flyBats 2.6s ease-in-out infinite;
-    filter: drop-shadow(0 0 3px rgba(70, 120, 200, 0.45));
+    filter: drop-shadow(0 0 3px rgba(100, 60, 180, 0.5));
     letter-spacing: normal !important;
 }
 .bat1 { left: 12%; animation-delay: 0s; }
 .bat2 { left: 36%; animation-delay: 0.45s; }
 .bat3 { left: 58%; animation-delay: 0.15s; }
 .bat4 { left: 80%; animation-delay: 0.7s; }
-
-@keyframes candleFlicker {
-    0%, 100% { text-shadow: 0 0 10px rgba(80, 140, 255, 0.35); }
-    40% { text-shadow: 0 0 16px rgba(120, 170, 255, 0.55); }
-    70% { text-shadow: 0 0 8px rgba(60, 110, 220, 0.25); }
-}
-h1 {
-    animation: candleFlicker 4.5s ease-in-out infinite;
-}
 
 @media (max-width: 640px) {
     h1 { font-size: 1.45rem !important; }
@@ -371,137 +344,7 @@ h1 {
 ::-webkit-scrollbar-track { background: #030508; }
 ::-webkit-scrollbar-thumb { background: #1a2540; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #2a4068; }
-
-/* ---- Design system extras ---- */
-.sdg-hero {
-    position: relative;
-    border: 1px solid #1a2740;
-    border-radius: 14px;
-    padding: 1.1rem 1.15rem 1rem 1.15rem;
-    margin: 0.15rem 0 1rem 0;
-    background:
-        radial-gradient(ellipse at 15% 0%, rgba(50, 100, 180, 0.22), transparent 55%),
-        radial-gradient(ellipse at 100% 80%, rgba(20, 40, 90, 0.25), transparent 45%),
-        linear-gradient(180deg, #0a101c 0%, #04070e 100%);
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
-}
-.sdg-hero-kicker {
-    font-family: 'Inter', system-ui, sans-serif !important;
-    font-size: 0.72rem !important;
-    letter-spacing: 0.16em !important;
-    text-transform: uppercase;
-    color: #8a9bb8 !important;
-    margin-bottom: 0.35rem;
-}
-.sdg-hero-title {
-    font-family: 'Cinzel', Georgia, serif !important;
-    font-size: 1.55rem !important;
-    font-weight: 700 !important;
-    color: #9ec0ff !important;
-    text-shadow: 0 0 14px rgba(100, 150, 255, 0.35);
-    margin: 0 0 0.25rem 0 !important;
-    line-height: 1.2 !important;
-}
-.sdg-hero-sub {
-    font-family: 'Inter', system-ui, sans-serif !important;
-    color: #a8b6cc !important;
-    font-size: 0.9rem !important;
-    margin: 0 !important;
-}
-.sdg-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.75rem;
-}
-.sdg-chip {
-    font-family: 'Inter', system-ui, sans-serif !important;
-    font-size: 0.72rem !important;
-    letter-spacing: 0.04em;
-    color: #c5d4ee !important;
-    border: 1px solid #2a3c5c;
-    background: rgba(20, 30, 50, 0.7);
-    border-radius: 999px;
-    padding: 0.22rem 0.65rem;
-}
-.sdg-section {
-    border-left: 2px solid #3a5a8a;
-    padding-left: 0.75rem;
-    margin: 0.75rem 0 0.5rem 0;
-}
-.sdg-section-title {
-    font-family: 'Cinzel', Georgia, serif !important;
-    color: #8eb4ff !important;
-    font-size: 1.05rem !important;
-    margin: 0 !important;
-}
-.sdg-card {
-    background: linear-gradient(180deg, #101826 0%, #0b101a 100%);
-    border: 1px solid #1e2a42;
-    border-radius: 10px;
-    padding: 0.85rem 1rem;
-    margin: 0.45rem 0 0.7rem 0;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
-}
-.sdg-card:hover {
-    border-color: #3a5a8a;
-}
-.sdg-divider {
-    height: 1px;
-    border: 0;
-    background: linear-gradient(90deg, transparent, #2a3c5c, transparent);
-    margin: 1rem 0;
-}
-div[data-testid="stMetric"] {
-    background: #0b101a;
-    border: 1px solid #1e2a42;
-    border-radius: 10px;
-    padding: 0.55rem 0.7rem;
-}
-.stTabs [data-baseweb="tab-list"] {
-    background: rgba(8, 12, 20, 0.6);
-    border-radius: 10px 10px 0 0;
-    padding: 0.15rem 0.15rem 0 0.15rem;
-}
-section[data-testid="stSidebar"] {
-    box-shadow: 4px 0 24px rgba(0,0,0,0.25);
-}
-section[data-testid="stSidebar"] .block-container {
-    padding-top: 1rem;
-}
-
-@media (max-width: 640px) {
-    .sdg-hero-title { font-size: 1.3rem !important; }
-    .sdg-hero { padding: 0.9rem; }
-}
-
-/* Cool success/info - no red/pink alerts */
-div[data-testid="stAlert"] {
-    background: #0a1220 !important;
-    border: 1px solid #2a4570 !important;
-    color: #c5d0e4 !important;
-}
-[data-baseweb="notification"],
-div[role="alert"] {
-    border-color: #2a4570 !important;
-}
-/* success-ish */
-.stSuccess, div[data-testid="stNotificationContentSuccess"] {
-    background-color: #0a1524 !important;
-    color: #b8d0f0 !important;
-}
-.stWarning {
-    background-color: #121820 !important;
-    border-left: 3px solid #5a7ab0 !important;
-}
-.stError {
-    background-color: #0e1420 !important;
-    border-left: 3px solid #4a6a9a !important;
-}
-
 </style>
-
-
 """,
     unsafe_allow_html=True,
 )
@@ -1817,43 +1660,6 @@ if "user_reactions" not in st.session_state:
 if "sotd_history" not in st.session_state:
     st.session_state["sotd_history"] = _persisted.get("sotd_history", [])
 
-if "layer_recipes" not in st.session_state:
-    st.session_state["layer_recipes"] = _persisted.get("layer_recipes", [])
-
-if "wishlist" not in st.session_state:
-    # list of {name, brand, notes, checked}
-    st.session_state["wishlist"] = _persisted.get("wishlist", [])
-
-if "vault_log" not in st.session_state:
-    # list of {when, action, name, detail}
-    st.session_state["vault_log"] = _persisted.get("vault_log", [])
-
-if "last_saved_at" not in st.session_state:
-    st.session_state["last_saved_at"] = _persisted.get("last_saved_at")
-
-if "play_stats" not in st.session_state:
-    st.session_state["play_stats"] = _persisted.get(
-        "play_stats",
-        {"blind_played": 0, "blind_correct": 0, "moods_drawn": 0, "challenges_done": 0},
-    )
-# ensure key exists on older saves
-st.session_state["play_stats"].setdefault("challenges_done", 0)
-
-if "last_export_date" not in st.session_state:
-    st.session_state["last_export_date"] = _persisted.get("last_export_date")
-
-# Restore persisted birth-chart signs (Stars tab)
-_chart = _persisted.get("chart") or {}
-if "chart_sun" not in st.session_state and _chart.get("sun"):
-    st.session_state["chart_sun"] = _chart["sun"]
-if "chart_moon" not in st.session_state and _chart.get("moon"):
-    st.session_state["chart_moon"] = _chart["moon"]
-if "chart_rising" not in st.session_state and _chart.get("rising"):
-    st.session_state["chart_rising"] = _chart["rising"]
-if "chart_venus" not in st.session_state and _chart.get("venus"):
-    st.session_state["chart_venus"] = _chart["venus"]
-
-
 # Session states for clearing inputs explicitly
 if "search_input" not in st.session_state:
     st.session_state["search_input"] = ""
@@ -1880,37 +1686,24 @@ if "sotd_prefill" not in st.session_state:
 # ==========================================
 
 
-
-def pacific_today() -> datetime.date:
-    """Today in America/Los_Angeles so SOTD matches Pacific users."""
-    return datetime.datetime.now(ZoneInfo("America/Los_Angeles")).date()
-
-
 def normalize_gender(g: str) -> str:
     g = g.lower().strip()
     if re.search(r"\bfemale[- ]?leaning\b|\bleans feminine\b|\bleans female\b", g):
         return "Female-leaning"
     if re.search(r"\bmale[- ]?leaning\b|\bleans masculine\b|\bleans male\b", g):
         return "Male-leaning"
-    if g in ["unisex/male", "male/unisex", "male / unisex", "unisex (leans masculine)"]:
+    if g in ["unisex/male", "male/unisex", "male / unisex"]:
         return "Male-leaning"
     if g in [
         "unisex/female",
         "female/unisex",
         "women/unisex",
         "unisex / female-leaning",
-        "unisex / female",
-        "female / unisex",
     ]:
         return "Female-leaning"
-    # slash forms
-    if "female" in g and "unisex" in g:
-        return "Female-leaning"
-    if "male" in g and "unisex" in g:
-        return "Male-leaning"
-    if g == "male" or g.startswith("male"):
+    if g == "male":
         return "Male"
-    if g in ["female", "women"] or g.startswith("female") or g.startswith("women"):
+    if g in ["female", "women"]:
         return "Female"
     return "Unisex"
 
@@ -1932,235 +1725,85 @@ def matches_gender(fragrance: dict, preferred: str) -> bool:
 
 
 def matches_weather(fragrance: dict, weather: str) -> bool:
-    """Strict season matching. 'versatile' alone is NOT enough for Hot or Cold."""
     season = fragrance["season"].lower()
     if weather == "Any":
         return True
 
-    has_summer = "summer" in season
-    has_spring = "spring" in season
-    has_fall = "fall" in season or "autumn" in season
-    has_winter = "winter" in season
-    has_cooler = "cooler" in season
-    has_mild = "mild" in season
-    has_year = "year-round" in season or "year round" in season
-    # "versatile" only counts if not locked to the opposite extreme
-    has_versatile = "versatile" in season
-
     is_summer_target = "summer" in weather.lower() or "hot" in weather.lower()
     is_winter_target = "winter" in weather.lower() or "cold" in weather.lower()
 
+    # Strict filtering logic
     if is_summer_target:
-        # Must explicitly mention summer, spring, mild, or year-round.
-        # Pure fall/winter (even with "versatile to cooler") is out.
-        if has_summer or has_spring or has_mild or has_year:
-            return True
-        # versatile without cooler/winter-only lock
-        if has_versatile and not has_winter and not has_cooler and not (has_fall and not has_spring):
-            return True
-        return False
+        if (
+            ("winter" in season or "fall" in season or "autumn" in season)
+            and "summer" not in season
+            and "spring" not in season
+            and "versatile" not in season
+            and "year-round" not in season
+        ):
+            return False
+        return (
+            "summer" in season
+            or "spring" in season
+            or "versatile" in season
+            or "year-round" in season
+            or "mild" in season
+        )
 
     if is_winter_target:
-        if has_winter or has_fall or has_cooler:
-            return True
-        if has_versatile and not has_summer:
-            return True
-        if has_year:
-            return True
-        return False
+        if (
+            ("summer" in season or "spring" in season)
+            and "winter" not in season
+            and "fall" not in season
+            and "autumn" not in season
+            and "cooler" not in season
+            and "versatile" not in season
+            and "year-round" not in season
+        ):
+            return False
+        return (
+            "winter" in season
+            or "fall" in season
+            or "autumn" in season
+            or "cooler" in season
+            or "versatile" in season
+            or "year-round" in season
+        )
 
     if weather == "Warm / Mild":
-        return has_spring or has_fall or has_mild or has_versatile or has_year or has_summer
+        return any(
+            x in season
+            for x in [
+                "spring",
+                "fall",
+                "autumn",
+                "mild",
+                "versatile",
+                "year-round",
+                "summer",
+            ]
+        )
 
     if weather == "Cool / Autumn":
-        return has_fall or has_winter or has_cooler or has_versatile or has_year
+        return any(
+            x in season
+            for x in [
+                "fall",
+                "autumn",
+                "winter",
+                "cooler",
+                "versatile",
+                "year-round",
+            ]
+        )
 
     return True
 
 
-
-def temp_f_to_band(temp_f: float) -> str:
-    """Map outdoor temperature ( F) to the app's weather band."""
-    if temp_f >= 85:
-        return "Hot / Summer"
-    if temp_f >= 70:
-        return "Warm / Mild"
-    if temp_f >= 55:
-        return "Cool / Autumn"
-    return "Cold / Winter"
-
-
-def temp_c_to_f(temp_c: float) -> float:
-    return temp_c * 9.0 / 5.0 + 32.0
-
-
-def temp_band_label(temp_f: float) -> str:
-    band = temp_f_to_band(temp_f)
-    tips = {
-        "Hot / Summer": "favor fresh, citrus, light floral, aquatic - go easy on heavy gourmands",
-        "Warm / Mild": "versatile, fruity, soft floral, light sweet",
-        "Cool / Autumn": "woody, soft spice, light gourmand, amber",
-        "Cold / Winter": "gourmand, oriental, oud, vanilla, rich woods",
-    }
-    return f"{band} - {tips.get(band, '')}"
-
-
-
-# Typical daytime outdoor temps ( F) by month for inland / Southern California
-# (Fontana-LA basin style: warm dry summers, mild winters)
-# Typical daytime outdoor temps ( F)  -  Victorville, CA (High Desert / Mojave)
-# Hotter summers, cooler winters than the LA basin
-CA_MONTHLY_TEMP_F = {
-    1: 60,   # January
-    2: 63,   # February
-    3: 68,   # March
-    4: 74,   # April
-    5: 83,   # May
-    6: 92,   # June
-    7: 98,   # July
-    8: 97,   # August
-    9: 91,   # September
-    10: 79,  # October
-    11: 67,  # November
-    12: 58,  # December
-}
-
-CA_LOCATION_LABEL = "Victorville, CA (High Desert)"
-
-
-def default_ca_temp_f(day=None) -> int:
-    """Suggested outdoor  F for Victorville, CA today (Pacific date)."""
-    d = day or pacific_today()
-    return int(CA_MONTHLY_TEMP_F.get(d.month, 75))
-
-
-# Victorville, CA coordinates (High Desert)
-CA_LAT = 34.5362
-CA_LON = -117.2912
-
-
-def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
-    """
-    Current outdoor temperature via Open-Meteo (no API key).
-    Returns {ok, temp_f, source, detail} or ok=False on failure.
-    """
-    import json as _json
-    import urllib.request
-
-    url = (
-        "https://api.open-meteo.com/v1/forecast"
-        f"?latitude={lat}&longitude={lon}"
-        "&current=temperature_2m"
-        "&temperature_unit=fahrenheit"
-        "&timezone=America%2FLos_Angeles"
-    )
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            payload = _json.loads(resp.read().decode("utf-8"))
-        cur = payload.get("current") or {}
-        temp = cur.get("temperature_2m")
-        if temp is None:
-            return {"ok": False, "detail": "No temperature in response"}
-        temp_f = int(round(float(temp)))
-        # clamp to slider range
-        temp_f = max(30, min(115, temp_f))
-        return {
-            "ok": True,
-            "temp_f": temp_f,
-            "source": "Open-Meteo",
-            "detail": f"Victorville area ({lat:.2f}, {lon:.2f})",
-            "observed": cur.get("time"),
-        }
-    except Exception as ex:
-        return {"ok": False, "detail": str(ex)}
-
-
-def score_for_temperature(f: dict, temp_f: float) -> int:
-    """Extra score from actual outdoor temp vs season labels + families."""
-    if temp_f is None:
-        return 0
-    season = (f.get("season") or "").lower()
-    cats = set(f.get("category") or [])
-    score = 0
-    band = temp_f_to_band(temp_f)
-
-    # Season string alignment
-    if band == "Hot / Summer":
-        if "summer" in season:
-            score += 20
-        elif "spring" in season or "mild" in season:
-            score += 12
-        elif "year-round" in season or "year round" in season:
-            score += 8
-        if "winter" in season and "summer" not in season:
-            score -= 18
-        if "cooler" in season and "summer" not in season:
-            score -= 10
-        # Families that wear well in heat
-        for c in ("Fresh", "Citrus", "Aromatic", "Fruity"):
-            if c in cats:
-                score += 10
-        for c in ("Gourmand", "Oud", "Oriental", "Leather"):
-            if c in cats:
-                score -= 8
-        if "Sweet" in cats and "Fresh" not in cats and "Fruity" not in cats:
-            score -= 4
-    elif band == "Warm / Mild":
-        if any(x in season for x in ("spring", "fall", "autumn", "mild", "versatile")):
-            score += 14
-        if "year-round" in season or "year round" in season:
-            score += 10
-        for c in ("Floral", "Fruity", "Fresh", "Sweet"):
-            if c in cats:
-                score += 8
-        if "Oud" in cats:
-            score -= 4
-    elif band == "Cool / Autumn":
-        if any(x in season for x in ("fall", "autumn", "cooler")):
-            score += 18
-        elif "winter" in season:
-            score += 12
-        elif "versatile" in season or "year-round" in season:
-            score += 8
-        if "summer" in season and "fall" not in season and "winter" not in season:
-            score -= 10
-        for c in ("Woody", "Spicy", "Oriental", "Gourmand", "Sweet"):
-            if c in cats:
-                score += 8
-        if "Citrus" in cats and not any(c in cats for c in ("Woody", "Spicy", "Gourmand")):
-            score -= 3
-    else:  # Cold / Winter
-        if "winter" in season:
-            score += 20
-        elif any(x in season for x in ("fall", "autumn", "cooler")):
-            score += 14
-        elif "versatile" in season or "year-round" in season:
-            score += 8
-        if "summer" in season and "winter" not in season:
-            score -= 16
-        for c in ("Gourmand", "Oriental", "Oud", "Woody", "Spicy", "Sweet", "Leather"):
-            if c in cats:
-                score += 10
-        for c in ("Fresh", "Citrus"):
-            if c in cats and not any(x in cats for x in ("Woody", "Gourmand", "Oriental", "Spicy")):
-                score -= 6
-
-    return score
-
-
-
-def matches_category(fragrance: dict, category) -> bool:
-    """category: 'Any', a single str, or a list of category names."""
-    if not category or category == "Any":
+def matches_category(fragrance: dict, category: str) -> bool:
+    if category == "Any":
         return True
-    cats = fragrance.get("category") or []
-    if isinstance(category, (list, tuple, set)):
-        wanted = [c for c in category if c and c != "Any"]
-        if not wanted:
-            return True
-        return any(c in cats for c in wanted)
-    return category in cats
+    return category in fragrance["category"]
 
 
 def matches_occasion(fragrance: dict, occasion: str) -> bool:
@@ -2190,7 +1833,7 @@ def _stable_tiebreak(name: str) -> int:
 
 
 def score_fragrance(
-    f: dict, gender: str, weather: str, category: str, occasion: str, temp_f=None
+    f: dict, gender: str, weather: str, category: str, occasion: str
 ) -> int:
     score = 0
     name = f["name"]
@@ -2250,18 +1893,8 @@ def score_fragrance(
         elif any(x in season for x in ["fall", "autumn", "cooler"]):
             score += 12
 
-    if not category or category == "Any":
+    if category == "Any":
         score += 5
-    elif isinstance(category, (list, tuple, set)):
-        wanted = [c for c in category if c and c != "Any"]
-        if not wanted:
-            score += 5
-        else:
-            hits = sum(1 for c in wanted if c in cats)
-            if hits:
-                score += 12 + min(hits, 3) * 4
-                if cats and cats[0] in wanted:
-                    score += 5
     elif category in cats:
         score += 15
         if cats and cats[0] == category:
@@ -2299,422 +1932,30 @@ def score_fragrance(
             else 4
         )
 
-    # Temperature-aware fine-tuning (degrees beat vague season labels when set)
-    if temp_f is not None:
-        score += score_for_temperature(f, float(temp_f))
-
     # Stable tie-breaker instead of random so rankings don't jump every rerun
     score += _stable_tiebreak(name)
     return score
 
 
 def get_top_fragrances(
-    gender: str,
-    weather: str,
-    category: str,
-    occasion: str,
-    top_n: int,
-    favorites_only: bool = False,
-    temp_f=None,
-    shuffle: bool = False,
-    exclude_names: list = None,
+    gender: str, weather: str, category: str, occasion: str, top_n: int, favorites_only: bool = False
 ) -> list:
-    # If a real temperature is provided, derive the weather band when set to Any
-    effective_weather = weather
-    if temp_f is not None and (not weather or weather == "Any"):
-        effective_weather = temp_f_to_band(float(temp_f))
-
-    exclude = set(exclude_names or [])
     scored = []
     for f in st.session_state["fragrances_db"]:
-        if f.get("name") in exclude:
-            continue
         if st.session_state["user_reactions"].get(f["name"]) == "dislike":
             continue
         if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
             continue
         if (
             matches_gender(f, gender)
-            and matches_weather(f, effective_weather)
+            and matches_weather(f, weather)
             and matches_category(f, category)
             and matches_occasion(f, occasion)
         ):
-            s = score_fragrance(
-                f, gender, effective_weather, category, occasion, temp_f=temp_f
-            )
+            s = score_fragrance(f, gender, weather, category, occasion)
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-
-    if not scored:
-        return []
-
-    if shuffle:
-        # Draw from a wider top pool so refresh feels different but still on-brief
-        pool_size = min(len(scored), max(top_n * 4, top_n + 8))
-        pool = scored[:pool_size]
-        # Weighted-ish: shuffle within pool, keep a bit of score bias via stable salt
-        random.shuffle(pool)
-        # re-sort lightly with random jitter so order changes
-        jittered = [
-            (s + random.random() * 6.0, f) for s, f in pool
-        ]
-        jittered.sort(key=lambda x: x[0], reverse=True)
-        return [f for _, f in jittered[:top_n]]
-
     return [f for score, f in scored[:top_n]]
-
-
-
-# --- Astrology / scent mapping (interpretive, for fun) ---
-SIGN_SCENT_PROFILE = {
-    "Aries": {
-        "element": "Fire",
-        "vibe": "Bold, spicy, energetic",
-        "categories": ["Spicy", "Fresh", "Citrus", "Woody"],
-        "notes_keywords": ["pepper", "ginger", "citrus", "cedar", "cardamom"],
-    },
-    "Taurus": {
-        "element": "Earth",
-        "vibe": "Sensual, creamy, grounded",
-        "categories": ["Gourmand", "Floral", "Sweet", "Woody"],
-        "notes_keywords": ["vanilla", "rose", "sandalwood", "tonka", "caramel"],
-    },
-    "Gemini": {
-        "element": "Air",
-        "vibe": "Light, playful, changeable",
-        "categories": ["Fresh", "Citrus", "Fruity", "Floral"],
-        "notes_keywords": ["citrus", "bergamot", "pear", "tea", "light musk"],
-    },
-    "Cancer": {
-        "element": "Water",
-        "vibe": "Soft, milky, nostalgic",
-        "categories": ["Gourmand", "Floral", "Sweet", "Fresh"],
-        "notes_keywords": ["milk", "coconut", "white flower", "musk", "powder"],
-    },
-    "Leo": {
-        "element": "Fire",
-        "vibe": "Warm, radiant, dramatic",
-        "categories": ["Gourmand", "Floral", "Sweet", "Oriental"],
-        "notes_keywords": ["vanilla", "orange blossom", "honey", "amber", "cinnamon"],
-    },
-    "Virgo": {
-        "element": "Earth",
-        "vibe": "Clean, green, precise",
-        "categories": ["Fresh", "Floral", "Woody", "Aromatic"],
-        "notes_keywords": ["green", "herbal", "iris", "cedar", "clean musk"],
-    },
-    "Libra": {
-        "element": "Air",
-        "vibe": "Balanced, elegant, rose-kissed",
-        "categories": ["Floral", "Sweet", "Fruity", "Fresh"],
-        "notes_keywords": ["rose", "iris", "pear", "musk", "soft floral"],
-    },
-    "Scorpio": {
-        "element": "Water",
-        "vibe": "Dark, magnetic, intense",
-        "categories": ["Oriental", "Woody", "Oud", "Spicy"],
-        "notes_keywords": ["oud", "incense", "patchouli", "dark fruit", "amber"],
-    },
-    "Sagittarius": {
-        "element": "Fire",
-        "vibe": "Adventurous, warm, expansive",
-        "categories": ["Oriental", "Spicy", "Woody", "Fresh"],
-        "notes_keywords": ["cinnamon", "tobacco", "pineapple", "cedar", "saffron"],
-    },
-    "Capricorn": {
-        "element": "Earth",
-        "vibe": "Polished, structured, amber-wood",
-        "categories": ["Woody", "Oriental", "Gourmand", "Spicy"],
-        "notes_keywords": ["amber", "vanilla", "cedar", "leather", "tonka"],
-    },
-    "Aquarius": {
-        "element": "Air",
-        "vibe": "Unusual, airy, modern",
-        "categories": ["Fresh", "Aromatic", "Woody", "Citrus"],
-        "notes_keywords": ["ozonic", "metallic", "violet", "ambroxan", "tea"],
-    },
-    "Pisces": {
-        "element": "Water",
-        "vibe": "Dreamy, soft, aquatic-sweet",
-        "categories": ["Floral", "Gourmand", "Sweet", "Fresh"],
-        "notes_keywords": ["vanilla", "aquatic", "powdery", "lilac", "musk"],
-    },
-}
-
-# Default chart for sanctuary owner (Fontana CA, 1987-09-30 3:10 AM PDT)
-DEFAULT_CHART = {
-    "name": "Sanctuary chart",
-    "birth_date": "1987-09-30",
-    "birth_time": "3:10 AM PDT",
-    "birth_place": "Fontana, CA",
-    "sun": "Libra",
-    "moon": "Capricorn",
-    "rising": "Leo",
-    "venus": "Libra",
-    "notes": "Sun + Venus in Libra (beauty, balance). Moon in Capricorn (structure, amber-wood depth). Leo rising (warm radiance).",
-}
-
-
-def chart_category_weights(sun: str, moon: str, rising: str) -> dict:
-    """Blend Big Three into category preference scores."""
-    weights = {}
-    for sign, weight in ((sun, 3), (moon, 2), (rising, 2)):
-        profile = SIGN_SCENT_PROFILE.get(sign, {})
-        for cat in profile.get("categories", []):
-            weights[cat] = weights.get(cat, 0) + weight
-    return weights
-
-
-# Traditional day rulers -> scent leanings
-DAY_RULER = {
-    "Monday": {
-        "planet": "Moon",
-        "vibe": "Soft, emotional, milky-musk comfort",
-        "categories": ["Gourmand", "Floral", "Sweet", "Fresh"],
-        "notes_keywords": ["milk", "musk", "vanilla", "coconut", "powder", "white flower"],
-    },
-    "Tuesday": {
-        "planet": "Mars",
-        "vibe": "Bold, spicy, energetic heat",
-        "categories": ["Spicy", "Oriental", "Woody", "Fruity"],
-        "notes_keywords": ["pepper", "ginger", "cinnamon", "saffron", "dark fruit"],
-    },
-    "Wednesday": {
-        "planet": "Mercury",
-        "vibe": "Light, airy, clean and curious",
-        "categories": ["Fresh", "Citrus", "Floral", "Fruity"],
-        "notes_keywords": ["citrus", "bergamot", "green", "tea", "pear", "light musk"],
-    },
-    "Thursday": {
-        "planet": "Jupiter",
-        "vibe": "Warm, expansive, golden sweetness",
-        "categories": ["Oriental", "Gourmand", "Spicy", "Sweet"],
-        "notes_keywords": ["amber", "honey", "vanilla", "cinnamon", "tonka", "pineapple"],
-    },
-    "Friday": {
-        "planet": "Venus",
-        "vibe": "Romantic, floral, beauty-forward (Libra/Taurus)",
-        "categories": ["Floral", "Sweet", "Gourmand", "Fruity"],
-        "notes_keywords": ["rose", "iris", "vanilla", "pear", "soft floral", "musk"],
-    },
-    "Saturday": {
-        "planet": "Saturn",
-        "vibe": "Polished, structured, amber-wood depth",
-        "categories": ["Woody", "Oriental", "Gourmand", "Spicy"],
-        "notes_keywords": ["amber", "cedar", "vanilla", "tonka", "leather", "incense"],
-    },
-    "Sunday": {
-        "planet": "Sun",
-        "vibe": "Radiant, warm, confident glow (Leo)",
-        "categories": ["Gourmand", "Floral", "Sweet", "Oriental"],
-        "notes_keywords": ["vanilla", "orange blossom", "honey", "amber", "cinnamon"],
-    },
-}
-
-
-def is_female_or_unisex(f: dict) -> bool:
-    g = normalize_gender(f.get("gender", ""))
-    return g in ("Female", "Female-leaning", "Unisex")
-
-
-def score_fragrance_for_day(
-    f: dict, day: str, sun: str, moon: str, rising: str, venus: str = None
-) -> int:
-    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-        return -999
-    if not is_female_or_unisex(f):
-        return -999
-
-    score = 0
-    if st.session_state["user_reactions"].get(f["name"]) == "fav":
-        score += 30
-
-    # Day ruler categories / notes (primary)
-    day_prof = DAY_RULER.get(day, {})
-    for c in f.get("category", []):
-        if c in day_prof.get("categories", []):
-            score += 18
-            if f.get("category") and f["category"][0] == c:
-                score += 6
-
-    notes_l = f.get("notes", "").lower()
-    for kw in day_prof.get("notes_keywords", []):
-        if kw.lower() in notes_l:
-            score += 8
-
-    # Chart Big Three + Venus (beauty planet  -  strong for fragrance)
-    venus = venus or sun
-    cat_weights = chart_category_weights(sun, moon, rising)
-    # Venus categories get an extra nudge
-    for c in SIGN_SCENT_PROFILE.get(venus, {}).get("categories", []):
-        cat_weights[c] = cat_weights.get(c, 0) + 2
-
-    for c in f.get("category", []):
-        score += cat_weights.get(c, 0) * 3
-
-    for sign in (sun, moon, rising, venus):
-        for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
-            if kw.lower() in notes_l:
-                score += 5
-
-    # Prefer Female over pure Unisex slightly for this feature
-    g = normalize_gender(f.get("gender", ""))
-    if g == "Female":
-        score += 8
-    elif g == "Female-leaning":
-        score += 6
-    elif g == "Unisex":
-        score += 3
-
-    score += _stable_tiebreak(f["name"] + day)
-    return score
-
-
-def explain_day_match(f: dict, day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
-    """Short why-this-bottle line for Stars results."""
-    bits = []
-    day_prof = DAY_RULER.get(day, {})
-    cats = set(f.get("category", []))
-    day_hits = [c for c in day_prof.get("categories", []) if c in cats]
-    if day_hits:
-        bits.append(f"{day_prof.get('planet', day)} day  -  {', '.join(day_hits[:2])}")
-    notes_l = (f.get("notes") or "").lower()
-    kw_hits = [kw for kw in day_prof.get("notes_keywords", []) if kw.lower() in notes_l]
-    venus = venus or sun
-    for sign, label in ((sun, "Sun"), (moon, "Moon"), (rising, "Rising"), (venus, "Venus")):
-        for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
-            if kw.lower() in notes_l and kw not in kw_hits:
-                kw_hits.append(kw)
-                bits.append(f"{label} {sign}  -  {kw}")
-                break
-    if kw_hits and not any(" - " in b and "day" not in b for b in bits):
-        bits.append("notes: " + ", ".join(kw_hits[:3]))
-    return "  -  ".join(bits[:3]) if bits else "chart + day blend"
-
-
-def get_day_fragrances(
-    day: str, sun: str, moon: str, rising: str, top_n: int = 5, venus: str = None
-) -> list:
-    scored = []
-    for f in st.session_state["fragrances_db"]:
-        s = score_fragrance_for_day(f, day, sun, moon, rising, venus=venus)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
-
-
-def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
-    """Fun interpretive scent-horoscope blurb for the selected day + chart."""
-    day_prof = DAY_RULER.get(day, {})
-    planet = day_prof.get("planet", "the sky")
-    vibe = day_prof.get("vibe", "a shifting mood")
-    sun_p = SIGN_SCENT_PROFILE.get(sun, {})
-    moon_p = SIGN_SCENT_PROFILE.get(moon, {})
-    rise_p = SIGN_SCENT_PROFILE.get(rising, {})
-    venus = venus or sun
-    ven_p = SIGN_SCENT_PROFILE.get(venus, {})
-
-    echoes = []
-    day_cats = set(day_prof.get("categories", []))
-
-    if day == "Friday":
-        if sun in ("Libra", "Taurus") or venus in ("Libra", "Taurus") or rising in ("Libra", "Taurus"):
-            echoes.append(
-                "Venus day flatters your beauty placements  -  soft florals, polished sweetness, and skin-close musk."
-            )
-        else:
-            echoes.append(
-                "Venus day invites charm: floral-fruity or creamy gourmand, whichever feels like a compliment."
-            )
-    elif day == "Saturday":
-        if moon == "Capricorn" or sun == "Capricorn" or rising == "Capricorn":
-            echoes.append(
-                "Saturn day steadies Capricorn energy  -  amber, woods, and structured gourmands feel like armor."
-            )
-        else:
-            echoes.append(
-                "Saturn day favors polish and depth  -  woody, oriental, or ambered bottles over pure fluff."
-            )
-    elif day == "Sunday":
-        if rising == "Leo" or sun == "Leo" or moon == "Leo":
-            echoes.append(
-                "Sun day turns up Leo heat  -  radiant vanilla, honey, and warm florals read as main-character."
-            )
-        else:
-            echoes.append(
-                "Sun day asks for confidence and glow  -  warm gourmand, golden floral, or a bold oriental."
-            )
-    elif day == "Monday":
-        if moon_p.get("element") == "Water":
-            echoes.append(
-                "Moon day over a water Moon favors milky, musky comfort over sharp edges."
-            )
-        else:
-            echoes.append(
-                "Moon day softens the pace  -  powder, milk, white florals, or a gentle gourmand hug."
-            )
-    elif day == "Tuesday":
-        if sun_p.get("element") == "Fire" or rise_p.get("element") == "Fire":
-            echoes.append(
-                "Mars day stokes fire placements  -  spice, projection, and heat without apology."
-            )
-        else:
-            echoes.append(
-                "Mars day wants drive  -  pepper, ginger, dark fruit, or a spicy oriental edge."
-            )
-    elif day == "Wednesday":
-        if sun_p.get("element") == "Air" or rise_p.get("element") == "Air":
-            echoes.append(
-                "Mercury day loves air signs  -  keep it light, citrus-bright, or softly floral."
-            )
-        else:
-            echoes.append(
-                "Mercury day stays curious and clean  -  citrus, green, pear, or a breezy floral."
-            )
-    elif day == "Thursday":
-        if any(SIGN_SCENT_PROFILE.get(s, {}).get("element") == "Fire" for s in (sun, rising)):
-            echoes.append(
-                "Jupiter day expands fire energy  -  golden, honeyed, or warmly spiced trails."
-            )
-        else:
-            echoes.append(
-                "Jupiter day goes generous  -  amber, vanilla, tonka, or a lush oriental-gourmand."
-            )
-
-    chart_cats = set()
-    for sign in (sun, moon, rising, venus):
-        chart_cats.update(SIGN_SCENT_PROFILE.get(sign, {}).get("categories", []))
-    overlap = list(day_cats & chart_cats)[:3]
-    if overlap:
-        echoes.append(f"Chart overlap with today: **{', '.join(overlap)}**  -  lean there first.")
-
-    if not echoes:
-        echoes.append(
-            f"Let {planet}'s mood lead: {vibe.lower()}. "
-            f"Your {sun} Sun wants {sun_p.get('vibe', 'balance').lower()}; "
-            f"your {moon} Moon reaches for {moon_p.get('vibe', 'comfort').lower()}; "
-            f"{rising} rising adds {rise_p.get('vibe', 'presence').lower()}."
-        )
-
-    families = ", ".join(day_prof.get("categories", [])[:4])
-    venus_line = (
-        f"Venus in {venus} steers beauty toward "
-        f"{', '.join(ven_p.get('categories', [])[:3]) or 'soft allure'}."
-    )
-    body = echoes[0]
-    if len(echoes) > 1:
-        body = echoes[0] + " " + echoes[1]
-
-    nl = "\n"
-    return (
-        f"**{day}  -  ruled by {planet}.** {vibe}{nl}{nl}"
-        f"{body}{nl}{nl}"
-        f"{venus_line} Favor these families today: **{families}**."
-    )
-
-
-
 
 
 GOOD_LAYER_PAIRS = [
@@ -2771,164 +2012,6 @@ def layer_score(f1: dict, f2: dict) -> int:
     return score
 
 
-def suggest_recipe_name_from_notes(bottle_names: list) -> str:
-    """Build a short poetic recipe name from shared notes and categories."""
-    name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
-    frags = [name_map[n] for n in bottle_names if n in name_map]
-    if not frags:
-        return "Untitled layer"
-
-    # Pull note tokens
-    stop = {
-        "top", "heart", "base", "and", "with", "notes", "the", "from", "leaning",
-        "style", "absolute", "extract", "oil", "of", "a", "an", "for", "into",
-    }
-    tokens = []
-    for f in frags:
-        tokens.extend(re.findall(r"[A-Za-z]{4,}", f.get("notes") or ""))
-        tokens.extend(f.get("category") or [])
-    cleaned = []
-    seen = set()
-    for t in tokens:
-        tl = t.lower()
-        if tl in stop or tl in seen:
-            continue
-        seen.add(tl)
-        cleaned.append(t.title())
-        if len(cleaned) >= 6:
-            break
-
-    # Prefer evocative words
-    preferred = [
-        "Vanilla", "Coconut", "Rose", "Oud", "Amber", "Musk", "Coffee", "Caramel",
-        "Jasmine", "Sandalwood", "Cherry", "Cocoa", "Tobacco", "Leather", "Iris",
-        "Peach", "Honey", "Smoke", "Wood", "Citrus", "Marshmallow", "Pistachio",
-    ]
-    picks = [w for w in preferred if any(w.lower() in (c.lower()) for c in cleaned)]
-    if not picks:
-        picks = cleaned[:3]
-    picks = picks[:3]
-    if len(picks) >= 2:
-        return f"{picks[0]} {picks[1]} night"
-    if picks:
-        return f"{picks[0]} veil"
-    # Fallback from bottle names
-    short = [n.split()[0] for n in bottle_names[:2] if n]
-    if len(short) >= 2:
-        return f"{short[0]} x {short[1]}"
-    return bottle_names[0] if bottle_names else "Untitled layer"
-
-
-def season_for_layer_recipe(frags: list) -> dict:
-    """Guess best seasons for a layer from bottle season labels + categories."""
-    if not frags:
-        return {"label": "Unknown", "detail": "No bottles", "bands": []}
-
-    band_score = {
-        "Hot / Summer": 0,
-        "Warm / Mild": 0,
-        "Cool / Autumn": 0,
-        "Cold / Winter": 0,
-    }
-    season_bits = []
-    for f in frags:
-        season = (f.get("season") or "").lower()
-        season_bits.append(f.get("season") or "Versatile")
-        cats = set(f.get("category") or [])
-        if "summer" in season or "hot" in season:
-            band_score["Hot / Summer"] += 3
-        if "spring" in season or "mild" in season or "warm" in season:
-            band_score["Warm / Mild"] += 2
-        if "fall" in season or "autumn" in season or "cool" in season:
-            band_score["Cool / Autumn"] += 3
-        if "winter" in season or "cold" in season:
-            band_score["Cold / Winter"] += 3
-        if "versatile" in season:
-            for k in band_score:
-                band_score[k] += 1
-        # Category leans
-        if cats & {"Fresh", "Citrus", "Fruity"}:
-            band_score["Hot / Summer"] += 2
-            band_score["Warm / Mild"] += 1
-        if cats & {"Floral"}:
-            band_score["Warm / Mild"] += 1
-            band_score["Cool / Autumn"] += 1
-        if cats & {"Gourmand", "Sweet", "Boozy", "Oriental", "Oud", "Spicy"}:
-            band_score["Cool / Autumn"] += 2
-            band_score["Cold / Winter"] += 2
-        if cats & {"Woody", "Leather", "Smoky"}:
-            band_score["Cool / Autumn"] += 1
-            band_score["Cold / Winter"] += 1
-
-    ranked = sorted(band_score.items(), key=lambda x: x[1], reverse=True)
-    top = [b for b, s in ranked if s > 0][:2]
-    if not top:
-        top = ["Warm / Mild"]
-    label = " / ".join(top)
-    detail = (
-        f"Best for {label}. "
-        f"From bottle seasons: {', '.join(season_bits)}."
-    )
-    return {"label": label, "detail": detail, "bands": top}
-
-
-def evaluate_layer_recipe(bottle_names: list) -> dict:
-    """Score a multi-bottle layer recipe and build a short verdict."""
-    name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
-    frags = [name_map[n] for n in bottle_names if n in name_map]
-    missing = [n for n in bottle_names if n not in name_map]
-    season_info = season_for_layer_recipe(frags)
-    suggested_name = suggest_recipe_name_from_notes(bottle_names)
-    if len(frags) < 2:
-        return {
-            "score": 0,
-            "verdict": "Need at least two bottles still in the vault.",
-            "label": "Incomplete",
-            "pairs": [],
-            "frags": frags,
-            "missing": missing,
-            "season": season_info,
-            "suggested_name": suggested_name,
-        }
-    pairs = []
-    scores = []
-    for i in range(len(frags)):
-        for j in range(i + 1, len(frags)):
-            s = layer_score(frags[i], frags[j])
-            scores.append(s)
-            c1 = ", ".join(frags[i].get("category") or [])
-            c2 = ", ".join(frags[j].get("category") or [])
-            pairs.append(
-                {
-                    "a": frags[i]["name"],
-                    "b": frags[j]["name"],
-                    "score": s,
-                    "cats": f"{c1} + {c2}",
-                }
-            )
-    avg = sum(scores) / max(1, len(scores))
-    if avg >= 25:
-        label, verdict = "Strong layer", "Categories support each other - worth wearing together."
-    elif avg >= 12:
-        label, verdict = "Good layer", "Solid pairing - a little contrast or overlap works."
-    elif avg >= 5:
-        label, verdict = "Mixed", "Wearable, but may compete. Try less sprays of the louder one."
-    else:
-        label, verdict = "Risky", "Families may clash. Test on skin before a full wear."
-    if any(s <= -50 for s in scores):
-        label, verdict = "Avoid", "Includes a DEL bottle or a very weak pair."
-    return {
-        "score": round(avg, 1),
-        "verdict": verdict,
-        "label": label,
-        "pairs": pairs,
-        "frags": frags,
-        "missing": missing,
-        "season": season_info,
-        "suggested_name": suggested_name,
-    }
-
-
 def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
     source_pool = (
         pool if len(pool) >= 5 else st.session_state["fragrances_db"]
@@ -2963,851 +2046,91 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
     return results
 
 
-
-
-
-HORROR_SCENT_PROFILES = {
-    "Gothic fog": {
-        "categories": ["Oriental", "Woody", "Powdery", "Smoky"],
-        "notes_keywords": [
-            "incense", "smoke", "oud", "amber", "rose", "violet", "iris",
-            "leather", "patchouli", "myrrh", "vetiver",
-        ],
-        "blurb": "Candlelit halls, fog machines, velvet and old churches.",
-        "vibe_note": "Gothic fog - horror night",
-    },
-    "Cabin in the woods": {
-        "categories": ["Woody", "Aromatic", "Smoky", "Fresh"],
-        "notes_keywords": [
-            "pine", "cedar", "wood", "smoke", "moss", "earth", "vetiver",
-            "fir", "cypress", "leather",
-        ],
-        "blurb": "Trees, damp earth, campfire - something is outside the cabin.",
-        "vibe_note": "Cabin in the woods - horror night",
-    },
-    "Slasher neon": {
-        "categories": ["Sweet", "Fruity", "Gourmand", "Spicy"],
-        "notes_keywords": [
-            "cherry", "berry", "pepper", "cinnamon", "caramel",
-            "plum", "rose", "metallic",
-        ],
-        "blurb": "Bright candy blood, 80s neon, popcorn and adrenaline.",
-        "vibe_note": "Slasher neon - horror night",
-    },
-    "Haunted gourmand": {
-        "categories": ["Gourmand", "Sweet", "Spicy", "Oriental"],
-        "notes_keywords": [
-            "vanilla", "cocoa", "coffee", "caramel", "smoke", "tobacco",
-            "rum", "almond", "marshmallow",
-        ],
-        "blurb": "Warm kitchen that should not be empty - sugar and shadow.",
-        "vibe_note": "Haunted gourmand - horror night",
-    },
-    "Vampire lounge": {
-        "categories": ["Oriental", "Floral", "Woody", "Leather"],
-        "notes_keywords": [
-            "rose", "oud", "incense", "musk", "amber",
-            "jasmine", "tobacco", "dark",
-        ],
-        "blurb": "Dark florals, incense, late-night velvet booths.",
-        "vibe_note": "Vampire lounge - horror night",
-    },
-}
-
-
-def score_for_horror(f: dict, mode: str) -> int:
-    profile = HORROR_SCENT_PROFILES.get(mode) or {}
-    score = 0
-    cats = set(f.get("category") or [])
-    notes = (f.get("notes") or "").lower()
-    for c in profile.get("categories") or []:
-        if c in cats:
-            score += 18
-    for kw in profile.get("notes_keywords") or []:
-        if kw.lower() in notes:
-            score += 8
-    if st.session_state["user_reactions"].get(f.get("name")) == "fav":
-        score += 10
-    if st.session_state["user_reactions"].get(f.get("name")) == "dislike":
-        score -= 50
-    score += _stable_tiebreak((f.get("name") or "") + mode) % 5
-    return score
-
-
-def get_horror_picks(mode: str, top_n: int = 3) -> list:
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        s = score_for_horror(f, mode)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
-
-
-MOOD_PROFILES = {
-    "Cozy": {
-        "categories": ["Gourmand", "Sweet", "Woody"],
-        "notes_keywords": ["vanilla", "caramel", "milk", "tonka", "amber", "cocoa"],
-    },
-    "Fierce": {
-        "categories": ["Oriental", "Spicy", "Oud", "Leather", "Woody"],
-        "notes_keywords": ["oud", "pepper", "incense", "leather", "tobacco", "saffron"],
-    },
-    "Soft": {
-        "categories": ["Floral", "Fresh", "Sweet"],
-        "notes_keywords": ["musk", "powder", "iris", "white flower", "pear", "cotton"],
-    },
-    "Date night": {
-        "categories": ["Oriental", "Gourmand", "Floral", "Sweet"],
-        "notes_keywords": ["rose", "vanilla", "amber", "jasmine", "praline", "honey"],
-    },
-    "Focus / work": {
-        "categories": ["Fresh", "Citrus", "Aromatic", "Woody"],
-        "notes_keywords": ["citrus", "bergamot", "green", "cedar", "tea", "mint"],
-    },
-    "Rainy day": {
-        "categories": ["Gourmand", "Woody", "Oriental", "Floral"],
-        "notes_keywords": ["amber", "vanilla", "incense", "wet", "earthy", "tonka"],
-    },
-    "Main character": {
-        "categories": ["Oriental", "Gourmand", "Floral", "Spicy"],
-        "notes_keywords": ["amber", "vanilla", "oud", "rose", "cinnamon", "honey"],
-    },
-}
-
-
-def score_for_mood(f: dict, mood: str) -> int:
-    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-        return -999
-    prof = MOOD_PROFILES.get(mood, {})
-    score = 0
-    if st.session_state["user_reactions"].get(f["name"]) == "fav":
-        score += 20
-    for c in f.get("category", []):
-        if c in prof.get("categories", []):
-            score += 15
-    notes_l = f.get("notes", "").lower()
-    for kw in prof.get("notes_keywords", []):
-        if kw in notes_l:
-            score += 8
-    score += _stable_tiebreak(f["name"] + mood)
-    return score
-
-
-def _norm_name(s: str) -> str:
-    s = (s or "").strip().lower()
-    s = re.sub(r"[^a-z0-9]+", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
-
-
-def find_duplicate_fragrances(name: str, brand: str) -> dict:
-    """Detect exact and near-duplicate bottles before adding."""
-    nl = _norm_name(name)
-    bl = _norm_name(brand)
-    exact = []
-    same_name = []
-    near = []
-    for f in st.session_state.get("fragrances_db") or []:
-        fn = _norm_name(f.get("name"))
-        fb = _norm_name(f.get("brand"))
-        if not fn:
-            continue
-        if fn == nl and fb == bl:
-            exact.append(f)
-        elif fn == nl:
-            same_name.append(f)
-        elif nl and (nl in fn or fn in nl) and (not bl or bl == fb or bl in fb or fb in bl):
-            near.append(f)
-    return {"exact": exact, "same_name": same_name, "near": near}
-
-
-def filter_play_pool(gender: str = "Any", season: str = "Any", priced_only: bool = False) -> list:
-    """Shared pool filter for Play games."""
-    pool = []
-    for f in st.session_state.get("fragrances_db") or []:
-        if st.session_state["user_reactions"].get(f.get("name")) == "dislike":
-            continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
-            continue
-        if season and season != "Any" and not matches_weather(f, season):
-            continue
-        if priced_only and f.get("price") is None:
-            continue
-        pool.append(f)
-    return pool
-
-
-def fragrances_in_price_range(min_p: float, max_p: float, gender: str = "Any") -> list:
-    hits = []
-    for f in st.session_state.get("fragrances_db") or []:
-        try:
-            px = float(f.get("price")) if f.get("price") is not None else None
-        except (TypeError, ValueError):
-            px = None
-        if px is None:
-            continue
-        if px < min_p or px > max_p:
-            continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
-            continue
-        hits.append(f)
-    hits.sort(key=lambda x: float(x.get("price") or 0))
-    return hits
-
-
-def get_mood_picks(mood: str, top_n: int = 3, pool: list = None) -> list:
-    source = pool if pool is not None else st.session_state["fragrances_db"]
-    scored = []
-    for f in source:
-        s = score_for_mood(f, mood)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
-
-
-def twin_score(f1: dict, f2: dict) -> int:
-    if f1["name"] == f2["name"]:
-        return -1
-    score = 0
-    cats1 = set(f1.get("category", []))
-    cats2 = set(f2.get("category", []))
-    score += len(cats1 & cats2) * 20
-    # shared note tokens
-    t1 = set(re.findall(r"[a-zA-Z]{3,}", f1.get("notes", "").lower()))
-    t2 = set(re.findall(r"[a-zA-Z]{3,}", f2.get("notes", "").lower()))
-    # drop boring words
-    stop = {"top", "heart", "base", "and", "with", "notes", "the", "from"}
-    t1 -= stop
-    t2 -= stop
-    score += len(t1 & t2) * 5
-    if normalize_gender(f1.get("gender", "")) == normalize_gender(f2.get("gender", "")):
-        score += 5
-    return score
-
-
-def find_twins(base: dict, top_n: int = 5) -> list:
-    scored = []
-    for f in st.session_state["fragrances_db"]:
-        s = twin_score(base, f)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [(s, f) for s, f in scored[:top_n]]
-
-
-def least_worn(top_n: int = 5) -> list:
-    counts = get_wear_counts()
-    items = []
-    for f in st.session_state["fragrances_db"]:
-        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-            continue
-        items.append((counts.get(f["name"], 0), f))
-    items.sort(key=lambda x: (x[0], x[1]["name"].lower()))
-    return items[:top_n]
-
-
-def sotd_streak() -> int:
-    """Consecutive days with a log ending at the most recent log (Pacific)."""
-    hist = st.session_state.get("sotd_history") or []
-    if not hist:
-        return 0
-    days = sorted({e.get("date") for e in hist if e.get("date")}, reverse=True)
-    if not days:
-        return 0
-    streak = 1
-    for i in range(len(days) - 1):
-        try:
-            d0 = datetime.date.fromisoformat(days[i])
-            d1 = datetime.date.fromisoformat(days[i + 1])
-        except ValueError:
-            break
-        if (d0 - d1).days == 1:
-            streak += 1
-        else:
-            break
-    return streak
-
-
-def compute_badges() -> list:
-    badges = []
-    hist = st.session_state.get("sotd_history") or []
-    favs = [n for n, s in st.session_state.get("user_reactions", {}).items() if s == "fav"]
-    recipes = st.session_state.get("layer_recipes") or []
-    counts = get_wear_counts()
-    unique_worn = len([k for k, v in counts.items() if v > 0])
-    layered = sum(1 for e in hist if e.get("is_layering"))
-    stats = st.session_state.get("play_stats") or {}
-
-    if hist:
-        badges.append("First log")
-    if sotd_streak() >= 3:
-        badges.append(f"{sotd_streak()}-day streak")
-    if layered:
-        badges.append("Layer explorer")
-    if len(favs) >= 5:
-        badges.append("Collector heart")
-    if unique_worn >= 10:
-        badges.append("10 unique wears")
-    if recipes:
-        badges.append("Recipe keeper")
-    if stats.get("blind_played", 0) >= 1:
-        badges.append("Blind bottle brave")
-    if stats.get("blind_correct", 0) >= 3:
-        badges.append("Nose knows")
-    if stats.get("moods_drawn", 0) >= 5:
-        badges.append("Mood alchemist")
-    if stats.get("challenges_done", 0) >= 3:
-        badges.append("Challenge accepter")
-    # performance logger
-    logged_perf = sum(
-        1 for e in hist if e.get("sillage") or e.get("longevity")
-    )
-    if logged_perf >= 5:
-        badges.append("Performance tracker")
-    return badges
-
-
-def suggest_partners_for(base: dict, num: int = 4, gender: str = "Any") -> list:
-    """Best layering partners for a single selected fragrance."""
-    if not base:
-        return []
-    pool = st.session_state["fragrances_db"]
-    candidates = []
-    for f in pool:
-        if f["name"] == base["name"]:
-            continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
-            continue
-        s = layer_score(base, f)
-        if s <= -50:
-            continue
-        reason = (
-            f"Pairs {', '.join(base.get('category', []))} from {base['name']} with "
-            f"{', '.join(f.get('category', []))} from {f['name']}."
-        )
-        candidates.append((s, f, reason))
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return [(f, reason) for _, f, reason in candidates[:num]]
-
-
-def suggest_his_match(her_frags: list, num: int = 4) -> list:
-    """Male / male-leaning bottles that complement her selected scent(s)."""
-    if not her_frags:
-        return []
-    her_cats = set()
-    her_names = set()
-    for f in her_frags:
-        her_names.add(f["name"])
-        her_cats.update(f.get("category", []))
-
-    # Complementary families for him relative to her profile
-    boost_pairs = {
-        "Gourmand": ["Woody", "Spicy", "Oriental", "Fresh"],
-        "Sweet": ["Woody", "Spicy", "Fresh", "Aromatic"],
-        "Floral": ["Woody", "Oriental", "Spicy", "Fresh"],
-        "Fruity": ["Woody", "Fresh", "Aromatic", "Spicy"],
-        "Oriental": ["Woody", "Fresh", "Spicy", "Aromatic"],
-        "Fresh": ["Woody", "Oriental", "Spicy", "Gourmand"],
-        "Woody": ["Fresh", "Spicy", "Oriental", "Gourmand"],
-        "Spicy": ["Fresh", "Woody", "Gourmand", "Sweet"],
-        "Oud": ["Fresh", "Floral", "Woody", "Spicy"],
-        "Leather": ["Fresh", "Floral", "Sweet", "Woody"],
-        "Citrus": ["Woody", "Oriental", "Spicy", "Aromatic"],
-        "Aromatic": ["Woody", "Oriental", "Gourmand", "Fresh"],
-    }
-
-    candidates = []
-    for f in st.session_state["fragrances_db"]:
-        if f["name"] in her_names:
-            continue
-        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-            continue
-        g = normalize_gender(f.get("gender", ""))
-        if g not in ("Male", "Male-leaning"):
-            # pure Unisex ok as softer option but lower priority
-            if g != "Unisex":
-                continue
-            gender_bonus = 2
-        else:
-            gender_bonus = 12 if g == "Male" else 9
-
-        score = gender_bonus
-        his_cats = set(f.get("category", []))
-        # shared family = cohesive couple scent
-        shared = her_cats & his_cats
-        score += len(shared) * 10
-        # complementary families
-        for hc in her_cats:
-            for good in boost_pairs.get(hc, []):
-                if good in his_cats:
-                    score += 8
-        # layer_score against primary her bottle
-        score += max(0, layer_score(her_frags[0], f))
-        if st.session_state["user_reactions"].get(f["name"]) == "fav":
-            score += 15
-        score += _stable_tiebreak(f["name"] + her_frags[0]["name"]) % 5
-        if score < 15:
-            continue
-        shared_txt = ", ".join(shared) if shared else "contrast"
-        reason = (
-            f"Complements her {', '.join(sorted(her_cats)[:3])} with his "
-            f"{', '.join(f.get('category', []))} ({shared_txt})."
-        )
-        candidates.append((score, f, reason))
-
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return [(f, reason) for _, f, reason in candidates[:num]]
-
-
-def send_to_sotd(names, notes: str = "") -> None:
-    """Prefill SOTD form with bottle name(s) and optional notes."""
-    if isinstance(names, str):
-        names = [names]
-    names = [n for n in names if n]
-    if not names:
-        return
-    st.session_state["sotd_prefill"] = list(names)
-    if notes:
-        st.session_state["sotd_notes_input"] = notes
-    elif len(names) > 1:
-        st.session_state["sotd_notes_input"] = "Layer: " + " + ".join(names)
-    st.session_state["_sotd_ready_flash"] = (
-        f"Ready on SOTD: **{' + '.join(names)}** - open the SOTD tab and tap Log."
-    )
-
-
 def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
-    """Consistent card display with YAY / DEL / Wear actions."""
+    """Consistent card display for a fragrance with optional Love/Trash buttons."""
     current_reaction = st.session_state["user_reactions"].get(f["name"])
     status_badge = (
-        " YAY"
+        " ð¤ Favorite"
         if current_reaction == "fav"
-        else (" NAH" if current_reaction == "dislike" else "")
+        else (" ð« Disliked" if current_reaction == "dislike" else "")
     )
 
     st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
     st.write(f"**Gender:** {f['gender']}  |  **Season:** {f['season']}")
     st.write(f"**Category:** {', '.join(f['category'])}")
     st.caption(f"Notes: {f['notes']}")
-    bits = []
-    if f.get("shelf_status"):
-        bits.append(str(f["shelf_status"]))
-    if f.get("size_ml"):
-        bits.append(f"{f['size_ml']} ml")
-    if f.get("price"):
-        bits.append(f"${f['price']}")
-    if bits:
-        st.caption(" | ".join(bits))
 
     if show_actions:
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
+        col1, col2, col3 = st.columns([1, 1, 4])
         with col1:
-            if st.button("YAY", key=f"{key_prefix}_fav_{f['name']}"):
+            if st.button("Love", key=f"{key_prefix}_fav_{f['name']}"):
                 st.session_state["user_reactions"][f["name"]] = "fav"
                 save_persisted_data()
                 st.rerun()
         with col2:
-            if st.button("DEL", key=f"{key_prefix}_dislike_{f['name']}"):
+            if st.button("Trash", key=f"{key_prefix}_dislike_{f['name']}"):
                 st.session_state["user_reactions"][f["name"]] = "dislike"
                 save_persisted_data()
-                st.rerun()
-        with col3:
-            if st.button("Wear", key=f"{key_prefix}_wear_{f['name']}"):
-                send_to_sotd([f["name"]])
                 st.rerun()
     st.markdown("---")
 
 
 
-def get_last_worn_dates() -> dict:
-    """Most recent wear date (YYYY-MM-DD) per fragrance name."""
-    last = {}
-    for entry in st.session_state.get("sotd_history", []):
-        d = entry.get("date")
-        if not d:
-            continue
-        scents = entry.get("scents") or []
-        if not scents and entry.get("scent"):
-            scents = [p.strip() for p in entry["scent"].split(" + ")]
-        for s in scents:
-            if s not in last or d > last[s]:
-                last[s] = d
-    return last
+def data_quality_issues(f: dict) -> list:
+    """Return human-readable problems with notes / gender / season."""
+    issues = []
+    notes = (f.get("notes") or "").strip()
+    gender = (f.get("gender") or "").strip()
+    season = (f.get("season") or "").strip()
+    cats = f.get("category") or []
 
-
-def days_since_worn(name: str):
-    """Days since last wear (Pacific today). None if never worn."""
-    last = get_last_worn_dates().get(name)
-    if not last:
-        return None
-    try:
-        d = datetime.date.fromisoformat(last)
-        return (pacific_today() - d).days
-    except ValueError:
-        return None
-
-
-def is_incomplete_notes(f: dict) -> bool:
-    notes = (f.get("notes") or "").strip().lower()
-    if len(notes) < 25:
-        return True
-    vague = ("limited public data", "not specified", "likely ", "typically ", "or oriental", "or floral")
-    return any(v in notes for v in vague)
-
-
-
-def search_rank_key(f: dict) -> tuple:
-    """Sort key for search results: YAY first, then wear count, complete notes, name."""
-    name = f.get("name", "")
-    reaction = st.session_state.get("user_reactions", {}).get(name)
-    yay = 0 if reaction == "fav" else 1
-    dislike = 0 if reaction != "dislike" else 1
-    wears = -get_wear_counts().get(name, 0)
-    incomplete = 1 if is_incomplete_notes(f) else 0
-    return (dislike, yay, incomplete, wears, name.lower())
-
-
-def rank_search_results(matches: list) -> list:
-    return sorted(matches, key=search_rank_key)
-
-
-def performance_leaderboard(top_n: int = 5) -> dict:
-    """Best average sillage / longevity from SOTD logs."""
-    # Collect per-bottle samples
-    sil_map = {}  # name -> list
-    lon_map = {}
-    for entry in st.session_state.get("sotd_history") or []:
-        scents = entry.get("scents") or []
-        if not scents and entry.get("scent"):
-            scents = [p.strip() for p in entry["scent"].split(" + ")]
-        for s in scents:
-            if entry.get("sillage"):
-                sil_map.setdefault(s, []).append(int(entry["sillage"]))
-            if entry.get("longevity"):
-                lon_map.setdefault(s, []).append(int(entry["longevity"]))
-
-    def top_avg(m):
-        rows = []
-        for name, vals in m.items():
-            if not vals:
-                continue
-            rows.append((sum(vals) / len(vals), len(vals), name))
-        rows.sort(key=lambda x: (-x[0], -x[1], x[2]))
-        return rows[:top_n]
-
-    return {"sillage": top_avg(sil_map), "longevity": top_avg(lon_map)}
-
-
-
-def get_favorite_notes(top_n: int = 12) -> list:
-    """Ranked note keywords from YAY bottles."""
-    from collections import Counter
-    stop = {
-        "top", "heart", "base", "and", "with", "notes", "the", "from", "leaning",
-        "accord", "style", "family", "version", "original", "intense", "limited",
-        "public", "data", "not", "specified", "for", "women", "men",
-    }
-    c = Counter()
-    for f in st.session_state["fragrances_db"]:
-        if st.session_state["user_reactions"].get(f["name"]) != "fav":
-            continue
-        tokens = re.findall(r"[a-zA-Z]{3,}", f.get("notes", "").lower())
-        for t in tokens:
-            if t not in stop:
-                c[t] += 1
-    return c.most_common(top_n)
-
-
-def find_antipodes(base: dict, top_n: int = 5) -> list:
-    """Bottles most different from base (opposite families / gender lean)."""
-    if not base:
-        return []
-    base_cats = set(base.get("category", []))
-    base_g = normalize_gender(base.get("gender", ""))
-    scored = []
-    for f in st.session_state["fragrances_db"]:
-        if f["name"] == base["name"]:
-            continue
-        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-            continue
-        score = 0
-        cats = set(f.get("category", []))
-        # reward zero overlap
-        score += max(0, 30 - len(base_cats & cats) * 15)
-        # reward opposite lean
-        g = normalize_gender(f.get("gender", ""))
-        if base_g in ("Female", "Female-leaning") and g in ("Male", "Male-leaning"):
-            score += 12
-        elif base_g in ("Male", "Male-leaning") and g in ("Female", "Female-leaning"):
-            score += 12
-        # note token divergence
-        t1 = set(re.findall(r"[a-zA-Z]{3,}", base.get("notes", "").lower()))
-        t2 = set(re.findall(r"[a-zA-Z]{3,}", f.get("notes", "").lower()))
-        stop = {"top", "heart", "base", "and", "with", "notes", "the", "from"}
-        shared = (t1 - stop) & (t2 - stop)
-        score += max(0, 15 - len(shared) * 3)
-        score += _stable_tiebreak(base["name"] + f["name"]) % 4
-        if score > 10:
-            scored.append((score, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return scored[:top_n]
-
-
-def suggest_right_now(weather: str = "Any", favorites_only: bool = False, top_n: int = 3) -> list:
-    """Quick pick blending today weekday + weather + reactions."""
-    day = pacific_today().strftime("%A")
-    sun = st.session_state.get("chart_sun", DEFAULT_CHART["sun"])
-    moon = st.session_state.get("chart_moon", DEFAULT_CHART["moon"])
-    rising = st.session_state.get("chart_rising", DEFAULT_CHART["rising"])
-    venus = st.session_state.get("chart_venus", DEFAULT_CHART.get("venus", sun))
-    day_picks = get_day_fragrances(day, sun, moon, rising, top_n=15, venus=venus)
-    # re-score with weather preference
-    scored = []
-    for f in day_picks:
-        if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
-            continue
-        if not matches_weather(f, weather):
-            continue
-        s = score_fragrance_for_day(f, day, sun, moon, rising, venus=venus)
-        if weather != "Any":
-            s += 10 if matches_weather(f, weather) else 0
-        scored.append((s, f))
-    if not scored:
-        # fallback to regular top
-        return get_top_fragrances("Any", weather, "Any", "Any", top_n, favorites_only=favorites_only)
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
-
-
-def get_weekly_recipe():
-    """Stable layering recipe for the current ISO week."""
-    today = pacific_today()
-    week_key = f"{today.isocalendar()[0]}-W{today.isocalendar()[1]:02d}"
-    cached = st.session_state.get("_weekly_recipe_cache")
-    if cached and cached.get("week") == week_key:
-        return cached
-
-    # Prefer saved recipes first
-    recipes = st.session_state.get("layer_recipes") or []
-    if recipes:
-        idx = int(hashlib.md5(week_key.encode()).hexdigest()[:6], 16) % len(recipes)
-        rec = recipes[idx]
-        out = {"week": week_key, "name": rec.get("name", "Weekly layer"), "bottles": list(rec.get("bottles") or [])}
-        st.session_state["_weekly_recipe_cache"] = out
-        return out
-
-    # Generate one
-    pool = get_top_fragrances("Any", "Any", "Any", "Any", 30, favorites_only=False)
-    combos = suggest_layering_combos(pool, num_combos=5)
-    if not combos:
-        return None
-    idx = int(hashlib.md5(week_key.encode()).hexdigest()[:6], 16) % len(combos)
-    f1, f2, reason = combos[idx]
-    out = {
-        "week": week_key,
-        "name": f"{f1['name']} + {f2['name']}",
-        "bottles": [f1["name"], f2["name"]],
-        "reason": reason,
-    }
-    st.session_state["_weekly_recipe_cache"] = out
-    return out
-
-
-CHALLENGE_DECK = [
-    "Wear only something you've never layered before.",
-    "No gourmands for the next 3 logs.",
-    "Only Male-leaning or pure Male this weekend.",
-    "Pick a bottle you haven't worn in 14+ days.",
-    "Layer a Fresh with a Gourmand today.",
-    "Wear your least-worn YAY bottle.",
-    "No vanilla-forward scents until tomorrow.",
-    "Choose something with oud, leather, or incense.",
-    "All-floral day - no woody bases if you can help it.",
-    "Blind-bottle yourself: pick without looking at the name.",
-    "Wear the opposite family of yesterday's SOTD.",
-    "Date-night intensity on an ordinary day.",
-    "Horror night: wear something smoky, incense, or dark woody.",
-    "High Desert heat check: lightest, airiest bottle you own.",
-    "Coffee + desk day: soft office-safe scent only.",
-    "Layer two bottles you have never combined.",
-    "No sweet notes today - dry, green, or citrus only.",
-    "Reach for a decant or travel size if you have one.",
-    "Wear a fragrance purely for the top notes - reapply later.",
-    "Match your scent to the weather outside right now.",
-    "Pick a brand you rarely reach for.",
-    "One spray only - see if it still reads on skin.",
-    "Movie-night vibe: gothic fog or slasher neon energy.",
-    "Skip your usual top 3 - force a deep-shelf bottle.",
-    "Fruity opening, clean dry-down - no heavy ambers.",
-    "Powdery or iris-forward only today.",
-    "Leather or cedar must show up in the mix.",
-    "Write three words about the scent at hour two.",
-]
-
-
-def _challenge_personal_pool() -> list:
-    """Extra challenges built from this vault and recent SOTD."""
-    extras = []
-    db = st.session_state.get("fragrances_db") or []
-    hist = st.session_state.get("sotd_history") or []
-    reactions = st.session_state.get("user_reactions") or {}
-    try:
-        wears = get_wear_counts()
-    except Exception:
-        wears = {}
-
-    if db:
-        ranked = sorted(
-            db,
-            key=lambda f: (wears.get(f.get("name"), 0), f.get("name") or ""),
+    if not notes or notes.lower() in ("not specified", "n/a", "none", "-"):
+        issues.append("Missing notes")
+    elif len(notes) < 20:
+        issues.append("Notes very short")
+    elif any(
+        phrase in notes.lower()
+        for phrase in (
+            "limited public data",
+            "typically woody",
+            "or peaceful",
+            "likely floral",
+            "soft or aromatic",
+            "mysterious oriental",
+            "arabic-style",
+            "deeper/intensified",
+            "richer/intensified",
+            "luxury oriental",
+            "masculine woody",
+            "soft sweet",
+            "sweet candy",
+            "dark, bold",
+            "dark, woody",
         )
-        least = ranked[0]
-        extras.append(
-            f"Reach for **{least.get('name')}** ({least.get('brand')}) - it needs airtime."
-        )
-        if len(ranked) > 3:
-            mid = ranked[len(ranked) // 2]
-            extras.append(f"Mid-shelf pull: wear **{mid.get('name')}** today.")
+    ):
+        issues.append("Notes look vague / placeholder")
 
-    yay = [n for n, s in reactions.items() if s == "fav"]
-    if yay:
-        idx = int(hashlib.md5(pacific_today().isoformat().encode()).hexdigest()[:6], 16) % len(yay)
-        extras.append(f"YAY spotlight: wear **{yay[idx]}** (or layer it).")
-
-    if hist:
-        last = hist[0]
-        scents = last.get("scents") or []
-        if not scents and last.get("scent"):
-            scents = [p.strip() for p in str(last["scent"]).split(" + ")]
-        name_map = {f["name"]: f for f in db}
-        cats = set()
-        for n in scents:
-            f = name_map.get(n)
-            if f:
-                cats.update(f.get("category") or [])
-        opposites = {
-            "Gourmand": "Fresh",
-            "Sweet": "Woody",
-            "Fresh": "Oriental",
-            "Floral": "Spicy",
-            "Woody": "Fruity",
-            "Oriental": "Citrus",
-            "Citrus": "Leather",
-            "Spicy": "Powdery",
-        }
-        for c in list(cats)[:2]:
-            opp = opposites.get(c)
-            if opp:
-                extras.append(f"Yesterday leaned {c} - try **{opp}** today instead.")
-                break
-        if scents:
-            extras.append(f"Do not repeat yesterday's main bottle: avoid **{scents[0]}**.")
-
-    from collections import Counter
-    cat_c = Counter()
-    for f in db:
-        for c in f.get("category") or []:
-            cat_c[c] += 1
-    if cat_c:
-        rare = sorted(cat_c.items(), key=lambda x: x[1])[0][0]
-        extras.append(f"Underused family in your vault: lean into **{rare}** today.")
-
-    return extras
+    if not gender:
+        issues.append("Missing gender")
+    if not season:
+        issues.append("Missing season")
+    elif len(season) < 3:
+        issues.append("Season too short")
+    if not cats:
+        issues.append("No categories")
+    return issues
 
 
-def draw_challenge() -> str:
-    """Daily challenge - rotates by date; salt lets you reroll the same day."""
-    today = pacific_today().isoformat()
-    salt = st.session_state.get("challenge_salt", 0)
-    deck = list(CHALLENGE_DECK) + _challenge_personal_pool()
-    if not deck:
-        return "Wear something that feels like High Desert night air."
-    seed = int(hashlib.md5(f"challenge-{today}-{salt}".encode()).hexdigest()[:8], 16)
-    return deck[seed % len(deck)]
-
-
-def average_performance(name: str) -> dict:
-    """Average sillage / longevity from SOTD logs that recorded them."""
-    sil, lon, n_s, n_l = 0, 0, 0, 0
-    for entry in st.session_state.get("sotd_history", []):
-        scents = entry.get("scents") or []
-        if not scents and entry.get("scent"):
-            scents = [p.strip() for p in entry["scent"].split(" + ")]
-        if name not in scents:
-            continue
-        if entry.get("sillage"):
-            sil += int(entry["sillage"])
-            n_s += 1
-        if entry.get("longevity"):
-            lon += int(entry["longevity"])
-            n_l += 1
+def lookup_urls(name: str, brand: str = "") -> dict:
+    """Build search URLs for external note research (not scraped)."""
+    q = f"{brand} {name}".strip() if brand else name
+    from urllib.parse import quote_plus
+    qq = quote_plus(q)
     return {
-        "sillage": round(sil / n_s, 1) if n_s else None,
-        "longevity": round(lon / n_l, 1) if n_l else None,
-        "samples": max(n_s, n_l),
+        "Google": f"https://www.google.com/search?q={qq}+fragrance+notes",
+        "Fragrantica": f"https://www.fragrantica.com/search/?query={qq}",
+        "Parfumo": f"https://www.parfumo.com/Search?q={qq}",
     }
-
-
-def export_journal_markdown() -> str:
-    """Pretty markdown export of SOTD history + stats."""
-    lines = ["# ScentedDeadGirl Journal", ""]
-    lines.append(f"_Exported {pacific_today().isoformat()} (Pacific)_")
-    lines.append("")
-    lines.append(f"- Bottles in vault: **{len(st.session_state['fragrances_db'])}**")
-    lines.append(f"- SOTD logs: **{len(st.session_state.get('sotd_history') or [])}**")
-    lines.append(f"- Current streak: **{sotd_streak()}** day(s)")
-    badges = compute_badges()
-    if badges:
-        lines.append(f"- Badges: {', '.join(badges)}")
-    fav_notes = get_favorite_notes(8)
-    if fav_notes:
-        lines.append(f"- Favorite notes: {', '.join(f'{n} ({c})' for n, c in fav_notes)}")
-    lines.append("")
-    lines.append("## History")
-    lines.append("")
-    for entry in st.session_state.get("sotd_history") or []:
-        layer = " _(layering)_" if entry.get("is_layering") else ""
-        notes = f"  -  {entry['notes']}" if entry.get("notes") else ""
-        perf = ""
-        if entry.get("sillage") or entry.get("longevity"):
-            parts = []
-            if entry.get("sillage"):
-                parts.append(f"sillage {entry['sillage']}/5")
-            if entry.get("longevity"):
-                parts.append(f"longevity {entry['longevity']}/5")
-            perf = f" [{', '.join(parts)}]"
-        his = ""
-        if entry.get("his_scent"):
-            his = f" | his: {entry['his_scent']}"
-        lines.append(f"- **{entry.get('date', '?')}**: {entry.get('scent', '?')}{layer}{his}{perf}{notes}")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def season_family_summary() -> dict:
-    """Count category wears in the last 30 days for a simple heatmap-style summary."""
-    from collections import Counter
-    cutoff = pacific_today() - datetime.timedelta(days=30)
-    cat_counts = Counter()
-    name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
-    for entry in st.session_state.get("sotd_history") or []:
-        try:
-            d = datetime.date.fromisoformat(entry.get("date", ""))
-        except ValueError:
-            continue
-        if d < cutoff:
-            continue
-        scents = entry.get("scents") or []
-        if not scents and entry.get("scent"):
-            scents = [p.strip() for p in entry["scent"].split(" + ")]
-        for s in scents:
-            fr = name_map.get(s)
-            if fr:
-                for c in fr.get("category", []):
-                    cat_counts[c] += 1
-    return dict(cat_counts.most_common())
-
 
 
 def get_wear_counts() -> dict:
@@ -3822,933 +2145,11 @@ def get_wear_counts() -> dict:
     return counts
 
 
-
-def _image_to_data_url(uploaded_file, max_side: int = 640) -> str:
-    """Compress uploaded image to a small JPEG data URL for SOTD storage."""
-    import base64
-    import io
-    try:
-        from PIL import Image
-    except ImportError:
-        raw = uploaded_file.getvalue()
-        b64 = base64.b64encode(raw).decode("ascii")
-        mime = getattr(uploaded_file, "type", None) or "image/jpeg"
-        return f"data:{mime};base64,{b64}"
-    img = Image.open(uploaded_file).convert("RGB")
-    w, h = img.size
-    scale = min(1.0, float(max_side) / max(w, h))
-    if scale < 1.0:
-        img = img.resize((int(w * scale), int(h * scale)))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=72, optimize=True)
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    return f"data:image/jpeg;base64,{b64}"
-
-
-def _pdf_escape(s: str) -> str:
-    return (
-        str(s)
-        .replace("\\", "\\\\")
-        .replace("(", "\\(")
-        .replace(")", "\\)")
-        .replace("\r", " ")
-        .replace("\n", " ")
-    )
-
-
-def build_simple_pdf(title: str, lines: list) -> bytes:
-    """Minimal single/multi-page PDF using only the standard library (no fpdf)."""
-    # Page size letter, 72 pt = 1 inch
-    page_w, page_h = 612, 792
-    margin = 50
-    font_size = 11
-    leading = 16
-    max_chars = 90
-
-    def wrap(text, width=max_chars):
-        text = str(text or "")
-        words = text.split()
-        rows, cur = [], ""
-        for w in words:
-            trial = (cur + " " + w).strip()
-            if len(trial) <= width:
-                cur = trial
-            else:
-                if cur:
-                    rows.append(cur)
-                cur = w
-        if cur:
-            rows.append(cur)
-        return rows or [""]
-
-    # Build page content streams
-    pages = []
-    y = page_h - margin
-    content = []
-
-    def new_page():
-        nonlocal y, content
-        if content:
-            pages.append(content)
-        content = []
-        y = page_h - margin
-
-    def add_line(text, size=font_size, bold=False):
-        nonlocal y
-        for row in wrap(text):
-            if y < margin + leading:
-                new_page()
-            # Helvetica
-            content.append(f"BT /F1 {size} Tf 50 {y} Td ({_pdf_escape(row)}) Tj ET")
-            y -= leading
-
-    add_line(title, size=16)
-    y -= 6
-    for line in lines:
-        add_line(line, size=11)
-    new_page()
-    if not pages:
-        pages = [["BT /F1 11 Tf 50 742 Td (Empty) Tj ET"]]
-
-    # Assemble PDF objects
-    out = []
-    out.append(b"%PDF-1.4\n")
-    offsets = [0]
-
-    def add_obj(data: bytes):
-        offsets.append(sum(len(x) for x in out))
-        out.append(f"{len(offsets)-1} 0 obj\n".encode("latin-1"))
-        out.append(data)
-        out.append(b"\nendobj\n")
-
-    # 1: Catalog
-    add_obj(b"<< /Type /Catalog /Pages 2 0 R >>")
-    # 2: Pages
-    kids = " ".join(f"{3+i} 0 R" for i in range(len(pages)))
-    add_obj(f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode("latin-1"))
-    # Page objects + content streams
-    # Layout: pages start at 3, content streams after all pages
-    content_ids = []
-    for i, page_ops in enumerate(pages):
-        stream_id = 3 + len(pages) + i
-        content_ids.append(stream_id)
-        page_obj = (
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_w} {page_h}] "
-            f"/Contents {stream_id} 0 R /Resources << /Font << /F1  {3+2*len(pages)} 0 R >> >> >>"
-        )
-        # Fix font id - use fixed font object after all streams
-    # Rebuild with correct references
-    out = [b"%PDF-1.4\n"]
-    offsets = [0]
-    objects = []
-
-    def obj(data: bytes):
-        objects.append(data)
-
-    font_id = 3 + 2 * len(pages)  # after pages + streams
-    obj(b"<< /Type /Catalog /Pages 2 0 R >>")  # 1
-    kids = " ".join(f"{3+i} 0 R" for i in range(len(pages)))
-    obj(f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode("latin-1"))  # 2
-    for i, page_ops in enumerate(pages):
-        stream_id = 3 + len(pages) + i
-        obj(
-            (
-                f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_w} {page_h}] "
-                f"/Contents {stream_id} 0 R /Resources << /Font << /F1 {font_id} 0 R >> >> >>"
-            ).encode("latin-1")
-        )
-    for page_ops in pages:
-        body = "\n".join(page_ops).encode("latin-1", errors="replace")
-        obj(f"<< /Length {len(body)} >>\nstream\n".encode("latin-1") + body + b"\nendstream")
-    obj(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-
-    # Write with offsets
-    result = [b"%PDF-1.4\n"]
-    offs = [0]
-    for i, data in enumerate(objects, 1):
-        offs.append(sum(len(x) for x in result))
-        result.append(f"{i} 0 obj\n".encode("latin-1"))
-        result.append(data)
-        result.append(b"\nendobj\n")
-    xref_pos = sum(len(x) for x in result)
-    result.append(f"xref\n0 {len(objects)+1}\n".encode("latin-1"))
-    result.append(b"0000000000 65535 f \n")
-    for o in offs[1:]:
-        result.append(f"{o:010d} 00000 n \n".encode("latin-1"))
-    result.append(
-        f"trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode(
-            "latin-1"
-        )
-    )
-    return b"".join(result)
-
-
-
-SHELF_STATUSES = ["Own", "Decant", "Traveling", "Finished", "Wishlist-bound"]
-
-
-def log_vault_action(action: str, name: str, detail: str = "") -> None:
-    """Append a short vault activity entry (newest first)."""
-    entry = {
-        "when": pacific_today().isoformat(),
-        "action": action,
-        "name": name,
-        "detail": detail or "",
-    }
-    log = st.session_state.setdefault("vault_log", [])
-    log.insert(0, entry)
-    st.session_state["vault_log"] = log[:200]  # cap
-
-
-def collection_value_summary(db: list) -> dict:
-    """Rough totals from optional size_ml / price fields."""
-    total_ml = 0.0
-    total_price = 0.0
-    priced = 0
-    sized = 0
-    by_shelf = {}
-    for f in db:
-        shelf = f.get("shelf_status") or "Own"
-        by_shelf[shelf] = by_shelf.get(shelf, 0) + 1
-        try:
-            ml = float(f.get("size_ml") or 0)
-            if ml > 0:
-                total_ml += ml
-                sized += 1
-        except (TypeError, ValueError):
-            pass
-        try:
-            px = float(f.get("price") or 0)
-            if px > 0:
-                total_price += px
-                priced += 1
-        except (TypeError, ValueError):
-            pass
-    return {
-        "total_ml": total_ml,
-        "total_price": total_price,
-        "priced": priced,
-        "sized": sized,
-        "by_shelf": by_shelf,
-    }
-
-
-def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
-    """One-page PDF summary for a single bottle (add receipt / share sheet)."""
-    title = title or "ScentedDeadGirl - Bottle sheet"
-    lines = [
-        f"Exported {pacific_today().isoformat()} (Pacific)",
-        "",
-        f"Name: {frag.get('name', '?')}",
-        f"Brand: {frag.get('brand', '?')}",
-        f"Gender: {frag.get('gender', '?')}",
-        f"Season: {frag.get('season', '?')}",
-        f"Categories: {', '.join(frag.get('category') or [])}",
-        f"Shelf: {frag.get('shelf_status') or 'Own'}",
-    ]
-    if frag.get("size_ml"):
-        lines.append(f"Size: {frag.get('size_ml')} ml")
-    if frag.get("price"):
-        lines.append(f"Price: ${frag.get('price')}")
-    lines.append("")
-    lines.append("Notes:")
-    notes = frag.get("notes") or "Not specified"
-    # soft-wrap long notes
-    lines.append(notes)
-    return build_simple_pdf(title, lines)
-
-
-def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
-    """Local vault matches + online links for notes, gender, season, categories."""
-    name = (name or "").strip()
-    brand = (brand or "").strip()
-    q = f"{brand} {name}".strip() or name
-    local = []
-    if name:
-        nl = name.lower()
-        bl = brand.lower()
-        for f in st.session_state.get("fragrances_db") or []:
-            fn = (f.get("name") or "").lower()
-            fb = (f.get("brand") or "").lower()
-            if nl in fn or fn in nl or (bl and bl in fb and len(nl) >= 3 and nl[:4] in fn):
-                local.append(f)
-            elif bl and bl == fb and abs(len(fn) - len(nl)) <= 3:
-                local.append(f)
-    seen = set()
-    uniq = []
-    for f in local:
-        if f.get("name") not in seen:
-            seen.add(f.get("name"))
-            uniq.append(f)
-
-    links = {}
-    if q:
-        q_enc = urllib.parse.quote_plus(q)
-        links["Notes (Google)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume notes pyramid')}"
-        )
-        links["Gender (Google)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume for men or women unisex')}"
-        )
-        links["Season (Google)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume best season weather')}"
-        )
-        links["Category / accords (Google)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume accords main notes family')}"
-        )
-        links["Price (Google)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume price buy')}"
-        )
-        links["Price shopping (Google)"] = (
-            f"https://www.google.com/search?tbm=shop&q={urllib.parse.quote_plus(q + ' perfume')}"
-        )
-        links["Fragrantica search"] = (
-            f"https://www.fragrantica.com/search/?query={q_enc}"
-        )
-        links["Parfumo search"] = (
-            f"https://www.parfumo.com/s_j_perfumes.php?in={q_enc}"
-        )
-        links["Fragrantica (Google site)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:fragrantica.com ' + q)}"
-        )
-        links["FragranceNet (Google site)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:fragrancenet.com ' + q)}"
-        )
-        links["Jomashop (Google site)"] = (
-            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:jomashop.com ' + q + ' perfume')}"
-        )
-
-    return {"local": uniq[:8], "links": links, "query": q}
-
-
-def wishlist_item_to_vault(item: dict) -> dict:
-    """Add a wishlist entry into fragrances_db if not a duplicate."""
-    name = (item.get("name") or "").strip()
-    brand = (item.get("brand") or "").strip() or "Unknown"
-    if not name:
-        return {"ok": False, "message": "Missing name", "frag": None}
-    dups = find_duplicate_fragrances(name, brand)
-    if dups.get("exact") or dups.get("same_name"):
-        existing = (dups.get("exact") or dups.get("same_name") or [None])[0]
-        label = f"{existing.get('name')} ({existing.get('brand')})" if existing else name
-        return {"ok": False, "message": f"Already in vault: {label}", "frag": existing}
-    notes = (item.get("notes") or "").strip() or "From wishlist"
-    frag = {
-        "name": name,
-        "brand": brand,
-        "gender": "Unisex",
-        "season": "Versatile",
-        "notes": notes,
-        "category": ["Gourmand"],
-        "dupe_of": "",
-        "shelf_status": "Own",
-        "size_ml": None,
-        "price": None,
-    }
-    st.session_state["fragrances_db"].append(frag)
-    try:
-        log_vault_action("added", name, f"from wishlist / {brand}")
-    except Exception:
-        pass
-    return {"ok": True, "message": f"Added {name} to vault", "frag": frag}
-
-
-def build_wishlist_pdf(items: list) -> bytes:
-    """PDF checklist of wishlist entries (no external PDF library required)."""
-    lines = [f"Exported {pacific_today().isoformat()} (Pacific)", ""]
-    if not items:
-        lines.append("Wishlist is empty.")
-    for item in items:
-        mark = "[x]" if item.get("checked") else "[ ]"
-        line = f"{mark}  {item.get('name', '?')}"
-        if item.get("brand"):
-            line += f"  ({item.get('brand')})"
-        lines.append(line)
-        if item.get("notes"):
-            lines.append(f"    {item['notes']}")
-        lines.append("")
-    return build_simple_pdf("ScentedDeadGirl Wishlist", lines)
-
-
-def build_sotd_week_pdf(week_key: str = None) -> bytes:
-    """PDF of SOTD entries for one ISO week (default: current Pacific week)."""
-    today = pacific_today()
-    if week_key:
-        try:
-            year = int(week_key.split("-W")[0])
-            week = int(week_key.split("-W")[1])
-            monday = datetime.date.fromisocalendar(year, week, 1)
-        except Exception:
-            monday = today - datetime.timedelta(days=today.weekday())
-            week_key = f"{monday.isocalendar()[0]}-W{monday.isocalendar()[1]:02d}"
-    else:
-        monday = today - datetime.timedelta(days=today.weekday())
-        week_key = f"{monday.isocalendar()[0]}-W{monday.isocalendar()[1]:02d}"
-    sunday = monday + datetime.timedelta(days=6)
-
-    entries = []
-    for e in st.session_state.get("sotd_history") or []:
-        d = e.get("date")
-        if not d:
-            continue
-        try:
-            dd = datetime.date.fromisoformat(d)
-        except ValueError:
-            continue
-        if monday <= dd <= sunday:
-            entries.append(e)
-    entries.sort(key=lambda x: x.get("date", ""))
-
-    lines = [
-        f"Week {week_key}  ({monday.isoformat()} to {sunday.isoformat()})",
-        f"Exported {today.isoformat()} (Pacific)",
-        "",
-    ]
-    if not entries:
-        lines.append("No SOTD logs in this week.")
-    for e in entries:
-        layer = " [layer]" if e.get("is_layering") else ""
-        lines.append(f"{e.get('date', '?')}: {e.get('scent', '?')}{layer}")
-        bits = []
-        if e.get("his_scent"):
-            bits.append(f"his: {e['his_scent']}")
-        if e.get("sillage"):
-            bits.append(f"sillage {e['sillage']}/5")
-        if e.get("longevity"):
-            bits.append(f"longevity {e['longevity']}/5")
-        if e.get("notes"):
-            bits.append(str(e["notes"]))
-        if bits:
-            lines.append("  " + " | ".join(bits))
-        lines.append("")
-    return build_simple_pdf("ScentedDeadGirl SOTD - Weekly", lines)
-
-
-
-def sun_sign_from_date(month: int, day: int) -> str:
-    """Tropical sun sign from month/day (no birth time needed)."""
-    md = (month, day)
-    ranges = [
-        (1, 19, "Capricorn"),
-        (2, 18, "Aquarius"),
-        (3, 20, "Pisces"),
-        (4, 19, "Aries"),
-        (5, 20, "Taurus"),
-        (6, 20, "Gemini"),
-        (7, 22, "Cancer"),
-        (8, 22, "Leo"),
-        (9, 22, "Virgo"),
-        (10, 22, "Libra"),
-        (11, 21, "Scorpio"),
-        (12, 21, "Sagittarius"),
-        (12, 31, "Capricorn"),
-    ]
-    for em, ed, sign in ranges:
-        if md <= (em, ed):
-            return sign
-    return "Capricorn"
-
-
-_SIGN_ABBREV = {
-    "ari": "Aries",
-    "tau": "Taurus",
-    "gem": "Gemini",
-    "can": "Cancer",
-    "leo": "Leo",
-    "vir": "Virgo",
-    "lib": "Libra",
-    "sco": "Scorpio",
-    "sag": "Sagittarius",
-    "cap": "Capricorn",
-    "aqu": "Aquarius",
-    "pis": "Pisces",
-}
-
-
-def normalize_sign_name(sign: str) -> str:
-    if not sign:
-        return ""
-    s = str(sign).strip()
-    if s in SIGN_SCENT_PROFILE:
-        return s
-    key = s[:3].lower()
-    return _SIGN_ABBREV.get(key, s.title())
-
-
-def geocode_birth_place(city: str, country: str = "United States") -> dict:
-    """Resolve city to lat/lon via Open-Meteo geocoding (no API key)."""
-    import json as _json
-    import urllib.request
-
-    city = (city or "").strip()
-    if not city:
-        return {"ok": False, "detail": "City is required"}
-    q = urllib.parse.quote_plus(f"{city}")
-    url = (
-        "https://geocoding-api.open-meteo.com/v1/search"
-        f"?name={q}&count=5&language=en&format=json"
-    )
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            payload = _json.loads(resp.read().decode("utf-8"))
-        results = payload.get("results") or []
-        if not results:
-            return {"ok": False, "detail": f"No location found for '{city}'"}
-        # Prefer matching country name when possible
-        country_l = (country or "").strip().lower()
-        chosen = results[0]
-        if country_l:
-            for r in results:
-                ctry = (r.get("country") or "").lower()
-                if country_l in ctry or ctry in country_l:
-                    chosen = r
-                    break
-        lat = float(chosen["latitude"])
-        lon = float(chosen["longitude"])
-        label = ", ".join(
-            p
-            for p in [
-                chosen.get("name"),
-                chosen.get("admin1"),
-                chosen.get("country"),
-            ]
-            if p
-        )
-        # Simple US timezone guess by longitude bands (good enough for chart calc input)
-        tz = "UTC"
-        ctry = (chosen.get("country") or "").lower()
-        if "united states" in ctry or ctry == "usa":
-            if lon <= -115:
-                tz = "America/Los_Angeles"
-            elif lon <= -100:
-                tz = "America/Denver"
-            elif lon <= -85:
-                tz = "America/Chicago"
-            else:
-                tz = "America/New_York"
-        elif "canada" in ctry:
-            tz = "America/Toronto"
-        elif "united kingdom" in ctry or ctry == "uk":
-            tz = "Europe/London"
-        return {
-            "ok": True,
-            "lat": lat,
-            "lon": lon,
-            "label": label,
-            "tz_str": tz,
-            "country": chosen.get("country") or country,
-        }
-    except Exception as ex:
-        return {"ok": False, "detail": str(ex)}
-
-
-def _norm360(x: float) -> float:
-    return x % 360.0
-
-
-def _longitude_to_sign(lon: float) -> str:
-    signs = [
-        "Aries",
-        "Taurus",
-        "Gemini",
-        "Cancer",
-        "Leo",
-        "Virgo",
-        "Libra",
-        "Scorpio",
-        "Sagittarius",
-        "Capricorn",
-        "Aquarius",
-        "Pisces",
-    ]
-    return signs[int(_norm360(lon) // 30) % 12]
-
-
-def _julian_day_utc(year, month, day, hour, minute, second=0.0) -> float:
-    """Julian Day for a UTC datetime."""
-    y = year
-    m = month
-    if m <= 2:
-        y -= 1
-        m += 12
-    A = int(y / 100)
-    B = 2 - A + int(A / 4)
-    day_frac = (hour + minute / 60.0 + second / 3600.0) / 24.0
-    return (
-        int(365.25 * (y + 4716))
-        + int(30.6001 * (m + 1))
-        + day
-        + day_frac
-        + B
-        - 1524.5
-    )
-
-
-def _local_to_jd_utc(year, month, day, hour, minute, tz_str: str) -> float:
-    """Convert local civil time in tz_str to Julian Day (UTC)."""
-    try:
-        tz = ZoneInfo(tz_str) if tz_str else ZoneInfo("UTC")
-    except Exception:
-        tz = ZoneInfo("UTC")
-    local_dt = datetime.datetime(
-        int(year), int(month), int(day), int(hour), int(minute), 0, tzinfo=tz
-    )
-    utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
-    return _julian_day_utc(
-        utc_dt.year,
-        utc_dt.month,
-        utc_dt.day,
-        utc_dt.hour,
-        utc_dt.minute,
-        utc_dt.second,
-    )
-
-
-def _sun_longitude(jd: float) -> float:
-    """Approximate apparent Sun longitude (degrees), good to ~0.01 deg."""
-    import math
-
-    T = (jd - 2451545.0) / 36525.0
-    L0 = _norm360(280.46646 + 36000.76983 * T + 0.0003032 * T * T)
-    M = math.radians(
-        _norm360(357.52911 + 35999.05029 * T - 0.0001537 * T * T)
-    )
-    C = (
-        (1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M)
-        + (0.019993 - 0.000101 * T) * math.sin(2 * M)
-        + 0.000289 * math.sin(3 * M)
-    )
-    true_long = L0 + C
-    # omega / nutation simplified (aberation-ish)
-    omega = math.radians(_norm360(125.04 - 1934.136 * T))
-    lam = true_long - 0.00569 - 0.00478 * math.sin(omega)
-    return _norm360(lam)
-
-
-def _moon_longitude(jd: float) -> float:
-    """Approximate Moon ecliptic longitude (degrees). Sign-level accuracy."""
-    import math
-
-    T = (jd - 2451545.0) / 36525.0
-    Lp = math.radians(
-        _norm360(218.3164477 + 481267.88123421 * T - 0.0015786 * T * T)
-    )
-    D = math.radians(
-        _norm360(297.8501921 + 445267.1114034 * T - 0.0018819 * T * T)
-    )
-    M = math.radians(
-        _norm360(357.5291092 + 35999.0502909 * T - 0.0001536 * T * T)
-    )
-    Mp = math.radians(
-        _norm360(134.9633964 + 477198.8675055 * T + 0.0087414 * T * T)
-    )
-    F = math.radians(
-        _norm360(93.2720950 + 483202.0175233 * T - 0.0036539 * T * T)
-    )
-    # Major periodic terms (degrees)
-    lon = (
-        6.288774 * math.sin(Mp)
-        + 1.274027 * math.sin(2 * D - Mp)
-        + 0.658314 * math.sin(2 * D)
-        + 0.213618 * math.sin(2 * Mp)
-        - 0.185116 * math.sin(M)
-        - 0.114332 * math.sin(2 * F)
-        + 0.058793 * math.sin(2 * D - 2 * Mp)
-        + 0.057212 * math.sin(2 * D - M - Mp)
-        + 0.053320 * math.sin(2 * D + Mp)
-        + 0.045874 * math.sin(2 * D - M)
-        + 0.041024 * math.sin(Mp - M)
-        - 0.034718 * math.sin(D)
-        - 0.030465 * math.sin(M + Mp)
-    )
-    return _norm360(math.degrees(Lp) + lon)
-
-
-def _helio_planet_longitude(jd: float, L0, nL, M0, nM, e_c1, e_c2=0.0) -> float:
-    """Very simplified mean heliocentric longitude + equation of center."""
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(L0 + nL * T)
-    M = math.radians(_norm360(M0 + nM * T))
-    C = e_c1 * math.sin(M) + e_c2 * math.sin(2 * M)
-    return _norm360(L + C)
-
-
-def _venus_longitude(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(181.979801 + 58517.8156760 * T)
-    M = math.radians(_norm360(50.4161 + 58517.803863 * T))
-    C = 0.775 * math.sin(M) + 0.003 * math.sin(2 * M)
-    earth_L = _norm360(100.46435 + 35999.37297 * T)
-    helio = L + C
-    return _norm360(helio + 1.2 * math.sin(math.radians(helio - earth_L)))
-
-
-def _mercury_longitude(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(252.250906 + 149472.6746358 * T)
-    M = math.radians(_norm360(174.7948 + 149472.5153 * T))
-    C = 23.4400 * math.sin(M) + 2.9818 * math.sin(2 * M)
-    earth_L = _norm360(100.46435 + 35999.37297 * T)
-    helio = L + C
-    return _norm360(helio + 3.0 * math.sin(math.radians(helio - earth_L)))
-
-
-def _mars_longitude(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(355.433 + 19140.3023 * T)
-    M = math.radians(_norm360(19.3730 + 19140.2993 * T))
-    C = 10.691 * math.sin(M) + 0.623 * math.sin(2 * M)
-    earth_L = _norm360(100.46435 + 35999.37297 * T)
-    helio = L + C
-    return _norm360(helio + 1.5 * math.sin(math.radians(earth_L - helio)))
-
-
-def _jupiter_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 34.351519, 3034.9057, 19.8950, 3034.6920, 5.555, 0.168)
-
-
-def _saturn_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 50.0774, 1222.1138, 317.0207, 1221.5515, 6.406, 0.223)
-
-
-def _uranus_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 314.0550, 428.4669, 141.0498, 428.4952, 5.347, 0.0)
-
-
-def _neptune_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 304.3487, 218.4862, 256.2250, 218.4862, 1.024, 0.0)
-
-
-def _pluto_longitude(jd: float) -> float:
-    # Very rough mean motion for sign-level only
-    return _helio_planet_longitude(jd, 238.958, 145.178, 14.862, 145.178, 10.0, 0.0)
-
-
-def _lilith_longitude(jd: float) -> float:
-    """Mean Black Moon Lilith (lunar apogee) approximation, degrees."""
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    # Mean longitude of lunar apogee (Meeus-style approx)
-    return _norm360(
-        83.353 + 4069.0137 * T - 0.01032 * T * T
-        - 0.00015 * T * T * T
-    )
-
-
-def _obliquity(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    return math.radians(23.439291 - 0.0130042 * T)
-
-
-def _gmst_degrees(jd: float) -> float:
-    T = (jd - 2451545.0) / 36525.0
-    gmst = (
-        280.46061837
-        + 360.98564736629 * (jd - 2451545.0)
-        + 0.000387933 * T * T
-        - T * T * T / 38710000.0
-    )
-    return _norm360(gmst)
-
-
-def _ascendant_longitude(jd: float, lat_deg: float, lon_deg: float) -> float:
-    import math
-    eps = _obliquity(jd)
-    lst = math.radians(_norm360(_gmst_degrees(jd) + lon_deg))
-    lat = math.radians(lat_deg)
-    y = math.cos(lst)
-    x = -(math.sin(lst) * math.cos(eps) + math.tan(lat) * math.sin(eps))
-    return _norm360(math.degrees(math.atan2(y, x)))
-
-
-def _equal_houses_from_asc(asc_lon: float) -> dict:
-    """Equal house system: House 1 cusp = Ascendant, each house +30 deg."""
-    houses = {}
-    for n in range(1, 13):
-        cusp = _norm360(asc_lon + (n - 1) * 30.0)
-        houses[n] = {
-            "cusp": round(cusp, 2),
-            "sign": _longitude_to_sign(cusp),
-        }
-    return houses
-
-
-def _planet_block(lon: float) -> dict:
-    return {
-        "lon": round(_norm360(lon), 2),
-        "sign": _longitude_to_sign(lon),
-        "deg_in_sign": round(_norm360(lon) % 30.0, 2),
-    }
-
-
-def calculate_full_chart(
-    year: int,
-    month: int,
-    day: int,
-    hour: int,
-    minute: int,
-    city: str,
-    nation: str = "US",
-    lat: float = None,
-    lon: float = None,
-    tz_str: str = None,
-) -> dict:
-    """
-    Tropical chart: luminaries, classical + modern planets, Lilith, 12 equal houses.
-    Sign-level accuracy for fragrance / vibe use (not a pro natal service).
-    """
-    sun_fallback = sun_sign_from_date(month, day)
-    result = {
-        "ok": True,
-        "sun": sun_fallback,
-        "moon": None,
-        "rising": None,
-        "venus": None,
-        "planets": {},
-        "houses": {},
-        "lilith": None,
-        "engine": "built-in",
-        "detail": "",
-        "place_label": city,
-    }
-
-    # Optional kerykeion enrichment for core points if installed
-    try:
-        from kerykeion import AstrologicalSubject
-        kwargs = {}
-        if lat is not None and lon is not None:
-            kwargs["lat"] = float(lat)
-            kwargs["lng"] = float(lon)
-        if tz_str:
-            kwargs["tz_str"] = tz_str
-        subject = AstrologicalSubject(
-            "ScentedDeadGirl",
-            int(year), int(month), int(day), int(hour), int(minute),
-            city or "Unknown", nation or "US", **kwargs,
-        )
-        def _sign(obj):
-            if obj is None:
-                return None
-            if isinstance(obj, dict):
-                return normalize_sign_name(obj.get("sign") or "")
-            return normalize_sign_name(getattr(obj, "sign", "") or "")
-        result["sun"] = _sign(getattr(subject, "sun", None)) or sun_fallback
-        result["moon"] = _sign(getattr(subject, "moon", None))
-        result["rising"] = _sign(getattr(subject, "first_house", None)) or _sign(
-            getattr(subject, "ascendant", None)
-        )
-        result["venus"] = _sign(getattr(subject, "venus", None))
-        result["engine"] = "kerykeion+built-in"
-    except Exception:
-        pass
-
-    try:
-        tz = tz_str or "UTC"
-        jd = _local_to_jd_utc(year, month, day, hour, minute, tz)
-        bodies = {
-            "Sun": _sun_longitude(jd),
-            "Moon": _moon_longitude(jd),
-            "Mercury": _mercury_longitude(jd),
-            "Venus": _venus_longitude(jd),
-            "Mars": _mars_longitude(jd),
-            "Jupiter": _jupiter_longitude(jd),
-            "Saturn": _saturn_longitude(jd),
-            "Uranus": _uranus_longitude(jd),
-            "Neptune": _neptune_longitude(jd),
-            "Pluto": _pluto_longitude(jd),
-            "Lilith": _lilith_longitude(jd),
-        }
-        planets = {name: _planet_block(lon) for name, lon in bodies.items()}
-        result["planets"] = planets
-        result["lilith"] = planets.get("Lilith")
-        result["sun"] = planets["Sun"]["sign"]
-        result["moon"] = planets["Moon"]["sign"]
-        result["venus"] = planets["Venus"]["sign"]
-
-        rising_s = None
-        houses = {}
-        if lat is not None and lon is not None:
-            asc_lon = _ascendant_longitude(jd, float(lat), float(lon))
-            rising_s = _longitude_to_sign(asc_lon)
-            houses = _equal_houses_from_asc(asc_lon)
-            planets["Ascendant"] = _planet_block(asc_lon)
-            # Midheaven approx: RAMC-based rough MC = LST projected - use asc+90 for equal
-            mc_lon = _norm360(asc_lon + 90.0)
-            planets["MC"] = _planet_block(mc_lon)
-        result["rising"] = rising_s
-        result["houses"] = houses
-        result["engine"] = "built-in-full"
-        result["detail"] = (
-            "Tropical signs for Sun through Pluto, Mean Lilith, and 12 equal houses "
-            "(House 1 = Rising). Sign-level accuracy for sanctuary use."
-        )
-        if rising_s is None:
-            result["detail"] += " Rising/houses need a successful place lookup."
-        return result
-    except Exception as ex:
-        result["engine"] = "sun-only"
-        result["detail"] = f"Full chart failed ({ex}). Sun from calendar date only."
-        return result
-
-
 # ==========================================
 # STREAMLIT USER INTERFACE
 # ==========================================
-
-
-# Brand logo (header)
-def _show_brand_logo():
-    """Show sanctuary logo at top of app."""
-    import base64 as _b64
-    from pathlib import Path as _P
-    candidates = [
-        _P(__file__).resolve().parent / "sdg_logo.jpg",
-        _P(__file__).resolve().parent / "sdg_logo.png",
-        _P("sdg_logo.jpg"),
-        _P("sdg_logo.png"),
-        _P("/home/workdir/artifacts/sdg_logo.jpg"),
-    ]
-    for p in candidates:
-        try:
-            if p.is_file():
-                st.image(str(p), use_container_width=True)
-                return
-        except Exception:
-            continue
-    # Embedded fallback so Cloud still shows art if file missing from repo
-    _data = "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"
-    st.markdown(
-        f'<div style="text-align:center;margin:0.25rem 0 0.75rem 0;">'
-        f'<img src="data:image/jpeg;base64,{_data}" '
-        f'style="max-width:100%;width:min(420px,100%);height:auto;'
-        f'border-radius:50%;box-shadow:0 8px 28px rgba(0,0,0,0.55);" />'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-_show_brand_logo()
-
-st.markdown(
-    """
-<div class="sdg-hero">
-  <div class="sdg-hero-kicker">Fragrance sanctuary</div>
-  <div class="sdg-hero-title">ScentedDeadGirl</div>
-  <p class="sdg-hero-sub">Recommend - layer - log - curate - High Desert nights, bottle by bottle.</p>
-  <div class="sdg-chip-row">
-    <span class="sdg-chip">Victorville - F</span>
-    <span class="sdg-chip">Navy vault</span>
-    <span class="sdg-chip">Night palette</span>
-  </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
+st.title("ScentedDeadGirl")
+st.caption("Fragrance sanctuary | recommend | layer | log | curate")
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
@@ -4757,12 +2158,6 @@ with st.sidebar:
         st.success(_add_flash)
 
     st.markdown("### Search")
-    # Clear search fields before widgets if flagged
-    if st.session_state.pop("_clear_search", False):
-        st.session_state["search_input"] = ""
-        st.session_state["note_search_input"] = ""
-        st.session_state["quick_lookup_input"] = ""
-
     search_query = st.text_input(
         "Name or brand",
         placeholder="e.g. Lattafa, Eclaire",
@@ -4778,10 +2173,6 @@ with st.sidebar:
         placeholder="e.g. Ajwad",
         key="quick_lookup_input",
     )
-    if st.button("Clear search", use_container_width=True, key="clear_search_btn"):
-        st.session_state["_clear_search"] = True
-        st.rerun()
-
     if quick_query:
         matched_quick = [
             f
@@ -4798,221 +2189,30 @@ with st.sidebar:
             st.warning("No match.")
 
     st.markdown("---")
-    # Persistence status (edits live in JSON beside the script)
-    _saved = st.session_state.get("last_saved_at")
-    if _saved:
-        st.caption(f"Vault last saved: {_saved}")
-    else:
-        st.caption("Vault saves to scented_dead_girl_data.json on every edit.")
-    st.caption("Export JSON from Vault after big changes so Cloud redeploys cannot wipe edits.")
-
-    st.markdown("### Temp search")
-    st.caption(
-        "Victorville, CA High Desert - use live outdoor temp or set degrees (F) + gender."
+    st.markdown("### Recommend filters")
+    gender = st.selectbox("Gender", ["Any", "Male", "Female", "Unisex"])
+    weather = st.selectbox(
+        "Season / weather",
+        ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
     )
-    ca_default = int(default_ca_temp_f())
-    if st.session_state.pop("_reset_temp_search", False):
-        st.session_state["temp_search_f"] = ca_default
-        st.session_state["temp_search_gender"] = "Any"
-        st.session_state.pop("live_temp_meta", None)
-    # Apply live temp BEFORE slider widget exists
-    if st.session_state.pop("_apply_live_temp", False):
-        live = st.session_state.get("live_temp_meta") or {}
-        if live.get("ok") and live.get("temp_f") is not None:
-            st.session_state["temp_search_f"] = int(live["temp_f"])
-    if "temp_search_f" not in st.session_state:
-        st.session_state["temp_search_f"] = ca_default
-    if "temp_search_gender" not in st.session_state:
-        st.session_state["temp_search_gender"] = "Any"
-
-    temp_search_gender = st.selectbox(
-        "Gender for temp search",
-        ["Any", "Male", "Female", "Unisex"],
-        key="temp_search_gender",
-    )
-    temp_search_f = st.slider(
-        "Temperature (F)",
-        min_value=30,
-        max_value=115,
-        key="temp_search_f",
-    )
-    band = temp_f_to_band(float(temp_search_f))
-    live_meta = st.session_state.get("live_temp_meta") or {}
-    live_note = ""
-    if live_meta.get("ok"):
-        live_note = (
-            f" | Live: {live_meta.get('temp_f')} F"
-            f" ({live_meta.get('source', 'weather')}"
-            f"{', ' + live_meta['observed'] if live_meta.get('observed') else ''})"
-        )
-    st.caption(
-        f"{int(temp_search_f)} F -> {temp_band_label(float(temp_search_f))} | "
-        f"Monthly norm: {ca_default} F{live_note}"
-    )
-    ts1, ts2, ts3 = st.columns(3)
-    with ts1:
-        temp_search_clicked = st.button(
-            "Search by temp", type="primary", use_container_width=True, key="temp_search_btn"
-        )
-    with ts2:
-        if st.button("Use live temp", use_container_width=True, key="temp_live_btn"):
-            result = fetch_live_temp_f()
-            st.session_state["live_temp_meta"] = result
-            if result.get("ok"):
-                st.session_state["_apply_live_temp"] = True
-                st.rerun()
-            else:
-                st.session_state["_live_temp_error"] = result.get("detail", "Lookup failed")
-                st.rerun()
-    with ts3:
-        if st.button("Reset temp", use_container_width=True, key="temp_search_reset"):
-            st.session_state["_reset_temp_search"] = True
-            st.session_state.pop("last_temp_search", None)
-            st.rerun()
-    _live_err = st.session_state.pop("_live_temp_error", None)
-    if _live_err:
-        st.warning(f"Live temp unavailable: {_live_err}. Using slider / monthly norm.")
-    if temp_search_clicked:
-        picks = get_top_fragrances(
-            temp_search_gender,
+    category = st.selectbox(
+        "Category",
+        [
             "Any",
-            "Any",
-            "Any",
-            5,
-            favorites_only=False,
-            temp_f=float(temp_search_f),
-        )
-        st.session_state["last_temp_search"] = {
-            "picks": picks,
-            "temp_f": float(temp_search_f),
-            "gender": temp_search_gender,
-            "band": band,
-        }
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown("### Price lookup")
-    st.caption("Bottles with a logged price in range.")
-    if st.session_state.pop("_clear_price_sb", False):
-        st.session_state["price_sb_min"] = 0
-        st.session_state["price_sb_max"] = 100
-        st.session_state["price_sb_gender"] = "Any"
-        st.session_state.pop("price_sb_hits", None)
-    if "price_sb_min" not in st.session_state:
-        st.session_state["price_sb_min"] = 0
-    if "price_sb_max" not in st.session_state:
-        st.session_state["price_sb_max"] = 100
-    if "price_sb_gender" not in st.session_state:
-        st.session_state["price_sb_gender"] = "Any"
-
-    st.number_input("Min $", min_value=0, max_value=2000, key="price_sb_min")
-    st.number_input("Max $", min_value=0, max_value=5000, key="price_sb_max")
-    st.selectbox(
-        "Gender",
-        ["Any", "Male", "Female", "Unisex"],
-        key="price_sb_gender",
+            "Gourmand",
+            "Floral",
+            "Woody",
+            "Oriental",
+            "Fresh",
+            "Fruity",
+            "Spicy",
+            "Citrus",
+            "Aromatic",
+            "Sweet",
+            "Oud",
+            "Leather",
+        ],
     )
-    psb1, psb2 = st.columns(2)
-    with psb1:
-        if st.button("Find prices", type="primary", use_container_width=True, key="price_sb_btn"):
-            lo = float(min(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-            hi = float(max(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-            hits = fragrances_in_price_range(lo, hi, st.session_state["price_sb_gender"])
-            st.session_state["price_sb_hits"] = {"hits": hits, "lo": lo, "hi": hi}
-    with psb2:
-        if st.button("Reset", use_container_width=True, key="price_sb_reset"):
-            st.session_state["_clear_price_sb"] = True
-            st.rerun()
-    priced_n = sum(
-        1
-        for f in st.session_state.get("fragrances_db") or []
-        if f.get("price") is not None
-    )
-    st.caption(f"{priced_n} priced bottle(s) in vault")
-    psb = st.session_state.get("price_sb_hits")
-    if psb is not None:
-        hits = psb.get("hits") or []
-        st.write(f"**{len(hits)}** in ${psb.get('lo'):.0f}-${psb.get('hi'):.0f}")
-        if not hits:
-            st.caption("None in range. Add prices in Edit bottle.")
-        else:
-            for f in hits[:12]:
-                st.caption(
-                    f"${float(f.get('price')):.0f} - {f.get('name')} ({f.get('brand')})"
-                )
-            if len(hits) > 12:
-                st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
-
-    st.markdown("---")
-    st.markdown(
-        '<div class="sdg-section"><p class="sdg-section-title">Recommend</p></div>',
-        unsafe_allow_html=True,
-    )
-    st.caption("Stack filters, pick one or more families, then generate or refresh.")
-
-    # Reset filters to defaults before widgets if flagged
-    if st.session_state.pop("_clear_filters", False):
-        st.session_state["filter_gender"] = "Any"
-        st.session_state["filter_weather"] = "Any"
-        st.session_state["filter_categories"] = []
-        st.session_state["filter_occasion"] = "Any"
-        st.session_state["filter_num_recs"] = 3
-        st.session_state["filter_favorites_only"] = False
-        st.session_state.pop("last_recs", None)
-        # legacy single-category key
-        st.session_state.pop("filter_category", None)
-
-    # Migrate old single category session value once
-    if "filter_categories" not in st.session_state:
-        old_c = st.session_state.get("filter_category", "Any")
-        if old_c and old_c != "Any":
-            st.session_state["filter_categories"] = [old_c]
-        else:
-            st.session_state["filter_categories"] = []
-
-    CAT_OPTIONS = [
-        "Gourmand",
-        "Floral",
-        "Woody",
-        "Oriental",
-        "Fresh",
-        "Fruity",
-        "Spicy",
-        "Citrus",
-        "Aromatic",
-        "Sweet",
-        "Oud",
-        "Leather",
-        "Boozy",
-        "Smoky",
-        "Powdery",
-    ]
-
-    r1, r2 = st.columns(2)
-    with r1:
-        gender = st.selectbox(
-            "Gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="filter_gender",
-        )
-    with r2:
-        weather = st.selectbox(
-            "Season",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="filter_weather",
-            help="Hard filter for recommendations.",
-        )
-
-    categories = st.multiselect(
-        "Categories (pick several)",
-        CAT_OPTIONS,
-        key="filter_categories",
-        placeholder="Any family if empty",
-        help="Leave empty for any category. Match if the bottle has at least one selected family.",
-    )
-    # Empty multiselect = Any
-    category = categories if categories else "Any"
-
     occasion = st.selectbox(
         "Occasion",
         [
@@ -5023,149 +2223,52 @@ with st.sidebar:
             "Formal / Event",
             "Outdoor / Sporty",
         ],
-        key="filter_occasion",
     )
-
-    r3, r4 = st.columns(2)
-    with r3:
-        num_recs = st.radio(
-            "How many",
-            [1, 3, 5],
-            index=1,
-            horizontal=True,
-            key="filter_num_recs",
-        )
-    with r4:
-        st.write("")
-        favorites_only = st.checkbox(
-            "YAY only",
-            value=False,
-            key="filter_favorites_only",
-        )
-
-    generate_clicked = st.button(
-        "Generate", type="primary", use_container_width=True, key="gen_recs_btn"
-    )
-    regenerate_clicked = st.button(
-        "Refresh picks",
-        use_container_width=True,
-        key="regen_recs_btn",
-        help="Same filters, different bottles.",
-    )
-    if st.button("Clear", use_container_width=True, key="clear_filters_btn"):
-        st.session_state["_clear_filters"] = True
-        st.rerun()
+    num_recs = st.radio("How many", [1, 3, 5], index=1, horizontal=True)
+    favorites_only = st.checkbox("Favorites only", value=False)
+    generate_clicked = st.button("Generate recommendations", type="primary", use_container_width=True)
 
     st.markdown("---")
     st.markdown("### Add fragrance")
-
-    # Notes helper (outside form so links work without submitting)
-    with st.expander("Fragrance lookup helper", expanded=False):
+    with st.expander("Fragrance lookup helper"):
         st.caption(
             "Search your vault and open Google / Fragrantica / Parfumo for notes, "
-            "gender, season, category, and price. Sites are not auto-scraped; "
-            "use the links and copy what you need into the form."
+            "gender, season, and category. Sites are not auto-scraped; copy what you need into the form."
         )
-        if st.session_state.pop("_clear_notes_help", False):
-            st.session_state["notes_help_name"] = ""
-            st.session_state["notes_help_brand"] = ""
-            st.session_state.pop("notes_help_result", None)
-            st.session_state.pop("prefill_new_notes", None)
-
-        h1, h2 = st.columns(2)
-        with h1:
-            help_name = st.text_input("Lookup name", key="notes_help_name")
-        with h2:
-            help_brand = st.text_input("Lookup brand", key="notes_help_brand")
-        hb1, hb2 = st.columns(2)
-        with hb1:
-            if st.button("Look up", key="notes_help_btn", use_container_width=True):
-                st.session_state["notes_help_result"] = notes_lookup_suggestions(
-                    help_name, help_brand
+        lu_name = st.text_input("Lookup name", key="lu_name")
+        lu_brand = st.text_input("Lookup brand", key="lu_brand")
+        if st.button("Look up", key="lu_btn", use_container_width=True):
+            st.session_state["lu_result"] = {"name": lu_name.strip(), "brand": lu_brand.strip()}
+        if st.button("Clear finder", key="lu_clear", use_container_width=True):
+            st.session_state["lu_result"] = None
+            st.session_state["lu_name"] = ""
+            st.session_state["lu_brand"] = ""
+            st.rerun()
+        lu = st.session_state.get("lu_result") or {}
+        if lu.get("name"):
+            # Vault matches
+            hits = [
+                f
+                for f in st.session_state["fragrances_db"]
+                if lu["name"].lower() in f["name"].lower()
+                and (
+                    not lu.get("brand")
+                    or lu["brand"].lower() in f["brand"].lower()
                 )
-        with hb2:
-            if st.button("Clear finder", key="notes_help_clear", use_container_width=True):
-                st.session_state["_clear_notes_help"] = True
-                st.rerun()
-
-        help_res = st.session_state.get("notes_help_result")
-        if help_res:
-            if help_res.get("local"):
-                st.markdown("**Similar in your vault**")
-                for f in help_res["local"]:
-                    cats = ", ".join(f.get("category") or [])
-                    price_bit = ""
-                    if f.get("price") is not None:
-                        try:
-                            price_bit = f" | Price: ${float(f.get('price')):.0f}"
-                        except (TypeError, ValueError):
-                            price_bit = ""
-                    st.write(
-                        f"**{f.get('name')}** ({f.get('brand')})  \n"
-                        f"Gender: {f.get('gender', '?')} | Season: {f.get('season', '?')} | "
-                        f"Category: {cats}{price_bit}  \n"
-                        f"Notes: {(f.get('notes') or '')[:160]}"
-                    )
-                    b1, b2 = st.columns(2)
-                    with b1:
-                        if st.button(
-                            "Use notes",
-                            key=f"use_notes_{f.get('name')}",
-                        ):
-                            st.session_state["prefill_new_notes"] = f.get("notes") or ""
-                            st.session_state["add_notes_field"] = f.get("notes") or ""
-                            st.success("Notes prefilled in the Add form.")
-                            st.rerun()
-                    with b2:
-                        if st.button(
-                            "Use full profile",
-                            key=f"use_profile_{f.get('name')}",
-                        ):
-                            st.session_state["prefill_new_notes"] = f.get("notes") or ""
-                            st.session_state["add_notes_field"] = f.get("notes") or ""
-                            st.session_state["lookup_profile_hint"] = {
-                                "gender": f.get("gender"),
-                                "season": f.get("season"),
-                                "category": list(f.get("category") or []),
-                                "price": f.get("price"),
-                                "from": f.get("name"),
-                            }
-                            st.success(
-                                "Notes prefilled. Gender / season / category / price shown below "
-                                "to copy into the Add form."
-                            )
-                            st.rerun()
-
-            hint = st.session_state.get("lookup_profile_hint")
-            if hint:
-                price_line = ""
-                if hint.get("price") is not None:
-                    try:
-                        price_line = f"  \n**Price:** ${float(hint.get('price')):.0f}"
-                    except (TypeError, ValueError):
-                        price_line = ""
-                st.info(
-                    f"Suggested from **{hint.get('from')}**:  \n"
-                    f"**Gender:** {hint.get('gender')}  \n"
-                    f"**Season:** {hint.get('season')}  \n"
-                    f"**Categories:** {', '.join(hint.get('category') or [])}"
-                    f"{price_line}"
-                )
-
-            links = help_res.get("links") or {}
-            if links:
-                st.markdown("**Search online**")
-                st.caption(
-                    "Google / Fragrantica / Parfumo for notes, gender, season, category, and price. "
-                    "Copy what you find into the Add form. Sites are not auto-filled."
-                )
-                for label, url in links.items():
-                    st.markdown(f"- [{label}]({url})")
-            st.caption("Clear finder resets lookup fields and results.")
-
-    # Prefill notes if helper requested it
-    if "prefill_new_notes" in st.session_state and "add_notes_field" not in st.session_state:
-        st.session_state["add_notes_field"] = st.session_state.pop("prefill_new_notes")
+            ]
+            if hits:
+                st.markdown("**In your vault:**")
+                for f in hits[:5]:
+                    probs = data_quality_issues(f)
+                    tag = f" - needs: {', '.join(probs)}" if probs else " - looks complete"
+                    st.caption(f"{f['name']} ({f['brand']}){tag}")
+                    st.caption(f"Notes: {f.get('notes', '')[:120]}")
+            else:
+                st.caption("Not in vault yet (or no name match).")
+            urls = lookup_urls(lu["name"], lu.get("brand", ""))
+            for label, url in urls.items():
+                st.markdown(f"[{label} search]({url})")
+            st.caption("Edit incomplete bottles in the Vault tab under Data review.")
 
     with st.form("add_fragrance_form", clear_on_submit=True):
         new_name = st.text_input("Name")
@@ -5175,14 +2278,7 @@ with st.sidebar:
             ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
         )
         new_season = st.text_input("Season", value="Fall, Winter")
-        new_notes = st.text_input(
-            "Notes",
-            placeholder="Top - ... / Heart - ... / Base - ...",
-            key="add_notes_field",
-        )
-        new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
-        new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
-        new_price = st.text_input("Price (optional)", placeholder="e.g. 35")
+        new_notes = st.text_input("Notes", placeholder="Top - Vanilla / Heart - Rose / Base - Musk")
         new_cats = st.multiselect(
             "Categories",
             [
@@ -5198,161 +2294,43 @@ with st.sidebar:
                 "Aromatic",
                 "Leather",
                 "Oud",
-                "Boozy",
                 "Smoky",
                 "Powdery",
             ],
         )
-        c_add, c_clear = st.columns(2)
-        with c_add:
-            submit_added = st.form_submit_button(
-                "Add to collection", use_container_width=True
-            )
-        with c_clear:
-            # clear_on_submit=True clears fields after any form submit
-            clear_add_form = st.form_submit_button(
-                "Clear form", use_container_width=True
-            )
-
-        if clear_add_form:
-            st.session_state["_add_flash"] = "Form cleared."
-            # fields are cleared by clear_on_submit; no vault change
+        submit_added = st.form_submit_button("Add to collection", use_container_width=True)
 
         if submit_added:
             if new_name and new_brand:
-                dups = find_duplicate_fragrances(new_name, new_brand)
-                if dups["exact"]:
-                    st.error(
-                        f"Already in the vault: **{dups['exact'][0].get('name')}** by "
-                        f"*{dups['exact'][0].get('brand')}*. Duplicate not added."
-                    )
-                elif dups["same_name"]:
-                    brands = ", ".join(
-                        sorted({(x.get("brand") or "?") for x in dups["same_name"]})
-                    )
-                    st.error(
-                        f"A bottle named **{new_name.strip()}** already exists "
-                        f"(brand: {brands}). Change the name or edit the existing entry."
-                    )
+                name_lower = new_name.strip().lower()
+                brand_lower = new_brand.strip().lower()
+                already_exists = any(
+                    f["name"].strip().lower() == name_lower
+                    and f["brand"].strip().lower() == brand_lower
+                    for f in st.session_state["fragrances_db"]
+                )
+                if already_exists:
+                    st.error(f"'{new_name}' by {new_brand} is already in the vault.")
                 else:
-                    if dups["near"]:
-                        near_list = ", ".join(
-                            f"{x.get('name')} ({x.get('brand')})" for x in dups["near"][:3]
-                        )
-                        st.warning(f"Similar bottles already in vault: {near_list}")
-                    new_frag = {
-                        "name": new_name.strip(),
-                        "brand": new_brand.strip(),
-                        "gender": new_gender,
-                        "season": new_season or "Versatile",
-                        "notes": new_notes if new_notes else "Not specified",
-                        "category": new_cats if new_cats else ["Gourmand"],
-                        "dupe_of": "",
-                        "shelf_status": new_shelf,
-                        "size_ml": (
-                            float(new_size)
-                            if str(new_size or "").strip().replace(".", "", 1).isdigit()
-                            else None
-                        ),
-                        "price": (
-                            float(new_price)
-                            if str(new_price or "").strip().replace(".", "", 1).isdigit()
-                            else None
-                        ),
-                    }
-                    st.session_state["fragrances_db"].append(new_frag)
-                    try:
-                        log_vault_action("added", new_frag["name"], new_frag["brand"])
-                    except Exception:
-                        pass
-                    st.session_state["last_added_frag"] = new_frag
+                    st.session_state["fragrances_db"].append(
+                        {
+                            "name": new_name.strip(),
+                            "brand": new_brand.strip(),
+                            "gender": new_gender,
+                            "season": new_season or "Versatile",
+                            "notes": new_notes if new_notes else "Not specified",
+                            "category": new_cats if new_cats else ["Gourmand"],
+                        }
+                    )
                     save_persisted_data()
-                    st.session_state["_add_flash"] = f"Added **{new_frag['name']}**."
+                    st.session_state["_add_flash"] = f"Added **{new_name.strip()}**."
                     st.rerun()
             else:
                 st.error("Name and brand are required.")
 
-
-    # Receipt for last added bottle
-    last_added = st.session_state.get("last_added_frag")
-    if last_added:
-        st.markdown("#### Just added")
-        st.success(
-            f"**{last_added.get('name')}** by *{last_added.get('brand')}* | "
-            f"{last_added.get('gender')} | {', '.join(last_added.get('category') or [])}"
-        )
-        st.caption(f"Notes: {last_added.get('notes', '')}")
-        try:
-            pdf_bytes = build_fragrance_sheet_pdf(
-                last_added, title=f"Added - {last_added.get('name', 'bottle')}"
-            )
-            st.download_button(
-                "Download PDF sheet for this bottle",
-                data=pdf_bytes,
-                file_name=f"added_{last_added.get('name', 'bottle').replace(' ', '_')}.pdf",
-                mime="application/pdf",
-                key="last_added_pdf",
-            )
-        except Exception as ex:
-            st.caption(f"PDF unavailable: {ex}")
-        if st.button("Dismiss", key="dismiss_last_added"):
-            st.session_state.pop("last_added_frag", None)
-            st.rerun()
-
-    st.markdown("---")
-    st.markdown("### Today")
-    # Daily challenge
-    if "challenge_salt" not in st.session_state:
-        st.session_state["challenge_salt"] = 0
-    challenge = draw_challenge()
-    st.caption("Daily challenge - new each day, or reroll anytime")
-    st.info(challenge)
-    ch1, ch2 = st.columns(2)
-    with ch1:
-        if st.button("New challenge", key="challenge_reroll_btn", use_container_width=True):
-            st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
-            st.rerun()
-    with ch2:
-        if st.button("Mark done", key="challenge_done_btn", use_container_width=True):
-            st.session_state["play_stats"]["challenges_done"] = (
-                st.session_state["play_stats"].get("challenges_done", 0) + 1
-            )
-            save_persisted_data()
-            st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
-            st.success("Challenge noted - next one ready.")
-            st.rerun()
-
-    # Weekly recipe
-    weekly = get_weekly_recipe()
-    if weekly:
-        st.caption(f"Recipe of the week ({weekly.get('week', '')})")
-        bottles = weekly.get("bottles") or []
-        st.write(f"**{weekly.get('name', 'Layer')}**")
-        if bottles:
-            st.caption(" + ".join(bottles))
-        if weekly.get("reason"):
-            st.caption(weekly["reason"])
-        if st.button("Use weekly recipe in SOTD", key="weekly_use_btn", use_container_width=True):
-            st.session_state["sotd_prefill"] = list(bottles)
-            st.rerun()
-
-    # Backup reminder
-    st.markdown("---")
-    last_export = st.session_state.get("last_export_date")
-    if not last_export:
-        st.caption("Sanctuary tip: export your vault from the Vault tab.")
-    else:
-        try:
-            days = (pacific_today() - datetime.date.fromisoformat(last_export)).days
-            if days >= 30:
-                st.warning(f"Last export was {days} days ago  -  consider backing up.")
-        except ValueError:
-            pass
-
-
 # ---------- MAIN TABS ----------
-tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_play, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Roulette", "SOTD", "Stars", "Play", "Collection", "Vault"]
+tab_discover, tab_roulette, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Roulette", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -5360,113 +2338,55 @@ with tab_discover:
     st.markdown(
         "Filter from the sidebar, search by name or note, then generate picks and layering ideas."
     )
-    _ready = st.session_state.pop("_sotd_ready_flash", None)
-    if _ready:
-        st.success(_ready)
 
-    # Results from dedicated Temp search (sidebar)
-    last_temp = st.session_state.get("last_temp_search")
-    if last_temp is not None:
-        picks = last_temp.get("picks") or []
-        st.subheader("Temp search results")
-        st.caption(
-            f"{int(last_temp.get('temp_f', 0))} F -> {last_temp.get('band', '')} | "
-            f"Gender: {last_temp.get('gender', 'Any')}"
-        )
-        if not picks:
-            st.warning("No bottles matched this temperature + gender. Try Any gender or nudge the slider.")
-        else:
-            for i, f in enumerate(picks, 1):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Notes: {f['notes']}")
-                b1, b2, b3, _ = st.columns([1, 1, 1, 3])
-                with b1:
-                    if st.button("YAY", key=f"temp_fav_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "fav"
-                        save_persisted_data()
-                        st.rerun()
-                with b2:
-                    if st.button("DEL", key=f"temp_dislike_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "dislike"
-                        save_persisted_data()
-                        st.rerun()
-                with b3:
-                    if st.button("Wear", key=f"temp_wear_{f['name']}_{i}"):
-                        send_to_sotd([f["name"]])
-                        st.rerun()
-                st.markdown("---")
-        if st.button("Clear temp results", key="clear_temp_results"):
-            st.session_state.pop("last_temp_search", None)
-            st.rerun()
-
-    # Name / brand search (ranked: YAY â most worn â complete notes)
+    # Name / brand search
     if search_query:
-        st.subheader(f'Search | "{search_query}"')
+        st.subheader(f"Search: {search_query}")
         query_lower = search_query.lower()
         matching = [
             f
             for f in st.session_state["fragrances_db"]
             if query_lower in f["name"].lower() or query_lower in f["brand"].lower()
         ]
-        matching = rank_search_results(matching)
         if not matching:
             st.warning("No fragrances matched that name or brand.")
         else:
-            st.caption(f"{len(matching)} match(es)  -  ranked by favorites, wears, note quality")
+            st.caption(f"{len(matching)} match(es)")
             for f in matching:
                 render_fragrance_card(f, key_prefix=f"search_{search_query}")
 
-    # Note search (same ranking)
+    # Note search
     if note_query:
-        st.subheader(f'Notes | "{note_query}"')
+        st.subheader(f"Notes: {note_query}")
         note_q = note_query.lower()
         matching_notes = [
             f
             for f in st.session_state["fragrances_db"]
             if note_q in f["notes"].lower()
         ]
-        matching_notes = rank_search_results(matching_notes)
         if not matching_notes:
             st.warning("No fragrances contain that note.")
         else:
-            st.caption(f"{len(matching_notes)} match(es)  -  ranked by favorites, wears, note quality")
+            st.caption(f"{len(matching_notes)} match(es)")
             for f in matching_notes:
                 render_fragrance_card(f, key_prefix=f"note_{note_query}")
 
     # Recommendations (persist so Love/Trash does not wipe the list)
-    if generate_clicked or regenerate_clicked:
-        prev = st.session_state.get("last_recs") or {}
-        prev_names = []
-        if regenerate_clicked and prev.get("selected"):
-            prev_names = [f.get("name") for f in prev["selected"] if f.get("name")]
+    if generate_clicked:
         selected = get_top_fragrances(
+            gender, weather, category, occasion, num_recs, favorites_only=favorites_only
+        )
+        pool = get_top_fragrances(
             gender,
             weather,
             category,
             occasion,
-            num_recs,
+            min(30, len(st.session_state["fragrances_db"])),
             favorites_only=favorites_only,
-            temp_f=None,
-            shuffle=bool(regenerate_clicked),
-            exclude_names=prev_names if regenerate_clicked else None,
         )
-        # If exclude emptied the pool, shuffle without exclude
-        if regenerate_clicked and not selected:
-            selected = get_top_fragrances(
-                gender,
-                weather,
-                category,
-                occasion,
-                num_recs,
-                favorites_only=favorites_only,
-                temp_f=None,
-                shuffle=True,
-            )
         st.session_state["last_recs"] = {
             "selected": selected,
+            "combos": suggest_layering_combos(pool, num_combos=3),
             "num": num_recs,
             "meta": {
                 "gender": gender,
@@ -5474,27 +2394,21 @@ with tab_discover:
                 "category": category,
                 "occasion": occasion,
                 "favorites_only": favorites_only,
-                "shuffled": bool(regenerate_clicked),
             },
         }
 
     last_recs = st.session_state.get("last_recs")
     if last_recs is not None:
         selected = last_recs.get("selected") or []
+        combos = last_recs.get("combos") or []
         num_show = last_recs.get("num", 3)
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
         if meta:
-            cat_meta = meta.get("category")
-            if isinstance(cat_meta, (list, tuple)):
-                cat_txt = ", ".join(cat_meta) if cat_meta else "Any"
-            else:
-                cat_txt = cat_meta or "Any"
             st.caption(
                 f"{meta.get('gender')} | {meta.get('weather')} | "
-                f"{cat_txt} | {meta.get('occasion')}"
-                + (" | YAY only" if meta.get("favorites_only") else "")
-                + (" | refreshed" if meta.get("shuffled") else "")
+                f"{meta.get('category')} | {meta.get('occasion')}"
+                + (" | favorites only" if meta.get("favorites_only") else "")
             )
         if not selected:
             st.warning(
@@ -5502,167 +2416,28 @@ with tab_discover:
                 "not favorited). Try **Any** on some filters or turn off Favorites only."
             )
         else:
-            names_all = [f.get("name") for f in selected if f.get("name")]
-            if len(names_all) >= 2:
-                if st.button(
-                    "Wear all as layer on SOTD",
-                    key="rec_wear_all_layer",
-                    type="primary",
-                ):
-                    send_to_sotd(names_all)
-                    st.rerun()
             for i, f in enumerate(selected, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
-                badge = " YAY" if current_reaction == "fav" else ""
+                badge = " ð¤" if current_reaction == "fav" else ""
                 st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
-                c1, c2, c3 = st.columns([1, 1, 2])
+                c1, c2, _ = st.columns([1, 1, 4])
                 with c1:
-                    if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
+                    if st.button("Love", key=f"rec_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
                         save_persisted_data()
                         st.rerun()
                 with c2:
-                    if st.button("DEL", key=f"rec_dislike_{f['name']}_{i}"):
+                    if st.button("Trash", key=f"rec_dislike_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "dislike"
                         save_persisted_data()
                         st.rerun()
-                with c3:
-                    if st.button("Wear today", key=f"rec_wear_{f['name']}_{i}"):
-                        send_to_sotd([f["name"]])
-                        st.rerun()
                 st.markdown("---")
 
-
-
-    if not search_query and not note_query and last_recs is None:
-        st.info(
-            "Use the sidebar to search, filter, or **Generate recommendations**. "
-            "Roulette, SOTD, and vault tools live in the other tabs."
-        )
-
-
-
-# ===== LAYER =====
-with tab_layer:
-    st.subheader("Layering Studio")
-    st.caption("Partners for a base bottle, free combos, or saved recipes.")
-
-    if st.session_state.pop("_clear_layer", False):
-        st.session_state["layer_partner_gender"] = "Any"
-        st.session_state["layer_base_select"] = "- select a bottle -"
-        st.session_state["layer_gender"] = "Any"
-        st.session_state["layer_season"] = "Any"
-        st.session_state["layer_favs_only"] = False
-        st.session_state["layer_n"] = 3
-        st.session_state.pop("last_layer", None)
-
-    if "layer_partner_gender" not in st.session_state:
-        st.session_state["layer_partner_gender"] = "Any"
-
-    with st.expander("Base + partners", expanded=True):
-        lp1, lp2 = st.columns(2)
-        with lp1:
-            layer_partner_gender = st.selectbox(
-                "Filter by gender",
-                ["Any", "Male", "Female", "Unisex"],
-                key="layer_partner_gender",
-            )
-        with lp2:
-            if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
-                st.session_state["_clear_layer"] = True
-                st.rerun()
-
-        all_layer_names = sorted(
-            f["name"]
-            for f in st.session_state["fragrances_db"]
-            if matches_gender(f, layer_partner_gender)
-        )
-        base_options = ["- select a bottle -"] + all_layer_names
-        if st.session_state.get("layer_base_select") not in base_options:
-            st.session_state["layer_base_select"] = "- select a bottle -"
-
-        base_choice = st.selectbox(
-            "Base fragrance",
-            base_options,
-            key="layer_base_select",
-        )
-
-        if base_choice != "- select a bottle -":
-            name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
-            base_f = name_to_frag.get(base_choice)
-            if base_f:
-                st.caption(
-                    f"{base_f['brand']} | {base_f['gender']} | {base_f['season']} | "
-                    f"{', '.join(base_f.get('category', []))}"
-                )
-                partners = suggest_partners_for(
-                    base_f, num=5, gender=layer_partner_gender
-                )
-                if not partners:
-                    st.warning("No strong partners with this gender filter.")
-                else:
-                    st.markdown(f"**Partners for {base_choice}**")
-                    for pi, (pf, reason) in enumerate(partners, 1):
-                        st.info(
-                            f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
-                            f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}\n\n"
-                            f"*{reason}*"
-                        )
-                        if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
-                            st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
-                            st.rerun()
-
-    with st.expander("Free combos from filters", expanded=False):
-        lc1, lc2 = st.columns(2)
-        with lc1:
-            layer_gender = st.selectbox(
-                "Gender", ["Any", "Male", "Female", "Unisex"], key="layer_gender"
-            )
-        with lc2:
-            layer_season = st.selectbox(
-                "Season / weather",
-                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-                key="layer_season",
-            )
-        layer_favs_only = st.checkbox("Favorites only", value=False, key="layer_favs_only")
-        layer_n = st.radio(
-            "How many combos", [1, 3, 5], index=1, horizontal=True, key="layer_n"
-        )
-
-        if st.button("Suggest layering combos", type="primary", key="layer_gen_btn"):
-            pool = get_top_fragrances(
-                layer_gender,
-                layer_season,
-                "Any",
-                "Any",
-                min(40, len(st.session_state["fragrances_db"])),
-                favorites_only=layer_favs_only,
-            )
-            combos = suggest_layering_combos(pool, num_combos=layer_n)
-            st.session_state["last_layer"] = {
-                "combos": combos,
-                "meta": {
-                    "gender": layer_gender,
-                    "season": layer_season,
-                    "favorites_only": layer_favs_only,
-                    "pool": len(pool),
-                },
-            }
-
-        last_layer = st.session_state.get("last_layer")
-        if last_layer is not None:
-            combos = last_layer.get("combos") or []
-            meta = last_layer.get("meta") or {}
-            st.caption(
-                f"{meta.get('gender')} | {meta.get('season')} | pool {meta.get('pool', '?')}"
-                + (" | favorites only" if meta.get("favorites_only") else "")
-            )
-            if not combos:
-                st.warning("Need at least two matching bottles.")
-            else:
+            if combos:
+                st.subheader("Layering ideas")
                 for i, (f1, f2, reason) in enumerate(combos, 1):
                     st.info(
                         f"**Combo {i}**\n\n"
@@ -5670,118 +2445,13 @@ with tab_layer:
                         f"**Layer:** {f2['name']} ({f2['brand']})\n\n"
                         f"*{reason}*"
                     )
-                    if st.button("Use in SOTD", key=f"layer_use_{i}"):
-                        st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
-                        st.rerun()
                 st.caption("Tip: spray the richer scent first, then the lighter one.")
-            if st.button("Clear combo results", key="layer_clear_results"):
-                st.session_state.pop("last_layer", None)
-                st.rerun()
 
-    with st.expander("Saved layer recipes", expanded=False):
-        rec_pick = st.multiselect(
-            "Bottles in recipe",
-            sorted(f["name"] for f in st.session_state["fragrances_db"]),
-            key="recipe_bottles_in",
+    if not search_query and not note_query and last_recs is None:
+        st.info(
+            "Use the sidebar to search, filter, or **Generate recommendations**. "
+            "Roulette, SOTD, and vault tools live in the other tabs."
         )
-        preview = evaluate_layer_recipe(list(rec_pick)) if len(rec_pick) >= 1 else None
-        suggested = (preview or {}).get("suggested_name") or ""
-        if preview and len(rec_pick) >= 2:
-            season = preview.get("season") or {}
-            st.caption(
-                f"Suggested name from notes: **{suggested}** | "
-                f"Season: **{season.get('label', '?')}**"
-            )
-            st.caption(season.get("detail", ""))
-
-        # Name field - can use suggested
-        if st.session_state.pop("_apply_recipe_name", False) and suggested:
-            st.session_state["recipe_name_in"] = suggested
-        rec_name = st.text_input(
-            "Recipe name",
-            placeholder=suggested or "e.g. Coconut vanilla night",
-            key="recipe_name_in",
-        )
-        rn1, rn2 = st.columns(2)
-        with rn1:
-            if st.button(
-                "Use name from notes",
-                key="recipe_use_suggested_name",
-                disabled=len(rec_pick) < 2,
-            ):
-                st.session_state["_apply_recipe_name"] = True
-                st.rerun()
-        with rn2:
-            save_clicked = st.button("Save recipe", key="save_recipe_btn")
-
-        if save_clicked:
-            final_name = (rec_name or "").strip() or suggested or "Untitled layer"
-            if len(rec_pick) >= 2:
-                season = (preview or {}).get("season") or {}
-                st.session_state["layer_recipes"].insert(
-                    0,
-                    {
-                        "name": final_name,
-                        "bottles": list(rec_pick),
-                        "season_label": season.get("label", ""),
-                        "season_detail": season.get("detail", ""),
-                        "suggested_name": suggested,
-                    },
-                )
-                save_persisted_data()
-                st.session_state["_recipe_save_flash"] = (
-                    f"Saved **{final_name}** - best season: {season.get('label', '?')}"
-                )
-                st.rerun()
-            else:
-                st.warning("Need at least two bottles.")
-
-        _rsf = st.session_state.pop("_recipe_save_flash", None)
-        if _rsf:
-            st.success(_rsf)
-
-        for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
-            bottles = list(recipe.get("bottles") or [])
-            st.markdown(f"**{recipe.get('name', 'Recipe')}**")
-            st.caption(" + ".join(bottles))
-            ev = evaluate_layer_recipe(bottles)
-            season = ev.get("season") or {}
-            saved_season = recipe.get("season_label") or season.get("label")
-            if saved_season:
-                st.caption(
-                    f"Season: **{saved_season}** - "
-                    f"{recipe.get('season_detail') or season.get('detail', '')}"
-                )
-            # Verdict banner
-            if ev["label"] in ("Strong layer", "Good layer"):
-                st.success(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
-            elif ev["label"] == "Mixed":
-                st.warning(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
-            else:
-                st.info(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
-            # Notes for each bottle
-            for f in ev.get("frags") or []:
-                cats = ", ".join(f.get("category") or [])
-                st.markdown(
-                    f"**{f.get('name')}** ({f.get('brand', '?')})  \n"
-                    f"*{f.get('gender', '')} | {f.get('season', '')} | {cats}*  \n"
-                    f"Notes: {f.get('notes') or 'Not specified'}"
-                )
-            if ev.get("missing"):
-                st.caption(
-                    "Missing from vault: " + ", ".join(ev["missing"])
-                )
-            rb1, rb2 = st.columns(2)
-            with rb1:
-                if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
-                    st.session_state["sotd_prefill"] = bottles
-                    st.rerun()
-            with rb2:
-                if st.button("Delete", key=f"recipe_del_{ri}"):
-                    st.session_state["layer_recipes"].pop(ri)
-                    save_persisted_data()
-                    st.rerun()
-            st.markdown("---")
 
 
 # ===== ROULETTE =====
@@ -5800,16 +2470,6 @@ with tab_roulette:
             ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
             key="roulette_season",
         )
-    roulette_mode = st.selectbox(
-        "Mode",
-        [
-            "Standard (skip recent)",
-            "YAY only",
-            "Never worn",
-            "Opposite of yesterday",
-        ],
-        key="roulette_mode",
-    )
 
     if st.button("Spin the roulette", type="primary", key="spin_roulette_btn"):
         recent_worn = set()
@@ -5820,39 +2480,14 @@ with tab_roulette:
                 for part in entry["scent"].split(" + "):
                     recent_worn.add(part.strip())
 
-        yesterday_cats = set()
-        hist = st.session_state.get("sotd_history") or []
-        if hist:
-            last = hist[0]
-            names = last.get("scents") or []
-            if not names and last.get("scent"):
-                names = [p.strip() for p in last["scent"].split(" + ")]
-            name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
-            for n in names:
-                fr = name_map.get(n)
-                if fr:
-                    yesterday_cats.update(fr.get("category", []))
-
-        wear_counts = get_wear_counts()
         pool = []
         for f in st.session_state["fragrances_db"]:
             if st.session_state["user_reactions"].get(f["name"]) == "dislike":
                 continue
-            if not (matches_gender(f, roulette_gender) and matches_weather(f, roulette_season)):
+            if f["name"] in recent_worn:
                 continue
-            mode = roulette_mode
-            if mode == "Standard (skip recent)" and f["name"] in recent_worn:
-                continue
-            if mode == "YAY only" and st.session_state["user_reactions"].get(f["name"]) != "fav":
-                continue
-            if mode == "Never worn" and wear_counts.get(f["name"], 0) > 0:
-                continue
-            if mode == "Opposite of yesterday":
-                if not yesterday_cats:
-                    pass  # no history - allow all
-                elif set(f.get("category", [])) & yesterday_cats:
-                    continue  # skip overlapping families
-            pool.append(f)
+            if matches_gender(f, roulette_gender) and matches_weather(f, roulette_season):
+                pool.append(f)
 
         if not pool:
             st.warning(
@@ -5878,17 +2513,17 @@ with tab_roulette:
         if chosen:
             current_reaction = st.session_state["user_reactions"].get(chosen["name"])
             status_badge = (
-                " YAY"
+                " ð¤ Favorite"
                 if current_reaction == "fav"
-                else (" NAH" if current_reaction == "dislike" else "")
+                else (" ð« Disliked" if current_reaction == "dislike" else "")
             )
             st.markdown(
                 """
                 <div class="bat-container">
-                    <span class="floating-bat bat1">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat2">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat3">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat4">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat1">ð¦</span>
+                    <span class="floating-bat bat2">ð¦</span>
+                    <span class="floating-bat bat3">ð¦</span>
+                    <span class="floating-bat bat4">ð¦</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -5909,12 +2544,12 @@ with tab_roulette:
                 )
             rc1, rc2, _ = st.columns([1, 1, 2])
             with rc1:
-                if st.button("YAY", key=f"roulette_fav_{chosen['name']}"):
+                if st.button("Love it", key=f"roulette_fav_{chosen['name']}"):
                     st.session_state["user_reactions"][chosen["name"]] = "fav"
                     save_persisted_data()
                     st.rerun()
             with rc2:
-                if st.button("DEL", key=f"roulette_dislike_{chosen['name']}"):
+                if st.button("Trash it", key=f"roulette_dislike_{chosen['name']}"):
                     st.session_state["user_reactions"][chosen["name"]] = "dislike"
                     save_persisted_data()
                     st.rerun()
@@ -5922,22 +2557,8 @@ with tab_roulette:
 # ===== SOTD =====
 with tab_sotd:
     st.subheader("Scent of the Day")
-    _ready2 = st.session_state.pop("_sotd_ready_flash", None)
-    if _ready2:
-        st.success(_ready2)
-    streak = sotd_streak()
-    if streak:
-        st.caption(f"Current log streak: **{streak}** day(s)")
     all_frag_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
 
-    # Clear form on next run AFTER log (must happen before widgets are created)
-    if st.session_state.pop("_clear_sotd_form", False):
-        st.session_state["sotd_multiselect"] = []
-        st.session_state["sotd_notes_input"] = ""
-        st.session_state["sotd_date"] = pacific_today()
-        st.session_state["sotd_his_select"] = "- none -"
-
-    # Prefill from quick layering combo (also before widgets)
     if st.session_state.get("sotd_prefill"):
         st.session_state["sotd_multiselect"] = list(st.session_state["sotd_prefill"])
         st.session_state["sotd_prefill"] = []
@@ -5945,15 +2566,6 @@ with tab_sotd:
             st.session_state["sotd_notes_input"] = "Layered combo"
 
     st.caption("Pick one bottle, or several for a layering day.")
-    # Default to Pacific "today" so the date matches the user, not the server UTC clock
-    if "sotd_date" not in st.session_state:
-        st.session_state["sotd_date"] = pacific_today()
-    sotd_date = st.date_input(
-        "Date",
-        value=st.session_state.get("sotd_date", pacific_today()),
-        key="sotd_date",
-        help="Calendar uses your selected day. Defaults to Pacific time today.",
-    )
     sotd_choices = st.multiselect(
         "Wearing today",
         options=all_frag_names,
@@ -5962,176 +2574,54 @@ with tab_sotd:
     )
     sotd_notes = st.text_input(
         "Notes / vibe (optional)",
-        placeholder="Rainy afternoon | office | date night",
+        placeholder="Rainy afternoon / office / date night",
         key="sotd_notes_input",
     )
-    all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
-    sotd_his = st.selectbox(
-        "His scent (optional)",
-        ["- none -"] + all_names_his,
-        key="sotd_his_select",
-    )
 
-    with st.expander("Horror night vibes", expanded=False):
-        st.caption(
-            "Scary-movie nights - gothic fog, cabin woods, slashers, haunted gourmand, vampires."
-        )
-        horror_mode = st.selectbox(
-            "Horror mood",
-            list(HORROR_SCENT_PROFILES.keys()),
-            key="sotd_horror_mode",
-        )
-        hp = HORROR_SCENT_PROFILES[horror_mode]
-        st.write(hp.get("blurb", ""))
-        if st.button("Draw horror night scents", type="primary", key="sotd_horror_draw"):
-            picks = get_horror_picks(horror_mode, top_n=3)
-            st.session_state["last_horror_picks"] = {
-                "mode": horror_mode,
-                "picks": picks,
-                "vibe": hp.get("vibe_note", horror_mode),
-            }
-        last_h = st.session_state.get("last_horror_picks")
-        if last_h:
-            st.caption(f"Mode: {last_h.get('mode')}")
-            for i, f in enumerate(last_h.get("picks") or [], 1):
-                st.markdown(
-                    f"**{i}. {f.get('name')}** ({f.get('brand')}) - "
-                    f"{', '.join(f.get('category') or [])}"
-                )
-                if st.button("Use tonight", key=f"horror_use_{i}"):
-                    st.session_state["sotd_prefill"] = [f["name"]]
-                    st.session_state["sotd_notes_input"] = last_h.get(
-                        "vibe", "Horror night"
-                    )
-                    st.rerun()
-
-
-
-    # Layering partners based on current selection
-    if sotd_choices:
-        name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
-        primary_name = sotd_choices[0]
-        primary = name_to_frag.get(primary_name)
-        if primary:
-            st.markdown(f"#### Layer with **{primary_name}**")
-            st.caption("Suggestions for the first bottle you selected. Tap Add to include it today.")
-            partners = suggest_partners_for(primary, num=4)
-            if not partners:
-                st.write("No strong partners found (or everything else is DEL).")
-            else:
-                for pi, (pf, reason) in enumerate(partners):
-                    already = pf["name"] in sotd_choices
-                    row_a, row_b = st.columns([4, 1])
-                    with row_a:
-                        mark = " (already selected)" if already else ""
-                        st.markdown(
-                            f"**{pf['name']}**  -  *{pf['brand']}*{mark}  \n"
-                            f"{', '.join(pf.get('category', []))}  \n"
-                            f"*{reason}*"
-                        )
-                    with row_b:
-                        if not already:
-                            if st.button("Add", key=f"sotd_add_layer_{pi}_{pf['name']}"):
-                                st.session_state["sotd_prefill"] = list(sotd_choices) + [pf["name"]]
-                                if not st.session_state.get("sotd_notes_input"):
-                                    st.session_state["sotd_notes_input"] = "Layered combo"
-                                st.rerun()
-                    st.markdown("---")
-
-        # Husband / male match for her selection
-        with st.expander("His match", expanded=False):
-            st.caption(
-                "Male (and unisex) bottles from the vault that sit well beside what you're wearing."
-            )
-            his_matches = suggest_his_match(
-                [name_to_frag[n] for n in sotd_choices if n in name_to_frag],
-                num=4,
-            )
-            if not his_matches:
-                st.write(
-                    "No strong male matches right now. Add more male bottles or loosen DEL marks."
-                )
-            else:
-                for hi, (hf, reason) in enumerate(his_matches):
-                    st.info(
-                        f"**{hf['name']}** | *{hf['brand']}*\n\n"
-                        f"{hf['gender']} | {hf['season']} | {', '.join(hf.get('category', []))}\n\n"
-                        f"*{reason}*\n\n"
-                        f"Notes: {hf['notes']}"
-                    )
-
-    with st.expander("Quick layering combos", expanded=False):
-        st.caption(
-            "Clear base + layer pairs (prefers YAY). Use fills Wearing today with two separate bottles."
-        )
+    with st.expander("Quick layering combos"):
         fav_names = [
             n for n, s in st.session_state["user_reactions"].items() if s == "fav"
         ]
-        pool = [
-            f
-            for f in st.session_state["fragrances_db"]
-            if f["name"] in fav_names
-            and st.session_state["user_reactions"].get(f["name"]) != "dislike"
-        ]
+        pool = (
+            [f for f in st.session_state["fragrances_db"] if f["name"] in fav_names]
+            if fav_names
+            else st.session_state["fragrances_db"]
+        )
         if len(pool) < 2:
-            pool = [
-                f
-                for f in st.session_state["fragrances_db"]
-                if st.session_state["user_reactions"].get(f["name"]) != "dislike"
-            ]
+            pool = st.session_state["fragrances_db"]
         quick_combos = suggest_layering_combos(pool, num_combos=4)
         if not quick_combos:
             st.write("Need at least two bottles to suggest layers.")
         else:
             for i, (f1, f2, reason) in enumerate(quick_combos, 1):
-                if f1.get("name") == f2.get("name"):
-                    continue
-                st.markdown(
-                    f"**Pair {i}**  \n"
-                    f"Base: **{f1['name']}** ({f1.get('brand', '')})  \n"
-                    f"Layer: **{f2['name']}** ({f2.get('brand', '')})  \n"
-                    f"*{reason}*"
-                )
-                if st.button(
-                    "Use this pair",
-                    key=f"use_combo_{i}_{f1['name']}_{f2['name']}",
-                ):
-                    st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
-                    st.session_state["sotd_notes_input"] = (
-                        f"Layer: {f1['name']} + {f2['name']}"
+                ca, cb = st.columns([4, 1])
+                with ca:
+                    st.markdown(
+                        f"**{i}.** `{f1['name']}` + `{f2['name']}`  \n*{reason}*"
                     )
-                    st.rerun()
-                st.markdown("---")
-
-    sotd_photo = st.file_uploader(
-        "Optional photo (bottle / flat lay)",
-        type=["jpg", "jpeg", "png", "webp"],
-        key="sotd_photo_up",
-        help="Stored as a small compressed image with this log.",
-    )
+                with cb:
+                    if st.button("Use", key=f"use_combo_{i}"):
+                        st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
+                        st.rerun()
 
     if st.button("Log today's scent", type="primary"):
         if sotd_choices:
-            today_date = sotd_date.strftime("%Y-%m-%d") if hasattr(sotd_date, "strftime") else str(sotd_date)
+            today_date = datetime.date.today().strftime("%Y-%m-%d")
             scent_display = " + ".join(sotd_choices)
             is_layering = len(sotd_choices) > 1
-            entry = {
-                "date": today_date,
-                "scent": scent_display,
-                "scents": sotd_choices,
-                "is_layering": is_layering,
-                "notes": sotd_notes,
-            }
-            if sotd_his and sotd_his != "- none -":
-                entry["his_scent"] = sotd_his
-            if sotd_photo is not None:
-                try:
-                    entry["photo"] = _image_to_data_url(sotd_photo)
-                except Exception as ex:
-                    st.warning(f"Photo skipped: {ex}")
-            st.session_state["sotd_history"].insert(0, entry)
+            st.session_state["sotd_history"].insert(
+                0,
+                {
+                    "date": today_date,
+                    "scent": scent_display,
+                    "scents": sotd_choices,
+                    "is_layering": is_layering,
+                    "notes": sotd_notes,
+                },
+            )
             save_persisted_data()
-            st.session_state["_clear_sotd_form"] = True
+            st.session_state["sotd_multiselect"] = []
+            st.session_state["sotd_notes_input"] = ""
             st.session_state["_sotd_flash"] = (
                 f"Logged layering: **{scent_display}**"
                 if is_layering
@@ -6145,98 +2635,18 @@ with tab_sotd:
     if _flash:
         st.success(_flash)
 
-    with st.expander("Weekly SOTD browser", expanded=False):
-        st.caption("Browse past weeks on screen and download a PDF if you want a copy.")
-        today = pacific_today()
-        monday = today - datetime.timedelta(days=today.weekday())
-        week_opts = []
-        for wback in range(0, 16):
-            m = monday - datetime.timedelta(weeks=wback)
-            iso = m.isocalendar()
-            key = f"{iso[0]}-W{iso[1]:02d}"
-            label = f"{key} ({m.isoformat()} - {(m + datetime.timedelta(days=6)).isoformat()})"
-            week_opts.append((label, key, m))
-        week_labels = [x[0] for x in week_opts]
-        pick_label = st.selectbox("Week", week_labels, key="sotd_week_pick")
-        pick_key = next(x[1] for x in week_opts if x[0] == pick_label)
-        pick_monday = next(x[2] for x in week_opts if x[0] == pick_label)
-        pick_sunday = pick_monday + datetime.timedelta(days=6)
-
-        week_entries = []
-        for e in st.session_state.get("sotd_history") or []:
-            d = e.get("date")
-            if not d:
-                continue
-            try:
-                dd = datetime.date.fromisoformat(d)
-            except ValueError:
-                continue
-            if pick_monday <= dd <= pick_sunday:
-                week_entries.append(e)
-        week_entries.sort(key=lambda x: x.get("date", ""))
-
-        st.write(
-            f"**{len(week_entries)}** log(s) in {pick_key} "
-            f"({pick_monday.isoformat()} to {pick_sunday.isoformat()})"
-        )
-        if not week_entries:
-            st.info("No SOTD entries in this week yet.")
-        else:
-            for entry in week_entries:
-                layer_badge = " [layer]" if entry.get("is_layering") else ""
-                his_txt = f" | his: {entry['his_scent']}" if entry.get("his_scent") else ""
-                perf_bits = []
-                if entry.get("sillage"):
-                    perf_bits.append(f"sil {entry['sillage']}")
-                if entry.get("longevity"):
-                    perf_bits.append(f"lon {entry['longevity']}")
-                perf_txt = (" | " + "/".join(perf_bits)) if perf_bits else ""
-                notes_text = f" | {entry['notes']}" if entry.get("notes") else ""
-                st.markdown(
-                    f"**{entry.get('date')}:** *{entry.get('scent')}*{layer_badge}"
-                    f"{his_txt}{perf_txt}{notes_text}"
-                )
-                if entry.get("photo"):
-                    try:
-                        st.image(entry["photo"], width=160)
-                    except Exception:
-                        pass
-
-        try:
-            pdf_bytes = build_sotd_week_pdf(pick_key)
-            st.download_button(
-                "Download this week as PDF",
-                data=pdf_bytes,
-                file_name=f"sotd_{pick_key}.pdf",
-                mime="application/pdf",
-                key="sotd_week_pdf_btn",
-            )
-        except Exception as ex:
-            st.caption(f"PDF unavailable: {ex}")
-
-    with st.expander("Journal history", expanded=False):
+    if st.session_state["sotd_history"]:
+        with st.expander("Journal history", expanded=True):
             for i, entry in enumerate(st.session_state["sotd_history"]):
-                layer_badge = " | layering" if entry.get("is_layering") else ""
+                layer_badge = " [layering]" if entry.get("is_layering") else ""
                 notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
                 hcol, xcol = st.columns([6, 1])
                 with hcol:
-                    perf_bits = []
-                    if entry.get("sillage"):
-                        perf_bits.append(f"sil {entry['sillage']}/5")
-                    if entry.get("longevity"):
-                        perf_bits.append(f"lon {entry['longevity']}/5")
-                    perf_txt = f"  -  {', '.join(perf_bits)}" if perf_bits else ""
-                    his_txt = f"  -  his: {entry['his_scent']}" if entry.get("his_scent") else ""
                     st.write(
-                        f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{his_txt}{perf_txt}{notes_text}"
+                        f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{notes_text}"
                     )
-                    if entry.get("photo"):
-                        try:
-                            st.image(entry["photo"], width=180)
-                        except Exception:
-                            pass
                 with xcol:
-                    if st.button("DEL", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
+                    if st.button("â", key=f"del_sotd_{i}_{entry['date']}"):
                         st.session_state["sotd_history"].pop(i)
                         save_persisted_data()
                         st.rerun()
@@ -6245,646 +2655,9 @@ with tab_sotd:
                 save_persisted_data()
                 st.rerun()
 
-
-# ===== STARS / HOROSCOPE =====
-with tab_horoscope:
-    st.subheader("Stars & scent")
-    st.caption("Your birth chart signs - saved with the vault.")
-
-    st.markdown("#### Your chart")
-    st.caption(
-        f"Default sanctuary chart - born {DEFAULT_CHART['birth_date']} "
-        f"{DEFAULT_CHART['birth_time']} - {DEFAULT_CHART['birth_place']}. "
-        "Adjust signs below anytime; Save chart stores them."
-    )
-
-    signs = list(SIGN_SCENT_PROFILE.keys())
-
-    # Must apply calculator results BEFORE chart selectboxes are created
-    if st.session_state.pop("_apply_birth_chart", False):
-        calc = st.session_state.get("birth_calc_full") or {}
-        if calc.get("sun") and calc["sun"] in signs:
-            st.session_state["chart_sun"] = calc["sun"]
-        if calc.get("moon") and calc["moon"] in signs:
-            st.session_state["chart_moon"] = calc["moon"]
-        if calc.get("rising") and calc["rising"] in signs:
-            st.session_state["chart_rising"] = calc["rising"]
-        if calc.get("venus") and calc["venus"] in signs:
-            st.session_state["chart_venus"] = calc["venus"]
-        st.session_state["_chart_apply_flash"] = True
-
-    # Seed session defaults once so selectboxes don't fight index= vs key=
-    if "chart_sun" not in st.session_state:
-        st.session_state["chart_sun"] = DEFAULT_CHART["sun"]
-    if "chart_moon" not in st.session_state:
-        st.session_state["chart_moon"] = DEFAULT_CHART["moon"]
-    if "chart_rising" not in st.session_state:
-        st.session_state["chart_rising"] = DEFAULT_CHART["rising"]
-    if "chart_venus" not in st.session_state:
-        st.session_state["chart_venus"] = DEFAULT_CHART.get("venus", DEFAULT_CHART["sun"])
-
-    hc1, hc2, hc3, hc4 = st.columns(4)
-    with hc1:
-        sun_s = st.selectbox("Sun", signs, key="chart_sun")
-    with hc2:
-        moon_s = st.selectbox("Moon", signs, key="chart_moon")
-    with hc3:
-        rise_s = st.selectbox("Rising", signs, key="chart_rising")
-    with hc4:
-        venus_s = st.selectbox("Venus", signs, key="chart_venus")
-
-    # Live chart vibe summary
-    sun_p = SIGN_SCENT_PROFILE.get(sun_s, {})
-    moon_p = SIGN_SCENT_PROFILE.get(moon_s, {})
-    rise_p = SIGN_SCENT_PROFILE.get(rise_s, {})
-    ven_p = SIGN_SCENT_PROFILE.get(venus_s, {})
-    st.caption(
-        f"Sun {sun_s} ({sun_p.get('element', '?')} - {sun_p.get('vibe', '')}) | "
-        f"Moon {moon_s} ({moon_p.get('element', '?')} - {moon_p.get('vibe', '')}) | "
-        f"Rising {rise_s} ({rise_p.get('element', '?')} - {rise_p.get('vibe', '')}) | "
-        f"Venus {venus_s} ({ven_p.get('vibe', '')})"
-    )
-
-    if st.session_state.pop("_chart_apply_flash", False):
-        st.success("Calculator signs applied to your chart. Save chart to keep them.")
-
-    if st.button("Save chart", key="chart_save_btn"):
-        save_persisted_data()
-        st.success("Chart saved.")
-        st.rerun()
-
-    with st.expander("Birth chart calculator", expanded=False):
-        st.caption(
-            "Enter birth date, time, and place for Sun, Moon, Rising, and Venus. "
-            "Uses a built-in tropical calculator (no extra install required)."
-        )
-        if st.session_state.pop("_clear_birth_calc", False):
-            for k, v in [
-                ("birth_calc_year", 1990),
-                ("birth_calc_month", 1),
-                ("birth_calc_day", 1),
-                ("birth_calc_hour12", 12),
-                ("birth_calc_minute", 0),
-                ("birth_calc_ampm", "PM"),
-                ("birth_calc_city", "Victorville"),
-                ("birth_calc_country", "United States"),
-                ("birth_calc_nation", "US"),
-            ]:
-                st.session_state[k] = v
-            st.session_state.pop("birth_calc_full", None)
-            st.session_state.pop("birth_geo", None)
-
-        r1, r2, r3 = st.columns(3)
-        with r1:
-            b_year = st.number_input("Year", 1920, 2030, 1990, key="birth_calc_year")
-        with r2:
-            b_month = st.number_input("Month", 1, 12, 1, key="birth_calc_month")
-        with r3:
-            b_day = st.number_input("Day", 1, 31, 1, key="birth_calc_day")
-        r4, r5, r6ampm = st.columns(3)
-        with r4:
-            b_hour12 = st.number_input("Hour", 1, 12, 12, key="birth_calc_hour12")
-        with r5:
-            b_minute = st.number_input("Minute", 0, 59, 0, key="birth_calc_minute")
-        with r6ampm:
-            b_ampm = st.selectbox("AM / PM", ["AM", "PM"], key="birth_calc_ampm")
-        r6, r7 = st.columns(2)
-        with r6:
-            b_city = st.text_input("Birth city", key="birth_calc_city", placeholder="Victorville")
-        with r7:
-            b_country = st.text_input(
-                "Country", key="birth_calc_country", placeholder="United States"
-            )
-        b_nation = st.text_input(
-            "Country code (for chart engine)",
-            key="birth_calc_nation",
-            placeholder="US",
-            help="Two-letter code when possible, e.g. US, GB, MX.",
-        )
-
-        bc1, bc2, bc3 = st.columns(3)
-        with bc1:
-            do_calc = st.button(
-                "Calculate chart", type="primary", key="birth_calc_btn", use_container_width=True
-            )
-        with bc2:
-            if st.button("Clear", key="birth_calc_clear", use_container_width=True):
-                st.session_state["_clear_birth_calc"] = True
-                st.rerun()
-        with bc3:
-            apply_btn = st.button(
-                "Apply to chart", key="birth_calc_apply", use_container_width=True
-            )
-
-        if do_calc:
-            import calendar
-
-            max_d = calendar.monthrange(int(b_year), int(b_month))[1]
-            day_use = min(int(b_day), max_d)
-            geo = geocode_birth_place(b_city or "Victorville", b_country or "United States")
-            st.session_state["birth_geo"] = geo
-            lat = geo.get("lat") if geo.get("ok") else None
-            lon = geo.get("lon") if geo.get("ok") else None
-            tz = geo.get("tz_str") if geo.get("ok") else None
-            # Convert 12-hour + AM/PM to 24-hour for the engine
-            h12 = int(b_hour12) % 12
-            if b_ampm == "PM":
-                h24 = h12 + 12
-            else:
-                h24 = h12  # 12 AM -> 0
-            calc = calculate_full_chart(
-                int(b_year),
-                int(b_month),
-                day_use,
-                h24,
-                int(b_minute),
-                b_city or "Unknown",
-                (b_nation or "US").strip() or "US",
-                lat=lat,
-                lon=lon,
-                tz_str=tz,
-            )
-            if geo.get("ok"):
-                calc["place_label"] = geo.get("label") or calc.get("place_label")
-                calc["geo_detail"] = f"{geo.get('lat'):.3f}, {geo.get('lon'):.3f} | {geo.get('tz_str')}"
-            else:
-                calc["geo_detail"] = geo.get("detail", "Place lookup failed")
-            st.session_state["birth_calc_full"] = calc
-
-        calc = st.session_state.get("birth_calc_full")
-        if calc:
-            st.markdown(
-                f"**Place:** {calc.get('place_label', '?')}  \n"
-                f"**Engine:** {calc.get('engine', '?')}  \n"
-                f"{calc.get('geo_detail', '')}"
-            )
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric("Sun", calc.get("sun") or "-")
-            s2.metric("Moon", calc.get("moon") or "-")
-            s3.metric("Rising", calc.get("rising") or "-")
-            s4.metric("Venus", calc.get("venus") or "-")
-
-            planets = calc.get("planets") or {}
-            if planets:
-                st.markdown("**Planets & points**")
-                order = [
-                    "Sun", "Moon", "Mercury", "Venus", "Mars",
-                    "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto",
-                    "Lilith", "Ascendant", "MC",
-                ]
-                rows = []
-                for name in order:
-                    p = planets.get(name)
-                    if not p:
-                        continue
-                    rows.append(
-                        f"**{name}** {p.get('sign', '?')} "
-                        f"({p.get('deg_in_sign', '?')} deg)"
-                    )
-                # show in two columns of text
-                mid = (len(rows) + 1) // 2
-                c_a, c_b = st.columns(2)
-                with c_a:
-                    for line in rows[:mid]:
-                        st.markdown(line)
-                with c_b:
-                    for line in rows[mid:]:
-                        st.markdown(line)
-
-            houses = calc.get("houses") or {}
-            if houses:
-                st.markdown("**12 houses (equal system)**")
-                st.caption("House 1 cusp = Rising. Each house is 30 degrees.")
-                hcols = st.columns(4)
-                for n in range(1, 13):
-                    h = houses.get(n) or houses.get(str(n)) or {}
-                    with hcols[(n - 1) % 4]:
-                        st.markdown(
-                            f"**H{n}** {h.get('sign', '-')}"
-                        )
-
-            if calc.get("detail"):
-                st.caption(calc["detail"])
-            st.caption(
-                "Fragrance picks still use Sun, Moon, Rising, and Venus. "
-                "Full chart is for reference and Save/Apply of those four."
-            )
-
-        if apply_btn:
-            if st.session_state.get("birth_calc_full"):
-                st.session_state["_apply_birth_chart"] = True
-                st.rerun()
-            else:
-                st.warning("Calculate a chart first.")
-
-    st.markdown("#### Chart scent picks")
-    st.caption(
-        "Female / Unisex bottles ranked for your Sun, Moon, Rising, and Venus. "
-        "Uses today's planetary day quietly in the background (no weekday picker)."
-    )
-    chart_n = st.radio("How many", [3, 5, 8], index=1, horizontal=True, key="chart_n_picks")
-    if st.button("Draw chart scents", type="primary", key="chart_draw_btn"):
-        save_persisted_data()
-        today_name = pacific_today().strftime("%A")
-        picks = get_day_fragrances(
-            today_name, sun_s, moon_s, rise_s, top_n=chart_n, venus=venus_s
-        )
-        st.session_state["last_chart_picks"] = {
-            "picks": picks,
-            "sun": sun_s,
-            "moon": moon_s,
-            "rising": rise_s,
-            "venus": venus_s,
-            "day": today_name,
-        }
-        st.rerun()
-
-    last_cp = st.session_state.get("last_chart_picks")
-    if last_cp is not None:
-        st.caption(
-            f"Sun {last_cp.get('sun')} | Moon {last_cp.get('moon')} | "
-            f"Rising {last_cp.get('rising')} | Venus {last_cp.get('venus')} | "
-            f"{last_cp.get('day', '')}"
-        )
-        picks = last_cp.get("picks") or []
-        if not picks:
-            st.warning("No matching Female / Unisex bottles for this chart right now.")
-        else:
-            for i, f in enumerate(picks, 1):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Notes: {f['notes']}")
-                b1, b2, b3, _ = st.columns([1, 1, 1, 3])
-                with b1:
-                    if st.button("YAY", key=f"chart_fav_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "fav"
-                        save_persisted_data()
-                        st.rerun()
-                with b2:
-                    if st.button("DEL", key=f"chart_dislike_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "dislike"
-                        save_persisted_data()
-                        st.rerun()
-                with b3:
-                    if st.button("Wear", key=f"chart_wear_{f['name']}_{i}"):
-                        st.session_state["sotd_prefill"] = [f["name"]]
-                        st.rerun()
-                st.markdown("---")
-
-
-# ===== PLAY =====
-with tab_play:
-    st.subheader("Play")
-    st.caption("Three games only - Mood, Blind bottle, Family roulette.")
-
-    # Reset invalid play_mode from older builds
-    _allowed_play = ["Mood board", "Blind bottle", "Family roulette"]
-    if st.session_state.get("play_mode") not in _allowed_play:
-        st.session_state["play_mode"] = "Mood board"
-
-    play_mode = st.radio(
-        "Game",
-        _allowed_play,
-        horizontal=True,
-        key="play_mode",
-    )
-
-    # Shared gender + season filters for all Play games
-    if st.session_state.pop("_clear_play_filters", False):
-        st.session_state["play_gender"] = "Any"
-        st.session_state["play_season"] = "Any"
-    pf1, pf2, pf3 = st.columns([2, 2, 1])
-    with pf1:
-        play_gender = st.selectbox(
-            "Gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="play_gender",
-        )
-    with pf2:
-        play_season = st.selectbox(
-            "Season / weather",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="play_season",
-        )
-    with pf3:
-        st.write("")
-        st.write("")
-        if st.button("Clear", key="play_filter_clear"):
-            st.session_state["_clear_play_filters"] = True
-            st.rerun()
-
-    play_pool = filter_play_pool(play_gender, play_season)
-    st.caption(f"Play pool: **{len(play_pool)}** bottle(s) after filters")
-
-    name_map = {f["name"]: f for f in play_pool}
-    # Guess list can still show full vault so hard-mode blind is fair? use filtered
-    all_names = sorted(name_map.keys())
-
-    MOOD_VISUAL = {
-        "Cozy": ("#3d2a1a", "Warm amber glow"),
-        "Seductive": ("#2a1520", "Deep rose & shadow"),
-        "Fresh": ("#152530", "Cool air & light"),
-        "Power": ("#1a2030", "Steel & spice"),
-        "Soft": ("#222030", "Powder & quiet"),
-        "Gourmand": ("#2a2218", "Sugar & cocoa"),
-    }
-
-    FAMILY_COLOR = {
-        "Gourmand": "#4a3020",
-        "Sweet": "#4a2840",
-        "Floral": "#3a2040",
-        "Woody": "#2a3018",
-        "Oriental": "#302018",
-        "Fresh": "#183040",
-        "Fruity": "#402030",
-        "Spicy": "#402018",
-        "Citrus": "#303818",
-        "Aromatic": "#203028",
-        "Leather": "#281818",
-        "Oud": "#201810",
-        "Boozy": "#302010",
-        "Smoky": "#181818",
-        "Powdery": "#282838",
-    }
-
-    if play_mode == "Mood board":
-        st.markdown(
-            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#12101a,#0b101a);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Mood board</div>'
-            '<div style="color:#8a9bb8;font-size:0.85rem;">Pick a feeling - three bottles that match the vibe.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        mood = st.selectbox("Mood", list(MOOD_PROFILES.keys()), key="play_mood")
-        bg, vibe = MOOD_VISUAL.get(mood, ("#101826", MOOD_PROFILES[mood].get("vibe", "")))
-        st.markdown(
-            f'<div style="border-radius:8px;padding:0.65rem 0.9rem;margin:0.35rem 0 0.75rem 0;'
-            f'background:{bg};border:1px solid #2a3a58;">'
-            f'<strong style="color:#c8d2e4;">{mood}</strong> '
-            f'<span style="color:#8a9bb8;">- {vibe}</span><br>'
-            f'<span style="color:#a0b4d0;font-size:0.85rem;">Lean: {", ".join(MOOD_PROFILES[mood]["categories"])}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        if st.button("Draw mood scents", type="primary", key="mood_draw"):
-            picks = get_mood_picks(mood, top_n=3, pool=play_pool)
-            st.session_state["last_mood"] = {"mood": mood, "picks": picks}
-            st.session_state["play_stats"]["moods_drawn"] = (
-                st.session_state["play_stats"].get("moods_drawn", 0) + 1
-            )
-            save_persisted_data()
-        last_mood = st.session_state.get("last_mood")
-        if last_mood:
-            st.caption(f"Drawn for: {last_mood.get('mood')}")
-            cols = st.columns(min(3, max(1, len(last_mood.get("picks") or []))))
-            for i, f in enumerate(last_mood.get("picks") or []):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                with cols[i % len(cols)]:
-                    st.markdown(
-                        f'<div style="border:1px solid #1e2a42;border-radius:8px;padding:0.7rem;'
-                        f'background:#0b101a;min-height:120px;">'
-                        f'<div style="color:#7eb0ff;font-weight:600;">#{i+1} {f["name"]}{badge}</div>'
-                        f'<div style="color:#8a9bb8;font-size:0.8rem;">{f["brand"]}</div>'
-                        f'<div style="color:#c8d2e4;font-size:0.82rem;margin-top:0.35rem;">'
-                        f'{", ".join(f.get("category", []))}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                    if st.button("Wear today", key=f"mood_wear_{i}"):
-                        st.session_state["sotd_prefill"] = [f["name"]]
-                        st.rerun()
-
-    elif play_mode == "Blind bottle":
-        st.markdown(
-            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#0e1018,#12101c);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Blind bottle</div>'
-            '<div style="color:#8a9bb8;font-size:0.85rem;">Mystery card - notes only. Guess, then reveal.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        blind_diff = st.selectbox(
-            "Difficulty",
-            [
-                "Normal (full notes)",
-                "Hard (top notes only)",
-                "Expert (base notes only)",
-                "Scrambled keywords",
-            ],
-            key="blind_diff",
-        )
-        if st.button("Draw a mystery bottle", type="primary", key="blind_draw"):
-            pool = list(play_pool)
-            if pool:
-                chosen = random.choice(pool)
-                st.session_state["blind_bottle"] = chosen
-                st.session_state["blind_revealed"] = False
-                st.session_state["play_stats"]["blind_played"] = (
-                    st.session_state["play_stats"].get("blind_played", 0) + 1
-                )
-                save_persisted_data()
-        mystery = st.session_state.get("blind_bottle")
-        if mystery and not st.session_state.get("blind_revealed"):
-            notes_full = mystery.get("notes", "")
-            diff = st.session_state.get("blind_diff", "Normal (full notes)")
-            if "Hard" in diff:
-                if "Heart" in notes_full:
-                    shown = (
-                        notes_full.split("Heart")[0]
-                        .replace("Top -", "")
-                        .replace("Top:", "")
-                        .strip(" /")
-                    )
-                else:
-                    shown = notes_full[: max(20, len(notes_full) // 3)]
-                shown = f"Top-ish: {shown}"
-            elif "Expert" in diff:
-                if "Base" in notes_full:
-                    shown = notes_full.split("Base")[-1].strip(" -:")
-                else:
-                    shown = notes_full[-max(20, len(notes_full) // 3) :]
-                shown = f"Base-ish: {shown}"
-            elif "Scrambled" in diff:
-                tokens = re.findall(r"[A-Za-z]{3,}", notes_full)
-                random.shuffle(tokens)
-                shown = ", ".join(tokens[:12])
-            else:
-                shown = notes_full
-            st.markdown(
-                f'<div style="border:1px dashed #3a5a8a;border-radius:12px;padding:1rem;'
-                f'background:#080c14;text-align:center;margin:0.5rem 0;">'
-                f'<div style="font-size:2rem;letter-spacing:0.2em;color:#4a7ac8;">?</div>'
-                f'<div style="color:#c8d2e4;margin-top:0.5rem;"><strong>Clue</strong></div>'
-                f'<div style="color:#a0b4d0;font-size:0.9rem;margin-top:0.35rem;">{shown}</div>'
-                f'<div style="color:#8a9bb8;font-size:0.8rem;margin-top:0.5rem;">'
-                f'{mystery.get("season", "")} | {", ".join(mystery.get("category") or [])}'
-                f'</div></div>',
-                unsafe_allow_html=True,
-            )
-            guess = st.selectbox(
-                "Your guess",
-                ["- pick -"] + all_names,
-                key="blind_guess_select",
-            )
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Check guess", key="blind_check"):
-                    if guess == mystery["name"]:
-                        st.session_state["play_stats"]["blind_correct"] = (
-                            st.session_state["play_stats"].get("blind_correct", 0) + 1
-                        )
-                        save_persisted_data()
-                        st.session_state["blind_revealed"] = True
-                        st.success("Correct.")
-                    elif guess != "- pick -":
-                        st.warning("Not that one.")
-            with c2:
-                if st.button("Reveal", key="blind_reveal"):
-                    st.session_state["blind_revealed"] = True
-                    st.rerun()
-        if mystery and st.session_state.get("blind_revealed"):
-            st.markdown(
-                f'<div style="border:1px solid #3a5a8a;border-radius:12px;padding:1rem;'
-                f'background:#0c1420;margin:0.5rem 0;">'
-                f'<div style="color:#7eb0ff;font-size:1.1rem;font-weight:600;">{mystery["name"]}</div>'
-                f'<div style="color:#8a9bb8;">{mystery.get("brand", "")}</div>'
-                f'<div style="color:#c8d2e4;font-size:0.88rem;margin-top:0.4rem;">{mystery.get("notes", "")}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button("Wear today", key="blind_wear"):
-                st.session_state["sotd_prefill"] = [mystery["name"]]
-                st.rerun()
-
-    elif play_mode == "Family roulette":
-        st.markdown(
-            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#141018,#0b101a);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Family roulette</div>'
-            '<div style="color:#8a9bb8;font-size:0.85rem;">Spin a category - three bottles land on the board.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        families = sorted(
-            {
-                c
-                for f in play_pool
-                for c in (f.get("category") or [])
-            }
-        )
-        if st.button("Spin family", type="primary", key="fam_spin"):
-            if families:
-                fam = random.choice(families)
-                pool = [
-                    f
-                    for f in play_pool
-                    if fam in (f.get("category") or [])
-                ]
-                random.shuffle(pool)
-                st.session_state["last_family_spin"] = {
-                    "family": fam,
-                    "picks": pool[:3],
-                }
-            else:
-                st.warning("No families in the filtered play pool.")
-        last_fs = st.session_state.get("last_family_spin")
-        if last_fs:
-            fam = last_fs.get("family") or "?"
-            color = FAMILY_COLOR.get(fam, "#1a2030")
-            st.markdown(
-                f'<div style="text-align:center;margin:0.6rem 0;">'
-                f'<div style="display:inline-block;padding:0.55rem 1.25rem;border-radius:999px;'
-                f'background:{color};border:1px solid #3a5a8a;color:#e8f0ff;'
-                f'font-family:Cinzel,Georgia,serif;font-size:1.05rem;">{fam}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            picks = last_fs.get("picks") or []
-            if not picks:
-                st.warning("No bottles in that family right now.")
-            else:
-                cols = st.columns(min(3, len(picks)))
-                for i, f in enumerate(picks):
-                    with cols[i]:
-                        st.markdown(
-                            f'<div style="border:1px solid #1e2a42;border-radius:8px;padding:0.7rem;'
-                            f'background:#0b101a;min-height:110px;">'
-                            f'<div style="color:#7eb0ff;font-weight:600;">{f["name"]}</div>'
-                            f'<div style="color:#8a9bb8;font-size:0.8rem;">{f.get("brand", "")}</div>'
-                            f'<div style="color:#a0b4d0;font-size:0.78rem;margin-top:0.3rem;">'
-                            f'{", ".join(f.get("category") or [])}</div>'
-                            f'</div>',
-                            unsafe_allow_html=True,
-                        )
-                        if st.button("Wear today", key=f"fam_wear_{i}"):
-                            st.session_state["sotd_prefill"] = [f["name"]]
-                            st.rerun()
-
 # ===== COLLECTION =====
 with tab_collection:
     st.subheader("Collection browser")
-
-    with st.expander("Price range lookup", expanded=True):
-        st.caption(
-            "Find bottles you logged a price for. Leave wide range to see all priced bottles."
-        )
-        if st.session_state.pop("_clear_price_lookup", False):
-            st.session_state["price_min"] = 0
-            st.session_state["price_max"] = 500
-            st.session_state["price_gender"] = "Any"
-        pr1, pr2, pr3 = st.columns(3)
-        with pr1:
-            price_min = st.number_input("Min $", min_value=0, max_value=2000, value=0, key="price_min")
-        with pr2:
-            price_max = st.number_input("Max $", min_value=0, max_value=5000, value=500, key="price_max")
-        with pr3:
-            price_gender = st.selectbox(
-                "Gender",
-                ["Any", "Male", "Female", "Unisex"],
-                key="price_gender",
-            )
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            do_price = st.button("Search prices", type="primary", key="price_search_btn")
-        with pc2:
-            if st.button("Clear", key="price_clear_btn"):
-                st.session_state["_clear_price_lookup"] = True
-                st.session_state.pop("price_lookup_hits", None)
-                st.rerun()
-        if do_price:
-            lo, hi = float(min(price_min, price_max)), float(max(price_min, price_max))
-            hits = fragrances_in_price_range(lo, hi, price_gender)
-            st.session_state["price_lookup_hits"] = {
-                "hits": hits,
-                "lo": lo,
-                "hi": hi,
-                "gender": price_gender,
-            }
-        priced_n = sum(
-            1
-            for f in st.session_state.get("fragrances_db") or []
-            if f.get("price") is not None
-        )
-        st.caption(f"{priced_n} bottle(s) in the vault have a price logged.")
-        pl = st.session_state.get("price_lookup_hits")
-        if pl is not None:
-            hits = pl.get("hits") or []
-            st.write(
-                f"**{len(hits)}** match ${pl.get('lo'):.0f} - ${pl.get('hi'):.0f}"
-                f" ({pl.get('gender')})"
-            )
-            if not hits:
-                st.info("No priced bottles in that range. Add prices when editing bottles.")
-            else:
-                for f in hits:
-                    st.write(
-                        f"**${float(f.get('price')):.0f}** - **{f.get('name')}** "
-                        f"({f.get('brand')}) | {f.get('gender')} | "
-                        f"{', '.join(f.get('category') or [])}"
-                    )
     wear_counts = get_wear_counts()
     favs = [
         name
@@ -6903,252 +2676,12 @@ with tab_collection:
     m3.metric("Banished", len(dislikes))
     m4.metric("SOTD logs", len(st.session_state["sotd_history"]))
 
-    # Gender breakdown (using normalize_gender for consistency)
-    female_count = 0
-    male_count = 0
-    unisex_count = 0
-    for f in st.session_state["fragrances_db"]:
-        g = normalize_gender(f.get("gender", ""))
-        if g in ("Female", "Female-leaning"):
-            female_count += 1
-        elif g in ("Male", "Male-leaning"):
-            male_count += 1
-        else:
-            unisex_count += 1
-
-    g1, g2, g3 = st.columns(3)
-    g1.metric("Women / F-leaning", female_count)
-    g2.metric("Unisex", unisex_count)
-    g3.metric("Men / M-leaning", male_count)
-
-    val = collection_value_summary(st.session_state["fragrances_db"])
-    if val["priced"] or val["sized"] or val["by_shelf"]:
-        v1, v2, v3 = st.columns(3)
-        v1.metric("Logged ml", f"{val['total_ml']:.0f}" if val["sized"] else "-")
-        v2.metric("Logged value", f"${val['total_price']:.0f}" if val["priced"] else "-")
-        shelf_bits = ", ".join(f"{k}: {n}" for k, n in sorted(val["by_shelf"].items()))
-        v3.caption(f"Shelf: {shelf_bits}" if shelf_bits else "")
-
-
-    badges = compute_badges()
-    badges = compute_badges()
-    if badges:
-        st.caption("Badges: " + "  -  ".join(badges))
-
-
-    # ----- Wishlist -----
-    with st.expander("Wishlist", expanded=False):
-        st.caption("Track bottles you want. Check off, then To vault (or move all checked) to add them to your collection.")
-        # Clear form fields before widgets if flagged
-        if st.session_state.pop("_clear_wishlist_form", False):
-            st.session_state["wl_name"] = ""
-            st.session_state["wl_brand"] = ""
-            st.session_state["wl_notes"] = ""
-        wl_name = st.text_input("Name", key="wl_name")
-        wl_brand = st.text_input("Brand (optional)", key="wl_brand")
-        wl_notes = st.text_input("Notes (optional)", key="wl_notes")
-        wa, wb = st.columns(2)
-        with wa:
-            add_clicked = st.button("Add to wishlist", key="wl_add", use_container_width=True)
-        with wb:
-            if st.button("Clear fields", key="wl_clear_fields", use_container_width=True):
-                st.session_state["_clear_wishlist_form"] = True
-                st.rerun()
-        if add_clicked:
-            if (wl_name or "").strip():
-                st.session_state["wishlist"].insert(
-                    0,
-                    {
-                        "name": wl_name.strip(),
-                        "brand": (wl_brand or "").strip(),
-                        "notes": (wl_notes or "").strip(),
-                        "checked": False,
-                    },
-                )
-                save_persisted_data()
-                st.session_state["_clear_wishlist_form"] = True
-                st.rerun()
-            else:
-                st.warning("Name is required.")
-        if st.session_state.get("wishlist"):
-            try:
-                st.download_button(
-                    "Download wishlist PDF",
-                    data=build_wishlist_pdf(st.session_state["wishlist"]),
-                    file_name="wishlist.pdf",
-                    mime="application/pdf",
-                    key="wl_pdf",
-                )
-            except Exception as ex:
-                st.caption(f"PDF unavailable: {ex}")
-        # Move all checked items into the vault
-        checked_items = [
-            (i, it)
-            for i, it in enumerate(st.session_state.get("wishlist") or [])
-            if it.get("checked")
-        ]
-        if checked_items:
-            st.caption(
-                f"{len(checked_items)} checked - move into your real collection when you own them."
-            )
-            if st.button(
-                f"Add {len(checked_items)} checked to vault",
-                type="primary",
-                key="wl_move_checked",
-            ):
-                added = 0
-                skipped = []
-                to_remove = []
-                for i, it in checked_items:
-                    result = wishlist_item_to_vault(it)
-                    if result.get("ok"):
-                        added += 1
-                        to_remove.append(i)
-                    else:
-                        skipped.append(result.get("message") or "Skipped")
-                for i in sorted(to_remove, reverse=True):
-                    if 0 <= i < len(st.session_state["wishlist"]):
-                        st.session_state["wishlist"].pop(i)
-                save_persisted_data()
-                msg = f"Moved {added} to vault."
-                if skipped:
-                    msg += " " + " | ".join(skipped[:3])
-                st.session_state["_wl_move_flash"] = msg
-                st.rerun()
-
-        _wl_flash = st.session_state.pop("_wl_move_flash", None)
-        if _wl_flash:
-            st.success(_wl_flash)
-
-        for wi, item in enumerate(list(st.session_state.get("wishlist") or [])):
-            c1, c2, c3, c4 = st.columns([1, 4, 2, 1])
-            with c1:
-                checked = st.checkbox(
-                    "got",
-                    value=bool(item.get("checked")),
-                    key=f"wl_chk_{wi}_{item.get('name','')}",
-                    label_visibility="collapsed",
-                )
-                if checked != bool(item.get("checked")):
-                    st.session_state["wishlist"][wi]["checked"] = checked
-                    save_persisted_data()
-                    st.rerun()
-            with c2:
-                mark = "[x]" if item.get("checked") else "[ ]"
-                extra = f" - {item.get('brand')}" if item.get("brand") else ""
-                line = f"{mark} **{item.get('name')}**{extra}"
-                if item.get("notes"):
-                    line = line + "  \n*" + str(item.get("notes")) + "*"
-                st.markdown(line)
-            with c3:
-                if item.get("checked"):
-                    if st.button("To vault", key=f"wl_to_vault_{wi}"):
-                        result = wishlist_item_to_vault(item)
-                        if result.get("ok"):
-                            st.session_state["wishlist"].pop(wi)
-                            save_persisted_data()
-                            st.session_state["_wl_move_flash"] = result["message"]
-                            st.rerun()
-                        else:
-                            st.session_state["_wl_move_flash"] = result.get(
-                                "message", "Could not add"
-                            )
-                            st.rerun()
-            with c4:
-                if st.button("DEL", key=f"wl_del_{wi}"):
-                    st.session_state["wishlist"].pop(wi)
-                    save_persisted_data()
-                    st.rerun()
-        if not st.session_state.get("wishlist"):
-            st.caption("Wishlist is empty.")
-
-
-    # Favorite notes cloud
-    fav_notes = get_favorite_notes(10)
-    if fav_notes:
-        cloud = "  -  ".join(f"**{n}** ({c})" for n, c in fav_notes)
-        st.markdown(f"**Your note cloud (from YAY):** {cloud}")
-
-    # 30-day family summary (simple heatmap substitute)
-    fam = season_family_summary()
-    if fam:
-        st.caption("Last 30 days  -  families worn")
-        fam_bits = "  -  ".join(f"{k}: {v}" for k, v in list(fam.items())[:8])
-        st.write(fam_bits)
-
-    # Performance leaderboard from logged sillage / longevity
-    with st.expander("Performance leaderboard (from SOTD logs)", expanded=False):
-        board = performance_leaderboard(top_n=5)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**Best projection (sillage)**")
-            if not board["sillage"]:
-                st.caption("Log sillage on SOTD entries to unlock.")
-            else:
-                for avg, n, name in board["sillage"]:
-                    st.write(f"**{name}**  -  {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
-        with c2:
-            st.markdown("**Longest wear (longevity)**")
-            if not board["longevity"]:
-                st.caption("Log longevity on SOTD entries to unlock.")
-            else:
-                for avg, n, name in board["longevity"]:
-                    st.write(f"**{name}**  -  {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
-
-
-    filter_col, sort_col, flag_col, shelf_col = st.columns(4)
-    with filter_col:
-        browse_gender = st.selectbox(
-            "Filter by gender",
-            ["Any", "Women / F-leaning", "Unisex", "Men / M-leaning"],
-            key="browse_gender",
-        )
-    with sort_col:
-        browse_sort = st.selectbox(
-            "Sort by",
-            ["Name (A-Z)", "Brand (A-Z)", "Most worn", "Category"],
-            key="browse_sort",
-        )
-    with flag_col:
-        browse_incomplete = st.checkbox(
-            "Needs notes only",
-            key="browse_incomplete",
-            help="Show bottles with thin or vague note text.",
-        )
-    with shelf_col:
-        browse_shelf = st.selectbox(
-            "Shelf",
-            ["Any"] + SHELF_STATUSES,
-            key="browse_shelf",
-        )
-
+    browse_sort = st.selectbox(
+        "Sort by",
+        ["Name (A-Z)", "Brand (A-Z)", "Most worn", "Category"],
+        key="browse_sort",
+    )
     db = list(st.session_state["fragrances_db"])
-
-    # Apply gender filter
-    if browse_gender == "Women / F-leaning":
-        db = [
-            f
-            for f in db
-            if normalize_gender(f.get("gender", "")) in ("Female", "Female-leaning")
-        ]
-    elif browse_gender == "Men / M-leaning":
-        db = [
-            f
-            for f in db
-            if normalize_gender(f.get("gender", "")) in ("Male", "Male-leaning")
-        ]
-    elif browse_gender == "Unisex":
-        db = [
-            f
-            for f in db
-            if normalize_gender(f.get("gender", "")) == "Unisex"
-        ]
-
-    if browse_incomplete:
-        db = [f for f in db if is_incomplete_notes(f)]
-    if browse_shelf != "Any":
-        db = [f for f in db if (f.get("shelf_status") or "Own") == browse_shelf]
-
     if browse_sort == "Name (A-Z)":
         db.sort(key=lambda x: x["name"].lower())
     elif browse_sort == "Brand (A-Z)":
@@ -7158,108 +2691,28 @@ with tab_collection:
     else:
         db.sort(key=lambda x: (",".join(x.get("category", [])), x["name"].lower()))
 
-    # Quick-edit incomplete notes without full Vault form
-    incomplete_list = [f for f in st.session_state["fragrances_db"] if is_incomplete_notes(f)]
-    with st.expander(
-        f"Quick-edit notes ({len(incomplete_list)} need work)", expanded=False
-    ):
-        if not incomplete_list:
-            st.caption("All bottles have solid notes. Nice.")
-        else:
-            edit_names = sorted(f["name"] for f in incomplete_list)
-            pick = st.selectbox("Bottle to fill in", edit_names, key="quick_edit_pick")
-            frag = next(
-                (f for f in st.session_state["fragrances_db"] if f["name"] == pick),
-                None,
-            )
-            if frag:
-                st.caption(f"{frag.get('brand', '')}  -  current: {frag.get('notes', '')[:120]}")
-                new_notes = st.text_area(
-                    "Notes (Top / Heart / Base)",
-                    value=frag.get("notes") or "",
-                    key=f"quick_notes_{pick}",
-                    height=100,
-                )
-                if st.button("Save notes", key="quick_notes_save"):
-                    for i, f in enumerate(st.session_state["fragrances_db"]):
-                        if f["name"] == pick:
-                            st.session_state["fragrances_db"][i]["notes"] = new_notes.strip() or "Not specified"
-                            break
-                    save_persisted_data()
-                    st.success(f"Updated notes for **{pick}**")
-                    st.rerun()
-
-    with st.expander(f"Browse {len(db)} bottles", expanded=False):
-
-        if not db:
-            st.info("No bottles match this gender filter.")
-        for i, f in enumerate(db):
+    with st.expander(f"Browse all {len(db)} bottles", expanded=False):
+        for f in db:
             wears = wear_counts.get(f["name"], 0)
-            since = days_since_worn(f["name"])
-            if since is None:
-                since_str = " | never worn"
-            elif since == 0:
-                since_str = " | worn today"
-            else:
-                since_str = f" | {since}d ago"
-            wear_str = f" | worn {wears}x{since_str}" if wears else since_str
-            incomplete = "  -  needs notes" if is_incomplete_notes(f) else ""
-            perf = average_performance(f["name"])
-            perf_str = ""
-            if perf["sillage"] or perf["longevity"]:
-                bits = []
-                if perf["sillage"]:
-                    bits.append(f"sil {perf['sillage']}")
-                if perf["longevity"]:
-                    bits.append(f"lon {perf['longevity']}")
-                perf_str = "  -  avg " + "/".join(bits)
+            wear_str = f" | worn {wears}x" if wears else ""
             current_reaction = st.session_state["user_reactions"].get(f["name"])
             status = (
-                " YAY"
+                " ð¤"
                 if current_reaction == "fav"
-                else (" NAH" if current_reaction == "dislike" else "")
+                else (" ð«" if current_reaction == "dislike" else "")
             )
             st.markdown(
-                f"**{f['name']}**{status} - *{f['brand']}*{incomplete}  \n"
-                f"{f['gender']} | {f['season']} | {', '.join(f['category'])}{wear_str}{perf_str}  \n"
+                f"**{f['name']}**{status} - *{f['brand']}*  \n"
+                f"{f['gender']} | {f['season']} | {', '.join(f['category'])}{wear_str}  \n"
                 f"<small style='opacity:0.75'>{f['notes']}</small>",
                 unsafe_allow_html=True,
             )
-            b1, b2, _ = st.columns([1, 1, 4])
-            safe_key = f"{i}_{f['name']}"
-            with b1:
-                if current_reaction == "fav":
-                    if st.button("NAH", key=f"col_unfav_{safe_key}"):
-                        st.session_state["user_reactions"].pop(f["name"], None)
-                        save_persisted_data()
-                        st.rerun()
-                else:
-                    if st.button("YAY", key=f"col_fav_{safe_key}"):
-                        st.session_state["user_reactions"][f["name"]] = "fav"
-                        save_persisted_data()
-                        st.rerun()
-            with b2:
-                if current_reaction == "dislike":
-                    if st.button("UNDO", key=f"col_restore_{safe_key}"):
-                        st.session_state["user_reactions"].pop(f["name"], None)
-                        save_persisted_data()
-                        st.rerun()
-                else:
-                    if st.button("DEL", key=f"col_dislike_{safe_key}"):
-                        st.session_state["user_reactions"][f["name"]] = "dislike"
-                        save_persisted_data()
-                        st.rerun()
             st.markdown("---")
-
 
 # ===== VAULT =====
 with tab_vault:
     st.subheader("Sanctuary vault")
-    n_bottles = len(st.session_state["fragrances_db"])
-    st.write(f"**{n_bottles}** bottles in the vault")
-    if st.session_state.get("last_saved_at"):
-        st.caption(f"Last saved: {st.session_state['last_saved_at']} (Pacific)")
-    st.caption("Edits save to the data file. Export JSON after big changes.")
+    st.write(f"Bottles in the vault: **{len(st.session_state['fragrances_db'])}**")
 
     favs = [
         name
@@ -7271,396 +2724,256 @@ with tab_vault:
         for name, status in st.session_state["user_reactions"].items()
         if status == "dislike"
     ]
-    c1, c2, c3 = st.columns(3)
-    c1.metric("YAY", len(favs))
-    c2.metric("DEL", len(dislikes))
-    c3.metric("Neutral", max(0, n_bottles - len(favs) - len(dislikes)))
+    if favs:
+        st.write(f"**Cherished:** {', '.join(sorted(favs))}")
+    if dislikes:
+        st.write(f"**Banished:** {', '.join(sorted(dislikes))}")
+
     if st.button("Clear all reactions", key="clear_all_rx"):
         st.session_state["user_reactions"] = {}
         save_persisted_data()
         st.rerun()
 
-    # ----- shared finder (once) -----
-    if st.session_state.pop("_clear_manage", False):
-        st.session_state["manage_search"] = ""
-        st.session_state["manage_gender"] = "Any"
-        st.session_state["manage_brand"] = "Any"
-        st.session_state["manage_sort"] = "Name (A-Z)"
-        st.session_state["edit_select"] = "- select -"
-        st.session_state["remove_select"] = "- select -"
+    st.markdown("---")
+    st.markdown("#### Data review")
+    st.caption(
+        "Flags bottles with missing or vague notes, gender, or season. "
+        "Open a row to edit fields and use lookup links for Fragrantica / Parfumo / Google."
+    )
 
-    if "manage_search" not in st.session_state:
-        st.session_state["manage_search"] = ""
-    if "manage_gender" not in st.session_state:
-        st.session_state["manage_gender"] = "Any"
-    if "manage_brand" not in st.session_state:
-        st.session_state["manage_brand"] = "Any"
-    if "manage_sort" not in st.session_state:
-        st.session_state["manage_sort"] = "Name (A-Z)"
+    issue_rows = []
+    for f in st.session_state["fragrances_db"]:
+        problems = data_quality_issues(f)
+        if problems:
+            issue_rows.append((f, problems))
 
-    with st.expander("Find bottles", expanded=True):
-        manage_search = st.text_input(
-            "Search", key="manage_search", placeholder="Name, brand, or notes"
-        )
-        ms1, ms2, ms3 = st.columns(3)
-        with ms1:
-            manage_gender = st.selectbox(
-                "Gender", ["Any", "Male", "Female", "Unisex"], key="manage_gender"
-            )
-        with ms2:
-            brands = sorted(
-                {
-                    (f.get("brand") or "").strip()
-                    for f in st.session_state["fragrances_db"]
-                    if (f.get("brand") or "").strip()
-                }
-            )
-            manage_brand = st.selectbox("Brand", ["Any"] + brands, key="manage_brand")
-        with ms3:
-            manage_sort = st.selectbox(
-                "Sort",
-                ["Name (A-Z)", "Brand (A-Z)", "Gender"],
-                key="manage_sort",
-            )
-        if st.button("Clear filters", key="manage_clear_btn"):
-            st.session_state["_clear_manage"] = True
-            st.rerun()
+    complete_count = len(st.session_state["fragrances_db"]) - len(issue_rows)
+    c_ok, c_iss = st.columns(2)
+    c_ok.metric("Looks complete", complete_count)
+    c_iss.metric("Needs attention", len(issue_rows))
 
-        manage_pool = list(st.session_state["fragrances_db"])
-        if manage_gender != "Any":
-            manage_pool = [f for f in manage_pool if matches_gender(f, manage_gender)]
-        if manage_brand != "Any":
-            manage_pool = [
-                f
-                for f in manage_pool
-                if (f.get("brand") or "").strip() == manage_brand
-            ]
-        q = (manage_search or "").strip().lower()
-        if q:
-            manage_pool = [
-                f
-                for f in manage_pool
-                if q in (f.get("name") or "").lower()
-                or q in (f.get("brand") or "").lower()
-                or q in (f.get("notes") or "").lower()
-            ]
-        if manage_sort == "Brand (A-Z)":
-            manage_pool.sort(
-                key=lambda f: (
-                    (f.get("brand") or "").lower(),
-                    (f.get("name") or "").lower(),
+    review_filter = st.radio(
+        "Show",
+        ["Needs attention only", "All bottles"],
+        horizontal=True,
+        key="review_filter",
+    )
+
+    if review_filter == "Needs attention only":
+        review_list = issue_rows
+        if not review_list:
+            st.success("All bottles look complete on notes, gender, and season.")
+    else:
+        review_list = [
+            (f, data_quality_issues(f)) for f in sorted(
+                st.session_state["fragrances_db"], key=lambda x: x["name"].lower()
+            )
+        ]
+
+    gender_opts = [
+        "Unisex",
+        "Female",
+        "Male",
+        "Female-leaning",
+        "Male-leaning",
+    ]
+    cat_opts = [
+        "Gourmand",
+        "Sweet",
+        "Floral",
+        "Woody",
+        "Oriental",
+        "Fresh",
+        "Fruity",
+        "Spicy",
+        "Citrus",
+        "Aromatic",
+        "Leather",
+        "Oud",
+        "Smoky",
+        "Powdery",
+    ]
+
+    for f, problems in review_list:
+        flag = ", ".join(problems) if problems else "OK"
+        title = f"{f['name']} ({f['brand']}) - {flag}"
+        with st.expander(title, expanded=False):
+            st.write(
+                f"**Current gender:** {f.get('gender', '')}  |  "
+                f"**Season:** {f.get('season', '')}"
+            )
+            st.caption(f"Notes: {f.get('notes', '')}")
+            urls = lookup_urls(f.get("name", ""), f.get("brand", ""))
+            link_bits = " | ".join(f"[{label}]({url})" for label, url in urls.items())
+            st.markdown(f"Research: {link_bits}")
+
+            g_idx = (
+                gender_opts.index(f["gender"])
+                if f.get("gender") in gender_opts
+                else 0
+            )
+            with st.form(key=f"quick_edit_{f['name']}_{f['brand']}"):
+                qe_notes = st.text_area("Notes", value=f.get("notes", ""), height=100)
+                qe_gender = st.selectbox("Gender", gender_opts, index=g_idx)
+                qe_season = st.text_input("Season", value=f.get("season", ""))
+                qe_cats = st.multiselect(
+                    "Categories",
+                    cat_opts,
+                    default=[c for c in f.get("category", []) if c in cat_opts],
                 )
-            )
-        elif manage_sort == "Gender":
-            manage_pool.sort(
-                key=lambda f: (
-                    normalize_gender(f.get("gender", "")),
-                    (f.get("name") or "").lower(),
-                )
-            )
-        else:
-            manage_pool.sort(key=lambda f: (f.get("name") or "").lower())
-
-        label_to_name = {}
-        manage_labels = []
-        for f in manage_pool:
-            label = f"{f.get('name', '?')} - {f.get('brand', '?')}"
-            if label in label_to_name:
-                label = f"{label} [{normalize_gender(f.get('gender', ''))}]"
-            label_to_name[label] = f.get("name")
-            manage_labels.append(label)
-        st.caption(f"{len(manage_labels)} match(es)")
-
-    manage_options = ["- select -"] + manage_labels
-
-    # ----- EDIT -----
-    with st.expander("Edit a bottle", expanded=False):
-        if st.session_state.get("edit_select") not in manage_options:
-            st.session_state["edit_select"] = "- select -"
-        edit_label = st.selectbox("Bottle", manage_options, key="edit_select")
-        edit_name = (
-            label_to_name.get(edit_label, "- select -")
-            if edit_label != "- select -"
-            else "- select -"
-        )
-        if edit_name != "- select -":
-            idx = next(
-                (
-                    i
-                    for i, f in enumerate(st.session_state["fragrances_db"])
-                    if f["name"] == edit_name
-                ),
-                None,
-            )
-            if idx is not None:
-                frag = st.session_state["fragrances_db"][idx]
-                gender_opts = [
-                    "Unisex",
-                    "Female",
-                    "Male",
-                    "Female-leaning",
-                    "Male-leaning",
-                ]
-                g_idx = (
-                    gender_opts.index(frag["gender"])
-                    if frag["gender"] in gender_opts
-                    else 0
-                )
-                with st.form(key=f"edit_form_{edit_name}"):
-                    e_name = st.text_input("Name", value=frag["name"])
-                    e_brand = st.text_input("Brand", value=frag["brand"])
-                    e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
-                    e_season = st.text_input("Season", value=frag["season"])
-                    e_notes = st.text_area("Notes", value=frag["notes"])
-                    shelf_opts = SHELF_STATUSES
-                    cur_shelf = frag.get("shelf_status") or "Own"
-                    s_idx = (
-                        shelf_opts.index(cur_shelf) if cur_shelf in shelf_opts else 0
-                    )
-                    e_shelf = st.selectbox("Shelf status", shelf_opts, index=s_idx)
-                    e_size = st.text_input(
-                        "Size (ml)",
-                        value=str(frag.get("size_ml") or ""),
-                        placeholder="e.g. 100",
-                    )
-                    e_price = st.text_input(
-                        "Price (optional)",
-                        value=str(frag.get("price") or ""),
-                        placeholder="e.g. 35",
-                    )
-                    cat_opts = [
-                        "Gourmand",
-                        "Sweet",
-                        "Floral",
-                        "Woody",
-                        "Oriental",
-                        "Fresh",
-                        "Fruity",
-                        "Spicy",
-                        "Citrus",
-                        "Aromatic",
-                        "Leather",
-                        "Oud",
-                        "Boozy",
-                        "Smoky",
-                        "Powdery",
-                    ]
-                    e_cats = st.multiselect(
-                        "Categories",
-                        cat_opts,
-                        default=[c for c in frag.get("category", []) if c in cat_opts],
-                    )
-                    save_edit = st.form_submit_button("Save changes", type="primary")
-                    if save_edit:
-                        name_lower = e_name.strip().lower()
-                        brand_lower = e_brand.strip().lower()
-                        conflict = any(
-                            i != idx
-                            and f["name"].strip().lower() == name_lower
-                            and f["brand"].strip().lower() == brand_lower
-                            for i, f in enumerate(st.session_state["fragrances_db"])
-                        )
-                        if conflict:
-                            st.error(
-                                f"Another bottle already uses '{e_name}' by {e_brand}."
+                if st.form_submit_button("Save notes / gender / season"):
+                    # Find index by name+brand to avoid rename issues
+                    for i, item in enumerate(st.session_state["fragrances_db"]):
+                        if (
+                            item["name"] == f["name"]
+                            and item["brand"] == f["brand"]
+                        ):
+                            st.session_state["fragrances_db"][i]["notes"] = (
+                                qe_notes.strip() or "Not specified"
                             )
-                        else:
-                            def _num(v):
-                                try:
-                                    return float(str(v).strip()) if str(v).strip() else None
-                                except ValueError:
-                                    return None
-
-                            st.session_state["fragrances_db"][idx] = {
-                                "name": e_name.strip(),
-                                "brand": e_brand.strip(),
-                                "gender": e_gender,
-                                "season": e_season,
-                                "notes": e_notes,
-                                "category": e_cats if e_cats else ["Gourmand"],
-                                "dupe_of": frag.get("dupe_of") or "",
-                                "shelf_status": e_shelf,
-                                "size_ml": _num(e_size),
-                                "price": _num(e_price),
-                            }
-                            if (
-                                e_name != edit_name
-                                and edit_name in st.session_state["user_reactions"]
-                            ):
-                                st.session_state["user_reactions"][e_name] = (
-                                    st.session_state["user_reactions"].pop(edit_name)
-                                )
-                            log_vault_action("edited", e_name.strip(), e_brand.strip())
-                            save_persisted_data()
-                            st.success(f"Updated **{e_name}**")
-                            st.rerun()
-
-    # ----- REMOVE -----
-    with st.expander("Remove bottles", expanded=False):
-        st.markdown("**Single**")
-        if st.session_state.pop("_reset_remove_select", False):
-            st.session_state["remove_select"] = "- select -"
-        if st.session_state.get("remove_select") not in manage_options:
-            st.session_state["remove_select"] = "- select -"
-        _rm_flash = st.session_state.pop("_remove_flash", None)
-        if _rm_flash:
-            st.success(f"Banished **{_rm_flash}**.")
-        remove_label = st.selectbox(
-            "Bottle to remove", manage_options, key="remove_select"
-        )
-        remove_name = (
-            label_to_name.get(remove_label, "- select -")
-            if remove_label != "- select -"
-            else "- select -"
-        )
-        if remove_name != "- select -":
-            frag_rm = next(
-                (
-                    f
-                    for f in st.session_state["fragrances_db"]
-                    if f["name"] == remove_name
-                ),
-                None,
-            )
-            if frag_rm:
-                st.warning(
-                    f"Remove **{frag_rm.get('name')}** by *{frag_rm.get('brand')}*?"
-                )
-                confirm = st.checkbox(
-                    f"Yes, permanently remove {remove_name}",
-                    key=f"remove_confirm_{remove_name}",
-                )
-                if st.button(
-                    "Banish forever",
-                    type="primary",
-                    key="remove_btn",
-                    disabled=not confirm,
-                ):
-                    st.session_state["fragrances_db"] = [
-                        f
-                        for f in st.session_state["fragrances_db"]
-                        if f["name"] != remove_name
-                    ]
-                    st.session_state["user_reactions"].pop(remove_name, None)
-                    log_vault_action("removed", remove_name)
+                            st.session_state["fragrances_db"][i]["gender"] = qe_gender
+                            st.session_state["fragrances_db"][i]["season"] = (
+                                qe_season.strip() or "Versatile"
+                            )
+                            st.session_state["fragrances_db"][i]["category"] = (
+                                qe_cats if qe_cats else item.get("category") or ["Gourmand"]
+                            )
+                            break
                     save_persisted_data()
-                    st.session_state["_reset_remove_select"] = True
-                    st.session_state["_remove_flash"] = remove_name
+                    st.success(f"Updated **{f['name']}**")
                     st.rerun()
 
-        st.markdown("**Batch**")
-        batch_pick = st.multiselect(
-            "Select bottles", manage_labels, key="batch_remove_pick"
+    st.markdown("---")
+    st.markdown("#### Edit or remove (full)")
+    manage_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
+    selected_manage = st.selectbox(
+        "Choose a bottle",
+        ["- select -"] + manage_names,
+        key="manage_select",
+    )
+
+    if selected_manage != "- select -":
+        idx = next(
+            (
+                i
+                for i, f in enumerate(st.session_state["fragrances_db"])
+                if f["name"] == selected_manage
+            ),
+            None,
         )
-        batch_confirm = st.checkbox(
-            f"Yes, remove {len(batch_pick)} selected",
-            key="batch_remove_confirm",
-            disabled=not batch_pick,
-        )
-        if st.button(
-            "Banish selected",
-            type="primary",
-            key="batch_remove_btn",
-            disabled=not (batch_pick and batch_confirm),
-        ):
-            names = [label_to_name[l] for l in batch_pick if l in label_to_name]
-            st.session_state["fragrances_db"] = [
-                f
-                for f in st.session_state["fragrances_db"]
-                if f.get("name") not in names
+        if idx is not None:
+            frag = st.session_state["fragrances_db"][idx]
+            gender_opts = [
+                "Unisex",
+                "Female",
+                "Male",
+                "Female-leaning",
+                "Male-leaning",
             ]
-            for n in names:
-                st.session_state["user_reactions"].pop(n, None)
-                log_vault_action("removed", n, "batch")
-            save_persisted_data()
-            st.session_state["batch_remove_pick"] = []
-            st.success(f"Banished {len(names)} bottle(s).")
-            st.rerun()
-
-    with st.expander("Activity log", expanded=False):
-        vlog = st.session_state.get("vault_log") or []
-        if not vlog:
-            st.caption("No activity yet.")
-        else:
-            for entry in vlog[:20]:
-                detail = f" - {entry.get('detail')}" if entry.get("detail") else ""
-                st.write(
-                    f"**{entry.get('when', '?')}** | {entry.get('action', '?')} | "
-                    f"**{entry.get('name', '?')}**{detail}"
+            g_idx = (
+                gender_opts.index(frag["gender"])
+                if frag["gender"] in gender_opts
+                else 0
+            )
+            with st.form(key=f"edit_form_{selected_manage}"):
+                e_name = st.text_input("Name", value=frag["name"])
+                e_brand = st.text_input("Brand", value=frag["brand"])
+                e_gender = st.selectbox("Gender", gender_opts, index=g_idx)
+                e_season = st.text_input("Season", value=frag["season"])
+                e_notes = st.text_area("Notes", value=frag["notes"])
+                cat_opts = [
+                    "Gourmand",
+                    "Sweet",
+                    "Floral",
+                    "Woody",
+                    "Oriental",
+                    "Fresh",
+                    "Fruity",
+                    "Spicy",
+                    "Citrus",
+                    "Aromatic",
+                    "Leather",
+                    "Oud",
+                    "Smoky",
+                    "Powdery",
+                ]
+                e_cats = st.multiselect(
+                    "Categories",
+                    cat_opts,
+                    default=[c for c in frag.get("category", []) if c in cat_opts],
                 )
-            if st.button("Clear activity log", key="clear_vault_log"):
-                st.session_state["vault_log"] = []
-                save_persisted_data()
-                st.rerun()
+                col_save, col_del = st.columns(2)
+                with col_save:
+                    save_edit = st.form_submit_button("Save changes")
+                with col_del:
+                    delete_it = st.form_submit_button("Banish forever")
 
-    with st.expander("Backup & restore", expanded=False):
-        st.caption("Best protection so Cloud redeploys do not wipe your vault.")
-        export_data = {
-            "fragrances_db": st.session_state["fragrances_db"],
-            "user_reactions": st.session_state["user_reactions"],
-            "sotd_history": st.session_state["sotd_history"],
-            "layer_recipes": st.session_state.get("layer_recipes", []),
-            "play_stats": st.session_state.get("play_stats", {}),
-            "last_export_date": st.session_state.get("last_export_date"),
-            "last_saved_at": st.session_state.get("last_saved_at"),
-            "chart": {
-                "sun": st.session_state.get("chart_sun"),
-                "moon": st.session_state.get("chart_moon"),
-                "rising": st.session_state.get("chart_rising"),
-                "venus": st.session_state.get("chart_venus"),
-            },
-            "wishlist": st.session_state.get("wishlist", []),
-            "vault_log": st.session_state.get("vault_log", []),
-        }
-        json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
-        if st.download_button(
-            label="Export vault as JSON",
-            data=json_string,
-            file_name="scented_dead_girl_backup.json",
-            mime="application/json",
-        ):
-            st.session_state["last_export_date"] = pacific_today().isoformat()
+                if save_edit:
+                    name_lower = e_name.strip().lower()
+                    brand_lower = e_brand.strip().lower()
+                    conflict = any(
+                        i != idx
+                        and f["name"].strip().lower() == name_lower
+                        and f["brand"].strip().lower() == brand_lower
+                        for i, f in enumerate(st.session_state["fragrances_db"])
+                    )
+                    if conflict:
+                        st.error(
+                            f"Another bottle already uses '{e_name}' by {e_brand}."
+                        )
+                    else:
+                        st.session_state["fragrances_db"][idx] = {
+                            "name": e_name.strip(),
+                            "brand": e_brand.strip(),
+                            "gender": e_gender,
+                            "season": e_season,
+                            "notes": e_notes,
+                            "category": e_cats if e_cats else ["Gourmand"],
+                        }
+                        if (
+                            e_name != selected_manage
+                            and selected_manage in st.session_state["user_reactions"]
+                        ):
+                            st.session_state["user_reactions"][e_name] = (
+                                st.session_state["user_reactions"].pop(selected_manage)
+                            )
+                        save_persisted_data()
+                        st.success(f"Updated **{e_name}**")
+                        st.rerun()
+
+                if delete_it:
+                    st.session_state["fragrances_db"].pop(idx)
+                    st.session_state["user_reactions"].pop(selected_manage, None)
+                    save_persisted_data()
+                    st.success(f"Banished **{selected_manage}**.")
+                    st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### Backup & restore")
+    export_data = {
+        "fragrances_db": st.session_state["fragrances_db"],
+        "user_reactions": st.session_state["user_reactions"],
+        "sotd_history": st.session_state["sotd_history"],
+    }
+    json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
+    st.download_button(
+        label="Export vault as JSON",
+        data=json_string,
+        file_name="scented_dead_girl_backup.json",
+        mime="application/json",
+    )
+    uploaded_file = st.file_uploader("Restore from backup JSON", type=["json"])
+    if uploaded_file is not None:
+        try:
+            imported_data = json.load(uploaded_file)
+            if "fragrances_db" in imported_data:
+                st.session_state["fragrances_db"] = imported_data["fragrances_db"]
+            if "user_reactions" in imported_data:
+                st.session_state["user_reactions"] = imported_data["user_reactions"]
+            if "sotd_history" in imported_data:
+                st.session_state["sotd_history"] = imported_data["sotd_history"]
             save_persisted_data()
-        md_journal = export_journal_markdown()
-        st.download_button(
-            label="Export journal as Markdown",
-            data=md_journal,
-            file_name="scented_dead_girl_journal.md",
-            mime="text/markdown",
-            key="export_md_btn",
-        )
-        uploaded_file = st.file_uploader("Restore from backup JSON", type=["json"])
-        if uploaded_file is not None:
-            try:
-                imported_data = json.load(uploaded_file)
-                if "fragrances_db" in imported_data:
-                    st.session_state["fragrances_db"] = imported_data["fragrances_db"]
-                if "user_reactions" in imported_data:
-                    st.session_state["user_reactions"] = imported_data["user_reactions"]
-                if "sotd_history" in imported_data:
-                    st.session_state["sotd_history"] = imported_data["sotd_history"]
-                if "layer_recipes" in imported_data:
-                    st.session_state["layer_recipes"] = imported_data["layer_recipes"]
-                if "play_stats" in imported_data:
-                    st.session_state["play_stats"] = imported_data["play_stats"]
-                if "last_export_date" in imported_data:
-                    st.session_state["last_export_date"] = imported_data["last_export_date"]
-                if "chart" in imported_data and isinstance(imported_data["chart"], dict):
-                    ch = imported_data["chart"]
-                    if ch.get("sun"):
-                        st.session_state["chart_sun"] = ch["sun"]
-                    if ch.get("moon"):
-                        st.session_state["chart_moon"] = ch["moon"]
-                    if ch.get("rising"):
-                        st.session_state["chart_rising"] = ch["rising"]
-                    if ch.get("venus"):
-                        st.session_state["chart_venus"] = ch["venus"]
-                if "wishlist" in imported_data:
-                    st.session_state["wishlist"] = imported_data["wishlist"]
-                if "vault_log" in imported_data:
-                    st.session_state["vault_log"] = imported_data["vault_log"]
-                save_persisted_data()
-                st.success("Vault restored.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Restore failed: {e}")
+            st.success("Vault restored.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Restore failed: {e}")
