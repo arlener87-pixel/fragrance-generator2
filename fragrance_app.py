@@ -3608,6 +3608,66 @@ def search_fragrances_by_name_brand(query: str) -> list:
     return [f for _, f in scored]
 
 
+
+def fragrance_notes_score(f: dict, query: str) -> int:
+    """Inclusive notes-field score. Any matching word can hit. 0 = no match."""
+    q = _search_normalize(query)
+    if not q:
+        return 0
+    notes = _search_normalize(f.get("notes"))
+    # Also allow category names as "note-like" hits
+    cats = _search_normalize(" ".join(f.get("category") or []))
+    blob = f"{notes} {cats}".strip()
+    if not blob:
+        return 0
+
+    score = 0
+    if q in notes:
+        score += 80
+    elif q in blob:
+        score += 50
+
+    tokens = [t for t in q.split(" ") if t]
+    words = blob.split()
+    token_hits = 0
+    for t in tokens:
+        hit = False
+        if t in blob:
+            hit = True
+            score += 20
+        else:
+            for w in words:
+                if len(t) >= 2 and len(w) >= 2 and (
+                    w.startswith(t) or t.startswith(w) or t in w or w in t
+                ):
+                    hit = True
+                    score += 12
+                    break
+        if hit:
+            token_hits += 1
+
+    if tokens and token_hits == 0 and score == 0:
+        return 0
+    if tokens and token_hits > 0:
+        score += token_hits * 5
+        if token_hits == len(tokens):
+            score += 25
+    return score
+
+
+def search_fragrances_by_notes(query: str) -> list:
+    """Return all vault bottles whose notes/categories match the query."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        s = fragrance_notes_score(f, q)
+        if s > 0:
+            scored.append((s, f))
+    scored.sort(key=lambda x: (-x[0], search_rank_key(x[1])))
+    return [f for _, f in scored]
+
 def performance_leaderboard(top_n: int = 5) -> dict:
     """Best average sillage / longevity from SOTD logs."""
     # Collect per-bottle samples
@@ -4919,19 +4979,23 @@ with st.sidebar:
         st.rerun()
 
     if quick_query:
-        matched_quick = [
-            f
-            for f in st.session_state["fragrances_db"]
-            if quick_query.lower() in f["name"].lower()
-        ]
+        # Inclusive match on name OR brand (same engine as main search)
+        matched_quick = search_fragrances_by_name_brand(quick_query)
         if matched_quick:
-            for f in matched_quick[:5]:
-                st.info(
-                    f"**{f['name']}** ({f['brand']})\n\n"
-                    f"**Notes:** {f['notes']}\n\n**Season:** {f['season']}"
+            st.caption(f"{len(matched_quick)} vault match(es)")
+            for f in matched_quick[:8]:
+                cats = ", ".join(f.get("category") or [])
+                msg = (
+                    "**" + str(f.get("name")) + "** (" + str(f.get("brand")) + ")\n\n"
+                    "**Gender:** " + str(f.get("gender", "?")) + "  |  **Season:** " + str(f.get("season", "?")) + "\n\n"
+                    "**Category:** " + cats + "\n\n"
+                    "**Notes:** " + str(f.get("notes") or "(none)")
                 )
+                st.info(msg)
         else:
-            st.warning("No match.")
+            st.warning("No match in your vault.")
+            n = len(st.session_state.get("fragrances_db") or [])
+            st.caption("Checked all **" + str(n) + "** bottles. Try a shorter piece of the name or brand.")
 
     st.markdown("---")
     # Persistence status (edits live in JSON beside the script)
@@ -5570,22 +5634,39 @@ with tab_discover:
                     f, key_prefix=f"search_{_search_normalize(search_query)[:24]}"
                 )
 
-    # Note search (same ranking)
+    # Note search (inclusive token match across all vault notes)
     if note_query:
         st.subheader(f'Notes | "{note_query}"')
-        note_q = note_query.lower()
-        matching_notes = [
-            f
-            for f in st.session_state["fragrances_db"]
-            if note_q in f["notes"].lower()
-        ]
-        matching_notes = rank_search_results(matching_notes)
+        matching_notes = search_fragrances_by_notes(note_query)
         if not matching_notes:
-            st.warning("No fragrances contain that note.")
+            st.warning("No fragrances matched that note keyword.")
+            qn = _search_normalize(note_query)
+            tokens = [t for t in qn.split() if len(t) >= 3]
+            suggestions = []
+            for f in st.session_state.get("fragrances_db") or []:
+                blob = _search_normalize(
+                    f"{f.get('notes', '')} {' '.join(f.get('category') or [])}"
+                )
+                if tokens and any(t in blob for t in tokens):
+                    suggestions.append(f"{f.get('name')} ({f.get('brand')})")
+            if suggestions:
+                st.caption("Close note matches in your vault:")
+                for s in suggestions[:8]:
+                    st.caption(f"- {s}")
+            else:
+                st.caption(
+                    f"Searched notes on all **{len(st.session_state.get('fragrances_db') or [])}** "
+                    "bottles. Try one word (e.g. vanilla, rose, coffee)."
+                )
         else:
-            st.caption(f"{len(matching_notes)} match(es)  -  ranked by favorites, wears, note quality")
+            st.caption(
+                f"{len(matching_notes)} match(es) - notes/category token match, "
+                "ranked by relevance, favorites, wears"
+            )
             for f in matching_notes:
-                render_fragrance_card(f, key_prefix=f"note_{note_query}")
+                render_fragrance_card(
+                    f, key_prefix=f"note_{_search_normalize(note_query)[:24]}"
+                )
 
     # Recommendations (persist so Love/Trash does not wipe the list)
     if generate_clicked or regenerate_clicked:
