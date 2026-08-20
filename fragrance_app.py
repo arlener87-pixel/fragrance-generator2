@@ -3532,6 +3532,82 @@ def rank_search_results(matches: list) -> list:
     return sorted(matches, key=search_rank_key)
 
 
+def _search_normalize(s: str) -> str:
+    s = (s or "").lower()
+    s = re.sub(r"[^a-z0-9\s]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def fragrance_search_score(f: dict, query: str) -> int:
+    """
+    Inclusive name/brand score. Any matching word can hit.
+    Higher = better. 0 = no match.
+    """
+    q = _search_normalize(query)
+    if not q:
+        return 0
+    name = _search_normalize(f.get("name"))
+    brand = _search_normalize(f.get("brand"))
+    blob = f"{name} {brand}".strip()
+    if not blob:
+        return 0
+
+    score = 0
+    # Full query phrase
+    if q == name or q == brand:
+        score += 100
+    elif q in name or q in brand:
+        score += 80
+    elif q in blob:
+        score += 60
+
+    tokens = [t for t in q.split(" ") if t]
+    words = blob.split()
+    token_hits = 0
+    for t in tokens:
+        hit = False
+        if t in blob:
+            hit = True
+            score += 20
+        else:
+            for w in words:
+                if w.startswith(t) or t.startswith(w) or t in w or w in t:
+                    if len(t) >= 2 and len(w) >= 2:
+                        hit = True
+                        score += 12
+                        break
+        if hit:
+            token_hits += 1
+
+    # At least one token must hit for a multi-word query to count
+    if tokens and token_hits == 0 and score == 0:
+        return 0
+    if tokens and token_hits > 0:
+        score += token_hits * 5
+        # Bonus when every word matched
+        if token_hits == len(tokens):
+            score += 25
+    return score
+
+
+def fragrance_search_match(f: dict, query: str) -> bool:
+    return fragrance_search_score(f, query) > 0
+
+
+def search_fragrances_by_name_brand(query: str) -> list:
+    """Return all vault bottles that match name/brand query (inclusive)."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        s = fragrance_search_score(f, q)
+        if s > 0:
+            scored.append((s, f))
+    scored.sort(key=lambda x: (-x[0], search_rank_key(x[1])))
+    return [f for _, f in scored]
+
+
 def performance_leaderboard(top_n: int = 5) -> dict:
     """Best average sillage / longevity from SOTD logs."""
     # Collect per-bottle samples
@@ -5465,19 +5541,34 @@ with tab_discover:
     # Name / brand search (ranked: YAY â most worn â complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
-        query_lower = search_query.lower()
-        matching = [
-            f
-            for f in st.session_state["fragrances_db"]
-            if query_lower in f["name"].lower() or query_lower in f["brand"].lower()
-        ]
-        matching = rank_search_results(matching)
+        matching = search_fragrances_by_name_brand(search_query)
         if not matching:
             st.warning("No fragrances matched that name or brand.")
+            # Suggest close brands/names from vault
+            qn = _search_normalize(search_query)
+            tokens = [t for t in qn.split() if len(t) >= 3]
+            suggestions = []
+            for f in st.session_state.get("fragrances_db") or []:
+                blob = _search_normalize(f"{f.get('name', '')} {f.get('brand', '')}")
+                if tokens and any(t in blob for t in tokens):
+                    suggestions.append(f"{f.get('name')} ({f.get('brand')})")
+            if suggestions:
+                st.caption("Close matches in your vault:")
+                for s in suggestions[:8]:
+                    st.caption(f"- {s}")
+            else:
+                st.caption(
+                    "Tip: try one word (e.g. Avenue or French), or check spelling in Vault."
+                )
         else:
-            st.caption(f"{len(matching)} match(es)  -  ranked by favorites, wears, note quality")
+            st.caption(
+                f"{len(matching)} match(es) - name/brand token match, "
+                "ranked by favorites, wears, note quality"
+            )
             for f in matching:
-                render_fragrance_card(f, key_prefix=f"search_{search_query}")
+                render_fragrance_card(
+                    f, key_prefix=f"search_{_search_normalize(search_query)[:24]}"
+                )
 
     # Note search (same ranking)
     if note_query:
