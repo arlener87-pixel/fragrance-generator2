@@ -3350,8 +3350,18 @@ def compute_badges() -> list:
     return badges
 
 
-def suggest_partners_for(base: dict, num: int = 4, gender: str = "Any") -> list:
-    """Best layering partners for a single selected fragrance."""
+def suggest_partners_for(
+    base: dict,
+    num: int = 12,
+    gender: str = "Any",
+    include_unisex: bool = True,
+    exclude_dislikes: bool = True,
+) -> list:
+    """Best layering partners for a single selected fragrance.
+
+    Returns list of (frag, reason, score). When gender is Male/Female, pure
+    Unisex can be included via include_unisex. Dislikes skipped by default.
+    """
     if not base:
         return []
     pool = st.session_state["fragrances_db"]
@@ -3359,8 +3369,24 @@ def suggest_partners_for(base: dict, num: int = 4, gender: str = "Any") -> list:
     for f in pool:
         if f["name"] == base["name"]:
             continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
+        if exclude_dislikes and st.session_state.get("user_reactions", {}).get(f["name"]) == "dislike":
             continue
+        if gender and gender != "Any":
+            fg = normalize_gender(f.get("gender", ""))
+            if gender == "Female":
+                ok = fg in ("Female", "Female-leaning") or (
+                    include_unisex and fg == "Unisex"
+                )
+            elif gender == "Male":
+                ok = fg in ("Male", "Male-leaning") or (
+                    include_unisex and fg == "Unisex"
+                )
+            elif gender == "Unisex":
+                ok = fg in ("Unisex", "Male-leaning", "Female-leaning")
+            else:
+                ok = matches_gender(f, gender)
+            if not ok:
+                continue
         s = layer_score(base, f)
         if s <= -50:
             continue
@@ -3370,7 +3396,7 @@ def suggest_partners_for(base: dict, num: int = 4, gender: str = "Any") -> list:
         )
         candidates.append((s, f, reason))
     candidates.sort(key=lambda x: x[0], reverse=True)
-    return [(f, reason) for _, f, reason in candidates[:num]]
+    return [(f, reason, s) for s, f, reason in candidates[:num]]
 
 
 def suggest_his_match(her_frags: list, num: int = 4) -> list:
@@ -5874,26 +5900,38 @@ with tab_layer:
         lp1, lp2 = st.columns(2)
         with lp1:
             layer_partner_gender = st.selectbox(
-                "Filter by gender",
+                "Partner gender filter",
                 ["Any", "Male", "Female", "Unisex"],
                 key="layer_partner_gender",
+                help="Filters partner suggestions only. Base list always shows the full vault.",
             )
         with lp2:
             if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
                 st.session_state["_clear_layer"] = True
                 st.rerun()
 
+        include_unisex = True
+        if layer_partner_gender in ("Male", "Female"):
+            include_unisex = st.checkbox(
+                "Include Unisex in partners",
+                value=True,
+                key="layer_include_unisex",
+                help="When on, pure Unisex bottles can appear as partners alongside the gender filter.",
+            )
+
+        # Base list: FULL vault so every bottle is selectable
+        vault_n = len(st.session_state.get("fragrances_db") or [])
         all_layer_names = sorted(
             f["name"]
             for f in st.session_state["fragrances_db"]
-            if matches_gender(f, layer_partner_gender)
+            if f.get("name")
         )
         base_options = ["- select a bottle -"] + all_layer_names
         if st.session_state.get("layer_base_select") not in base_options:
             st.session_state["layer_base_select"] = "- select a bottle -"
 
         base_choice = st.selectbox(
-            "Base fragrance",
+            f"Base fragrance ({vault_n} in vault)",
             base_options,
             key="layer_base_select",
         )
@@ -5906,17 +5944,45 @@ with tab_layer:
                     f"{base_f['brand']} | {base_f['gender']} | {base_f['season']} | "
                     f"{', '.join(base_f.get('category', []))}"
                 )
+                max_partners = max(5, min(40, vault_n - 1)) if vault_n > 1 else 5
+                show_n = st.slider(
+                    "How many partners to show",
+                    min_value=5,
+                    max_value=max_partners,
+                    value=min(12, max_partners),
+                    key="layer_partner_count",
+                )
                 partners = suggest_partners_for(
-                    base_f, num=5, gender=layer_partner_gender
+                    base_f,
+                    num=int(show_n),
+                    gender=layer_partner_gender,
+                    include_unisex=include_unisex,
                 )
                 if not partners:
-                    st.warning("No strong partners with this gender filter.")
+                    st.warning(
+                        "No partners matched this gender filter. "
+                        "Try **Any**, turn on **Include Unisex**, or clear DEL reactions."
+                    )
                 else:
-                    st.markdown(f"**Partners for {base_choice}**")
-                    for pi, (pf, reason) in enumerate(partners, 1):
+                    uni_note = (
+                        ", +Unisex"
+                        if include_unisex and layer_partner_gender in ("Male", "Female")
+                        else ""
+                    )
+                    st.markdown(
+                        f"**Top {len(partners)} partners for {base_choice}** "
+                        f"(gender: {layer_partner_gender}{uni_note})"
+                    )
+                    for pi, item in enumerate(partners, 1):
+                        if len(item) >= 3:
+                            pf, reason, score = item[0], item[1], item[2]
+                        else:
+                            pf, reason = item[0], item[1]
+                            score = None
+                        score_bit = f"  |  score {score}" if score is not None else ""
                         st.info(
                             f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
-                            f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}\n\n"
+                            f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}{score_bit}\n\n"
                             f"*{reason}*"
                         )
                         if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
@@ -6451,11 +6517,12 @@ with tab_sotd:
         if primary:
             st.markdown(f"#### Layer with **{primary_name}**")
             st.caption("Suggestions for the first bottle you selected. Tap Add to include it today.")
-            partners = suggest_partners_for(primary, num=4)
+            partners = suggest_partners_for(primary, num=8)
             if not partners:
                 st.write("No strong partners found (or everything else is DEL).")
             else:
-                for pi, (pf, reason) in enumerate(partners):
+                for pi, item in enumerate(partners):
+                    pf, reason = item[0], item[1]
                     already = pf["name"] in sotd_choices
                     row_a, row_b = st.columns([4, 1])
                     with row_a:
