@@ -5034,50 +5034,50 @@ with st.sidebar:
     if _add_flash:
         st.success(_add_flash)
 
-    st.markdown("### Search")
-    # Clear search fields before widgets if flagged
+    # Clear search fields before widgets if flagged (must run before text_input widgets).
     if st.session_state.pop("_clear_search", False):
         st.session_state["search_input"] = ""
         st.session_state["note_search_input"] = ""
         st.session_state["quick_lookup_input"] = ""
 
-    search_query = st.text_input(
-        "Name or brand",
-        placeholder="e.g. Lattafa, Eclaire",
-        key="search_input",
-    )
-    note_query = st.text_input(
-        "Note keyword",
-        placeholder="e.g. Vanilla, Coffee",
-        key="note_search_input",
-    )
-    quick_query = st.text_input(
-        "Quick notes lookup",
-        placeholder="e.g. Ajwad",
-        key="quick_lookup_input",
-    )
-    if st.button("Clear search", use_container_width=True, key="clear_search_btn"):
-        st.session_state["_clear_search"] = True
-        st.rerun()
+    with st.expander("Search", expanded=True):
+        search_query = st.text_input(
+            "Name or brand",
+            placeholder="e.g. Lattafa, Eclaire",
+            key="search_input",
+        )
+        note_query = st.text_input(
+            "Note keyword",
+            placeholder="e.g. Vanilla, Coffee",
+            key="note_search_input",
+        )
+        quick_query = st.text_input(
+            "Quick notes lookup",
+            placeholder="e.g. Ajwad",
+            key="quick_lookup_input",
+        )
+        if st.button("Clear search", use_container_width=True, key="clear_search_btn"):
+            st.session_state["_clear_search"] = True
+            st.rerun()
 
-    if quick_query:
-        # Inclusive match on name OR brand (same engine as main search)
-        matched_quick = search_fragrances_by_name_brand(quick_query)
-        if matched_quick:
-            st.caption(f"{len(matched_quick)} vault match(es)")
-            for f in matched_quick[:8]:
-                cats = ", ".join(f.get("category") or [])
-                msg = (
-                    "**" + str(f.get("name")) + "** (" + str(f.get("brand")) + ")\n\n"
-                    "**Gender:** " + str(f.get("gender", "?")) + "  |  **Season:** " + str(f.get("season", "?")) + "\n\n"
-                    "**Category:** " + cats + "\n\n"
-                    "**Notes:** " + str(f.get("notes") or "(none)")
-                )
-                st.info(msg)
-        else:
-            st.warning("No match in your vault.")
-            n = len(st.session_state.get("fragrances_db") or [])
-            st.caption("Checked all **" + str(n) + "** bottles. Try a shorter piece of the name or brand.")
+        if quick_query:
+            # Inclusive match on name OR brand (same engine as main search)
+            matched_quick = search_fragrances_by_name_brand(quick_query)
+            if matched_quick:
+                st.caption(f"{len(matched_quick)} vault match(es)")
+                for f in matched_quick[:8]:
+                    cats = ", ".join(f.get("category") or [])
+                    msg = (
+                        "**" + str(f.get("name")) + "** (" + str(f.get("brand")) + ")\n\n"
+                        "**Gender:** " + str(f.get("gender", "?")) + "  |  **Season:** " + str(f.get("season", "?")) + "\n\n"
+                        "**Category:** " + cats + "\n\n"
+                        "**Notes:** " + str(f.get("notes") or "(none)")
+                    )
+                    st.info(msg)
+            else:
+                st.warning("No match in your vault.")
+                n = len(st.session_state.get("fragrances_db") or [])
+                st.caption("Checked all **" + str(n) + "** bottles. Try a shorter piece of the name or brand.")
 
     st.markdown("---")
     # Persistence status (edits live in JSON beside the script)
@@ -5088,16 +5088,12 @@ with st.sidebar:
         st.caption("Vault saves to scented_dead_girl_data.json on every edit.")
     st.caption("Export JSON from Vault after big changes so Cloud redeploys cannot wipe edits.")
 
-    st.markdown("### Temp search")
-    st.caption(
-        "Victorville, CA High Desert - use live outdoor temp or set degrees (F) + gender."
-    )
+    # Temp-search widget resets must run before slider/selectbox widgets.
     ca_default = int(default_ca_temp_f())
     if st.session_state.pop("_reset_temp_search", False):
         st.session_state["temp_search_f"] = ca_default
         st.session_state["temp_search_gender"] = "Any"
         st.session_state.pop("live_temp_meta", None)
-    # Apply live temp BEFORE slider widget exists
     if st.session_state.pop("_apply_live_temp", False):
         live = st.session_state.get("live_temp_meta") or {}
         if live.get("ok") and live.get("temp_f") is not None:
@@ -5107,74 +5103,75 @@ with st.sidebar:
     if "temp_search_gender" not in st.session_state:
         st.session_state["temp_search_gender"] = "Any"
 
-    temp_search_gender = st.selectbox(
-        "Gender for temp search",
-        ["Any", "Male", "Female", "Unisex"],
-        key="temp_search_gender",
-    )
-    temp_search_f = st.slider(
-        "Temperature (F)",
-        min_value=30,
-        max_value=115,
-        key="temp_search_f",
-    )
-    band = temp_f_to_band(float(temp_search_f))
-    live_meta = st.session_state.get("live_temp_meta") or {}
-    live_note = ""
-    if live_meta.get("ok"):
-        live_note = (
-            f" | Live: {live_meta.get('temp_f')} F"
-            f" ({live_meta.get('source', 'weather')}"
-            f"{', ' + live_meta['observed'] if live_meta.get('observed') else ''})"
+    with st.expander("Temp search", expanded=False):
+        st.caption(
+            "Victorville, CA High Desert - use live outdoor temp or set degrees (F) + gender."
         )
-    st.caption(
-        f"{int(temp_search_f)} F -> {temp_band_label(float(temp_search_f))} | "
-        f"Monthly norm: {ca_default} F{live_note}"
-    )
-    ts1, ts2, ts3 = st.columns(3)
-    with ts1:
-        temp_search_clicked = st.button(
-            "Search by temp", type="primary", use_container_width=True, key="temp_search_btn"
+        temp_search_gender = st.selectbox(
+            "Gender for temp search",
+            ["Any", "Male", "Female", "Unisex"],
+            key="temp_search_gender",
         )
-    with ts2:
-        if st.button("Use live temp", use_container_width=True, key="temp_live_btn"):
-            result = fetch_live_temp_f()
-            st.session_state["live_temp_meta"] = result
-            if result.get("ok"):
-                st.session_state["_apply_live_temp"] = True
+        temp_search_f = st.slider(
+            "Temperature (F)",
+            min_value=30,
+            max_value=115,
+            key="temp_search_f",
+        )
+        band = temp_f_to_band(float(temp_search_f))
+        live_meta = st.session_state.get("live_temp_meta") or {}
+        live_note = ""
+        if live_meta.get("ok"):
+            live_note = (
+                f" | Live: {live_meta.get('temp_f')} F"
+                f" ({live_meta.get('source', 'weather')}"
+                f"{', ' + live_meta['observed'] if live_meta.get('observed') else ''})"
+            )
+        st.caption(
+            f"{int(temp_search_f)} F -> {temp_band_label(float(temp_search_f))} | "
+            f"Monthly norm: {ca_default} F{live_note}"
+        )
+        ts1, ts2, ts3 = st.columns(3)
+        with ts1:
+            temp_search_clicked = st.button(
+                "Search by temp", type="primary", use_container_width=True, key="temp_search_btn"
+            )
+        with ts2:
+            if st.button("Use live temp", use_container_width=True, key="temp_live_btn"):
+                result = fetch_live_temp_f()
+                st.session_state["live_temp_meta"] = result
+                if result.get("ok"):
+                    st.session_state["_apply_live_temp"] = True
+                    st.rerun()
+                else:
+                    st.session_state["_live_temp_error"] = result.get("detail", "Lookup failed")
+                    st.rerun()
+        with ts3:
+            if st.button("Reset temp", use_container_width=True, key="temp_search_reset"):
+                st.session_state["_reset_temp_search"] = True
+                st.session_state.pop("last_temp_search", None)
                 st.rerun()
-            else:
-                st.session_state["_live_temp_error"] = result.get("detail", "Lookup failed")
-                st.rerun()
-    with ts3:
-        if st.button("Reset temp", use_container_width=True, key="temp_search_reset"):
-            st.session_state["_reset_temp_search"] = True
-            st.session_state.pop("last_temp_search", None)
+        _live_err = st.session_state.pop("_live_temp_error", None)
+        if _live_err:
+            st.warning(f"Live temp unavailable: {_live_err}. Using slider / monthly norm.")
+        if temp_search_clicked:
+            picks = get_top_fragrances(
+                temp_search_gender,
+                "Any",
+                "Any",
+                "Any",
+                5,
+                favorites_only=False,
+                temp_f=float(temp_search_f),
+            )
+            st.session_state["last_temp_search"] = {
+                "picks": picks,
+                "temp_f": float(temp_search_f),
+                "gender": temp_search_gender,
+                "band": band,
+            }
             st.rerun()
-    _live_err = st.session_state.pop("_live_temp_error", None)
-    if _live_err:
-        st.warning(f"Live temp unavailable: {_live_err}. Using slider / monthly norm.")
-    if temp_search_clicked:
-        picks = get_top_fragrances(
-            temp_search_gender,
-            "Any",
-            "Any",
-            "Any",
-            5,
-            favorites_only=False,
-            temp_f=float(temp_search_f),
-        )
-        st.session_state["last_temp_search"] = {
-            "picks": picks,
-            "temp_f": float(temp_search_f),
-            "gender": temp_search_gender,
-            "band": band,
-        }
-        st.rerun()
 
-    st.markdown("---")
-    st.markdown("### Price lookup")
-    st.caption("Bottles with a logged price in range.")
     if st.session_state.pop("_clear_price_sb", False):
         st.session_state["price_sb_min"] = 0
         st.session_state["price_sb_max"] = 100
@@ -5187,43 +5184,45 @@ with st.sidebar:
     if "price_sb_gender" not in st.session_state:
         st.session_state["price_sb_gender"] = "Any"
 
-    st.number_input("Min $", min_value=0, max_value=2000, key="price_sb_min")
-    st.number_input("Max $", min_value=0, max_value=5000, key="price_sb_max")
-    st.selectbox(
-        "Gender",
-        ["Any", "Male", "Female", "Unisex"],
-        key="price_sb_gender",
-    )
-    psb1, psb2 = st.columns(2)
-    with psb1:
-        if st.button("Find prices", type="primary", use_container_width=True, key="price_sb_btn"):
-            lo = float(min(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-            hi = float(max(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-            hits = fragrances_in_price_range(lo, hi, st.session_state["price_sb_gender"])
-            st.session_state["price_sb_hits"] = {"hits": hits, "lo": lo, "hi": hi}
-    with psb2:
-        if st.button("Reset", use_container_width=True, key="price_sb_reset"):
-            st.session_state["_clear_price_sb"] = True
-            st.rerun()
-    priced_n = sum(
-        1
-        for f in st.session_state.get("fragrances_db") or []
-        if f.get("price") is not None
-    )
-    st.caption(f"{priced_n} priced bottle(s) in vault")
-    psb = st.session_state.get("price_sb_hits")
-    if psb is not None:
-        hits = psb.get("hits") or []
-        st.write(f"**{len(hits)}** in ${psb.get('lo'):.0f}-${psb.get('hi'):.0f}")
-        if not hits:
-            st.caption("None in range. Add prices in Edit bottle.")
-        else:
-            for f in hits[:12]:
-                st.caption(
-                    f"${float(f.get('price')):.0f} - {f.get('name')} ({f.get('brand')})"
-                )
-            if len(hits) > 12:
-                st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
+    with st.expander("Price lookup", expanded=False):
+        st.caption("Bottles with a logged price in range.")
+        st.number_input("Min $", min_value=0, max_value=2000, key="price_sb_min")
+        st.number_input("Max $", min_value=0, max_value=5000, key="price_sb_max")
+        st.selectbox(
+            "Gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="price_sb_gender",
+        )
+        psb1, psb2 = st.columns(2)
+        with psb1:
+            if st.button("Find prices", type="primary", use_container_width=True, key="price_sb_btn"):
+                lo = float(min(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
+                hi = float(max(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
+                hits = fragrances_in_price_range(lo, hi, st.session_state["price_sb_gender"])
+                st.session_state["price_sb_hits"] = {"hits": hits, "lo": lo, "hi": hi}
+        with psb2:
+            if st.button("Reset", use_container_width=True, key="price_sb_reset"):
+                st.session_state["_clear_price_sb"] = True
+                st.rerun()
+        priced_n = sum(
+            1
+            for f in st.session_state.get("fragrances_db") or []
+            if f.get("price") is not None
+        )
+        st.caption(f"{priced_n} priced bottle(s) in vault")
+        psb = st.session_state.get("price_sb_hits")
+        if psb is not None:
+            hits = psb.get("hits") or []
+            st.write(f"**{len(hits)}** in ${psb.get('lo'):.0f}-${psb.get('hi'):.0f}")
+            if not hits:
+                st.caption("None in range. Add prices in Edit bottle.")
+            else:
+                for f in hits[:12]:
+                    st.caption(
+                        f"${float(f.get('price')):.0f} - {f.get('name')} ({f.get('brand')})"
+                    )
+                if len(hits) > 12:
+                    st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
 
     st.markdown("---")
     st.markdown(
