@@ -60,7 +60,7 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="ð",
+    page_icon="Ã°ÂÂÂ",
     layout="centered",
     initial_sidebar_state="expanded",
 )
@@ -763,12 +763,12 @@ if "fragrances_db" not in st.session_state:
                 "brand": "Lattafa",
                 "gender": "Unisex/Female",
                 "season": "Fall-Winter",
-                "notes": "Banana-toffee/Ã©clair gourmand",
+                "notes": "Banana-toffee/ÃÂ©clair gourmand",
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Ãclat Parfumerie Al Gazal",
-                "brand": "Ãclat Parfumerie",
+                "name": "ÃÂclat Parfumerie Al Gazal",
+                "brand": "ÃÂclat Parfumerie",
                 "gender": "Unisex (leans masculine)",
                 "season": "Versatile to cooler",
                 "notes": "Limited public data; typically woody-oriental or spicy",
@@ -855,7 +855,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Oriental", "Woody"],
             },
             {
-                "name": "Fragrance World CrÃ¨me of Clouds",
+                "name": "Fragrance World CrÃÂ¨me of Clouds",
                 "brand": "Fragrance World",
                 "gender": "Unisex",
                 "season": "Fall, Winter",
@@ -911,7 +911,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
+                "name": "Gulf Orchid PiÃÂ±a Colada Musk Collection Body Spray",
                 "brand": "Gulf Orchid",
                 "gender": "Unisex",
                 "season": "Spring, Summer",
@@ -1399,7 +1399,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Melt CrÃ¨me Caramel",
+                "name": "Melt CrÃÂ¨me Caramel",
                 "brand": "Mamlakat Al Oud",
                 "gender": "Unisex (leans feminine)",
                 "season": "Fall, Winter",
@@ -2828,7 +2828,7 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
         b = sorted(n2 & family)
         if a and b:
             reasons.append(
-                f"Synergy ({', '.join(list(family)[:3])}â¦): "
+                f"Synergy ({', '.join(list(family)[:3])}Ã¢ÂÂ¦): "
                 f"{f1.get('name')} has {', '.join(a[:3])}; "
                 f"{f2.get('name')} has {', '.join(b[:3])}"
             )
@@ -5684,7 +5684,7 @@ with tab_discover:
             st.session_state.pop("last_temp_search", None)
             st.rerun()
 
-    # Name / brand search (ranked: YAY â most worn â complete notes)
+    # Name / brand search (ranked: YAY Ã¢ÂÂ most worn Ã¢ÂÂ complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
         matching = search_fragrances_by_name_brand(search_query)
@@ -6199,10 +6199,10 @@ with tab_roulette:
             st.markdown(
                 """
                 <div class="bat-container">
-                    <span class="floating-bat bat1">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat2">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat3">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat4">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat1">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
+                    <span class="floating-bat bat2">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
+                    <span class="floating-bat bat3">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
+                    <span class="floating-bat bat4">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -6242,6 +6242,12 @@ with tab_roulette:
         "Pick two or more bottles. We score the combo from categories and notes "
         "so you can see if it is a good layer."
     )
+    # Clear multiselect BEFORE the widget is created (Streamlit forbids writing
+    # to a widget key after that widget has been instantiated).
+    if st.session_state.pop("_clear_roulette_layer_pick", False):
+        st.session_state["roulette_layer_pick"] = []
+        st.session_state.pop("last_layer_check", None)
+
     all_names_layer = sorted(
         f.get("name") for f in st.session_state.get("fragrances_db") or [] if f.get("name")
     )
@@ -6258,8 +6264,7 @@ with tab_roulette:
         )
     with lc2:
         if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
-            st.session_state["roulette_layer_pick"] = []
-            st.session_state.pop("last_layer_check", None)
+            st.session_state["_clear_roulette_layer_pick"] = True
             st.rerun()
 
     if run_layer:
@@ -6267,6 +6272,11 @@ with tab_roulette:
             st.warning("Pick at least two bottles.")
         else:
             st.session_state["last_layer_check"] = evaluate_layer_recipe(list(layer_pick))
+            st.session_state["_seed_roulette_recipe_name"] = True
+
+    _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
+    if _rl_save_flash:
+        st.success(_rl_save_flash)
 
     ev = st.session_state.get("last_layer_check")
     if ev:
@@ -6296,11 +6306,60 @@ with tab_roulette:
                     "**" + str(fr.get("name")) + "** (*" + str(fr.get("brand")) + "*)"
                 )
                 st.caption(str(fr.get("notes") or "(no notes)"))
-        if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
-            names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
-            if names:
-                send_to_sotd(names, notes=ev.get("suggested_name") or "Layer check")
-                st.rerun()
+
+        names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
+        suggested = (ev.get("suggested_name") or "").strip()
+        # Seed name once when a new layer check appears (avoid value= + key conflict)
+        if st.session_state.pop("_seed_roulette_recipe_name", False) or (
+            "roulette_layer_recipe_name" not in st.session_state and suggested
+        ):
+            st.session_state["roulette_layer_recipe_name"] = suggested
+        save_name = st.text_input(
+            "Save as recipe name",
+            key="roulette_layer_recipe_name",
+            placeholder=suggested or "e.g. Coconut vanilla night",
+        )
+        rb1, rb2 = st.columns(2)
+        with rb1:
+            if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
+                if names:
+                    send_to_sotd(names, notes=suggested or "Layer check")
+                    st.rerun()
+        with rb2:
+            if st.button("Save recipe", type="primary", key="roulette_layer_save_recipe"):
+                if len(names) < 2:
+                    st.warning("Need at least two bottles to save a recipe.")
+                else:
+                    final_name = (save_name or "").strip() or suggested or "Untitled layer"
+                    # Avoid exact duplicates (same name + same bottle set)
+                    existing = st.session_state.get("layer_recipes") or []
+                    bottles_key = tuple(sorted(names))
+                    already = any(
+                        (r.get("name") or "").strip().lower() == final_name.lower()
+                        and tuple(sorted(r.get("bottles") or [])) == bottles_key
+                        for r in existing
+                    )
+                    if already:
+                        st.session_state["_roulette_recipe_save_flash"] = (
+                            f"Recipe **{final_name}** already saved."
+                        )
+                    else:
+                        st.session_state.setdefault("layer_recipes", []).insert(
+                            0,
+                            {
+                                "name": final_name,
+                                "bottles": list(names),
+                                "season_label": season.get("label", ""),
+                                "season_detail": season.get("detail", ""),
+                            },
+                        )
+                        save_persisted_data()
+                        st.session_state["_roulette_recipe_save_flash"] = (
+                            f"Saved **{final_name}** "
+                            f"(season: {season.get('label', '?')}). "
+                            "See Layer tab â Saved layer recipes."
+                        )
+                    st.rerun()
 
 
 with tab_sotd:
@@ -8116,6 +8175,8 @@ with tab_vault:
                     st.rerun()
 
         st.markdown("**Batch**")
+        if st.session_state.pop("_clear_batch_remove_pick", False):
+            st.session_state["batch_remove_pick"] = []
         batch_pick = st.multiselect(
             "Select bottles", manage_labels, key="batch_remove_pick"
         )
@@ -8140,7 +8201,7 @@ with tab_vault:
                 st.session_state["user_reactions"].pop(n, None)
                 log_vault_action("removed", n, "batch")
             save_persisted_data()
-            st.session_state["batch_remove_pick"] = []
+            st.session_state["_clear_batch_remove_pick"] = True
             st.success(f"Banished {len(names)} bottle(s).")
             st.rerun()
 
