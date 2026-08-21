@@ -2741,6 +2741,35 @@ GOOD_LAYER_PAIRS = [
 ]
 
 
+def _note_tokens(f: dict) -> set:
+    raw = (f.get("notes") or "").lower()
+    toks = set(re.findall(r"[a-z]{3,}", raw))
+    stop = {
+        "top", "heart", "base", "and", "with", "notes", "the", "from", "for",
+        "into", "style", "absolute", "oil", "extract", "leaning",
+    }
+    return {t for t in toks if t not in stop}
+
+
+# Note families that play well / clash when layering
+_NOTE_SYNERGY = [
+    ({"vanilla", "caramel", "tonka", "praline", "marshmallow", "sugar"}, 8),
+    ({"rose", "oud", "saffron", "amber", "patchouli"}, 8),
+    ({"coffee", "cocoa", "chocolate", "almond", "tonka"}, 7),
+    ({"coconut", "vanilla", "tiare", "pineapple", "mango"}, 7),
+    ({"citrus", "bergamot", "lemon", "orange", "grapefruit", "mandarin"}, 6),
+    ({"lavender", "mint", "aromatic", "herbal"}, 6),
+    ({"leather", "tobacco", "smoke", "incense", "oud"}, 7),
+    ({"iris", "violet", "powdery", "musk"}, 6),
+    ({"cedar", "sandalwood", "vetiver", "wood", "woody"}, 6),
+]
+_NOTE_CLASH = [
+    ({"citrus", "bergamot", "lemon"}, {"vanilla", "caramel", "chocolate", "cocoa"}, -4),
+    ({"aquatic", "marine", "ozonic"}, {"oud", "incense", "tobacco"}, -5),
+    ({"mint", "green"}, {"caramel", "praline", "marshmallow"}, -3),
+]
+
+
 def layer_score(f1: dict, f2: dict) -> int:
     if f1["name"] == f2["name"]:
         return -100
@@ -2750,8 +2779,8 @@ def layer_score(f1: dict, f2: dict) -> int:
     ):
         return -100
 
-    cats1 = set(f1["category"])
-    cats2 = set(f2["category"])
+    cats1 = set(f1.get("category") or [])
+    cats2 = set(f2.get("category") or [])
     score = 0
 
     if st.session_state["user_reactions"].get(f1["name"]) == "fav":
@@ -2766,9 +2795,61 @@ def layer_score(f1: dict, f2: dict) -> int:
     if cats1 & cats2:
         score += 5
 
+    # Notes-based synergy
+    n1 = _note_tokens(f1)
+    n2 = _note_tokens(f2)
+    shared = n1 & n2
+    if shared:
+        score += min(12, 3 * len(shared))
+    for family, pts in _NOTE_SYNERGY:
+        if (n1 & family) and (n2 & family):
+            score += pts
+        elif (n1 & family) and (n2 - family) and (cats2 & {"Gourmand", "Sweet", "Woody", "Oriental", "Fresh"}):
+            # bridge note on one side still helps a little
+            score += max(2, pts // 3)
+    for fam_a, fam_b, pen in _NOTE_CLASH:
+        if (n1 & fam_a and n2 & fam_b) or (n2 & fam_a and n1 & fam_b):
+            score += pen
+
     # Stable-ish variation from names
     score += _stable_tiebreak(f1["name"] + f2["name"]) % 5 + 1
     return score
+
+
+def layer_note_reasons(f1: dict, f2: dict) -> list:
+    """Human-readable why this layer works or struggles."""
+    reasons = []
+    n1, n2 = _note_tokens(f1), _note_tokens(f2)
+    shared = sorted(n1 & n2)
+    if shared:
+        reasons.append("Shared notes: " + ", ".join(shared[:8]))
+    for family, pts in _NOTE_SYNERGY:
+        a = sorted(n1 & family)
+        b = sorted(n2 & family)
+        if a and b:
+            reasons.append(
+                f"Synergy ({', '.join(list(family)[:3])}â¦): "
+                f"{f1.get('name')} has {', '.join(a[:3])}; "
+                f"{f2.get('name')} has {', '.join(b[:3])}"
+            )
+    for fam_a, fam_b, _pen in _NOTE_CLASH:
+        if (n1 & fam_a and n2 & fam_b) or (n2 & fam_a and n1 & fam_b):
+            reasons.append(
+                "Possible tension between "
+                + "/".join(sorted(fam_a)[:2])
+                + " and "
+                + "/".join(sorted(fam_b)[:2])
+            )
+    c1 = set(f1.get("category") or [])
+    c2 = set(f2.get("category") or [])
+    if c1 & c2:
+        reasons.append("Overlapping families: " + ", ".join(sorted(c1 & c2)))
+    for a, b in GOOD_LAYER_PAIRS:
+        if (a in c1 and b in c2) or (b in c1 and a in c2):
+            reasons.append(f"Classic pair: {a} + {b}")
+    if not reasons:
+        reasons.append("No strong note overlap - rely on category contrast or skin test.")
+    return reasons[:8]
 
 
 def suggest_recipe_name_from_notes(bottle_names: list) -> str:
@@ -2904,6 +2985,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
                     "b": frags[j]["name"],
                     "score": s,
                     "cats": f"{c1} + {c2}",
+                    "reasons": layer_note_reasons(frags[i], frags[j]),
                 }
             )
     avg = sum(scores) / max(1, len(scores))
@@ -6152,6 +6234,75 @@ with tab_roulette:
                     st.rerun()
 
 # ===== SOTD =====
+
+
+    st.markdown("---")
+    st.subheader("Layer check")
+    st.caption(
+        "Pick two or more bottles. We score the combo from categories and notes "
+        "so you can see if it is a good layer."
+    )
+    all_names_layer = sorted(
+        f.get("name") for f in st.session_state.get("fragrances_db") or [] if f.get("name")
+    )
+    layer_pick = st.multiselect(
+        "Bottles to layer",
+        all_names_layer,
+        key="roulette_layer_pick",
+        placeholder="Choose 2+ fragrances...",
+    )
+    lc1, lc2 = st.columns(2)
+    with lc1:
+        run_layer = st.button(
+            "Check layer", type="primary", key="roulette_layer_check", use_container_width=True
+        )
+    with lc2:
+        if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
+            st.session_state["roulette_layer_pick"] = []
+            st.session_state.pop("last_layer_check", None)
+            st.rerun()
+
+    if run_layer:
+        if len(layer_pick) < 2:
+            st.warning("Pick at least two bottles.")
+        else:
+            st.session_state["last_layer_check"] = evaluate_layer_recipe(list(layer_pick))
+
+    ev = st.session_state.get("last_layer_check")
+    if ev:
+        label = ev.get("label") or "?"
+        st.markdown("### " + str(label))
+        st.write(ev.get("verdict") or "")
+        st.caption(
+            "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name: *"
+            + str(ev.get("suggested_name") or "")
+            + "*"
+        )
+        season = ev.get("season") or {}
+        if season.get("detail"):
+            st.info(season.get("detail"))
+        for pair in ev.get("pairs") or []:
+            line = (
+                "**" + str(pair.get("a")) + "** + **" + str(pair.get("b"))
+                + "** (pair score " + str(pair.get("score")) + ")"
+            )
+            st.markdown(line)
+            st.caption(str(pair.get("cats") or ""))
+            for r in pair.get("reasons") or []:
+                st.caption("- " + str(r))
+        with st.expander("Notes side by side", expanded=False):
+            for fr in ev.get("frags") or []:
+                st.markdown(
+                    "**" + str(fr.get("name")) + "** (*" + str(fr.get("brand")) + "*)"
+                )
+                st.caption(str(fr.get("notes") or "(no notes)"))
+        if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
+            names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
+            if names:
+                send_to_sotd(names, notes=ev.get("suggested_name") or "Layer check")
+                st.rerun()
+
+
 with tab_sotd:
     st.subheader("Scent of the Day")
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
