@@ -12,26 +12,63 @@ import streamlit as st
 # ==========================================
 # PERSISTENCE (auto-save / auto-load)
 # ==========================================
+# Streamlit Cloud wipes the filesystem on many redeploys. We still write to disk
+# for same-session / same-container survival, keep a .bak, refuse to overwrite a
+# larger vault with a smaller one, and push the user to Export JSON often.
 DATA_FILE = Path(__file__).parent / "scented_dead_girl_data.json"
+DATA_BAK = Path(__file__).parent / "scented_dead_girl_data.bak.json"
+# Secondary path survives some process restarts on the same container
+DATA_TMP = Path("/tmp") / "scented_dead_girl_data.json"
+
+
+def _safe_json_load(path: Path) -> dict:
+    try:
+        if not path or not Path(path).exists():
+            return {}
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _vault_count(data: dict) -> int:
+    db = (data or {}).get("fragrances_db") or []
+    return len(db) if isinstance(db, list) else 0
 
 
 def load_persisted_data():
-    """Load reactions, SOTD history, and any user-added fragrances."""
-    if DATA_FILE.exists():
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+    """Load the best available vault: main file, then .bak, then /tmp copy."""
+    candidates = []
+    for p in (DATA_FILE, DATA_BAK, DATA_TMP):
+        data = _safe_json_load(p)
+        if data and _vault_count(data) > 0:
+            candidates.append(( _vault_count(data), str(p), data ))
+    if not candidates:
+        # still try empty main for reactions-only etc.
+        data = _safe_json_load(DATA_FILE)
+        return data if data else {}
+    # Prefer the largest vault (most bottles). Tie-break: main > bak > tmp order already
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    best = candidates[0][2]
+    return best
 
 
-def save_persisted_data():
-    """Save current session data to disk. Edits survive script updates when this file exists."""
+def save_persisted_data(force: bool = False):
+    """Save current session data to disk (atomic write + .bak + /tmp mirror).
+
+    Refuses to overwrite a larger on-disk vault with a smaller session vault
+    unless force=True (used after intentional batch delete / restore).
+    """
     now = datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds")
     st.session_state["last_saved_at"] = now
+    session_db = st.session_state.get("fragrances_db") or []
+    if not isinstance(session_db, list):
+        session_db = []
+    session_n = len(session_db)
+
     data = {
-        "fragrances_db": st.session_state.get("fragrances_db", []),
+        "fragrances_db": session_db,
         "user_reactions": st.session_state.get("user_reactions", {}),
         "sotd_history": st.session_state.get("sotd_history", []),
         "layer_recipes": st.session_state.get("layer_recipes", []),
@@ -47,12 +84,121 @@ def save_persisted_data():
         },
         "wishlist": st.session_state.get("wishlist", []),
         "vault_log": st.session_state.get("vault_log", []),
+        "bottle_count": session_n,
+    }
+
+    # Guard: never clobber a bigger saved vault with a thinner session
+    if not force and session_n > 0:
+        on_disk = load_persisted_data()
+        disk_n = _vault_count(on_disk)
+        # Allow small shrink (1-2 deletes) but block catastrophic wipe
+        if disk_n >= 10 and session_n < max(5, int(disk_n * 0.85)):
+            st.session_state["_save_blocked"] = (
+                f"Save blocked: session has **{session_n}** bottles but disk has **{disk_n}**. "
+                f"Export JSON from Vault, or use Restore. "
+                f"(Accidental wipe protection.)"
+            )
+            # Restore session from disk so the UI stops looking empty
+            if on_disk.get("fragrances_db"):
+                st.session_state["fragrances_db"] = on_disk["fragrances_db"]
+                if on_disk.get("user_reactions") is not None:
+                    st.session_state["user_reactions"] = on_disk.get("user_reactions") or {}
+            return False
+    elif not force and session_n == 0:
+        on_disk = load_persisted_data()
+        if _vault_count(on_disk) > 0:
+            st.session_state["_save_blocked"] = (
+                "Save blocked: session vault is empty but disk has bottles."
+            )
+            st.session_state["fragrances_db"] = on_disk.get("fragrances_db") or []
+            return False
+
+    payload = json.dumps(data, indent=2, ensure_ascii=False)
+    ok = False
+    err_msgs = []
+    for target in (DATA_FILE, DATA_TMP):
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # Atomic-ish: write temp then replace
+            tmp = target.with_suffix(target.suffix + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+            tmp.replace(target)
+            ok = True
+        except Exception as e:
+            err_msgs.append(f"{target.name}: {e}")
+
+    # Keep a .bak of the last good main file
+    try:
+        if DATA_FILE.exists() and DATA_FILE.stat().st_size > 50:
+            import shutil
+            shutil.copy2(DATA_FILE, DATA_BAK)
+    except Exception:
+        pass
+
+    if not ok:
+        st.session_state["_save_error"] = "; ".join(err_msgs) or "unknown write error"
+        try:
+            st.sidebar.warning(f"Could not save data: {st.session_state['_save_error']}")
+        except Exception:
+            pass
+        return False
+
+    st.session_state.pop("_save_blocked", None)
+    st.session_state.pop("_save_error", None)
+    st.session_state["_last_disk_count"] = session_n
+    st.session_state["_vault_fp"] = vault_fingerprint()
+    return True
+
+
+def vault_fingerprint() -> str:
+    """Stable hash of everything we care to auto-save."""
+    payload = {
+        "fragrances_db": st.session_state.get("fragrances_db"),
+        "user_reactions": st.session_state.get("user_reactions"),
+        "sotd_history": st.session_state.get("sotd_history"),
+        "layer_recipes": st.session_state.get("layer_recipes"),
+        "play_stats": st.session_state.get("play_stats"),
+        "wishlist": st.session_state.get("wishlist"),
+        "vault_log": st.session_state.get("vault_log"),
+        "chart": {
+            "sun": st.session_state.get("chart_sun"),
+            "moon": st.session_state.get("chart_moon"),
+            "rising": st.session_state.get("chart_rising"),
+            "venus": st.session_state.get("chart_venus"),
+            "full": st.session_state.get("birth_calc_full"),
+        },
+        "last_export_date": st.session_state.get("last_export_date"),
     }
     try:
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        st.sidebar.warning(f"Could not save data: {e}")
+        raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    except Exception:
+        raw = str(payload)
+    return hashlib.md5(raw.encode("utf-8", errors="replace")).hexdigest()
+
+
+def mark_vault_dirty():
+    """Optional explicit dirty flag (auto-save also uses fingerprint diff)."""
+    st.session_state["_vault_dirty"] = True
+
+
+def autosave_if_changed(force: bool = False) -> bool:
+    """Save when vault data changed during this script run (or force)."""
+    try:
+        current = vault_fingerprint()
+    except Exception:
+        current = ""
+    start = st.session_state.get("_vault_fp_run_start")
+    dirty = bool(st.session_state.get("_vault_dirty"))
+    if force or dirty or (start and current and current != start):
+        ok = save_persisted_data(force=force)
+        st.session_state["_vault_dirty"] = False
+        if ok:
+            st.session_state["_vault_fp_run_start"] = vault_fingerprint()
+            st.session_state["_autosaved_at"] = st.session_state.get("last_saved_at")
+        return bool(ok)
+    return False
 
 
 # ==========================================
@@ -512,11 +658,13 @@ div[role="alert"] {
 # Load any previously saved data first
 _persisted = load_persisted_data()
 
+# Built-in list is only a seed when there is NO saved vault on disk.
+# If disk has bottles, those always win on a fresh session.
 if "fragrances_db" not in st.session_state:
     if _persisted.get("fragrances_db"):
-        st.session_state["fragrances_db"] = _persisted["fragrances_db"]
+        st.session_state["fragrances_db"] = list(_persisted["fragrances_db"])
     else:
-        # Built-in sanctuary collection
+        # Built-in sanctuary collection (seed only â export JSON after you edit)
         st.session_state["fragrances_db"] = [
             {
                 "name": "Ajwad",
@@ -1841,6 +1989,34 @@ st.session_state["play_stats"].setdefault("challenges_done", 0)
 
 if "last_export_date" not in st.session_state:
     st.session_state["last_export_date"] = _persisted.get("last_export_date")
+
+# --- Vault recovery: if disk has more bottles than this session, reload disk ---
+# Protects against a bad run that emptied session_state without a real delete.
+try:
+    _disk_n = _vault_count(_persisted)
+    _sess_n = len(st.session_state.get("fragrances_db") or [])
+    if _disk_n > _sess_n and _disk_n >= 10:
+        st.session_state["fragrances_db"] = list(_persisted.get("fragrances_db") or [])
+        if _persisted.get("user_reactions") is not None:
+            st.session_state["user_reactions"] = _persisted.get("user_reactions") or st.session_state.get("user_reactions") or {}
+        if _persisted.get("sotd_history") is not None and len(_persisted.get("sotd_history") or []) > len(st.session_state.get("sotd_history") or []):
+            st.session_state["sotd_history"] = list(_persisted.get("sotd_history") or [])
+        if _persisted.get("layer_recipes") is not None and len(_persisted.get("layer_recipes") or []) > len(st.session_state.get("layer_recipes") or []):
+            st.session_state["layer_recipes"] = list(_persisted.get("layer_recipes") or [])
+        if _persisted.get("wishlist") is not None and len(_persisted.get("wishlist") or []) > len(st.session_state.get("wishlist") or []):
+            st.session_state["wishlist"] = list(_persisted.get("wishlist") or [])
+        st.session_state["_vault_recovered"] = (
+            f"Restored **{_disk_n}** bottles from disk (session had {_sess_n})."
+        )
+except Exception:
+    pass
+
+# Snapshot vault after all loads â any later mutation this run triggers autosave
+try:
+    st.session_state["_vault_fp_run_start"] = vault_fingerprint()
+except Exception:
+    st.session_state["_vault_fp_run_start"] = ""
+st.session_state.setdefault("_vault_dirty", False)
 
 # Restore persisted birth-chart signs (Stars tab)
 _chart = _persisted.get("chart") or {}
@@ -5396,6 +5572,34 @@ with st.sidebar:
     if _add_flash:
         st.success(_add_flash)
 
+    _rec = st.session_state.pop("_vault_recovered", None)
+    if _rec:
+        st.warning(_rec)
+    _sb = st.session_state.pop("_save_blocked", None)
+    if _sb:
+        st.error(_sb)
+    _se = st.session_state.pop("_save_error", None)
+    if _se:
+        st.error(f"Save failed: {_se}")
+
+    _n_bot = len(st.session_state.get("fragrances_db") or [])
+    _last = st.session_state.get("last_saved_at") or st.session_state.get("_autosaved_at") or "never"
+    _exp = st.session_state.get("last_export_date") or "never"
+    st.caption(f"Vault: **{_n_bot}** bottles Â· autosave on")
+    st.caption(f"Last saved: {_last}")
+    st.caption(f"Last JSON export: **{_exp}**")
+    if _exp == "never" or (
+        isinstance(_exp, str)
+        and _exp != "never"
+        and _n_bot >= 5
+    ):
+        # Nudge export â Cloud can wipe the data file on redeploy
+        st.info(
+            "Cloud can erase the on-server data file when the app redeploys. "
+            "After edits or adds, open **Vault â Backup & restore â Export vault as JSON** "
+            "and keep a copy on your phone. Use **Restore** after a wipe."
+        )
+
     # Clear search fields before widgets if flagged (must run before text_input widgets).
     if st.session_state.pop("_clear_search", False):
         st.session_state["search_input"] = ""
@@ -8587,7 +8791,19 @@ with tab_vault:
         )
     if st.session_state.get("last_saved_at"):
         st.caption(f"Last saved: {st.session_state['last_saved_at']} (Pacific)")
-    st.caption("Edits save to the data file. Export JSON after big changes.")
+    st.caption(
+        "Edits auto-save to the data file on this server. "
+        "**Streamlit Cloud can wipe that file on redeploy** â export JSON after big changes."
+    )
+    if st.button("Save vault now", key="vault_force_save_btn"):
+        ok = save_persisted_data(force=True)
+        if ok:
+            st.success(
+                f"Saved **{len(st.session_state.get('fragrances_db') or [])}** bottles "
+                f"at {st.session_state.get('last_saved_at')}."
+            )
+        else:
+            st.error("Save did not complete â check the sidebar for details.")
 
     favs = [
         name
@@ -8871,7 +9087,7 @@ with tab_vault:
                     ]
                     st.session_state["user_reactions"].pop(remove_name, None)
                     log_vault_action("removed", remove_name)
-                    save_persisted_data()
+                    save_persisted_data(force=True)
                     st.session_state["_reset_remove_select"] = True
                     st.session_state["_remove_flash"] = remove_name
                     st.rerun()
@@ -8902,7 +9118,7 @@ with tab_vault:
             for n in names:
                 st.session_state["user_reactions"].pop(n, None)
                 log_vault_action("removed", n, "batch")
-            save_persisted_data()
+            save_persisted_data(force=True)
             st.session_state["_clear_batch_remove_pick"] = True
             st.success(f"Banished {len(names)} bottle(s).")
             st.rerun()
@@ -8923,8 +9139,12 @@ with tab_vault:
                 save_persisted_data()
                 st.rerun()
 
-    with st.expander("Backup & restore", expanded=False):
-        st.caption("Best protection so Cloud redeploys do not wipe your vault.")
+    with st.expander("Backup & restore", expanded=True):
+        st.caption(
+            "Best protection against Cloud redeploys wiping your vault. "
+            "Export after every session of edits. Restore loads your full bottle list, "
+            "reactions, SOTD, wishlist, and chart."
+        )
         export_data = {
             "fragrances_db": st.session_state["fragrances_db"],
             "user_reactions": st.session_state["user_reactions"],
@@ -8993,7 +9213,7 @@ with tab_vault:
                     if "vault_log" in imported_data:
                         st.session_state["vault_log"] = imported_data["vault_log"]
                     n_bot = len(st.session_state.get("fragrances_db") or [])
-                    save_persisted_data()
+                    save_persisted_data(force=True)
                     st.session_state["_restore_flash"] = (
                         f"Vault restored â **{n_bot}** bottles loaded. "
                         "Export JSON again and keep a copy off Cloud."
@@ -9001,3 +9221,20 @@ with tab_vault:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Restore failed: {e}")
+
+
+# ==========================================
+# AUTO-SAVE (any vault change this run)
+# ==========================================
+# Catches fragrances, edits, reactions, wishlist, recipes, SOTD, chart, etc.
+# even if a specific button forgot to call save_persisted_data().
+try:
+    _auto_ok = autosave_if_changed(force=False)
+    if _auto_ok and st.session_state.get("_autosaved_at"):
+        # Quiet status in sidebar area via session flag for next widgets â already saved
+        pass
+except Exception as _auto_ex:
+    try:
+        st.sidebar.warning(f"Autosave issue: {_auto_ex}")
+    except Exception:
+        pass
