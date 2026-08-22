@@ -4498,8 +4498,147 @@ def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
     return build_simple_pdf(title, lines)
 
 
+# Popular clone / inspired-by map (name lowercase â original). Not exhaustive.
+KNOWN_DUPE_OF = {
+    "asad": "Dior Sauvage Elixir",
+    "lattafa asad": "Dior Sauvage Elixir",
+    "khamrah": "Kilian Angels' Share",
+    "lattafa khamrah": "Kilian Angels' Share",
+    "khamrah original": "Kilian Angels' Share",
+    "lattafa khamrah original": "Kilian Angels' Share",
+    "khamrah qahwa": "Kilian Angels' Share (coffee twist)",
+    "lattafa khamrah qahwa": "Kilian Angels' Share (coffee twist)",
+    "khamrah dukhan": "Kilian Angels' Share (smoky)",
+    "lattafa khamrah dukhan": "Kilian Angels' Share (smoky)",
+    "khamrah waha": "Kilian Angels' Share family",
+    "club de nuit women": "Chanel Coco Mademoiselle (inspired)",
+    "club de nuit intense": "Creed Aventus",
+    "cdn intense": "Creed Aventus",
+    "qaed al fursan": "Creed Aventus (pineapple/oud lean)",
+    "lattafa qaed al fursan (original)": "Creed Aventus (inspired)",
+    "lattafa qaed al fursan original": "Creed Aventus (inspired)",
+    "hawas": "Invictus / Invictus Victory style",
+    "rasasi hawas": "Invictus style",
+    "hawas ice": "Invictus / aquatic fresh",
+    "rasasi hawas ice": "Invictus / aquatic fresh",
+    "yara": "Kayali / soft gourmand floral (inspired)",
+    "lattafa yara": "soft gourmand floral (Kayali-adjacent)",
+    "yara tous": "Lattafa Yara family / soft fruity floral",
+    "pink yara / yara pink": "Lattafa Yara family",
+    "yara elixir": "Lattafa Yara (richer gourmand)",
+    "nebras": "Thierry Mugler Angel / sweet gourmand",
+    "lattafa nebras": "Thierry Mugler Angel-style gourmand",
+    "amayra / mayar": "floral fruity designer style",
+    "mayar": "floral fruity (designer-inspired)",
+    "eclaire": "Mugler Angel Muse / gourmand caramel",
+    "lattafa eclaire": "gourmand caramel / Angel Muse lean",
+    "badee al oud noble blush": "Initio / rose-gourmand lean",
+    "oud mood": "oud oriental designer style",
+    "lattafa oud mood": "oud oriental (designer-inspired)",
+    "fakhar black": "YSL Y / dark fruity woody lean",
+    "lattafa fakhar black": "YSL Y-style",
+    "angham": "spicy gourmand designer style",
+    "lattafa angham": "spicy gourmand (designer-inspired)",
+    "teriaq": "gourmand oriental designer style",
+    "lattafa teriaq": "gourmand oriental",
+    "teriaq intense": "oriental spicy designer style",
+    "her confessions": "floral spicy oriental",
+    "his confessions": "woody spicy oriental",
+    "eternal vanille": "vanilla gourmand niche style",
+    "vanilla freak (give me gourmand)": "gourmand cupcake / bakery",
+    "whipped pleasure (give me gourmand)": "caramel popcorn gourmand",
+    "armaf odyssey aqua": "fresh aquatic designer",
+    "armaf island bliss": "tropical designer style",
+    "hawas elixir": "Hawas / Invictus family richer",
+    "hawas pink": "gourmand marshmallow floral",
+    "rasasi hawas pink": "gourmand marshmallow floral",
+    "hawas diva": "fruity floral woody",
+    "rasasi hawas diva": "fruity floral woody",
+    "hawas eclat (eclat hawas)": "fruity floral (Hawas women line)",
+    "rasasi hawas eclat (eclat hawas)": "fruity floral (Hawas women line)",
+    "hawas london": "floral woody spicy",
+    "rasasi hawas london": "floral woody spicy",
+    "ajwad": "fruity woody oriental (designer-inspired)",
+    "lattafa ajwad": "fruity woody oriental",
+    "opulent dubai": "fruity woody fresh designer",
+    "lattafa opulent dubai": "fruity woody fresh",
+    "rave now intense": "fresh woody aromatic",
+    "rave rage": "fresh woody spicy",
+    "phlur heavy cream": "Phlur Heavy Cream (original; not a clone)",
+"phlur vanilla skin": "Phlur Vanilla Skin (original; not a clone)",
+    # --- extra common Middle East / clone house matches ---
+    "lattafa badee al oud noble blush": "Initio Side Effect / rose-gourmand lean",
+    "noble blush": "Initio / rose milk gourmand lean",
+    "lattafa ana abiyedh coral": "light fruity coconut designer",
+    "coral (ana abiyedh coral)": "light fruity coconut designer",
+    "lattafa haya": "champagne strawberry floral designer",
+    "lattafa emaan": "floral fruity designer",
+    "lattafa sakeena": "fruity gourmand floral designer",
+    "lattafa raneen": "floral fruity sweet designer",
+    "lattafa maitha oil (attar)": "anise caramel gourmand attar",
+    "lattafa mayar cherry intense": "cherry cacao gourmand designer",
+    "mayar cherry intense": "cherry cacao gourmand designer",
+    "lattafa nasmaat": "floral fruity sweet designer",
+    "lattafa dalal": "floral fruity fresh designer",
+    "lattafa habik (women's version)": "floral fresh fruity designer",
+    "lattafa rave now (for women)": "fruity marshmallow floral designer",
+    "rave now (for women)": "fruity marshmallow floral designer",
+    "ameerat al arab prive rose": "rose musk sweet designer",
+    "bint hooran": "almond coffee floral gourmand",
+    "ard al zaafaran bint hooran": "almond coffee floral gourmand",
+    "armaf club de nuit women": "Chanel Coco Mademoiselle (inspired)",
+    "armaf odyssey marshmallow": "fruity marshmallow gourmand designer",
+    "armaf odyssey candee": "fruity caramel gourmand designer",
+    "miss armaf mystique": "fruity floral gourmand designer",
+    "paris corner khair men": "oud leather woody designer",
+    "paris corner qissa delicious": "whipped cream chocolate gourmand",
+    "paris corner marshmallow blush": "marshmallow sweet gourmand",
+    "french avenue spectre original": "smoky leather woody (Spectre/Sauvage lean)",
+    "spectre / sceptre malachite": "fresh aromatic woody designer",
+    "maison alhambra spectre / sceptre malachite": "fresh aromatic woody designer",
+    "zimaya fatima (fatima pink)": "fruity floral fresh designer",
+    "zimaya hawwa red": "fruity floral sweet designer",
+    "chocomusk": "Al Rehab chocolate musk classic",
+    "al rehab chocomusk": "classic chocolate musk (house signature)",
+    "al rehab caramello": "pistachio caramel gourmand",
+    "al rehab soft": "soft floral sweet musk",
+    "al rehab silver": "fresh metallic citrus musk",
+}
+
+
+def resolve_known_dupe(name: str, brand: str = "") -> str:
+    """Return a known original / inspired-by target if we have one on file."""
+    name = (name or "").strip().lower()
+    brand = (brand or "").strip().lower()
+    if not name:
+        return ""
+    keys = [
+        f"{brand} {name}".strip(),
+        name,
+        name.replace("lattafa ", "").replace("rasasi ", "").replace("armaf ", ""),
+    ]
+    # strip parentheticals for softer match
+    bare = re.sub(r"\(.*?\)", "", name).strip()
+    if bare and bare not in keys:
+        keys.append(bare)
+        if brand:
+            keys.append(f"{brand} {bare}".strip())
+    for k in keys:
+        if k in KNOWN_DUPE_OF:
+            return KNOWN_DUPE_OF[k]
+    # partial: any known key contained in name or vice versa (min length 5)
+    for k, v in KNOWN_DUPE_OF.items():
+        if len(k) < 5:
+            continue
+        if k in name or name in k:
+            return v
+        if brand and k.startswith(brand) and k.replace(brand, "").strip() in name:
+            return v
+    return ""
+
+
 def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
-    """Local vault matches + online links for notes, gender, season, categories."""
+    """Local vault matches + online links for notes, gender, season, categories, dupes."""
     name = (name or "").strip()
     brand = (brand or "").strip()
     q = f"{brand} {name}".strip() or name
@@ -4521,6 +4660,52 @@ def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
             seen.add(f.get("name"))
             uniq.append(f)
 
+    # Dupe targets: vault dupe_of field + built-in known map
+    dupe_hits = []
+    for f in uniq:
+        d = (f.get("dupe_of") or "").strip()
+        if d:
+            dupe_hits.append(
+                {
+                    "source": f.get("name"),
+                    "brand": f.get("brand"),
+                    "dupe_of": d,
+                    "origin": "vault",
+                }
+            )
+    known = resolve_known_dupe(name, brand)
+    if known:
+        # avoid duplicate line if vault already has same text
+        already = any(
+            (h.get("dupe_of") or "").lower() == known.lower() for h in dupe_hits
+        )
+        if not already:
+            dupe_hits.insert(
+                0,
+                {
+                    "source": name or q,
+                    "brand": brand,
+                    "dupe_of": known,
+                    "origin": "known map",
+                },
+            )
+    # Also surface other vault bottles that list this name as their dupe_of
+    if name:
+        nl = name.lower()
+        for f in st.session_state.get("fragrances_db") or []:
+            d = (f.get("dupe_of") or "").strip()
+            if not d:
+                continue
+            if nl in d.lower() or d.lower() in nl:
+                dupe_hits.append(
+                    {
+                        "source": f.get("name"),
+                        "brand": f.get("brand"),
+                        "dupe_of": d,
+                        "origin": "vault reverse",
+                    }
+                )
+
     links = {}
     if q:
         q_enc = urllib.parse.quote_plus(q)
@@ -4535,6 +4720,15 @@ def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
         )
         links["Category / accords (Google)"] = (
             f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume accords main notes family')}"
+        )
+        links["Dupe of (Google)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume dupe of OR clone of OR inspired by')}"
+        )
+        links["Dupe of (Reddit)"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' dupe site:reddit.com')}"
+        )
+        links["Fragrantica dupe / similar"] = (
+            f"https://www.google.com/search?q={urllib.parse.quote_plus('site:fragrantica.com ' + q + ' similar OR dupe OR clone')}"
         )
         links["Price (Google)"] = (
             f"https://www.google.com/search?q={urllib.parse.quote_plus(q + ' perfume price buy')}"
@@ -4558,7 +4752,13 @@ def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
             f"https://www.google.com/search?q={urllib.parse.quote_plus('site:jomashop.com ' + q + ' perfume')}"
         )
 
-    return {"local": uniq[:8], "links": links, "query": q}
+    return {
+        "local": uniq[:8],
+        "links": links,
+        "query": q,
+        "dupe_hits": dupe_hits[:12],
+        "known_dupe": known,
+    }
 
 
 def wishlist_item_to_vault(item: dict) -> dict:
@@ -5522,9 +5722,9 @@ with st.sidebar:
         with st.expander("Fragrance lookup helper", expanded=_notes_help_open):
             st.caption(
                 "Search your vault and open Google / Fragrantica / Parfumo for notes, "
-                "gender, season, category, and price. Sites are not auto-scraped; "
-                "use the links and copy what you need into the form. "
-                "From Collection â Short notes / Needs fix, tap **Lookup** on a bottle to fill this."
+                "gender, season, category, **dupe of**, and price. "
+                "Sites are not auto-scraped; use the links and copy what you need. "
+                "From Collection - Short notes / Needs fix, tap **Lookup** on a bottle to fill this."
             )
             if st.session_state.pop("_clear_notes_help", False):
                 st.session_state["notes_help_name"] = ""
@@ -5532,20 +5732,34 @@ with st.sidebar:
                 st.session_state.pop("notes_help_result", None)
                 st.session_state.pop("prefill_new_notes", None)
                 st.session_state["notes_help_expand"] = False
+                st.session_state.pop("notes_help_focus_dupe", None)
 
             h1, h2 = st.columns(2)
             with h1:
                 help_name = st.text_input("Lookup name", key="notes_help_name")
             with h2:
                 help_brand = st.text_input("Lookup brand", key="notes_help_brand")
-            hb1, hb2 = st.columns(2)
+            hb1, hb2, hb3 = st.columns(3)
             with hb1:
                 if st.button("Look up", key="notes_help_btn", use_container_width=True):
                     st.session_state["notes_help_result"] = notes_lookup_suggestions(
                         help_name, help_brand
                     )
                     st.session_state["notes_help_expand"] = True
+                    st.session_state["notes_help_focus_dupe"] = False
             with hb2:
+                if st.button(
+                    "Find dupe of",
+                    key="notes_help_dupe_btn",
+                    use_container_width=True,
+                    help="Search name + brand for what original this clones / is inspired by",
+                ):
+                    st.session_state["notes_help_result"] = notes_lookup_suggestions(
+                        help_name, help_brand
+                    )
+                    st.session_state["notes_help_expand"] = True
+                    st.session_state["notes_help_focus_dupe"] = True
+            with hb3:
                 if st.button("Clear finder", key="notes_help_clear", use_container_width=True):
                     st.session_state["_clear_notes_help"] = True
                     st.rerun()
@@ -5570,10 +5784,13 @@ with st.sidebar:
                                 price_bit = f" | Price: ${float(f.get('price')):.0f}"
                             except (TypeError, ValueError):
                                 price_bit = ""
+                        dupe_bit = ""
+                        if (f.get("dupe_of") or "").strip():
+                            dupe_bit = f"  \nDupe of: **{(f.get('dupe_of') or '').strip()}**"
                         st.write(
                             f"**{f.get('name')}** ({f.get('brand')})  \n"
                             f"Gender: {f.get('gender', '?')} | Season: {f.get('season', '?')} | "
-                            f"Category: {cats}{price_bit}  \n"
+                            f"Category: {cats}{price_bit}{dupe_bit}  \n"
                             f"Notes: {(f.get('notes') or '')[:160]}"
                         )
                         b1, b2 = st.columns(2)
@@ -5622,15 +5839,146 @@ with st.sidebar:
                         f"{price_line}"
                     )
 
+                # --- Dupe of ---
+                dupe_hits = help_res.get("dupe_hits") or []
+                known_dupe = (help_res.get("known_dupe") or "").strip()
+                focus_dupe = bool(st.session_state.get("notes_help_focus_dupe"))
+                if focus_dupe:
+                    st.markdown("### Dupe of / inspired by")
+                    st.caption(
+                        f"Query: **{help_res.get('query') or (help_name + ' ' + help_brand).strip()}**"
+                    )
+                else:
+                    st.markdown("**Dupe of / inspired by**")
+                if dupe_hits:
+                    for hi, h in enumerate(dupe_hits):
+                        origin = h.get("origin") or ""
+                        src = h.get("source") or "?"
+                        br = h.get("brand") or ""
+                        target = h.get("dupe_of") or "?"
+                        st.write(
+                            f"**{target}**  \n"
+                            f"From: *{src}*"
+                            + (f" ({br})" if br else "")
+                            + (f" Â· {origin}" if origin else "")
+                        )
+                        if st.button(
+                            "Save dupe_of on vault match",
+                            key=f"save_dupe_{hi}_{src}",
+                            help="Write this dupe target onto the matching vault bottle",
+                        ):
+                            updated = False
+                            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                                if (f.get("name") or "") == src:
+                                    st.session_state["fragrances_db"][i]["dupe_of"] = target
+                                    updated = True
+                                    break
+                            # If lookup name matches a vault bottle not in hits as source
+                            if not updated:
+                                lu_name = (st.session_state.get("notes_help_name") or "").strip()
+                                for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                                    if (f.get("name") or "").lower() == lu_name.lower():
+                                        st.session_state["fragrances_db"][i]["dupe_of"] = target
+                                        updated = True
+                                        src = f.get("name")
+                                        break
+                            if updated:
+                                try:
+                                    log_vault_action("edited", src, f"dupe_of={target}")
+                                except Exception:
+                                    pass
+                                save_persisted_data()
+                                st.session_state["_dupe_save_flash"] = (
+                                    f"Saved dupe_of **{target}** on **{src}**"
+                                )
+                                st.rerun()
+                            else:
+                                st.warning(
+                                    "No vault bottle matched to save. Add the bottle first, "
+                                    "or edit dupe_of in Vault."
+                                )
+                if known_dupe and not dupe_hits:
+                    st.success(f"Likely dupe of / inspired by: **{known_dupe}**")
+                elif known_dupe and dupe_hits:
+                    # also surface known map even when vault hits exist
+                    st.info(f"Built-in suggestion: **{known_dupe}**")
+                if not dupe_hits and not known_dupe:
+                    st.caption(
+                        "No built-in dupe match yet. Use the **Dupe of (Google)** / Reddit links below, "
+                        "then save the original name with **Set dupe of manually** or Vault - Edit."
+                    )
+
+                _df = st.session_state.pop("_dupe_save_flash", None)
+                if _df:
+                    st.success(_df)
+
+                # Optional: type a dupe target and save onto lookup name bottle
+                with st.expander("Set dupe of manually", expanded=False):
+                    st.caption(
+                        "Enter the original / designer scent this bottle clones or is inspired by."
+                    )
+                    manual_dupe = st.text_input(
+                        "Dupe of (original name)",
+                        key="notes_help_manual_dupe",
+                        placeholder="e.g. Kilian Angels' Share",
+                    )
+                    if st.button("Save manual dupe_of", key="notes_help_manual_dupe_btn"):
+                        target = (manual_dupe or "").strip()
+                        lu_name = (st.session_state.get("notes_help_name") or "").strip()
+                        if not target or not lu_name:
+                            st.warning("Need Lookup name and a dupe target.")
+                        else:
+                            updated = False
+                            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                                if (f.get("name") or "").lower() == lu_name.lower():
+                                    st.session_state["fragrances_db"][i]["dupe_of"] = target
+                                    updated = True
+                                    try:
+                                        log_vault_action(
+                                            "edited", f.get("name"), f"dupe_of={target}"
+                                        )
+                                    except Exception:
+                                        pass
+                                    save_persisted_data()
+                                    st.session_state["_dupe_save_flash"] = (
+                                        f"Saved dupe_of **{target}** on **{f.get('name')}**"
+                                    )
+                                    st.rerun()
+                            if not updated:
+                                st.warning(
+                                    f"No vault bottle named **{lu_name}**. "
+                                    "Add it first or pick the exact vault name."
+                                )
+
                 links = help_res.get("links") or {}
                 if links:
                     st.markdown("**Search online**")
                     st.caption(
-                        "Google / Fragrantica / Parfumo for notes, gender, season, category, and price. "
-                        "Copy what you find into the Add form. Sites are not auto-filled."
+                        "Google / Fragrantica / Parfumo for notes, gender, season, category, "
+                        "dupe/clone, and price. Copy what you find into the Add form. "
+                        "Sites are not auto-filled."
                     )
+                    # Show dupe links first
+                    preferred_order = [
+                        "Dupe of (Google)",
+                        "Dupe of (Reddit)",
+                        "Fragrantica dupe / similar",
+                        "Notes (Google)",
+                        "Gender (Google)",
+                        "Season (Google)",
+                        "Category / accords (Google)",
+                        "Fragrantica search",
+                        "Parfumo search",
+                    ]
+                    shown = set()
+                    for label in preferred_order:
+                        url = links.get(label)
+                        if url:
+                            st.markdown(f"- [{label}]({url})")
+                            shown.add(label)
                     for label, url in links.items():
-                        st.markdown(f"- [{label}]({url})")
+                        if label not in shown:
+                            st.markdown(f"- [{label}]({url})")
                 st.caption("Clear finder resets lookup fields and results.")
 
         # Prefill notes if helper requested it
