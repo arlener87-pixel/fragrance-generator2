@@ -60,7 +60,7 @@ def save_persisted_data():
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="Ã°ÂÂÂ",
+    page_icon="ð",
     layout="centered",
     initial_sidebar_state="expanded",
 )
@@ -763,12 +763,12 @@ if "fragrances_db" not in st.session_state:
                 "brand": "Lattafa",
                 "gender": "Unisex/Female",
                 "season": "Fall-Winter",
-                "notes": "Banana-toffee/ÃÂ©clair gourmand",
+                "notes": "Banana-toffee/Ã©clair gourmand",
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "ÃÂclat Parfumerie Al Gazal",
-                "brand": "ÃÂclat Parfumerie",
+                "name": "Ãclat Parfumerie Al Gazal",
+                "brand": "Ãclat Parfumerie",
                 "gender": "Unisex (leans masculine)",
                 "season": "Versatile to cooler",
                 "notes": "Limited public data; typically woody-oriental or spicy",
@@ -855,7 +855,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Oriental", "Woody"],
             },
             {
-                "name": "Fragrance World CrÃÂ¨me of Clouds",
+                "name": "Fragrance World CrÃ¨me of Clouds",
                 "brand": "Fragrance World",
                 "gender": "Unisex",
                 "season": "Fall, Winter",
@@ -911,7 +911,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Gulf Orchid PiÃÂ±a Colada Musk Collection Body Spray",
+                "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
                 "brand": "Gulf Orchid",
                 "gender": "Unisex",
                 "season": "Spring, Summer",
@@ -1399,7 +1399,7 @@ if "fragrances_db" not in st.session_state:
                 "category": ["Gourmand", "Sweet"],
             },
             {
-                "name": "Melt CrÃÂ¨me Caramel",
+                "name": "Melt CrÃ¨me Caramel",
                 "brand": "Mamlakat Al Oud",
                 "gender": "Unisex (leans feminine)",
                 "season": "Fall, Winter",
@@ -2854,7 +2854,7 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
         b = sorted(n2 & family)
         if a and b:
             reasons.append(
-                f"Synergy ({', '.join(list(family)[:3])}Ã¢ÂÂ¦): "
+                f"Synergy ({', '.join(list(family)[:3])}â¦): "
                 f"{f1.get('name')} has {', '.join(a[:3])}; "
                 f"{f2.get('name')} has {', '.join(b[:3])}"
             )
@@ -2878,52 +2878,109 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
     return reasons[:8]
 
 
-def suggest_recipe_name_from_notes(bottle_names: list) -> str:
-    """Build a short poetic recipe name from shared notes and categories."""
+def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True) -> str:
+    """Build a short poetic recipe name from shared notes and categories.
+
+    When randomize=True (default), picks templates and note words at random so
+    Layer check / Save recipe can offer fresh names on each check or reroll.
+    """
     name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
     frags = [name_map[n] for n in bottle_names if n in name_map]
     if not frags:
         return "Untitled layer"
 
-    # Pull note tokens
     stop = {
         "top", "heart", "base", "and", "with", "notes", "the", "from", "leaning",
         "style", "absolute", "extract", "oil", "of", "a", "an", "for", "into",
+        "accord", "absolute", "bean", "beans", "wood", "woods", "note", "notes",
+        "sweet", "creamy", "warm", "dark", "light", "rich", "soft", "fresh",
     }
     tokens = []
     for f in frags:
-        tokens.extend(re.findall(r"[A-Za-z]{4,}", f.get("notes") or ""))
+        tokens.extend(re.findall(r"[A-Za-z]{3,}", f.get("notes") or ""))
         tokens.extend(f.get("category") or [])
     cleaned = []
     seen = set()
     for t in tokens:
         tl = t.lower()
-        if tl in stop or tl in seen:
+        if tl in stop or tl in seen or len(tl) < 3:
             continue
         seen.add(tl)
         cleaned.append(t.title())
-        if len(cleaned) >= 6:
-            break
 
-    # Prefer evocative words
     preferred = [
         "Vanilla", "Coconut", "Rose", "Oud", "Amber", "Musk", "Coffee", "Caramel",
         "Jasmine", "Sandalwood", "Cherry", "Cocoa", "Tobacco", "Leather", "Iris",
-        "Peach", "Honey", "Smoke", "Wood", "Citrus", "Marshmallow", "Pistachio",
+        "Peach", "Honey", "Smoke", "Citrus", "Marshmallow", "Pistachio", "Tonka",
+        "Praline", "Saffron", "Patchouli", "Bergamot", "Lavender", "Cedar",
+        "Almond", "Strawberry", "Raspberry", "Pineapple", "Mango", "Violet",
+        "Incense", "Benzoin", "Cashmere", "Orchid", "Tuberose", "Cardamom",
     ]
-    picks = [w for w in preferred if any(w.lower() in (c.lower()) for c in cleaned)]
+    # Match preferred words that appear in notes/categories (substring-friendly)
+    picks = []
+    for w in preferred:
+        wl = w.lower()
+        if any(wl in c.lower() or c.lower() in wl for c in cleaned):
+            picks.append(w)
     if not picks:
-        picks = cleaned[:3]
-    picks = picks[:3]
-    if len(picks) >= 2:
-        return f"{picks[0]} {picks[1]} night"
-    if picks:
-        return f"{picks[0]} veil"
-    # Fallback from bottle names
-    short = [n.split()[0] for n in bottle_names[:2] if n]
-    if len(short) >= 2:
-        return f"{short[0]} x {short[1]}"
-    return bottle_names[0] if bottle_names else "Untitled layer"
+        picks = cleaned[:8]
+    if not picks:
+        short = [n.split()[0] for n in bottle_names[:2] if n]
+        if len(short) >= 2:
+            return f"{short[0]} x {short[1]}"
+        return bottle_names[0] if bottle_names else "Untitled layer"
+
+    # Deduplicate while preserving order
+    seen_p = set()
+    uniq = []
+    for p in picks:
+        k = p.lower()
+        if k not in seen_p:
+            seen_p.add(k)
+            uniq.append(p)
+    picks = uniq
+
+    templates = [
+        "{a} {b} night",
+        "{a} & {b} veil",
+        "{a} {b} haze",
+        "Midnight {a}",
+        "{a} soft glow",
+        "{a} x {b}",
+        "{a} {b} ritual",
+        "Candlelit {a}",
+        "{a} drift",
+        "{a} {b} spell",
+        "Quiet {a}",
+        "{a} velvet",
+        "{a} {b} dusk",
+        "Sanctuary {a}",
+        "{a} {b} fog",
+        "{a} sugar",
+        "{a} {b} ember",
+        "Gilded {a}",
+    ]
+
+    if randomize and len(picks) >= 1:
+        a = random.choice(picks)
+        rest = [p for p in picks if p.lower() != a.lower()]
+        b = random.choice(rest) if rest else None
+        # Prefer two-word templates when we have a second note
+        if b:
+            two_word = [t for t in templates if "{b}" in t]
+            one_word = [t for t in templates if "{b}" not in t]
+            pool_t = two_word + one_word
+            tmpl = random.choice(pool_t)
+            return tmpl.format(a=a, b=b if "{b}" in tmpl else a)
+        tmpl = random.choice([t for t in templates if "{b}" not in t])
+        return tmpl.format(a=a)
+
+    # Deterministic fallback (stable name for the same bottles)
+    a = picks[0]
+    b = picks[1] if len(picks) > 1 else None
+    if b:
+        return f"{a} {b} night"
+    return f"{a} veil"
 
 
 def season_for_layer_recipe(frags: list) -> dict:
@@ -5189,7 +5246,7 @@ with st.sidebar:
     _saved = st.session_state.get("last_saved_at")
     n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved} Â· **{n_now}** bottles")
+        st.caption(f"Vault last saved: {_saved} ÃÂ· **{n_now}** bottles")
     else:
         st.caption(
             f"Vault: **{n_now}** bottles (seed or session). "
@@ -5790,7 +5847,7 @@ with tab_discover:
             st.session_state.pop("last_temp_search", None)
             st.rerun()
 
-    # Name / brand search (ranked: YAY Ã¢ÂÂ most worn Ã¢ÂÂ complete notes)
+    # Name / brand search (ranked: YAY â most worn â complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
         qn = _search_normalize(search_query)
@@ -6165,8 +6222,10 @@ with tab_layer:
             st.caption(season.get("detail", ""))
 
         # Name field - can use suggested
-        if st.session_state.pop("_apply_recipe_name", False) and suggested:
-            st.session_state["recipe_name_in"] = suggested
+        if st.session_state.pop("_apply_recipe_name", False) and len(rec_pick) >= 2:
+            fresh = suggest_recipe_name_from_notes(list(rec_pick), randomize=True)
+            st.session_state["recipe_name_in"] = fresh
+            suggested = fresh
         rec_name = st.text_input(
             "Recipe name",
             placeholder=suggested or "e.g. Coconut vanilla night",
@@ -6175,7 +6234,7 @@ with tab_layer:
         rn1, rn2 = st.columns(2)
         with rn1:
             if st.button(
-                "Use name from notes",
+                "Random name from notes",
                 key="recipe_use_suggested_name",
                 disabled=len(rec_pick) < 2,
             ):
@@ -6355,10 +6414,10 @@ with tab_roulette:
             st.markdown(
                 """
                 <div class="bat-container">
-                    <span class="floating-bat bat1">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
-                    <span class="floating-bat bat2">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
-                    <span class="floating-bat bat3">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
-                    <span class="floating-bat bat4">ÃÂ°ÃÂÃÂ¦ÃÂ</span>
+                    <span class="floating-bat bat1">ð¦</span>
+                    <span class="floating-bat bat2">ð¦</span>
+                    <span class="floating-bat bat3">ð¦</span>
+                    <span class="floating-bat bat4">ð¦</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -6427,7 +6486,12 @@ with tab_roulette:
         if len(layer_pick) < 2:
             st.warning("Pick at least two bottles.")
         else:
-            st.session_state["last_layer_check"] = evaluate_layer_recipe(list(layer_pick))
+            result = evaluate_layer_recipe(list(layer_pick))
+            # Fresh random poetic name from notes each time you check
+            result["suggested_name"] = suggest_recipe_name_from_notes(
+                list(layer_pick), randomize=True
+            )
+            st.session_state["last_layer_check"] = result
             st.session_state["_seed_roulette_recipe_name"] = True
 
     _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
@@ -6440,9 +6504,9 @@ with tab_roulette:
         st.markdown("### " + str(label))
         st.write(ev.get("verdict") or "")
         st.caption(
-            "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name: *"
+            "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
             + str(ev.get("suggested_name") or "")
-            + "*"
+            + "* â use **Reroll name from notes** for another"
         )
         season = ev.get("season") or {}
         if season.get("detail"):
@@ -6470,11 +6534,21 @@ with tab_roulette:
             "roulette_layer_recipe_name" not in st.session_state and suggested
         ):
             st.session_state["roulette_layer_recipe_name"] = suggested
+        # Reroll before the text input so the new name is applied this run
+        if st.session_state.pop("_reroll_layer_name", False) and names:
+            new_nm = suggest_recipe_name_from_notes(names, randomize=True)
+            st.session_state["roulette_layer_recipe_name"] = new_nm
+            if isinstance(st.session_state.get("last_layer_check"), dict):
+                st.session_state["last_layer_check"]["suggested_name"] = new_nm
+            suggested = new_nm
         save_name = st.text_input(
             "Save as recipe name",
             key="roulette_layer_recipe_name",
             placeholder=suggested or "e.g. Coconut vanilla night",
         )
+        if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
+            st.session_state["_reroll_layer_name"] = True
+            st.rerun()
         rb1, rb2 = st.columns(2)
         with rb1:
             if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
