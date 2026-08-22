@@ -3462,6 +3462,108 @@ def find_duplicate_fragrances(name: str, brand: str) -> dict:
     return {"exact": exact, "same_name": same_name, "near": near}
 
 
+def parse_bulk_fragrance_lines(text_block: str, default_brand: str = "") -> list:
+    """Parse lines of 'Name' or 'Name | Brand' or 'Name, Brand' or 'Brand - Name'.
+
+    Returns list of {name, brand} dicts (not yet added).
+    """
+    default_brand = (default_brand or "").strip()
+    rows = []
+    seen = set()
+    for raw in (text_block or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        name, brand = "", default_brand
+        if "|" in line:
+            parts = [p.strip() for p in line.split("|", 1)]
+            name, brand = parts[0], (parts[1] if len(parts) > 1 else default_brand)
+        elif "\t" in line:
+            parts = [p.strip() for p in line.split("\t", 1)]
+            name, brand = parts[0], (parts[1] if len(parts) > 1 else default_brand)
+        elif " - " in line and not line.lower().startswith("lattafa"):
+            # Brand - Name  OR  Name - Brand: prefer longer right side as name if left looks like brand?
+            # Safer: Name - Brand when default brand empty and left has spaces
+            left, right = [p.strip() for p in line.split(" - ", 1)]
+            if default_brand:
+                name, brand = left, right or default_brand
+            else:
+                # If left is short (1-2 words) treat as brand - name
+                if len(left.split()) <= 2 and len(right.split()) >= 1:
+                    brand, name = left, right
+                else:
+                    name, brand = left, right
+        elif "," in line:
+            parts = [p.strip() for p in line.split(",", 1)]
+            name, brand = parts[0], (parts[1] if len(parts) > 1 else default_brand)
+        else:
+            name = line
+            brand = default_brand
+        name = (name or "").strip()
+        brand = (brand or default_brand or "Unknown").strip() or "Unknown"
+        if not name:
+            continue
+        key = (name.lower(), brand.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"name": name, "brand": brand})
+    return rows
+
+
+def bulk_add_fragrances(
+    text_block: str,
+    default_brand: str = "",
+    default_gender: str = "Unisex",
+    default_season: str = "Versatile",
+    skip_duplicates: bool = True,
+) -> dict:
+    """Add many bottles by name + brand only. Details can be edited later in Vault."""
+    rows = parse_bulk_fragrance_lines(text_block, default_brand=default_brand)
+    added = []
+    skipped = []
+    if "fragrances_db" not in st.session_state:
+        st.session_state["fragrances_db"] = []
+    for row in rows:
+        name, brand = row["name"], row["brand"]
+        dups = find_duplicate_fragrances(name, brand)
+        if dups.get("exact") or dups.get("same_name"):
+            if skip_duplicates:
+                reason = "already in vault"
+                if dups.get("exact"):
+                    reason = f"exact match: {dups['exact'][0].get('name')}"
+                elif dups.get("same_name"):
+                    reason = f"same name exists ({dups['same_name'][0].get('brand')})"
+                skipped.append({"name": name, "brand": brand, "reason": reason})
+                continue
+        frag = {
+            "name": name,
+            "brand": brand,
+            "gender": default_gender or "Unisex",
+            "season": default_season or "Versatile",
+            "notes": "Not specified â edit later",
+            "category": ["Gourmand"],
+            "dupe_of": "",
+            "shelf_status": "Own",
+            "size_ml": None,
+            "price": None,
+        }
+        st.session_state["fragrances_db"].append(frag)
+        try:
+            log_vault_action("added", name, f"bulk|{brand}")
+        except Exception:
+            pass
+        added.append(frag)
+    if added:
+        try:
+            save_persisted_data()
+        except Exception:
+            pass
+        mark_vault_dirty()
+    return {"added": added, "skipped": skipped, "parsed": len(rows)}
+
+
+
 def filter_play_pool(gender: str = "Any", season: str = "Any", priced_only: bool = False) -> list:
     """Shared pool filter for Play games."""
     pool = []
@@ -6294,6 +6396,102 @@ with st.sidebar:
                 else:
                     st.error("Name and brand are required.")
 
+        # ----- Quick multi-add (name + brand only; edit details later) -----
+        with st.expander("Add multiple (name + brand only)", expanded=False):
+            st.caption(
+                "Paste one bottle per line. Fill in notes, gender, season, and categories later "
+                "in **Vault â Edit** or **Collection â Needs fix / Short notes**."
+            )
+            st.markdown(
+                "Formats accepted:\n"
+                "- `Name | Brand`\n"
+                "- `Name, Brand`\n"
+                "- `Name` (uses default brand below)\n"
+                "- `Brand - Name`"
+            )
+            if st.session_state.pop("_clear_bulk_add", False):
+                st.session_state["bulk_add_text"] = ""
+                st.session_state["bulk_add_default_brand"] = ""
+            bulk_text = st.text_area(
+                "Bottles",
+                height=160,
+                key="bulk_add_text",
+                placeholder=(
+                    "Khamrah | Lattafa\n"
+                    "Asad | Lattafa\n"
+                    "Hawas Ice, Rasasi\n"
+                    "My new decant"
+                ),
+            )
+            b1, b2, b3 = st.columns(3)
+            with b1:
+                bulk_brand = st.text_input(
+                    "Default brand (optional)",
+                    key="bulk_add_default_brand",
+                    placeholder="Lattafa",
+                )
+            with b2:
+                bulk_gender = st.selectbox(
+                    "Default gender",
+                    ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
+                    key="bulk_add_gender",
+                )
+            with b3:
+                bulk_season = st.text_input(
+                    "Default season",
+                    value="Versatile",
+                    key="bulk_add_season",
+                )
+            skip_dups = st.checkbox(
+                "Skip duplicates (recommended)",
+                value=True,
+                key="bulk_add_skip_dups",
+            )
+            bb1, bb2 = st.columns(2)
+            with bb1:
+                do_bulk = st.button(
+                    "Add all to vault",
+                    type="primary",
+                    key="bulk_add_btn",
+                    use_container_width=True,
+                )
+            with bb2:
+                if st.button("Clear list", key="bulk_add_clear", use_container_width=True):
+                    st.session_state["_clear_bulk_add"] = True
+                    st.rerun()
+
+            if do_bulk:
+                result = bulk_add_fragrances(
+                    bulk_text or "",
+                    default_brand=bulk_brand or "",
+                    default_gender=bulk_gender,
+                    default_season=bulk_season or "Versatile",
+                    skip_duplicates=skip_dups,
+                )
+                n_add = len(result.get("added") or [])
+                n_skip = len(result.get("skipped") or [])
+                if n_add:
+                    names = ", ".join(f.get("name") for f in result["added"][:8])
+                    more = f" (+{n_add - 8} more)" if n_add > 8 else ""
+                    st.session_state["_bulk_add_flash"] = (
+                        f"Added **{n_add}** bottle(s): {names}{more}. "
+                        f"Edit details anytime in Vault."
+                    )
+                    st.session_state["_clear_bulk_add"] = True
+                    st.rerun()
+                elif n_skip and not n_add:
+                    st.warning(
+                        f"Nothing new added â {n_skip} already in vault or invalid."
+                    )
+                else:
+                    st.warning("Paste at least one line with a fragrance name.")
+
+            _bf = st.session_state.pop("_bulk_add_flash", None)
+            if _bf:
+                st.success(_bf)
+            # Show last skip report if present in same run without reroute
+            if st.session_state.get("_bulk_skip_report"):
+                pass
 
         # Receipt for last added bottle
         last_added = st.session_state.get("last_added_frag")
