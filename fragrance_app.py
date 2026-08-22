@@ -5505,17 +5505,33 @@ with st.sidebar:
 
     with st.expander("Add fragrance", expanded=False):
         # Notes helper (outside form so links work without submitting)
-        with st.expander("Fragrance lookup helper", expanded=False):
+        # Prefill from Collection â Short notes / Needs fix "Lookup" buttons
+        _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
+        if isinstance(_pending_lu, dict):
+            if _pending_lu.get("name"):
+                st.session_state["notes_help_name"] = _pending_lu["name"]
+            if "brand" in _pending_lu:
+                st.session_state["notes_help_brand"] = _pending_lu.get("brand") or ""
+            st.session_state["notes_help_expand"] = True
+            st.session_state["_auto_run_notes_lookup"] = True
+
+        _notes_help_open = bool(
+            st.session_state.get("notes_help_expand")
+            or st.session_state.get("notes_help_result")
+        )
+        with st.expander("Fragrance lookup helper", expanded=_notes_help_open):
             st.caption(
                 "Search your vault and open Google / Fragrantica / Parfumo for notes, "
                 "gender, season, category, and price. Sites are not auto-scraped; "
-                "use the links and copy what you need into the form."
+                "use the links and copy what you need into the form. "
+                "From Collection â Short notes / Needs fix, tap **Lookup** on a bottle to fill this."
             )
             if st.session_state.pop("_clear_notes_help", False):
                 st.session_state["notes_help_name"] = ""
                 st.session_state["notes_help_brand"] = ""
                 st.session_state.pop("notes_help_result", None)
                 st.session_state.pop("prefill_new_notes", None)
+                st.session_state["notes_help_expand"] = False
 
             h1, h2 = st.columns(2)
             with h1:
@@ -5528,10 +5544,19 @@ with st.sidebar:
                     st.session_state["notes_help_result"] = notes_lookup_suggestions(
                         help_name, help_brand
                     )
+                    st.session_state["notes_help_expand"] = True
             with hb2:
                 if st.button("Clear finder", key="notes_help_clear", use_container_width=True):
                     st.session_state["_clear_notes_help"] = True
                     st.rerun()
+
+            # Auto-run when opened from Collection
+            if st.session_state.pop("_auto_run_notes_lookup", False):
+                nm = (st.session_state.get("notes_help_name") or "").strip()
+                br = (st.session_state.get("notes_help_brand") or "").strip()
+                if nm:
+                    st.session_state["notes_help_result"] = notes_lookup_suggestions(nm, br)
+                    st.session_state["notes_help_expand"] = True
 
             help_res = st.session_state.get("notes_help_result")
             if help_res:
@@ -7863,13 +7888,26 @@ with tab_collection:
                 f"(15-39)  |  "
                 f"**{sum(1 for r in short_rows if r['chars'] >= 40)}** vague but longer"
             )
-            for r in short_rows[:50]:
+            for ri, r in enumerate(short_rows[:50]):
                 f = r["frag"]
-                st.markdown(
-                    f"**{r['chars']} chars** - **{f.get('name')}** "
-                    f"(*{f.get('brand', '?')}*)  \n"
-                    f"`{r['preview']}`"
-                )
+                c_a, c_b = st.columns([5, 1])
+                with c_a:
+                    st.markdown(
+                        f"**{r['chars']} chars** - **{f.get('name')}** "
+                        f"(*{f.get('brand', '?')}*)  \n"
+                        f"`{r['preview']}`"
+                    )
+                with c_b:
+                    if st.button(
+                        "Lookup",
+                        key=f"short_lu_{ri}_{f.get('name','')}",
+                        help="Open Fragrance lookup helper with this bottle",
+                    ):
+                        st.session_state["_pending_notes_lookup"] = {
+                            "name": f.get("name") or "",
+                            "brand": f.get("brand") or "",
+                        }
+                        st.rerun()
             if len(short_rows) > 50:
                 st.caption(f"...and {len(short_rows) - 50} more")
 
@@ -7892,6 +7930,34 @@ with tab_collection:
                     f"Current ({note_char_count(frag_s)} chars): "
                     f"{(frag_s.get('notes') or '')[:160]}"
                 )
+                # Inline online note search links for the selected bottle
+                _lu = notes_lookup_suggestions(
+                    frag_s.get("name") or "", frag_s.get("brand") or ""
+                )
+                _links = _lu.get("links") or {}
+                if _links:
+                    link_bits = []
+                    for label in (
+                        "Notes (Google)",
+                        "Fragrantica search",
+                        "Parfumo search",
+                        "Fragrantica (Google site)",
+                    ):
+                        url = _links.get(label)
+                        if url:
+                            link_bits.append(f"[{label}]({url})")
+                    if link_bits:
+                        st.markdown("Search notes: " + " Â· ".join(link_bits))
+                if st.button(
+                    "Open in Fragrance lookup",
+                    key=f"short_open_lu_{short_name}",
+                    help="Prefill sidebar Fragrance lookup helper",
+                ):
+                    st.session_state["_pending_notes_lookup"] = {
+                        "name": frag_s.get("name") or "",
+                        "brand": frag_s.get("brand") or "",
+                    }
+                    st.rerun()
                 new_n = st.text_area(
                     "Fuller notes (Top / Heart / Base)",
                     value=frag_s.get("notes") or "",
@@ -7953,12 +8019,26 @@ with tab_collection:
             st.success("Nothing in this filter - profiles look complete.")
         else:
             st.write(f"**{len(filtered)}** to review")
-            for item in filtered[:40]:
+            st.caption("Tap **Lookup** to search notes in the sidebar Fragrance lookup helper.")
+            for ni, item in enumerate(filtered[:40]):
                 f = item["frag"]
                 gap_txt = ", ".join(item["gaps"])
-                st.markdown(
-                    f"- **{f.get('name')}** (*{f.get('brand', '?')}*) - needs **{gap_txt}**"
-                )
+                n_a, n_b = st.columns([5, 1])
+                with n_a:
+                    st.markdown(
+                        f"- **{f.get('name')}** (*{f.get('brand', '?')}*) - needs **{gap_txt}**"
+                    )
+                with n_b:
+                    if st.button(
+                        "Lookup",
+                        key=f"need_lu_{ni}_{f.get('name','')}",
+                        help="Search notes / gender / season online via Fragrance lookup",
+                    ):
+                        st.session_state["_pending_notes_lookup"] = {
+                            "name": f.get("name") or "",
+                            "brand": f.get("brand") or "",
+                        }
+                        st.rerun()
             if len(filtered) > 40:
                 st.caption(f"...and {len(filtered) - 40} more")
 
@@ -7979,6 +8059,35 @@ with tab_collection:
             if frag:
                 gaps = profile_gaps(frag)
                 st.caption("Missing: " + ", ".join(gaps) if gaps else "Looks complete")
+                _lu = notes_lookup_suggestions(
+                    frag.get("name") or "", frag.get("brand") or ""
+                )
+                _links = _lu.get("links") or {}
+                if _links:
+                    link_bits = []
+                    for label in (
+                        "Notes (Google)",
+                        "Gender (Google)",
+                        "Season (Google)",
+                        "Category / accords (Google)",
+                        "Fragrantica search",
+                        "Parfumo search",
+                    ):
+                        url = _links.get(label)
+                        if url:
+                            link_bits.append(f"[{label}]({url})")
+                    if link_bits:
+                        st.markdown("Search profile: " + " Â· ".join(link_bits))
+                if st.button(
+                    "Open in Fragrance lookup",
+                    key=f"need_open_lu_{pick_name}",
+                    help="Prefill sidebar Fragrance lookup helper",
+                ):
+                    st.session_state["_pending_notes_lookup"] = {
+                        "name": frag.get("name") or "",
+                        "brand": frag.get("brand") or "",
+                    }
+                    st.rerun()
                 gender_opts = [
                     "Unisex",
                     "Female",
