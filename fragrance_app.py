@@ -6763,7 +6763,18 @@ with tab_horoscope:
 
     signs = list(SIGN_SCENT_PROFILE.keys())
 
-    # Must apply calculator results BEFORE chart selectboxes are created
+    # Must apply calculator / backup-restore results BEFORE chart selectboxes are created
+    pending_chart = st.session_state.pop("_pending_chart_restore", None)
+    if isinstance(pending_chart, dict):
+        if pending_chart.get("sun") and pending_chart["sun"] in signs:
+            st.session_state["chart_sun"] = pending_chart["sun"]
+        if pending_chart.get("moon") and pending_chart["moon"] in signs:
+            st.session_state["chart_moon"] = pending_chart["moon"]
+        if pending_chart.get("rising") and pending_chart["rising"] in signs:
+            st.session_state["chart_rising"] = pending_chart["rising"]
+        if pending_chart.get("venus") and pending_chart["venus"] in signs:
+            st.session_state["chart_venus"] = pending_chart["venus"]
+
     if st.session_state.pop("_apply_birth_chart", False):
         calc = st.session_state.get("birth_calc_full") or {}
         if calc.get("sun") and calc["sun"] in signs:
@@ -7935,6 +7946,9 @@ with tab_collection:
 
 # ===== VAULT =====
 with tab_vault:
+    _rf = st.session_state.pop("_restore_flash", None)
+    if _rf:
+        st.success(_rf)
     st.subheader("Sanctuary vault")
     n_bottles = len(st.session_state["fragrances_db"])
     st.write(f"**{n_bottles}** bottles in the vault")
@@ -8336,20 +8350,17 @@ with tab_vault:
                     st.session_state["last_export_date"] = imported_data["last_export_date"]
                 if "chart" in imported_data and isinstance(imported_data["chart"], dict):
                     ch = imported_data["chart"]
-                    if ch.get("sun"):
-                        st.session_state["chart_sun"] = ch["sun"]
-                    if ch.get("moon"):
-                        st.session_state["chart_moon"] = ch["moon"]
-                    if ch.get("rising"):
-                        st.session_state["chart_rising"] = ch["rising"]
-                    if ch.get("venus"):
-                        st.session_state["chart_venus"] = ch["venus"]
+                    # Defer chart_* widget keys to next run (Stars tab creates them first)
+                    st.session_state["_pending_chart_restore"] = ch
                 if "wishlist" in imported_data:
                     st.session_state["wishlist"] = imported_data["wishlist"]
                 if "vault_log" in imported_data:
                     st.session_state["vault_log"] = imported_data["vault_log"]
+                n_bot = len(st.session_state.get("fragrances_db") or [])
                 save_persisted_data()
-                st.success("Vault restored.")
+                st.session_state["_restore_flash"] = (
+                    f"Vault restored â **{n_bot}** bottles loaded."
+                )
                 st.rerun()
             except Exception as e:
                 st.error(f"Restore failed: {e}")
