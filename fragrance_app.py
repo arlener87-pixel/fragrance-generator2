@@ -2043,9 +2043,20 @@ def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
     """
     Current outdoor temperature via Open-Meteo (no API key).
     Returns {ok, temp_f, source, detail} or ok=False on failure.
+    Caches a successful reading for 20 minutes to avoid HTTP 429 rate limits.
     """
     import json as _json
+    import time as _time
+    import urllib.error
     import urllib.request
+
+    # Reuse a recent successful reading (cuts 429s from repeated taps / reruns)
+    cache = st.session_state.get("_live_temp_cache") or {}
+    age = _time.time() - float(cache.get("ts") or 0)
+    if cache.get("ok") and age < 20 * 60:
+        out = dict(cache)
+        out["detail"] = (out.get("detail") or "") + f" (cached {int(age)}s ago)"
+        return out
 
     url = (
         "https://api.open-meteo.com/v1/forecast"
@@ -2065,15 +2076,30 @@ def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
         temp_f = int(round(float(temp)))
         # clamp to slider range
         temp_f = max(30, min(115, temp_f))
-        return {
+        result = {
             "ok": True,
             "temp_f": temp_f,
             "source": "Open-Meteo",
             "detail": f"Victorville area ({lat:.2f}, {lon:.2f})",
             "observed": cur.get("time"),
+            "ts": _time.time(),
         }
+        st.session_state["_live_temp_cache"] = result
+        return result
+    except urllib.error.HTTPError as ex:
+        if ex.code == 429:
+            if cache.get("ok") and cache.get("temp_f") is not None:
+                out = dict(cache)
+                out["detail"] = "Rate-limited; using last live reading"
+                return out
+            return {
+                "ok": False,
+                "detail": "HTTP 429 Too Many Requests â wait a few minutes, or use the slider",
+            }
+        return {"ok": False, "detail": f"HTTP Error {ex.code}: {ex.reason}"}
     except Exception as ex:
         return {"ok": False, "detail": str(ex)}
+
 
 
 def score_for_temperature(f: dict, temp_f: float) -> int:
@@ -3648,53 +3674,83 @@ def _search_normalize(s: str) -> str:
 
 def fragrance_search_score(f: dict, query: str) -> int:
     """
-    Inclusive name/brand score. Any matching word can hit.
-    Higher = better. 0 = no match.
+    Name/brand relevance score. Higher = better. 0 = no match.
+
+    Priority (high â low):
+      exact name â exact brand â name starts with query / query starts with name
+      â full phrase inside name â token matches on name/brand words
+    Loose substring-inside-word matching is avoided so "Yara" does not
+    pull every bottle that merely shares letters with another word.
     """
     q = _search_normalize(query)
     if not q:
         return 0
     name = _search_normalize(f.get("name"))
     brand = _search_normalize(f.get("brand"))
-    blob = f"{name} {brand}".strip()
-    if not blob:
+    if not name and not brand:
         return 0
 
     score = 0
-    # Full query phrase
-    if q == name or q == brand:
-        score += 100
-    elif q in name or q in brand:
-        score += 80
-    elif q in blob:
-        score += 60
+
+    # Exact full-string matches (strongest)
+    if q == name:
+        return 1000
+    if q == brand:
+        score = max(score, 900)
+
+    # Name begins with the query or query is the leading phrase of the name
+    if name.startswith(q + " ") or name.startswith(q):
+        score = max(score, 700)
+    if q.startswith(name) and name and len(name) >= 3:
+        score = max(score, 650)
+
+    # Brand begins with query
+    if brand.startswith(q + " ") or brand.startswith(q):
+        score = max(score, 500)
+
+    # Whole query appears as a contiguous phrase in the name
+    if q in name:
+        score = max(score, 400)
+    if q in brand:
+        score = max(score, 300)
 
     tokens = [t for t in q.split(" ") if t]
-    words = blob.split()
+    name_words = name.split()
+    brand_words = brand.split()
+    all_words = name_words + brand_words
+
     token_hits = 0
+    name_token_hits = 0
     for t in tokens:
+        if len(t) < 2:
+            continue
         hit = False
-        if t in blob:
+        # Exact token equality only (no "in word" fuzzy)
+        if t in name_words:
             hit = True
-            score += 20
+            name_token_hits += 1
+            score += 40
+        elif t in brand_words:
+            hit = True
+            score += 25
         else:
-            for w in words:
-                if w.startswith(t) or t.startswith(w) or t in w or w in t:
-                    if len(t) >= 2 and len(w) >= 2:
-                        hit = True
-                        score += 12
-                        break
+            # Prefix match on a whole word (e.g. "ecl" â "eclaire")
+            for w in all_words:
+                if len(w) >= 3 and len(t) >= 3 and (w.startswith(t) or t.startswith(w)):
+                    hit = True
+                    score += 15
+                    if w in name_words:
+                        name_token_hits += 1
+                    break
         if hit:
             token_hits += 1
 
-    # At least one token must hit for a multi-word query to count
     if tokens and token_hits == 0 and score == 0:
         return 0
-    if tokens and token_hits > 0:
-        score += token_hits * 5
-        # Bonus when every word matched
-        if token_hits == len(tokens):
-            score += 25
+    if tokens and token_hits == len(tokens):
+        score += 30
+        if name_token_hits == len(tokens):
+            score += 40
     return score
 
 
@@ -3702,13 +3758,36 @@ def fragrance_search_match(f: dict, query: str) -> bool:
     return fragrance_search_score(f, query) > 0
 
 
-def search_fragrances_by_name_brand(query: str) -> list:
-    """Return all vault bottles that match name/brand query (inclusive)."""
+def search_fragrances_by_name_brand(query: str, exact_only: bool = False) -> list:
+    """
+    Return vault bottles matching name/brand.
+
+    When any *exact name* match exists, only those exact names are returned
+    (so searching "Yara Elixir" does not also list every other Yara).
+    Pass exact_only=True to require exact name or exact brand only.
+    """
     q = (query or "").strip()
     if not q:
         return []
+    qn = _search_normalize(q)
+    pool = st.session_state.get("fragrances_db") or []
+
+    exact_name = [
+        f for f in pool if _search_normalize(f.get("name")) == qn
+    ]
+    if exact_name:
+        exact_name.sort(key=search_rank_key)
+        return exact_name
+
+    if exact_only:
+        exact_brand = [
+            f for f in pool if _search_normalize(f.get("brand")) == qn
+        ]
+        exact_brand.sort(key=search_rank_key)
+        return exact_brand
+
     scored = []
-    for f in st.session_state.get("fragrances_db") or []:
+    for f in pool:
         s = fragrance_search_score(f, q)
         if s > 0:
             scored.append((s, f))
@@ -5108,11 +5187,18 @@ with st.sidebar:
     st.markdown("---")
     # Persistence status (edits live in JSON beside the script)
     _saved = st.session_state.get("last_saved_at")
+    n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved}")
+        st.caption(f"Vault last saved: {_saved} Â· **{n_now}** bottles")
     else:
-        st.caption("Vault saves to scented_dead_girl_data.json on every edit.")
-    st.caption("Export JSON from Vault after big changes so Cloud redeploys cannot wipe edits.")
+        st.caption(
+            f"Vault: **{n_now}** bottles (seed or session). "
+            "Saves to scented_dead_girl_data.json on every edit."
+        )
+    st.caption(
+        "Cloud redeploys wipe server data. Export JSON from Vault after big changes "
+        "and keep the file on your phone/Drive."
+    )
 
     # Temp-search widget resets must run before slider/selectbox widgets.
     ca_default = int(default_ca_temp_f())
@@ -5707,11 +5793,15 @@ with tab_discover:
     # Name / brand search (ranked: YAY Ã¢ÂÂ most worn Ã¢ÂÂ complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
+        qn = _search_normalize(search_query)
+        exact_hits = [
+            f
+            for f in (st.session_state.get("fragrances_db") or [])
+            if _search_normalize(f.get("name")) == qn
+        ]
         matching = search_fragrances_by_name_brand(search_query)
         if not matching:
             st.warning("No fragrances matched that name or brand.")
-            # Suggest close brands/names from vault
-            qn = _search_normalize(search_query)
             tokens = [t for t in qn.split() if len(t) >= 3]
             suggestions = []
             for f in st.session_state.get("fragrances_db") or []:
@@ -5724,13 +5814,19 @@ with tab_discover:
                     st.caption(f"- {s}")
             else:
                 st.caption(
-                    "Tip: try one word (e.g. Avenue or French), or check spelling in Vault."
+                    "Tip: try the full bottle name for an exact match, or one brand word."
                 )
         else:
-            st.caption(
-                f"{len(matching)} match(es) - name/brand token match, "
-                "ranked by favorites, wears, note quality"
-            )
+            if exact_hits:
+                st.caption(
+                    f"**Exact name match** â {len(matching)} bottle(s). "
+                    "Similar names are hidden when an exact name exists."
+                )
+            else:
+                st.caption(
+                    f"{len(matching)} match(es) â no exact name; showing closest "
+                    "name/brand hits (prefix and whole-word tokens)."
+                )
             for f in matching:
                 render_fragrance_card(
                     f, key_prefix=f"search_{_search_normalize(search_query)[:24]}"
@@ -8332,35 +8428,45 @@ with tab_vault:
             mime="text/markdown",
             key="export_md_btn",
         )
-        uploaded_file = st.file_uploader("Restore from backup JSON", type=["json"])
+        uploaded_file = st.file_uploader(
+            "Restore from backup JSON", type=["json"], key="restore_upload"
+        )
         if uploaded_file is not None:
-            try:
-                imported_data = json.load(uploaded_file)
-                if "fragrances_db" in imported_data:
-                    st.session_state["fragrances_db"] = imported_data["fragrances_db"]
-                if "user_reactions" in imported_data:
-                    st.session_state["user_reactions"] = imported_data["user_reactions"]
-                if "sotd_history" in imported_data:
-                    st.session_state["sotd_history"] = imported_data["sotd_history"]
-                if "layer_recipes" in imported_data:
-                    st.session_state["layer_recipes"] = imported_data["layer_recipes"]
-                if "play_stats" in imported_data:
-                    st.session_state["play_stats"] = imported_data["play_stats"]
-                if "last_export_date" in imported_data:
-                    st.session_state["last_export_date"] = imported_data["last_export_date"]
-                if "chart" in imported_data and isinstance(imported_data["chart"], dict):
-                    ch = imported_data["chart"]
-                    # Defer chart_* widget keys to next run (Stars tab creates them first)
-                    st.session_state["_pending_chart_restore"] = ch
-                if "wishlist" in imported_data:
-                    st.session_state["wishlist"] = imported_data["wishlist"]
-                if "vault_log" in imported_data:
-                    st.session_state["vault_log"] = imported_data["vault_log"]
-                n_bot = len(st.session_state.get("fragrances_db") or [])
-                save_persisted_data()
-                st.session_state["_restore_flash"] = (
-                    f"Vault restored â **{n_bot}** bottles loaded."
-                )
-                st.rerun()
-            except Exception as e:
-                st.error(f"Restore failed: {e}")
+            st.caption(
+                f"Selected: **{getattr(uploaded_file, 'name', 'backup.json')}** "
+                f"({getattr(uploaded_file, 'size', 0) // 1024} KB)"
+            )
+            if st.button("Apply restore", type="primary", key="restore_apply_btn"):
+                try:
+                    uploaded_file.seek(0)
+                    imported_data = json.load(uploaded_file)
+                    if not isinstance(imported_data, dict):
+                        raise ValueError("Backup must be a JSON object")
+                    if "fragrances_db" in imported_data:
+                        st.session_state["fragrances_db"] = imported_data["fragrances_db"]
+                    if "user_reactions" in imported_data:
+                        st.session_state["user_reactions"] = imported_data["user_reactions"]
+                    if "sotd_history" in imported_data:
+                        st.session_state["sotd_history"] = imported_data["sotd_history"]
+                    if "layer_recipes" in imported_data:
+                        st.session_state["layer_recipes"] = imported_data["layer_recipes"]
+                    if "play_stats" in imported_data:
+                        st.session_state["play_stats"] = imported_data["play_stats"]
+                    if "last_export_date" in imported_data:
+                        st.session_state["last_export_date"] = imported_data["last_export_date"]
+                    if "chart" in imported_data and isinstance(imported_data["chart"], dict):
+                        # Defer chart_* keys â Stars widgets already ran this script cycle
+                        st.session_state["_pending_chart_restore"] = imported_data["chart"]
+                    if "wishlist" in imported_data:
+                        st.session_state["wishlist"] = imported_data["wishlist"]
+                    if "vault_log" in imported_data:
+                        st.session_state["vault_log"] = imported_data["vault_log"]
+                    n_bot = len(st.session_state.get("fragrances_db") or [])
+                    save_persisted_data()
+                    st.session_state["_restore_flash"] = (
+                        f"Vault restored â **{n_bot}** bottles loaded. "
+                        "Export JSON again and keep a copy off Cloud."
+                    )
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Restore failed: {e}")
