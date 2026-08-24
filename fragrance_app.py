@@ -4944,46 +4944,8 @@ with st.sidebar:
     if "price_sb_gender" not in st.session_state:
         st.session_state["price_sb_gender"] = "Any"
 
-    with st.expander("Price lookup", expanded=False):
-        st.caption("Bottles with a logged price in range.")
-        st.number_input("Min $", min_value=0, max_value=2000, key="price_sb_min")
-        st.number_input("Max $", min_value=0, max_value=5000, key="price_sb_max")
-        st.selectbox(
-            "Gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="price_sb_gender",
-        )
-        psb1, psb2 = st.columns(2)
-        with psb1:
-            if st.button("Find prices", type="primary", use_container_width=True, key="price_sb_btn"):
-                lo = float(min(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-                hi = float(max(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-                hits = fragrances_in_price_range(lo, hi, st.session_state["price_sb_gender"])
-                st.session_state["price_sb_hits"] = {"hits": hits, "lo": lo, "hi": hi}
-        with psb2:
-            if st.button("Reset", use_container_width=True, key="price_sb_reset"):
-                st.session_state["_clear_price_sb"] = True
-                st.rerun()
-        priced_n = sum(
-            1
-            for f in st.session_state.get("fragrances_db") or []
-            if f.get("price") is not None
-        )
-        st.caption(f"{priced_n} priced bottle(s) in vault")
-        psb = st.session_state.get("price_sb_hits")
-        if psb is not None:
-            hits = psb.get("hits") or []
-            st.write(f"**{len(hits)}** in ${psb.get('lo'):.0f}-${psb.get('hi'):.0f}")
-            if not hits:
-                st.caption("None in range. Add prices in Edit bottle.")
-            else:
-                for f in hits[:12]:
-                    st.caption(
-                        f"${float(f.get('price')):.0f} - {f.get('name')} ({f.get('brand')})"
-                    )
-                if len(hits) > 12:
-                    st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
-
+    with st.expander("Price features removed", expanded=False):
+        st.caption("Price tracking was removed. Use size/shelf notes if you still want cost context.")
     # Reset filters to defaults before widgets if flagged
     if st.session_state.pop("_clear_filters", False):
         st.session_state["filter_gender"] = "Any"
@@ -7435,64 +7397,8 @@ with tab_play:
 with tab_collection:
     st.subheader("Collection browser")
 
-    with st.expander("Price range lookup", expanded=True):
-        st.caption(
-            "Find bottles you logged a price for. Leave wide range to see all priced bottles."
-        )
-        if st.session_state.pop("_clear_price_lookup", False):
-            st.session_state["price_min"] = 0
-            st.session_state["price_max"] = 500
-            st.session_state["price_gender"] = "Any"
-        pr1, pr2, pr3 = st.columns(3)
-        with pr1:
-            price_min = st.number_input("Min $", min_value=0, max_value=2000, value=0, key="price_min")
-        with pr2:
-            price_max = st.number_input("Max $", min_value=0, max_value=5000, value=500, key="price_max")
-        with pr3:
-            price_gender = st.selectbox(
-                "Gender",
-                ["Any", "Male", "Female", "Unisex"],
-                key="price_gender",
-            )
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            do_price = st.button("Search prices", type="primary", key="price_search_btn")
-        with pc2:
-            if st.button("Clear", key="price_clear_btn"):
-                st.session_state["_clear_price_lookup"] = True
-                st.session_state.pop("price_lookup_hits", None)
-                st.rerun()
-        if do_price:
-            lo, hi = float(min(price_min, price_max)), float(max(price_min, price_max))
-            hits = fragrances_in_price_range(lo, hi, price_gender)
-            st.session_state["price_lookup_hits"] = {
-                "hits": hits,
-                "lo": lo,
-                "hi": hi,
-                "gender": price_gender,
-            }
-        priced_n = sum(
-            1
-            for f in st.session_state.get("fragrances_db") or []
-            if f.get("price") is not None
-        )
-        st.caption(f"{priced_n} bottle(s) in the vault have a price logged.")
-        pl = st.session_state.get("price_lookup_hits")
-        if pl is not None:
-            hits = pl.get("hits") or []
-            st.write(
-                f"**{len(hits)}** match ${pl.get('lo'):.0f} - ${pl.get('hi'):.0f}"
-                f" ({pl.get('gender')})"
-            )
-            if not hits:
-                st.info("No priced bottles in that range. Add prices when editing bottles.")
-            else:
-                for f in hits:
-                    st.write(
-                        f"**${float(f.get('price')):.0f}** - **{f.get('name')}** "
-                        f"({f.get('brand')}) | {f.get('gender')} | "
-                        f"{', '.join(f.get('category') or [])}"
-                    )
+    with st.expander("Price features removed", expanded=False):
+        st.caption("Price tracking was removed. Use size/shelf notes if you still want cost context.")
     wear_counts = get_wear_counts()
     favs = [
         name
@@ -8324,11 +8230,7 @@ with tab_vault:
                         value=str(frag.get("size_ml") or ""),
                         placeholder="e.g. 100",
                     )
-                    e_price = st.text_input(
-                        "Price (optional)",
-                        value=str(frag.get("price") or ""),
-                        placeholder="e.g. 35",
-                    )
+                    e_price = frag.get("price")  # price UI removed
                     cat_opts = [
                         "Gourmand",
                         "Sweet",
@@ -8600,6 +8502,41 @@ with tab_vault:
                 if frag:
                     current = frag.get("category") or []
                     st.write("Current families: **" + (", ".join(current) if current else "none") + "**")
+                    # Performance (projection = sillage)
+                    sil = frag.get("sillage")
+                    lon = frag.get("longevity")
+                    try:
+                        perf = average_performance(bottle)
+                    except Exception:
+                        perf = {}
+                    sil_txt = str(sil) if sil is not None else (str(perf.get("sillage")) + " (from SOTD)" if perf.get("sillage") else "not set")
+                    lon_txt = str(lon) if lon is not None else (str(perf.get("longevity")) + " (from SOTD)" if perf.get("longevity") else "not set")
+                    st.write(f"Projection: **{sil_txt}** | Longevity: **{lon_txt}**")
+                    pc1, pc2 = st.columns(2)
+                    with pc1:
+                        new_sil = st.selectbox(
+                            "Set projection (1-5)",
+                            ["- keep -", "1", "2", "3", "4", "5"],
+                            key=f"fam_sil_{bottle}",
+                        )
+                    with pc2:
+                        new_lon = st.selectbox(
+                            "Set longevity (1-5)",
+                            ["- keep -", "1", "2", "3", "4", "5"],
+                            key=f"fam_lon_{bottle}",
+                        )
+                    if st.button("Save performance", key=f"fam_perf_save_{bottle}"):
+                        for i, f in enumerate(st.session_state["fragrances_db"]):
+                            if f.get("name") == bottle:
+                                if new_sil != "- keep -":
+                                    st.session_state["fragrances_db"][i]["sillage"] = int(new_sil)
+                                if new_lon != "- keep -":
+                                    st.session_state["fragrances_db"][i]["longevity"] = int(new_lon)
+                                break
+                        log_vault_action("edited", bottle, "performance")
+                        save_persisted_data()
+                        st.success("Performance saved.")
+                        st.rerun()
                     suggested = suggest_categories_from_notes(frag.get("notes") or "")
                     if suggested:
                         st.write("Suggested from notes: **" + " | ".join(suggested) + "**")
@@ -8619,7 +8556,8 @@ with tab_vault:
 
         elif mode == "Audit whole vault":
             st.caption(
-                "Scans every bottle for missing or weak notes, gender, season, and scent families. "
+                "Scans every bottle for missing or weak notes, gender, season, scent families, "
+                "and performance (longevity / projection). "
                 "You can auto-apply suggested families to bottles that need them."
             )
             run = st.button("Run full vault audit", type="primary", key="vault_audit_run")
@@ -8651,8 +8589,19 @@ with tab_vault:
                         if not cats:
                             flags.append("no scent family")
                         elif len(cats) == 1 and cats[0] in ("Gourmand", "Sweet"):
-                            # very generic single tag â still ok but note it
+                            # very generic single tag - still ok but note it
                             pass
+                        # Performance: bottle-level or derived from SOTD
+                        sil = f.get("sillage")
+                        lon = f.get("longevity")
+                        try:
+                            perf = average_performance(name)
+                        except Exception:
+                            perf = {}
+                        if sil is None and not perf.get("sillage"):
+                            flags.append("no projection data")
+                        if lon is None and not perf.get("longevity"):
+                            flags.append("no longevity data")
                         # Suggest families from notes
                         suggested = suggest_categories_from_notes(notes) if notes else []
                         if flags or (suggested and set(suggested) - set(cats)):
