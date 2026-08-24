@@ -206,7 +206,7 @@ def autosave_if_changed(force: bool = False) -> bool:
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="ð",
+    page_icon="Ã°ÂÂÂ",
     layout="centered",
     initial_sidebar_state="expanded",
 )
@@ -664,1297 +664,188 @@ if "fragrances_db" not in st.session_state:
     if _persisted.get("fragrances_db"):
         st.session_state["fragrances_db"] = list(_persisted["fragrances_db"])
     else:
+        # === CLEANED SEED (177 bottles) â matches organized vault ===
         # Built-in sanctuary collection (seed only â export JSON after you edit)
         st.session_state["fragrances_db"] = [
-            {
-                "name": "Ajwad",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Versatile (cooler preferred)",
-                "notes": "Fruity-woody-oriental (pineapple/rose/oud-leaning)",
-                "category": ["Oriental", "Woody", "Fruity"],
-            },
-            {
-                "name": "Al Rehab Caramello",
-                "brand": "Al Rehab",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Pistachio, Almond / Heart - Jasmine, Heliotrope / Base - Caramel, Vanilla, Sandalwood",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Al Rehab Chocomusk",
-                "brand": "Al Rehab",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Warm Spicy, Amber / Heart - Sweet, Powdery, Vanilla / Base - Chocolate, Musky, Cocoa",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Al Rehab Chocomusk Marshmallow",
-                "brand": "Al Rehab",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Marshmallow, Strawberry / Heart - Cocoa, Vanilla / Base - Sweet Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Al Rehab Chocomusk Vanilla",
-                "brand": "Al Rehab",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Chocolate / Heart - Vanilla / Base - Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Al Rehab Cup Cake",
-                "brand": "Al Rehab",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Citrus, Amber / Heart - Vanilla Cake / Base - Vanilla, Amber",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Al Rehab French Vanilla",
-                "brand": "Al Rehab",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Vanilla / Heart - Creamy Sweet / Base - Vanilla, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Al Rehab Royal Men",
-                "brand": "Al Rehab",
-                "gender": "Male",
-                "season": "Fall, Winter",
-                "notes": "Top - Spicy, Citrus, Woody / Heart - Floral, Sweet / Base - Amber, Musk, Vanilla",
-                "category": ["Woody", "Spicy", "Oriental"],
-            },
-            {
-                "name": "Al Rehab Silver",
-                "brand": "Al Rehab",
-                "gender": "Unisex/Male",
-                "season": "Spring, Summer",
-                "notes": "Top - Fresh Citrus, Metallic / Heart - Floral / Base - Musk, Sweet",
-                "category": ["Fresh", "Citrus"],
-            },
-            {
-                "name": "Al Rehab Soft",
-                "brand": "Al Rehab",
-                "gender": "Unisex (leans feminine)",
-                "season": "Fall, Winter",
-                "notes": "Top - Citruses / Heart - Orchid, Jasmine, Vanilla, Caramel / Base - White Musk, Woody Notes, Vetiver",
-                "category": ["Floral", "Sweet", "Gourmand"],
-            },
-            {
-                "name": "Ameerat Al Arab Prive Rose",
-                "brand": "Ameerat Al Arab",
-                "gender": "Female",
-                "season": "Fall, Spring",
-                "notes": "Top - Rose / Heart - Floral, Sweet / Base - Musk, Vanilla",
-                "category": ["Floral", "Sweet"],
-            },
-            {
-                "name": "Arabiyat Prestige Bahiya Garnet",
-                "brand": "Arabiyat Prestige",
-                "gender": "Female-leaning",
-                "season": "Fall, Winter",
-                "notes": "Top - Cherry, Mandarin, Mango, Pear, Bergamot / Heart - Amber, Fig, Jasmine / Base - Amber, Vanilla, Sandalwood, Musk",
-                "category": ["Fruity", "Oriental", "Sweet"],
-            },
-            {
-                "name": "Arabiyat Prestige Nyla",
-                "brand": "Arabiyat Prestige",
-                "gender": "Female",
-                "season": "Spring, Summer",
-                "notes": "Top - Coconut, Peach, Bergamot, Mandarin / Heart - Tiare, White Flowers, Jasmine, Rose / Base - White Musk, Patchouli",
-                "category": ["Floral", "Fruity", "Fresh"],
-            },
-            {
-                "name": "Arabiyat Prestige Nyla Vanielle",
-                "brand": "Arabiyat Prestige",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Jasmine, Vanilla Bean / Heart - Caramel, Amber / Base - Musk, Tonka Bean, Vanilla",
-                "category": ["Gourmand", "Sweet", "Floral"],
-            },
-            {
-                "name": "Ard Al Zaafaran Bint Hooran",
-                "brand": "Ard Al Zaafaran",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Almond, Coffee, Ylang Ylang / Heart - Jasmine, Rose, Tuberose / Base - Vanilla, Musk, Tonka, Woody/Cacao",
-                "category": ["Gourmand", "Floral", "Oriental"],
-            },
-            {
-                "name": "Armaf Island Bliss",
-                "brand": "Armaf",
-                "gender": "Unisex",
-                "season": "Spring, Summer",
-                "notes": "Top - Tropical Fruits, Coconut / Heart - Sweet / Base - Musk",
-                "category": ["Fruity", "Fresh", "Sweet"],
-            },
-            {
-                "name": "Armaf Odyssey Aqua",
-                "brand": "Armaf",
-                "gender": "Male",
-                "season": "Spring, Summer",
-                "notes": "Top - Orange, Grapefruit, Artemisia / Heart - Mint, Lavender / Base - Ambroxan, Cypress, Patchouli",
-                "category": ["Fresh", "Citrus", "Aromatic"],
-            },
-            {
-                "name": "Armaf Odyssey Candee",
-                "brand": "Armaf",
-                "gender": "Female-leaning",
-                "season": "Fall, Winter",
-                "notes": "Top - Strawberry, Raspberry, Peach, Bergamot / Heart - Caramel, Jasmine / Base - Patchouli, Musk, Amber",
-                "category": ["Fruity", "Gourmand", "Sweet"],
-            },
-            {
-                "name": "Armaf Odyssey Marshmallow",
-                "brand": "Armaf",
-                "gender": "Unisex",
-                "season": "Spring, Fall, Winter",
-                "notes": "Top - Apple, Lemon, Coconut, Peony, Lily of the Valley / Heart - Strawberry, Peach, Raspberry, Apricot, Marshmallow, Orange Blossom / Base - Vanilla, Praline, Tonka, Amber, Musk, Mascarpone",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Banat Dubai",
-                "brand": "Le Chameau",
-                "gender": "Female",
-                "season": "Versatile to cooler",
-                "notes": "Top - Jasmine, Bergamot, Peony / Heart - Pineapple, Peach, Plum / Base - Musk, Patchouli, Sandalwood",
-                "category": ["Floral", "Fruity"],
-            },
-            {
-                "name": "Baraja Red 500",
-                "brand": "Baraja",
-                "gender": "Unisex/Male",
-                "season": "Fall, Winter",
-                "notes": "Top - Red Fruits, Spices / Heart - Sweet Notes / Base - Woody, Musk",
-                "category": ["Fruity", "Woody", "Spicy"],
-            },
-            {
-                "name": "Bellavita Vanilla",
-                "brand": "Bellavita",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Aldehydes, Heliotrope, Coconut, Vanilla / Heart - Vanilla, Mango / Base - White Musk, Coconut, Vanilla Absolute",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Berries Cream Macaron",
-                "brand": "Arabiyat Sugar",
-                "gender": "Female",
-                "season": "Spring-Fall",
-                "notes": "Berry + cream macaron gourmand",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Black Opinion",
-                "brand": "Black Opinion",
-                "gender": "Male/Unisex",
-                "season": "Fall-Winter",
-                "notes": "Dark, bold (woody/spicy/leather)",
-                "category": ["Woody", "Spicy", "Leather"],
-            },
-            {
-                "name": "Blue for Men Le Parfum",
-                "brand": "Blue for Men",
-                "gender": "Male/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Cardamom / Heart - Lavender, Iris / Base - Vanilla, Oriental Woods",
-                "category": ["Woody", "Oriental", "Spicy"],
-            },
-            {
-                "name": "Caramel Chocolate Macaron",
-                "brand": "Arabiyat Sugar",
-                "gender": "Female/Unisex",
-                "season": "Fall-Winter",
-                "notes": "Caramel-chocolate-macaron gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Club de Nuit Women",
-                "brand": "Armaf",
-                "gender": "Female",
-                "season": "Spring, Fall",
-                "notes": "Top - Apple, Citrus / Heart - Rose, Jasmine / Base - Vanilla, Musk",
-                "category": ["Floral", "Fruity", "Fresh"],
-            },
-            {
-                "name": "Coconut Chiffon",
-                "brand": "Arabiyat Sugar",
-                "gender": "Female/Unisex",
-                "season": "Spring-Summer",
-                "notes": "Coconut + light cake/chiffon",
-                "category": ["Gourmand", "Sweet", "Fresh"],
-            },
-            {
-                "name": "Confections",
-                "brand": "Paris Corner",
-                "gender": "Female/Unisex",
-                "season": "Fall-Winter",
-                "notes": "Gourmand/sweet, confectionery-style",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Dulzura",
-                "brand": "Paris Corner",
-                "gender": "Female",
-                "season": "Fall-Winter",
-                "notes": "Top - Black pepper, buttermilk / Heart - Cake, vanilla, cream / Base - Amber, musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Eclaire Banoffi",
-                "brand": "Lattafa",
-                "gender": "Unisex/Female",
-                "season": "Fall-Winter",
-                "notes": "Banana-toffee/Ã©clair gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Ãclat Parfumerie Al Gazal",
-                "brand": "Ãclat Parfumerie",
-                "gender": "Unisex (leans masculine)",
-                "season": "Versatile to cooler",
-                "notes": "Limited public data; typically woody-oriental or spicy",
-                "category": ["Woody", "Oriental"],
-            },
-            {
-                "name": "Elyssia Aura",
-                "brand": "Riiffs",
-                "gender": "Unisex",
-                "season": "Fall, Winter (versatile to cooler)",
-                "notes": "Top - Cinnamon, Orange, Nutmeg / Heart - Vanilla Cream, Cognac, Cocoa / Base - Bourbon Vanilla, Cedarwood, Patchouli",
-                "category": ["Gourmand", "Spicy", "Woody"],
-            },
-            {
-                "name": "Elyssia Scarlet",
-                "brand": "Riiffs",
-                "gender": "Female",
-                "season": "Spring-Summer / versatile",
-                "notes": "Top - Black Cherry, Pink Pepper / Heart - Leather, Cream, Benzoin / Base - Vanilla Absolute, Cashmeran, Amber, Iso E Super",
-                "category": ["Fruity", "Leather", "Sweet"],
-            },
-            {
-                "name": "Emir Pear Potion",
-                "brand": "Paris Corner",
-                "gender": "Unisex",
-                "season": "Spring",
-                "notes": "Top - Pear, Apple / Heart - Caramel, Jasmine / Base - Raspberry, Musk",
-                "category": ["Fruity", "Gourmand", "Sweet"],
-            },
-            {
-                "name": "Empire Najm by Risala",
-                "brand": "Risala",
-                "gender": "Unisex (female-leaning)",
-                "season": "Fall, Winter",
-                "notes": "Top - Mango, Ginger, Lemon, Red Berries / Heart - Coumarin, Jasmine, Cedar / Base - Cypriol, Amber, Musk, Oud",
-                "category": ["Fruity", "Oriental", "Woody"],
-            },
-            {
-                "name": "Emper Boulevard of New York",
-                "brand": "Le Chameau",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Roasted Coffee Beans / Heart - Praline, Rose / Base - Oakmoss, Cedar, Amber",
-                "category": ["Gourmand", "Woody"],
-            },
-            {
-                "name": "Entice Extrait",
-                "brand": "Vurv",
-                "gender": "Female",
-                "season": "Cooler / evening",
-                "notes": "Richer/intensified sweet/fruity or oriental",
-                "category": ["Oriental", "Sweet", "Fruity"],
-            },
-            {
-                "name": "Entice Ruby",
-                "brand": "Vurv",
-                "gender": "Female",
-                "season": "Spring-Summer / versatile",
-                "notes": "Fruity-floral / berry-red fruit leaning",
-                "category": ["Fruity", "Floral"],
-            },
-            {
-                "name": "Espada Intense",
-                "brand": "Le Chameau",
-                "gender": "Male",
-                "season": "Cooler seasons / evening",
-                "notes": "Deeper/intensified version of Espada Prime",
-                "category": ["Woody", "Spicy"],
-            },
-            {
-                "name": "Espada Prime",
-                "brand": "Le Chameau",
-                "gender": "Male",
-                "season": "Spring-Summer / versatile",
-                "notes": "Fresh or spicy-woody",
-                "category": ["Fresh", "Woody", "Spicy"],
-            },
-            {
-                "name": "Fakhama",
-                "brand": "Amaran",
-                "gender": "Unisex/Male",
-                "season": "Cooler seasons",
-                "notes": "Luxury oriental or woody",
-                "category": ["Oriental", "Woody"],
-            },
-            {
-                "name": "Fragrance World CrÃ¨me of Clouds",
-                "brand": "Fragrance World",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Vanilla, Chocolate, Burnt Sugar / Heart - Milk, Creamy/Coconut Milk, Whipped Cream / Base - Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "French Avenue 8th Wonder",
-                "brand": "French Avenue",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Cardamom, Pink Pepper, Candy Apple / Heart - Liquor, Dates, Boozy notes, Davana, Osmanthus / Base - Myrrh, Benzoin, Styrax, Amber Xtreme, Labdanum, Patchouli",
-                "category": ["Oriental", "Spicy", "Sweet"],
-            },
-            {
-                "name": "French Avenue Spectre Original",
-                "brand": "French Avenue",
-                "gender": "Male/Unisex (leans masculine)",
-                "season": "Fall, Winter",
-                "notes": "Top - Incense, Guaiac Wood, Saffron / Heart - Leather, Amberwood, Violet, Sugar Cane / Base - Smoke, Patchouli, Sandalwood, Woodsy Notes, Black Musk",
-                "category": ["Woody", "Leather", "Oriental"],
-            },
-            {
-                "name": "French Avenue Vulcan Baie",
-                "brand": "French Avenue",
-                "gender": "Unisex",
-                "season": "Spring, Summer",
-                "notes": "Top - Blackberry, Black Currant, Rosemary, Bergamot / Heart - Raspberry, Vodka, Basil, Lily of the Valley / Base - Strawberry, Musk, Peach, Amber, Sandalwood, Patchouli, Incense",
-                "category": ["Fruity", "Fresh", "Aromatic"],
-            },
-            {
-                "name": "French Vanilla Latte",
-                "brand": "Arabiyat Sugar",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Nutella, Cardamom, Rum / Heart - Cocoa, Coconut, White Flowers, Lily of the Valley / Base - Sandalwood, Ambergris, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Ghaliya",
-                "brand": "Zakat",
-                "gender": "Unisex/Female",
-                "season": "Fall-Winter",
-                "notes": "Rich oriental/oud-floral",
-                "category": ["Oriental", "Floral", "Oud"],
-            },
-            {
-                "name": "Gulf Orchid Cookie Bite",
-                "brand": "Gulf Orchid",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Cookie, Butter / Heart - Vanilla, Musk / Base - Caramel, Amber",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Gulf Orchid PiÃ±a Colada Musk Collection Body Spray",
-                "brand": "Gulf Orchid",
-                "gender": "Unisex",
-                "season": "Spring, Summer",
-                "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk",
-                "category": ["Fruity", "Fresh", "Sweet"],
-            },
-            {
-                "name": "Hawas Elixir",
-                "brand": "Rasasi",
-                "gender": "Unisex",
-                "season": "Fall-Winter",
-                "notes": "Top - Mint, bergamot, artemisia / Heart - Dark chocolate, lavender, benzoin / Base - Vanilla, tonka bean, white musk",
-                "category": ["Gourmand", "Fresh", "Sweet"],
-            },
-            {
-                "name": "Heroes Energize",
-                "brand": "Heroes",
-                "gender": "Male",
-                "season": "Spring, Summer",
-                "notes": "Top - Citrus, Aromatic Herbs / Heart - Light Spices / Base - Woods, Musk",
-                "category": ["Fresh", "Citrus", "Aromatic"],
-            },
-            {
-                "name": "Kandy Rush",
-                "brand": "Kandy Rush",
-                "gender": "Female/Unisex",
-                "season": "Fall-Winter / casual year-round",
-                "notes": "Sweet candy/gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Khadlaj Cafe Latte",
-                "brand": "Khadlaj",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Coffee, Sweet Almond, Milk / Heart - Vanilla, Ice Cream Accord, Amber / Base - Vanilla, Almond Cream, Caramel",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Khadlaj Cream Velvet",
-                "brand": "Khadlaj",
-                "gender": "Unisex (leans feminine)",
-                "season": "Fall, Winter",
-                "notes": "Top - Caramel, Butter / Heart - Tonka, Honey, Jasmine / Base - Vanilla, Musk, Amber",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Khadlaj Hareem Al Sultan Gold",
-                "brand": "Khadlaj",
-                "gender": "Female",
-                "season": "Spring, Summer",
-                "notes": "Top - Bergamot, Jasmine, Peony / Heart - Pineapple, Peach, Plum / Base - Musk, Sandalwood, Patchouli",
-                "category": ["Floral", "Fruity", "Fresh"],
-            },
-            {
-                "name": "Khadlaj Nuha Vanilla Pearl",
-                "brand": "Khadlaj",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Blackcurrant, Strawberry, Freesia / Heart - Raspberry, Magnolia, Cashmere Wood / Base - Vanilla, Caramel, Moss",
-                "category": ["Fruity", "Gourmand", "Floral"],
-            },
-            {
-                "name": "Khadlaj Peach Velvet",
-                "brand": "Khadlaj",
-                "gender": "Female",
-                "season": "Spring, Summer, Fall",
-                "notes": "Top - Guava, Peach, Nectarine / Heart - Vanilla, Ginger, Cinnamon, Amber / Base - Caramel, Musk, Sandalwood",
-                "category": ["Fruity", "Gourmand", "Sweet"],
-            },
-            {
-                "name": "Khadlaj Zainab Oil",
-                "brand": "Khadlaj",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Bergamot, Gardenia, Almond / Heart - Coconut, Caramel / Base - Patchouli, Vanilla, Musk",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Khamrah Waha",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall-Winter",
-                "notes": "Spicy-sweet (date, cinnamon, vanilla family)",
-                "category": ["Oriental", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Khayali Vanilla Ayelet",
-                "brand": "Khayali",
-                "gender": "Unisex",
-                "season": "Fall-Winter",
-                "notes": "Vanilla orchid, jasmine / Brown sugar, tonka / Amber, musk, patchouli (Kayali-inspired)",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Lattafa Angham",
-                "brand": "Lattafa",
-                "gender": "Unisex (leans feminine)",
-                "season": "Fall, Winter",
-                "notes": "Top - Ginger, Mandarin, Pink Pepper / Heart - Lavender, Praline, Cacao, Jasmine / Base - Vanilla, Amber, Musk",
-                "category": ["Gourmand", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Lattafa Ansaam Gold",
-                "brand": "Lattafa",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Mandarin Orange, Pear / Heart - Sweet Notes, Jasmine, Rose / Base - Musk, Vanilla, Raspberry",
-                "category": ["Fruity", "Floral", "Sweet"],
-            },
-            {
-                "name": "Lattafa Asad",
-                "brand": "Lattafa",
-                "gender": "Male",
-                "season": "Fall, Winter",
-                "notes": "Top - Black Pepper, Tobacco, Pineapple / Heart - Patchouli, Coffee, Iris / Base - Vanilla, Amber, Dry Woods, Benzoin, Labdanum",
-                "category": ["Woody", "Spicy", "Oriental"],
-            },
-            {
-                "name": "Lattafa Badee Al Oud Noble Blush",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Rose Milk / Heart - Meringue, Almond / Base - Vanilla, Musk, Sandalwood",
-                "category": ["Floral", "Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Coral (Ana Abiyedh Coral)",
-                "brand": "Lattafa",
-                "gender": "Unisex (leans feminine)",
-                "season": "Spring, Summer",
-                "notes": "Top - Watermelon, Peach, Orange / Heart - Coconut, White Flowers / Base - Musk, Vanilla, Amber",
-                "category": ["Fruity", "Fresh", "Sweet"],
-            },
-            {
-                "name": "Lattafa Dalal",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Spring",
-                "notes": "Top - Apple (Golden Delicious), Mandarin / Heart - Jasmine, Ylang-Ylang, Orange Flower / Base - Vanilla, Musk, Oakmoss",
-                "category": ["Floral", "Fruity", "Fresh"],
-            },
-            {
-                "name": "Lattafa Eclaire",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Caramel, Milk, Sugar / Heart - Honey, White Flowers / Base - Vanilla, Praline, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Emaan",
-                "brand": "Lattafa",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Orange Blossom, Black Currant, Bergamot / Heart - Tuberose, Jasmine, Marigold / Base - Musk, Vanilla, Cedarwood, Patchouli",
-                "category": ["Floral", "Fruity"],
-            },
-            {
-                "name": "Lattafa Eternal Vanille",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Year-round (best Spring/Fall)",
-                "notes": "Top - Blackberry / Heart - Cocoapulse, Vanilla Caviar, Cacao / Base - Akigalawood, Tonka Bean, Ambrofix, Cedarwood, Benzoin, Musk",
-                "category": ["Gourmand", "Woody", "Sweet"],
-            },
-            {
-                "name": "Lattafa Fakhar Black",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Dark Fruits, Spices / Heart - Woody / Base - Vanilla, Musk",
-                "category": ["Fruity", "Woody", "Spicy"],
-            },
-            {
-                "name": "Lattafa Fakhar Gold",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Tuberose, Salt / Heart - Amber, Tonka / Base - Cedarwood, Vetiver, Labdanum",
-                "category": ["Floral", "Woody", "Oriental"],
-            },
-            {
-                "name": "Lattafa Habik (Women's version)",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Spring, Summer",
-                "notes": "Top - Pear, Bergamot / Heart - Lily of the Valley, Jasmine, Freesia / Base - Musk, Amber, Oakmoss",
-                "category": ["Floral", "Fresh", "Fruity"],
-            },
-            {
-                "name": "Lattafa Haya",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Champagne, Strawberry, Rose, Tangerine, Blood Orange / Heart - Gardenia, Jasmine, Vanilla Orchid / Base - Amber, Sandalwood",
-                "category": ["Floral", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Lattafa Her Confessions",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Cinnamon / Heart - Tuberose, Jasmine, Incense / Base - Vanilla, Musk, Tonka",
-                "category": ["Floral", "Spicy", "Oriental"],
-            },
-            {
-                "name": "Lattafa His Confessions",
-                "brand": "Lattafa",
-                "gender": "Male",
-                "season": "Fall, Winter",
-                "notes": "Top - Lavender, Cinnamon, Mandarin / Heart - Iris, Benzoin, Cypress, Mahonial / Base - Vanilla, Tonka, Amber, Incense, Cedarwood, Patchouli",
-                "category": ["Woody", "Spicy", "Oriental"],
-            },
-            {
-                "name": "Lattafa Khamrah Dukhan",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Spices, Pimento, Mandarin / Heart - Incense, Labdanum, Orange Blossom, Patchouli / Base - Tobacco, Praline, Amber, Tonka Bean, Benzoin",
-                "category": ["Oriental", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Lattafa Khamrah Original",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Cinnamon, Nutmeg, Bergamot / Heart - Dates, Praline, Tuberose, Mahonial / Base - Vanilla, Tonka Bean, Amberwood, Myrrh, Benzoin, Akigalawood",
-                "category": ["Oriental", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Lattafa Khamrah Qahwa",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Cinnamon, Cardamom, Ginger / Heart - Praline, Candied Fruits, White Flowers / Base - Coffee, Vanilla, Tonka Bean, Benzoin, Musk",
-                "category": ["Gourmand", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Lattafa Maitha Oil (Attar)",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Anise / Heart - Caramel / Base - Vanilla, Tonka Bean, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Mayar Cherry Intense",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Strawberry, Bergamot / Heart - Cherry Jam, Cacao / Base - Vanilla, Amber, Patchouli",
-                "category": ["Fruity", "Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Nasmaat",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Spring, Fall",
-                "notes": "Top - Blackcurrant, Apricot, Pineapple / Heart - Magnolia, Cyclamen, Jasmine, Orange Blossom, Rose / Base - Vanilla, Cashmeran, Caramel, Sandalwood",
-                "category": ["Floral", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Lattafa Nebras",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Red Berries, Mandarin Orange / Heart - Vanilla, Cacao, Rose / Base - Sugar, Tonka Bean, Amber, Musk",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Lattafa Nebras Elixir",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter, Mild Spring",
-                "notes": "Top - Milk Candy, Whipped Cream / Heart - Sugar Cane, Heliotrope / Base - Vanilla, Ambroxan, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Opulent Dubai",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Spring, Summer (versatile year-round in mild climates)",
-                "notes": "Top - Mango, Grapefruit, Lemon, Ginger / Heart - Jasmine, Cedarwood, Violet / Base - Woodsy notes, Ambergris, Benzoin, Oakmoss",
-                "category": ["Fruity", "Woody", "Fresh"],
-            },
-            {
-                "name": "Lattafa Oud Mood",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Rose, Saffron, Pimento / Heart - Agarwood (Oud), Caramel, Floral Notes, Patchouli / Base - Woody Notes, Amber, Resins, Incense, Musk",
-                "category": ["Oriental", "Oud", "Woody"],
-            },
-            {
-                "name": "Lattafa Qaed Al Fursan (Original)",
-                "brand": "Lattafa",
-                "gender": "Unisex (leans masculine)",
-                "season": "Versatile",
-                "notes": "Top - Pineapple, Saffron / Heart - Balsam Fir, Jasmine / Base - Cedar, Amber, Agarwood (Oud)",
-                "category": ["Fruity", "Woody", "Oud"],
-            },
-            {
-                "name": "Lattafa Qaed Al Fursan Unlimited",
-                "brand": "Lattafa",
-                "gender": "Male/Unisex",
-                "season": "Spring, Fall",
-                "notes": "Top - Coconut, Pineapple, Citruses / Heart - Ylang-Ylang, Frangipani, Jasmine / Base - Vanilla, Musk, Sandalwood, Sweet Notes",
-                "category": ["Fruity", "Floral", "Sweet"],
-            },
-            {
-                "name": "Lattafa Qaed Al Fursan Untamed",
-                "brand": "Lattafa",
-                "gender": "Male/Unisex",
-                "season": "Spring, Fall",
-                "notes": "Top - Apple, Citrus / Heart - Floral / Base - Sweet, Woody",
-                "category": ["Fruity", "Woody", "Fresh"],
-            },
-            {
-                "name": "Lattafa Raneen",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Fruity, Sweet / Heart - Floral / Base - Vanilla, Musk",
-                "category": ["Floral", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Lattafa Rave Now (for Women)",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Spring, Fall",
-                "notes": "Top - Red Fruits, Orange / Heart - Marshmallow, Jasmine, Lily of the Valley / Base - Vanilla, Musk, Moss",
-                "category": ["Fruity", "Gourmand", "Floral"],
-            },
-            {
-                "name": "Lattafa Rave Now Intense",
-                "brand": "Lattafa",
-                "gender": "Male/Unisex",
-                "season": "Spring, Fall",
-                "notes": "Top - Cucumber, Watermelon, Tangerine / Heart - Basil, Sage / Base - Sandalwood, Leather, Cedar",
-                "category": ["Fresh", "Woody", "Aromatic"],
-            },
-            {
-                "name": "Lattafa Sakeena",
-                "brand": "Lattafa",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Passionfruit, Mandarin Orange, Ozonic Notes / Heart - Raspberry, Rose, Orange Blossom, Sea Salt / Base - Toffee, Praline, Vanilla, Musk",
-                "category": ["Fruity", "Gourmand", "Floral"],
-            },
-            {
-                "name": "Lattafa Teriaq",
-                "brand": "Lattafa",
-                "gender": "Unisex (leans feminine)",
-                "season": "Fall, Winter",
-                "notes": "Top - Caramel, Bitter Almond, Apricot, Pink Pepper / Heart - Honey, Rhubarb, White Flowers, Rose / Base - Leather, Vanilla, Musk, Vetiver, Labdanum",
-                "category": ["Gourmand", "Floral", "Oriental"],
-            },
-            {
-                "name": "Lattafa Teriaq Intense",
-                "brand": "Lattafa",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Saffron, Bergamot / Heart - Plum Liquor, Cinnamon / Base - Amber, Tonka Bean, Benzoin",
-                "category": ["Oriental", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Lattafa Vanilla Freak (Give Me Gourmand)",
-                "brand": "Lattafa",
-                "gender": "Unisex / Female-leaning",
-                "season": "Fall, Spring",
-                "notes": "Top - Cupcake / Heart - Sugar Frosting, Almond, Cinnamon / Base - Butter, Vanilla, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Whipped Pleasure (Give Me Gourmand)",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Caramel, Popcorn, Salted Caramel / Heart - Milk, Jasmine / Base - Tonka, Benzoin, Musk, Ambrofix",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Lattafa Yara Candy Body Spray",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Candy, Sweet / Heart - Fruity / Base - Vanilla, Musk",
-                "category": ["Gourmand", "Sweet", "Fruity"],
-            },
-            {
-                "name": "Lattafa Yara Tous",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Versatile",
-                "notes": "Top - Fruity, Sweet / Heart - Floral / Base - Vanilla, Musk",
-                "category": ["Floral", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Love & Peace",
-                "brand": "Lattafa",
-                "gender": "Unisex/Female",
-                "season": "Spring-Fall",
-                "notes": "Soft floral, musky, or peaceful sweet",
-                "category": ["Floral", "Sweet"],
-            },
-            {
-                "name": "Maison Alhambra Luxe Chic",
-                "brand": "Maison Alhambra",
-                "gender": "Female/Unisex",
-                "season": "Spring, Fall",
-                "notes": "Top - Tangerine, Freesia / Heart - Lily of the Valley, Jasmine, Rose / Base - Musk, Sandalwood, Amber",
-                "category": ["Floral", "Fresh"],
-            },
-            {
-                "name": "Maison Asrar Vanilla Aura",
-                "brand": "Maison Asrar",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Vanilla / Heart - Creamy Sweet / Base - Vanilla, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Maison Asrar Vanilla Seduction",
-                "brand": "Maison Asrar",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Plum, Jasmine, Lily of the Valley / Heart - Vanilla, Brown Sugar, Caramel / Base - Tonka, Patchouli, Amber, Musk",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Majestic Supreme",
-                "brand": "Le Falcone",
-                "gender": "Women/Unisex",
-                "season": "Fall-Winter / versatile",
-                "notes": "Top - Rose, peony, pink pepper / Heart - Raspberry blossom, jasmine / Base - Amber, papyrus, tonka, vanilla",
-                "category": ["Floral", "Sweet"],
-            },
-            {
-                "name": "Malika",
-                "brand": "Nusuk",
-                "gender": "Female",
-                "season": "Versatile",
-                "notes": "Floral or oriental",
-                "category": ["Floral", "Oriental"],
-            },
-            {
-                "name": "Mango Affogato",
-                "brand": "Arabiyat Sugar",
-                "gender": "Unisex",
-                "season": "Spring-Summer / year-round",
-                "notes": "Top - Mango, nutmeg, clove / Heart - Leather, saffron, amber, moss / Base - Akigalawood, patchouli, vetiver, cypriol",
-                "category": ["Fruity", "Woody", "Spicy"],
-            },
-            {
-                "name": "Mango Ice",
-                "brand": "Gulf Orchid",
-                "gender": "Unisex",
-                "season": "Spring-Summer",
-                "notes": "Fruity mango with cool/icy facets",
-                "category": ["Fruity", "Fresh"],
-            },
-            {
-                "name": "Mayar",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Spring, Summer",
-                "notes": "Top - Lychee, Raspberry, Violet Leaf / Heart - Peony, White Rose, Jasmine / Base - Musk, Vanilla",
-                "category": ["Floral", "Fruity", "Fresh"],
-            },
-            {
-                "name": "Mayar Natural Intense Body Spray",
-                "brand": "Mayar",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Sweet Gourmand / Heart - Vanilla / Base - Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Melt Cafe Bliss",
-                "brand": "Mamlakat Al Oud / Fragrance World",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Black Coffee, Amaretto Liquor / Heart - Vanilla Ice Cream, Speculoos / Base - Vanilla Pods, Brown Sugar, Grey Amber",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Melt CrÃ¨me Caramel",
-                "brand": "Mamlakat Al Oud",
-                "gender": "Unisex (leans feminine)",
-                "season": "Fall, Winter",
-                "notes": "Top - Caramel, Vanilla Flower / Heart - Dulce de Leche, Cotton Candy, Frangipani, White Flowers / Base - Vanilla Pod, Tonka Bean, Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Melt Marshmallows Kiss",
-                "brand": "Mamlakat Al Oud",
-                "gender": "Unisex",
-                "season": "Fall, Winter, Spring",
-                "notes": "Top - Strawberry, Blackberry (or Caramel/Milk) / Heart - Jasmine, Rose, Marshmallow, Vanilla, Honey / Base - Vanilla, Musk, Praline, Tonka",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Melt Vanilla Madness",
-                "brand": "Mamlakat Al Oud",
-                "gender": "Unisex (leans feminine)",
-                "season": "Fall, Winter (versatile year-round)",
-                "notes": "Top - Vanilla (woody tones), Lavender, Cacao, Ginger / Heart - Vanilla Caviar / Base - Vanilla Absolute",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Melt Velvet Breeze",
-                "brand": "Mamlakat Al Oud",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Italian Bergamot, Pistachio Gelato, Hazelnut, Sweet Rum, Cardamom / Heart - Geranium, White Peony, Muguet, Jasmine / Base - Amber, Musk, Woody Notes",
-                "category": ["Gourmand", "Floral", "Woody"],
-            },
-            {
-                "name": "Miss Armaf Mystique",
-                "brand": "Armaf",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Pear, Tangerine, Bergamot, Orange / Heart - Vanilla, Strawberry, Mimosa, Rose, Ylang Ylang, Jasmine, Passionfruit / Base - Vanilla, Coffee, Tonka Bean, Patchouli, Vetiver",
-                "category": ["Floral", "Fruity", "Gourmand"],
-            },
-            {
-                "name": "Momento",
-                "brand": "Riiffs",
-                "gender": "Unisex",
-                "season": "Versatile",
-                "notes": "Soft or aromatic (limited public data)",
-                "category": ["Aromatic"],
-            },
-            {
-                "name": "Mystique Charm",
-                "brand": "Mystique Charm",
-                "gender": "Unisex/Female",
-                "season": "Cooler seasons",
-                "notes": "Mysterious oriental or floral-woody",
-                "category": ["Oriental", "Floral", "Woody"],
-            },
-            {
-                "name": "Nagham",
-                "brand": "Atyaab",
-                "gender": "Unisex possible",
-                "season": "Versatile",
-                "notes": "Arabic-style (floral-woody or oriental)",
-                "category": ["Floral", "Woody", "Oriental"],
-            },
-            {
-                "name": "Nusuk Falak",
-                "brand": "Nusuk",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Brown Sugar, Caramel, Biscuit / Heart - Toffee, Vanilla Bean, Amber / Base - White Musk, Praline",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Obsidian",
-                "brand": "French Avenue",
-                "gender": "Unisex/Male",
-                "season": "Fall-Winter",
-                "notes": "Dark, woody, or smoky-oriental",
-                "category": ["Woody", "Oriental", "Smoky"],
-            },
-            {
-                "name": "Panache Angel Dust",
-                "brand": "Khadlaj",
-                "gender": "Female",
-                "season": "Spring-Fall / versatile",
-                "notes": "Soft, powdery, musk-vanilla / angelic",
-                "category": ["Floral", "Sweet", "Powdery"],
-            },
-            {
-                "name": "Paris Corner Eshal Vanilla",
-                "brand": "Paris Corner",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Sugar, Sweet Notes / Heart - Rose, Jasmine / Base - Vanilla, Caramel, Musk",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Paris Corner Khair Men",
-                "brand": "Paris Corner",
-                "gender": "Male/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Davana, Bergamot, Pink Pepper / Heart - Agarwood (Oud), Amber, Rosemary / Base - Leather, Vetiver, Musk",
-                "category": ["Woody", "Oud", "Spicy"],
-            },
-            {
-                "name": "Paris Corner Marshmallow Blush",
-                "brand": "Paris Corner",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Marshmallow, Sweet / Heart - Fruity / Base - Vanilla, Musk",
-                "category": ["Gourmand", "Sweet", "Fruity"],
-            },
-            {
-                "name": "Paris Corner Qissa Delicious",
-                "brand": "Paris Corner",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Whipped Cream, Dark Chocolate, Orange / Heart - Marshmallow, Coconut, Jasmine / Base - Vanilla, White Musk",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Pecan Butter Cookie",
-                "brand": "Arabiyat Sugar",
-                "gender": "Unisex/Female",
-                "season": "Fall-Winter",
-                "notes": "Top - Pecan, coconut milk, butter / Heart - Hazelnut, almond, roasted nuts / Base - Hazelnut, vanilla, ambergris",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Phlur Heavy Cream",
-                "brand": "Phlur",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Marshmallow, Sugar, Citrus / Heart - Coconut, Jasmine / Base - Whipped Cream, Vanilla, Caramel",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Phlur Vanilla Skin",
-                "brand": "Phlur",
-                "gender": "Unisex (female-leaning)",
-                "season": "Fall, Winter",
-                "notes": "Top - Sugar, Pink Pepper, Apple / Heart - Cashmere Wood, Jasmine, Lily / Base - Vanilla, Sandalwood, Agarwood, Benzoin",
-                "category": ["Gourmand", "Woody", "Sweet"],
-            },
-            {
-                "name": "Pink Velvet",
-                "brand": "Maison Alhambra",
-                "gender": "Female",
-                "season": "Spring-Fall",
-                "notes": "Soft, powdery, rosy, or gourmand-pink",
-                "category": ["Floral", "Sweet", "Powdery"],
-            },
-            {
-                "name": "Pink Yara / Yara Pink",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Spring-Summer",
-                "notes": "Top - Orchid, heliotrope, tangerine / Heart - Gourmand accord, tropical fruits / Base - Vanilla, musk, sandalwood",
-                "category": ["Floral", "Gourmand", "Fruity"],
-            },
-            {
-                "name": "Raheeq",
-                "brand": "Nusuk",
-                "gender": "Female/Unisex",
-                "season": "Versatile",
-                "notes": "Soft, sweet, or floral",
-                "category": ["Floral", "Sweet"],
-            },
-            {
-                "name": "Rave Rage",
-                "brand": "Lattafa",
-                "gender": "Unisex (leans masculine)",
-                "season": "Year-round",
-                "notes": "Top - Apple, mint / Heart - Geranium, cinnamon, lavender / Base - Vanilla, Peru balsam, cedarwood, guaiac wood",
-                "category": ["Fresh", "Woody", "Spicy"],
-            },
-            {
-                "name": "Rasasi Hawas Diva",
-                "brand": "Rasasi",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Red Fruits, Rhubarb, Lychee / Heart - Rose, Frankincense, Cedar / Base - Vanilla, Musk, Ambergris",
-                "category": ["Fruity", "Floral", "Woody"],
-            },
-            {
-                "name": "Rasasi Hawas Eclat (Eclat Hawas)",
-                "brand": "Rasasi",
-                "gender": "Female",
-                "season": "Spring, Fall",
-                "notes": "Top - Litchi/Lychee, Bergamot, Pear, Pistachio / Heart - Rose, Incense / Base - Vanilla, Amber, Musk, Woody Notes",
-                "category": ["Fruity", "Floral", "Woody"],
-            },
-            {
-                "name": "Rasasi Hawas Ice",
-                "brand": "Rasasi",
-                "gender": "Male",
-                "season": "Versatile",
-                "notes": "Top - Apple, Italian Lemon, Sicilian Bergamot, Star Anise / Heart - Plum, Orange Blossom, Cardamom / Base - Musk, Moss, Driftwood, Amber",
-                "category": ["Fresh", "Fruity", "Aromatic"],
-            },
-            {
-                "name": "Rasasi Hawas London",
-                "brand": "Rasasi",
-                "gender": "Unisex",
-                "season": "Fall, Spring",
-                "notes": "Top - Pink Pepper, Saffron, Pear / Heart - Rose, Frankincense, White Flowers / Base - Blonde Woods, Vanilla, Amber, Musk",
-                "category": ["Floral", "Woody", "Spicy"],
-            },
-            {
-                "name": "Rasasi Hawas Pink",
-                "brand": "Rasasi",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Cinnamon, Nutmeg, Neroli / Heart - Marshmallow, Tuberose, Orange Blossom / Base - Cotton Candy, Vanilla, Tonka Bean",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Red Velvet",
-                "brand": "Armaf Delights",
-                "gender": "Female/Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Strawberry, Lemon / Heart - Whipped Sugar, Sugarberry, Frangipani / Base - Vanilla Bean, Musk, Amber",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Rizz Tiramisu Candy",
-                "brand": "Rizz",
-                "gender": "Female",
-                "season": "Spring, Fall",
-                "notes": "Top - Bergamot / Heart - Blackcurrant, Strawberry Milk / Base - Musk, Vanilla",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Safa by Nusuk",
-                "brand": "Nusuk",
-                "gender": "Unisex/Female",
-                "season": "Spring-Summer / versatile",
-                "notes": "Top - Marshmallow, Strawberry, Lemon / Heart - Coconut, Sugar, Nectarine / Base - Vanilla, Musk, Ambroxan",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Sahari Ghubar Al Dhahab",
-                "brand": "Sahari",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Cinnamon, Pear, Mandarin, Floral notes / Heart - Jasmine Sambac, Orange Blossom / Base - White Musk, Vanilla, Tonka Bean, Coffee, Patchouli",
-                "category": ["Floral", "Spicy", "Sweet"],
-            },
-            {
-                "name": "Samiya",
-                "brand": "Khadlaj",
-                "gender": "Female",
-                "season": "Versatile",
-                "notes": "Floral or oriental",
-                "category": ["Floral", "Oriental"],
-            },
-            {
-                "name": "Sara Debai Essences",
-                "brand": "Sara Debai",
-                "gender": "Female",
-                "season": "Spring-Summer",
-                "notes": "Top - Heliotrope, orchid, tangerine / Heart - Gourmand accord, tropical fruits / Base - Vanilla, musk, sandalwood",
-                "category": ["Floral", "Gourmand", "Fruity"],
-            },
-            {
-                "name": "Spectre / Sceptre Malachite",
-                "brand": "Maison Alhambra",
-                "gender": "Unisex",
-                "season": "Spring-Summer",
-                "notes": "Top - Green tangerine, bergamot, blackcurrant / Heart - Aromatic + spicy notes, lavender, pink pepper, jasmine / Base - Amber, musk, woody notes, vetiver",
-                "category": ["Fresh", "Aromatic", "Woody"],
-            },
-            {
-                "name": "Strawberry Tres Leches",
-                "brand": "Arabiyat Sugar",
-                "gender": "Female",
-                "season": "Spring-Summer / year-round",
-                "notes": "Strawberry + milky cake gourmand",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Sugar Crown",
-                "brand": "Lattafa",
-                "gender": "Female/Unisex",
-                "season": "Fall-Winter",
-                "notes": "Sweet/sugar gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Sugar Me Dulce de Leche",
-                "brand": "Maison Alhambra",
-                "gender": "Unisex/Female",
-                "season": "Fall-Winter",
-                "notes": "Dulce de leche / caramel-vanilla gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Sweet Surrender",
-                "brand": "Mahajan",
-                "gender": "Female",
-                "season": "Fall-Winter / versatile",
-                "notes": "Soft sweet/gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Sweet Surrender Pink Parfait",
-                "brand": "Mahajan",
-                "gender": "Female",
-                "season": "Spring-Summer / year-round",
-                "notes": "Pink/fruity-parfait sweet",
-                "category": ["Gourmand", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Tahira",
-                "brand": "Riiffs",
-                "gender": "Female",
-                "season": "Versatile",
-                "notes": "Likely floral or oriental (limited public data)",
-                "category": ["Floral", "Oriental"],
-            },
-            {
-                "name": "Taif",
-                "brand": "Riiffs",
-                "gender": "Unisex",
-                "season": "Versatile (Spring-Summer preferred)",
-                "notes": "Top - Ginger, Calabrian Bergamot, Lemon, Orange Blossom / Heart - Musk, Rose Petals, Tuberose / Base - Vanilla Bean, Amberwood, Clearwood",
-                "category": ["Floral", "Fresh", "Woody"],
-            },
-            {
-                "name": "The King",
-                "brand": "Ali",
-                "gender": "Male",
-                "season": "Fall-Winter / versatile",
-                "notes": "Masculine woody or oriental",
-                "category": ["Woody", "Oriental"],
-            },
-            {
-                "name": "Toffee Ganache",
-                "brand": "Arabiyat Sugar",
-                "gender": "Unisex",
-                "season": "Fall-Winter",
-                "notes": "Toffee/chocolate gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Valentine Milano",
-                "brand": "Valentine",
-                "gender": "Unisex",
-                "season": "Fall, Winter",
-                "notes": "Top - Raspberry, Peach, Bergamot / Heart - Rose, Jasmine, Orange Blossom / Base - Vanilla, Amber, Woods",
-                "category": ["Floral", "Fruity", "Sweet"],
-            },
-            {
-                "name": "Valentine Nero Xtravagant",
-                "brand": "Valentine (Urban Collection)",
-                "gender": "Male / Unisex (leans masculine)",
-                "season": "Fall, Winter (versatile)",
-                "notes": "Top - Calabrian Bergamot, Espresso Coffee Accord / Heart - Coffee / Base - Vetiver",
-                "category": ["Woody", "Fresh", "Aromatic"],
-            },
-            {
-                "name": "Vanilla Addiction",
-                "brand": "Gulf Orchid",
-                "gender": "Unisex/Female",
-                "season": "Fall-Winter",
-                "notes": "Vanilla-forward gourmand",
-                "category": ["Gourmand", "Sweet"],
-            },
-            {
-                "name": "Vanilla Dunes",
-                "brand": "Khadlaj",
-                "gender": "Unisex",
-                "season": "Autumn, Winter",
-                "notes": "Top - Vanilla, Cinnamon, Cardamom, Bergamot / Heart - Orange Blossom, Guaiac Wood, Bourbon / Base - Praline, Amber, Musk",
-                "category": ["Gourmand", "Spicy", "Woody"],
-            },
-            {
-                "name": "Yara Elixir",
-                "brand": "Lattafa",
-                "gender": "Female",
-                "season": "Fall, Winter, Cool Spring Days",
-                "notes": "Top - Strawberry S'mores, Black Currant / Heart - Jasmine, Orange Blossom / Base - Vanilla, Caramel, Amber, Musk",
-                "category": ["Gourmand", "Floral", "Sweet"],
-            },
-            {
-                "name": "Zenith",
-                "brand": "Riiffs",
-                "gender": "Unisex",
-                "season": "Spring-Summer / versatile",
-                "notes": "Top - Coconut, Vanilla, Cream / Heart - Rum, Saffron / Base - Cashmeran, Tonka Bean",
-                "category": ["Gourmand", "Sweet", "Fresh"],
-            },
-            {
-                "name": "Zimaya Fatima (Fatima Pink)",
-                "brand": "Zimaya",
-                "gender": "Female",
-                "season": "Spring, Fall",
-                "notes": "Top - Rhubarb, Bergamot, Grapefruit, Nutmeg / Heart - Rose, Jasmine / Base - Musk, Vanilla, Vetiver, Ambergris",
-                "category": ["Floral", "Fruity", "Fresh"],
-            },
-            {
-                "name": "Zimaya Hawwa Red",
-                "brand": "Zimaya",
-                "gender": "Female",
-                "season": "Fall, Winter",
-                "notes": "Top - Cassis, Strawberry, Raspberry, Orange / Heart - Black Currant, Grapefruit, Peach, Lily / Base - Musk, Vanilla, Patchouli",
-                "category": ["Fruity", "Floral", "Sweet"],
-            },
+        {"name": "8th Wonder", "brand": "French Avenue", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Cardamom, Pink Pepper, Candy Apple / Heart - Liquor, Dates, Boozy notes, Davana, Osmanthus / Base - Myrrh, Benzoin, Styrax, Amber Xtreme, Labdanum, Patchouli", "category": ["Oriental", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Ajwad", "brand": "Lattafa", "gender": "Unisex", "season": "Versatile (cooler preferred)", "notes": "Fruity-woody-oriental (pineapple/rose/oud-leaning)", "category": ["Oriental", "Woody", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Angham", "brand": "Lattafa", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Ginger, Mandarin, Pink Pepper / Heart - Lavender, Praline, Cacao, Jasmine / Base - Vanilla, Amber, Musk", "category": ["Gourmand", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Ansaam Gold", "brand": "Lattafa", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Mandarin Orange, Pear / Heart - Sweet Notes, Jasmine, Rose / Base - Musk, Vanilla, Raspberry", "category": ["Fruity", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Asad", "brand": "Lattafa", "gender": "Male", "season": "Fall, Winter", "notes": "Top - Black Pepper, Tobacco, Pineapple / Heart - Patchouli, Coffee, Iris / Base - Vanilla, Amber, Dry Woods, Benzoin, Labdanum", "category": ["Woody", "Spicy", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Badee Al Oud Noble Blush", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Rose Milk / Heart - Meringue, Almond / Base - Vanilla, Musk, Sandalwood", "category": ["Floral", "Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Bahiya Garnet", "brand": "Arabiyat Prestige", "gender": "Female-leaning", "season": "Fall, Winter", "notes": "Top - Cherry, Mandarin, Mango, Pear, Bergamot / Heart - Amber, Fig, Jasmine / Base - Amber, Vanilla, Sandalwood, Musk", "category": ["Fruity", "Oriental", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Banat Dubai", "brand": "Le Chameau", "gender": "Female", "season": "Versatile to cooler", "notes": "Top - Jasmine, Bergamot, Peony / Heart - Pineapple, Peach, Plum / Base - Musk, Patchouli, Sandalwood", "category": ["Floral", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Berries Cream Macaron", "brand": "Arabiyat Sugar", "gender": "Female", "season": "Spring-Fall", "notes": "Top Notes: Juicy lycheeHeart (Middle) Notes: Raspberry, maltol (confectionary sweetness), and jasmineBase Notes: Ambroxan, ambergris (or dry amber), and evernyl", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Bint Hooran", "brand": "Ard Al Zaafaran", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Almond, Coffee, Ylang Ylang / Heart - Jasmine, Rose, Tuberose / Base - Vanilla, Musk, Tonka, Woody/Cacao", "category": ["Gourmand", "Floral", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Boulevard of New York", "brand": "Le Chameau", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Roasted Coffee Beans / Heart - Praline, Rose / Base - Oakmoss, Cedar, Amber", "category": ["Gourmand", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cafe Bliss", "brand": "Mamlakat Al Oud", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Black Coffee, Amaretto Liquor / Heart - Vanilla Ice Cream, Speculoos / Base - Vanilla Pods, Brown Sugar, Grey Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cafe Latte", "brand": "Khadlaj", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Coffee, Sweet Almond, Milk / Heart - Vanilla, Ice Cream Accord, Amber / Base - Vanilla, Almond Cream, Caramel", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Caramel Chocolate Macaron", "brand": "Arabiyat Sugar", "gender": "Female/Unisex", "season": "Fall-Winter", "notes": "Top Notes: Caramel, Coumarin (providing a sweet, warm, almond-vanilla nuance)Middle / Heart Notes: Honey, Soft Floral NotesBase Notes: Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Caramello", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Pistachio, Almond / Heart - Jasmine, Heliotrope / Base - Caramel, Vanilla, Sandalwood", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Chocomusk", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Warm Spicy, Amber / Heart - Sweet, Powdery, Vanilla / Base - Chocolate, Musky, Cocoa", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Chocomusk Marshmallow", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Marshmallow, Strawberry / Heart - Cocoa, Vanilla / Base - Sweet Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Chocomusk Vanilla", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Chocolate / Heart - Vanilla / Base - Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Club De Nuit Women", "brand": "Armaf", "gender": "Female", "season": "Spring, Fall", "notes": "Top - Apple, Citrus / Heart - Rose, Jasmine / Base - Vanilla, Musk", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Coconut Chiffon", "brand": "Arabiyat Sugar", "gender": "Female/Unisex", "season": "Spring-Summer", "notes": "Top Notes: CoconutMiddle (Heart) Notes: Coconut, JasmineBase Notes: Vanilla, Butter, Cooked Sugar (Caramel), Musk", "category": ["Gourmand", "Sweet", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Confections", "brand": "Paris Corner", "gender": "Female/Unisex", "season": "Fall-Winter", "notes": "Top Notes: Pear and Whipped CreamHeart (Middle) Notes: Cashmeran, Jasmine, and Ylang-YlangBase Notes: Marshmallow, Vanilla, and Sandalwood", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cookie Bite", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Cookie, Butter / Heart - Vanilla, Musk / Base - Caramel, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Coral (Ana Abiyedh Coral)", "brand": "Lattafa", "gender": "Unisex (leans feminine)", "season": "Spring, Summer", "notes": "Top - Watermelon, Peach, Orange / Heart - Coconut, White Flowers / Base - Musk, Vanilla, Amber", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cotton Blush", "brand": "Arabiyat Sugar", "gender": "Female", "season": "Spring, summer", "notes": "Top Notes: Strawberry, Raspberry, CoconutHeart (Middle) Notes: Marshmallow, Peony, RoseBase Notes: Vanilla, Amber, Musk", "category": ["Floral", "Fruity", "Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cotton Candy Delicacy", "brand": "Armaf", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top Notes: Raspberry, Pink Pepper, and CocoaHeart (Middle) Notes: Jasmine and RoseBase Notes: Vanilla, Benzoin Resinoid, and Cedarwood", "category": ["Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cream Velvet", "brand": "Khadlaj", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Butter / Heart - Tonka, Honey, Jasmine / Base - Vanilla, Musk, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Creme of Clouds", "brand": "Fragrance World", "gender": "Unisex", "season": "Fall, Winter, spring", "notes": "Top Notes: Coconut milk, Creamy milk, Burnt sugarHeart (Middle) Notes: Whipped cream, Vanilla, ChocolateBase Notes: Vanilla, White musk, Burnt sugar", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "CrÃ¨me Caramel", "brand": "Mamlakat Al Oud", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Vanilla Flower / Heart - Dulce de Leche, Cotton Candy, Frangipani, White Flowers / Base - Vanilla Pod, Tonka Bean, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Cup Cake", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Citrus, Amber / Heart - Vanilla Cake / Base - Vanilla, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Dalal", "brand": "Lattafa", "gender": "Female", "season": "Spring", "notes": "Top - Apple (Golden Delicious), Mandarin / Heart - Jasmine, Ylang-Ylang, Orange Flower / Base - Vanilla, Musk, Oakmoss", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Dulzura", "brand": "Paris Corner", "gender": "Female", "season": "Fall-Winter", "notes": "Top - Black pepper, buttermilk / Heart - Cake, vanilla, cream / Base - Amber, musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Eclaire", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Caramel, Milk, Sugar / Heart - Honey, White Flowers / Base - Vanilla, Praline, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Eclaire Banoffi", "brand": "Lattafa", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Top Notes: Banana Cream, Dulce de LecheHeart (Middle) Notes: Whipped Cream, VanillaBase Notes: Praline, Biscuit, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Elyssia Aura", "brand": "Riiffs", "gender": "Unisex", "season": "Fall, Winter (versatile to cooler)", "notes": "Top - Cinnamon, Orange, Nutmeg / Heart - Vanilla Cream, Cognac, Cocoa / Base - Bourbon Vanilla, Cedarwood, Patchouli", "category": ["Gourmand", "Spicy", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Elyssia Scarlet", "brand": "Riiffs", "gender": "Female", "season": "Spring-Summer / versatile", "notes": "Top - Black Cherry, Pink Pepper / Heart - Leather, Cream, Benzoin / Base - Vanilla Absolute, Cashmeran, Amber, Iso E Super", "category": ["Fruity", "Leather", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Emaan", "brand": "Lattafa", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Orange Blossom, Black Currant, Bergamot / Heart - Tuberose, Jasmine, Marigold / Base - Musk, Vanilla, Cedarwood, Patchouli", "category": ["Floral", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Emir Pear Potion", "brand": "Paris Corner", "gender": "Unisex", "season": "Spring", "notes": "Top - Pear, Apple / Heart - Caramel, Jasmine / Base - Raspberry, Musk", "category": ["Fruity", "Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Empire Najm by Risala", "brand": "Risala", "gender": "Unisex (female-leaning)", "season": "Fall, Winter", "notes": "Top - Mango, Ginger, Lemon, Red Berries / Heart - Coumarin, Jasmine, Cedar / Base - Cypriol, Amber, Musk, Oud", "category": ["Fruity", "Oriental", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Empire Victor", "brand": "Khadlaj", "gender": "Unisex", "season": "Fall, Winter,spring", "notes": "Top Notes: Lemon, BergamotMiddle (Heart) Notes: Caramel, JasmineBase Notes: Vanilla, Musk (some variations also list sandalwood)", "category": ["Gourmand", "Floral", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Energize", "brand": "Heroes", "gender": "Male", "season": "Spring, Summer", "notes": "Top - Citrus, Aromatic Herbs / Heart - Light Spices / Base - Woods, Musk", "category": ["Fresh", "Citrus", "Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Entice Extrait", "brand": "Vurv", "gender": "Female", "season": "Cooler / evening", "notes": "Top Notes: Citrus and fresh floral elements (including aromatic nuances like lilac and bergamot)Heart / Middle Notes: Rich bouquet of floral accordsBase Notes: Warm amber, sensual musk, and woody elements", "category": ["Oriental", "Sweet", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Entice Ruby", "brand": "Vurv", "gender": "Female", "season": "Spring-Summer / versatile", "notes": "Top Notes: Red fruits, Bergamot, MandarinHeart (Middle) Notes: Roses, Jasmine, White flowersBase Notes: Amber, Musk, Soft woods, Vanilla", "category": ["Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Eshal Vanilla", "brand": "Paris Corner", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Sugar, Sweet Notes / Heart - Rose, Jasmine / Base - Vanilla, Caramel, Musk", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Espada Intense", "brand": "Le Chameau", "gender": "Male", "season": "Cooler seasons / evening", "notes": "Deeper/intensified version of Espada Prime", "category": ["Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Espada Prime", "brand": "Le Chameau", "gender": "Male", "season": "Spring-Summer / versatile", "notes": "Top Notes (Head): Ruby, mandarin orange, grapefruit, and peppermint (mint)Middle Notes (Heart): Rose absolute, cinnamon, and mixed spicesBase Notes: Leather, patchouli, whitewoods, and amber", "category": ["Fresh", "Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Essences", "brand": "Sara Debai", "gender": "Female", "season": "Spring-Summer", "notes": "Top - Heliotrope, orchid, tangerine / Heart - Gourmand accord, tropical fruits / Base - Vanilla, musk, sandalwood", "category": ["Floral", "Gourmand", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Eternal Vanille", "brand": "Lattafa", "gender": "Unisex", "season": "Year-round (best Spring/Fall)", "notes": "Top - Blackberry / Heart - Cocoapulse, Vanilla Caviar, Cacao / Base - Akigalawood, Tonka Bean, Ambrofix, Cedarwood, Benzoin, Musk", "category": ["Gourmand", "Woody", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Fakhama", "brand": "Amaran", "gender": "Unisex/Male", "season": "Cooler seasons", "notes": "Top Notes: Cinnamon, nutmeg, and vanillaMiddle (Heart) Notes: Dates, tuberose, praline, and mahonialBase Notes: Musk, tonka bean, amberwood, myrrh, benzoin, and akigalawood", "category": ["Oriental", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Fakhar Black", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Dark Fruits, Spices / Heart - Woody / Base - Vanilla, Musk", "category": ["Fruity", "Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Fakhar Gold", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Tuberose, Salt / Heart - Amber, Tonka / Base - Cedarwood, Vetiver, Labdanum", "category": ["Floral", "Woody", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Fakhar Silver", "brand": "Lattafa", "gender": "Unisex", "season": "Versatile", "notes": "Top Notes: Apple, Bergamot, GingerHeart (Middle) Notes: Lavender, Sage, Juniper Berries, GeraniumBase Notes: Tonka Bean, Amberwood, Cedar, Vetiver", "category": ["Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Falak", "brand": "Nusuk", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Brown Sugar, Caramel, Biscuit / Heart - Toffee, Vanilla Bean, Amber / Base - White Musk, Praline", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Fatima Pink", "brand": "Zimaya", "gender": "Female", "season": "Spring, Fall", "notes": "Top - Rhubarb, Bergamot, Grapefruit, Nutmeg / Heart - Rose, Jasmine / Base - Musk, Vanilla, Vetiver, Ambergris", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Fire on Ice", "brand": "Lattafa", "gender": "Unisex", "season": "Versatile", "notes": "Top Notes: Black raspberry, cinnamon, cognac (liquor)Middle (Heart) Notes: Frozen rose petals, caramel, mossBase Notes: Oakwood, myrrh, cedarwood, ambroxan", "category": ["Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "French Vanilla", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Vanilla / Heart - Creamy Sweet / Base - Vanilla, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "French Vanilla Latte", "brand": "Arabiyat Sugar", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Nutella, Cardamom, Rum / Heart - Cocoa, Coconut, White Flowers, Lily of the Valley / Base - Sandalwood, Ambergris, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Ghaliya", "brand": "Zakat", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Top Notes: Orange, Lemon, Apple, and BergamotMiddle (Heart) Notes: Caramel, Muguet (Lily of the Valley), Cedarwood, Jasmine Sambac, Bulgarian Rose, and TuberoseBase Notes: Tonka Bean, Amber, Musk, Cocoa, Sandalwood, and Patchouli", "category": ["Oriental", "Floral", "Oud"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Ghubar Al Dhahab", "brand": "Sahari", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Cinnamon, Pear, Mandarin, Floral notes / Heart - Jasmine Sambac, Orange Blossom / Base - White Musk, Vanilla, Tonka Bean, Coffee, Patchouli", "category": ["Floral", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Habik (Women's Version)", "brand": "Lattafa", "gender": "Female", "season": "Spring, Summer", "notes": "Top - Pear, Bergamot / Heart - Lily of the Valley, Jasmine, Freesia / Base - Musk, Amber, Oakmoss", "category": ["Floral", "Fresh", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hareem Al Sultan Gold", "brand": "Khadlaj", "gender": "Female", "season": "Spring, Summer", "notes": "Top - Bergamot, Jasmine, Peony / Heart - Pineapple, Peach, Plum / Base - Musk, Sandalwood, Patchouli", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawas Diva", "brand": "Rasasi", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Red Fruits, Rhubarb, Lychee / Heart - Rose, Frankincense, Cedar / Base - Vanilla, Musk, Ambergris", "category": ["Fruity", "Floral", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawas Eclat (Eclat Hawas)", "brand": "Rasasi", "gender": "Female", "season": "Spring, Fall", "notes": "Top - Litchi/Lychee, Bergamot, Pear, Pistachio / Heart - Rose, Incense / Base - Vanilla, Amber, Musk, Woody Notes", "category": ["Fruity", "Floral", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawas Elixir", "brand": "Rasasi", "gender": "Unisex", "season": "Fall-Winter", "notes": "Top - Mint, bergamot, artemisia / Heart - Dark chocolate, lavender, benzoin / Base - Vanilla, tonka bean, white musk", "category": ["Gourmand", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawas Ice", "brand": "Rasasi", "gender": "Male", "season": "Versatile", "notes": "Top - Apple, Italian Lemon, Sicilian Bergamot, Star Anise / Heart - Plum, Orange Blossom, Cardamom / Base - Musk, Moss, Driftwood, Amber", "category": ["Fresh", "Fruity", "Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawas London", "brand": "Rasasi", "gender": "Unisex", "season": "Fall, Spring", "notes": "Top - Pink Pepper, Saffron, Pear / Heart - Rose, Frankincense, White Flowers / Base - Blonde Woods, Vanilla, Amber, Musk", "category": ["Floral", "Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawas Pink", "brand": "Rasasi", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Cinnamon, Nutmeg, Neroli / Heart - Marshmallow, Tuberose, Orange Blossom / Base - Cotton Candy, Vanilla, Tonka Bean", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Hawwa Red", "brand": "Zimaya", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Cassis, Strawberry, Raspberry, Orange / Heart - Black Currant, Grapefruit, Peach, Lily / Base - Musk, Vanilla, Patchouli", "category": ["Fruity", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Haya", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Champagne, Strawberry, Rose, Tangerine, Blood Orange / Heart - Gardenia, Jasmine, Vanilla Orchid / Base - Amber, Sandalwood", "category": ["Floral", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Heavy Cream", "brand": "Phlur", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Marshmallow, Sugar, Citrus / Heart - Coconut, Jasmine / Base - Whipped Cream, Vanilla, Caramel", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Her Confessions", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Cinnamon / Heart - Tuberose, Jasmine, Incense / Base - Vanilla, Musk, Tonka", "category": ["Floral", "Spicy", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "His Confessions", "brand": "Lattafa", "gender": "Male", "season": "Fall, Winter", "notes": "Top - Lavender, Cinnamon, Mandarin / Heart - Iris, Benzoin, Cypress, Mahonial / Base - Vanilla, Tonka, Amber, Incense, Cedarwood, Patchouli", "category": ["Woody", "Spicy", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Island Bliss", "brand": "Armaf", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Tropical Fruits, Coconut / Heart - Sweet / Base - Musk", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Khair Men", "brand": "Paris Corner", "gender": "Male/Unisex", "season": "Fall, Winter", "notes": "Top - Davana, Bergamot, Pink Pepper / Heart - Agarwood (Oud), Amber, Rosemary / Base - Leather, Vetiver, Musk", "category": ["Woody", "Oud", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Khamrah Dukhan", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Spices, Pimento, Mandarin / Heart - Incense, Labdanum, Orange Blossom, Patchouli / Base - Tobacco, Praline, Amber, Tonka Bean, Benzoin", "category": ["Oriental", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Khamrah Original", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Cinnamon, Nutmeg, Bergamot / Heart - Dates, Praline, Tuberose, Mahonial / Base - Vanilla, Tonka Bean, Amberwood, Myrrh, Benzoin, Akigalawood", "category": ["Oriental", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Khamrah Qahwa", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Cinnamon, Cardamom, Ginger / Heart - Praline, Candied Fruits, White Flowers / Base - Coffee, Vanilla, Tonka Bean, Benzoin, Musk", "category": ["Gourmand", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Khamrah Waha", "brand": "Lattafa", "gender": "Unisex", "season": "Fall-Winter", "notes": "Spicy-sweet (date, cinnamon, vanilla family)", "category": ["Oriental", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Kiaana Angel", "brand": "Afnan", "gender": "Female", "season": "Spring, summer", "notes": "Top Notes: Pistachio Gelato (or Ice Cream), Italian BergamotMiddle (Heart) Notes: Jasmine, Raspberry, White Peach, PearBase Notes: Cedarwood, Sandalwood, Tonka Bean", "category": ["Gourmand", "Floral", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Le Parfum", "brand": "Blue for Men", "gender": "Male/Unisex", "season": "Fall, Winter", "notes": "Top - Cardamom / Heart - Lavender, Iris / Base - Vanilla, Oriental Woods", "category": ["Woody", "Oriental", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Lemon Sorbet", "brand": "Arabiyat Sugar", "gender": "Unisex", "season": "Spring, summer", "notes": "Top Notes: Zesty lemon and a subtle nuance of rumMiddle/Heart Notes: Sweet gourmand and sorbet cream accordBase Notes: Creamy vanilla and soft musk", "category": ["Gourmand", "Fruity", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Love & Peace", "brand": "Lattafa", "gender": "Unisex/Female", "season": "Spring-Fall", "notes": "Top Notes: Almond, Black Currant, and BergamotMiddle (Heart) Notes: Rose and TuberoseBase Notes: Sandalwood, Vanilla, and Heliotrope", "category": ["Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Luxe Chic", "brand": "Maison Alhambra", "gender": "Female/Unisex", "season": "Spring, Fall", "notes": "Top - Tangerine, Freesia / Heart - Lily of the Valley, Jasmine, Rose / Base - Musk, Sandalwood, Amber", "category": ["Floral", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Maitha Oil (Attar)", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Anise / Heart - Caramel / Base - Vanilla, Tonka Bean, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Majestic Supreme", "brand": "Le Falcone", "gender": "Women/Unisex", "season": "Fall-Winter / versatile", "notes": "Top - Rose, peony, pink pepper / Heart - Raspberry blossom, jasmine / Base - Amber, papyrus, tonka, vanilla", "category": ["Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Malika", "brand": "Nusuk", "gender": "Female", "season": "Versatile", "notes": "Top Notes: Ozonic notes, apple, aldehydic notes, tarragon, bergamot, and orangeHeart Notes: Lily of the valley, jasmine, rose, carnation, orchid, and honeysuckleBase Notes: Musk, amber, vanilla, sandalwood, cedarwood, and orris", "category": ["Floral", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Mango Affogato", "brand": "Arabiyat Sugar", "gender": "Unisex", "season": "Spring-Summer / year-round", "notes": "Top - Mango, nutmeg, clove / Heart - Leather, saffron, amber, moss / Base - Akigalawood, patchouli, vetiver, cypriol", "category": ["Fruity", "Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Mango Ice", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Spring-Summer", "notes": "Top Notes: Mango, Lemon, Ginger, RhubarbHeart (Middle) Notes: White Flowers, Amber, LicoriceBase Notes: Musk, Vanilla, Caramel, Chestnut", "category": ["Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Marshmallow Blush", "brand": "Paris Corner", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Marshmallow, Sweet / Heart - Fruity / Base - Vanilla, Musk", "category": ["Gourmand", "Sweet", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Marshmallow Dreams", "brand": "NatureWell", "gender": "Female", "season": "Fall, winter", "notes": "Top Notes: Lemon Sugar & MarshmallowMid Notes: Coconut CreamBase Notes: Vanilla Mousse & Whipped Cream", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Marshmallows Kiss", "brand": "Mamlakat Al Oud", "gender": "Unisex", "season": "Fall, Winter, Spring", "notes": "Top - Strawberry, Blackberry (or Caramel/Milk) / Heart - Jasmine, Rose, Marshmallow, Vanilla, Honey / Base - Vanilla, Musk, Praline, Tonka", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Mayar", "brand": "Lattafa", "gender": "Female", "season": "Spring, Summer", "notes": "Top - Lychee, Raspberry, Violet Leaf / Heart - Peony, White Rose, Jasmine / Base - Musk, Vanilla", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Mayar Cherry Intense", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Strawberry, Bergamot / Heart - Cherry Jam, Cacao / Base - Vanilla, Amber, Patchouli", "category": ["Fruity", "Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Milano", "brand": "Valentine", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Raspberry, Peach, Bergamot / Heart - Rose, Jasmine, Orange Blossom / Base - Vanilla, Amber, Woods", "category": ["Floral", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Momento", "brand": "Riiffs", "gender": "Unisex", "season": "Versatile", "notes": "Top Notes: Sugar, Saffron, and Mandarin give a sweet and citrus opening.Heart (Middle) Notes: Tonka Bean, Damask Rose, and Agarwood (Oud) create a floral and rich center.Base Notes: Caramel, Amberwood, and Cedar leave a warm and woody finish.", "category": ["Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Mystique", "brand": "Armaf", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Pear, Tangerine, Bergamot, Orange / Heart - Vanilla, Strawberry, Mimosa, Rose, Ylang Ylang, Jasmine, Passionfruit / Base - Vanilla, Coffee, Tonka Bean, Patchouli, Vetiver", "category": ["Floral", "Fruity", "Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Mystique Charm", "brand": "Dorall Collection", "gender": "Female", "season": "Spring, summer", "notes": "Top Notes: Clementine, Cappuccino, Cactus, Pepper, and BlackberryMiddle (Heart) Notes: Mimosa, Hortensia (Hydrangea), Camellia, and OrchidBase Notes: Woody Notes, Blackberry, Musk, Amber, and Red Berries", "category": ["Sweet", "Floral", "Oriental", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nagham", "brand": "Atyaab", "gender": "Unisex", "season": "Versatile", "notes": "Top Notes: Rose, Jasmine, and BergamotMiddle (Heart) Notes: Amber, Vetiver, and Candied Fruit (such as sweet strawberries and cherries)Base Notes: Vanilla, Cedarwood, and Sandalwood", "category": ["Floral", "Woody", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nasmaat", "brand": "Lattafa", "gender": "Unisex", "season": "Spring, Fall", "notes": "Top - Blackcurrant, Apricot, Pineapple / Heart - Magnolia, Cyclamen, Jasmine, Orange Blossom, Rose / Base - Vanilla, Cashmeran, Caramel, Sandalwood", "category": ["Floral", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Natural Intense Body Spray", "brand": "Mayar", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Sweet Gourmand / Heart - Vanilla / Base - Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nebras", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Red Berries, Mandarin Orange / Heart - Vanilla, Cacao, Rose / Base - Sugar, Tonka Bean, Amber, Musk", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nebras Elixir", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter, Mild Spring", "notes": "Top - Milk Candy, Whipped Cream / Heart - Sugar Cane, Heliotrope / Base - Vanilla, Ambroxan, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nero Xtravagant", "brand": "Valentine (Urban Collection)", "gender": "Male/Unisex (leans masculine)", "season": "Fall, Winter (versatile)", "notes": "Top - Calabrian Bergamot, Espresso Coffee Accord / Heart - Coffee / Base - Vetiver", "category": ["Woody", "Fresh", "Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Noor", "brand": "Riiffs", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Notes: Caramel and milkMiddle (Heart) Notes: Gourmand accord and lily of the valleyBase Notes: Vanilla, musk, and praline", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nuha Vanilla Pearl", "brand": "Khadlaj", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Blackcurrant, Strawberry, Freesia / Heart - Raspberry, Magnolia, Cashmere Wood / Base - Vanilla, Caramel, Moss", "category": ["Fruity", "Gourmand", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nyla", "brand": "Arabiyat Prestige", "gender": "Female", "season": "Spring, Summer", "notes": "Top - Coconut, Peach, Bergamot, Mandarin / Heart - Tiare, White Flowers, Jasmine, Rose / Base - White Musk, Patchouli", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Nyla Vanielle", "brand": "Arabiyat Prestige", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Jasmine, Vanilla Bean / Heart - Caramel, Amber / Base - Musk, Tonka Bean, Vanilla", "category": ["Gourmand", "Sweet", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Obsidian", "brand": "French Avenue", "gender": "Unisex/Male", "season": "Fall-Winter", "notes": "Top Notes: Aldehydes, Grapefruit, BergamotHeart Notes: Myrrh, Jasmine, LabdanumBase Notes: Vanilla, Amber, Tonka Bean", "category": ["Woody", "Oriental", "Smoky"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Odyssey Aqua", "brand": "Armaf", "gender": "Male", "season": "Spring, Summer", "notes": "Top - Orange, Grapefruit, Artemisia / Heart - Mint, Lavender / Base - Ambroxan, Cypress, Patchouli", "category": ["Fresh", "Citrus", "Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Odyssey Candee", "brand": "Armaf", "gender": "Female-leaning", "season": "Fall, Winter", "notes": "Top - Strawberry, Raspberry, Peach, Bergamot / Heart - Caramel, Jasmine / Base - Patchouli, Musk, Amber", "category": ["Fruity", "Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Odyssey Marshmallow", "brand": "Armaf", "gender": "Unisex", "season": "Spring, Fall, Winter", "notes": "Top - Apple, Lemon, Coconut, Peony, Lily of the Valley / Heart - Strawberry, Peach, Raspberry, Apricot, Marshmallow, Orange Blossom / Base - Vanilla, Praline, Tonka, Amber, Musk, Mascarpone", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Opulent Dubai", "brand": "Lattafa", "gender": "Unisex", "season": "Spring, Summer (versatile year-round in mild climates)", "notes": "Top - Mango, Grapefruit, Lemon, Ginger / Heart - Jasmine, Cedarwood, Violet / Base - Woodsy notes, Ambergris, Benzoin, Oakmoss", "category": ["Fruity", "Woody", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Oud Mood", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Rose, Saffron, Pimento / Heart - Agarwood (Oud), Caramel, Floral Notes, Patchouli / Base - Woody Notes, Amber, Resins, Incense, Musk", "category": ["Oriental", "Oud", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Panache Angel Dust", "brand": "Khadlaj", "gender": "Female", "season": "Spring-Fall / versatile", "notes": "Top Notes: Vanilla, Mandarin, and Red CurrantMiddle (Heart) Notes: Tuberose, Sandalwood, and RumBase Notes: Vanilla, Whipped Cream, Musk, and Benzoin", "category": ["Floral", "Sweet", "Powdery"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Peach Velvet", "brand": "Khadlaj", "gender": "Female", "season": "Spring, Summer, Fall", "notes": "Top - Guava, Peach, Nectarine / Heart - Vanilla, Ginger, Cinnamon, Amber / Base - Caramel, Musk, Sandalwood", "category": ["Fruity", "Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Pecan Butter Cookie", "brand": "Arabiyat Sugar", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Top - Pecan, coconut milk, butter / Heart - Hazelnut, almond, roasted nuts / Base - Hazelnut, vanilla, ambergris", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Petra", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Notes: Plum, RumHeart (Middle) Notes: Tuberose, CoconutBase Notes: Praline, Musk, Vanilla", "category": ["Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Pink Velvet", "brand": "Maison Alhambra", "gender": "Female", "season": "Spring-Fall", "notes": "Top Notes: Bulgarian Rose and May RoseMiddle/Heart Notes: Turkish Rose and SaffronBase Notes: Patchouli, Tonka Bean, and Vanilla", "category": ["Floral", "Sweet", "Powdery"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "PiÃ±a Colada Musk Collection Body Spray", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Prive Rose", "brand": "Ameerat Al Arab", "gender": "Female", "season": "Fall, Spring", "notes": "Top - Rose / Heart - Floral, Sweet / Base - Musk, Vanilla", "category": ["Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Qaed Al Fursan (Original)", "brand": "Lattafa", "gender": "Unisex (leans masculine)", "season": "Versatile", "notes": "Top - Pineapple, Saffron / Heart - Balsam Fir, Jasmine / Base - Cedar, Amber, Agarwood (Oud)", "category": ["Fruity", "Woody", "Oud"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Qaed Al Fursan Unlimited", "brand": "Lattafa", "gender": "Male/Unisex", "season": "Spring, Fall", "notes": "Top - Coconut, Pineapple, Citruses / Heart - Ylang-Ylang, Frangipani, Jasmine / Base - Vanilla, Musk, Sandalwood, Sweet Notes", "category": ["Fruity", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Qaed Al Fursan Untamed", "brand": "Lattafa", "gender": "Male/Unisex", "season": "Spring, Fall", "notes": "Top - Apple, Citrus / Heart - Floral / Base - Sweet, Woody", "category": ["Fruity", "Woody", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Raheeq", "brand": "Nusuk", "gender": "Female/Unisex", "season": "Versatile", "notes": "Top Notes: Honey, Blood Orange, Apricot, and LemonMiddle (Heart) Notes: Caramel, Coconut, and MagnoliaBase Notes: Vanilla Absolute, Musk, and Sandalwood", "category": ["Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Raneen", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Fruity, Sweet / Heart - Floral / Base - Vanilla, Musk", "category": ["Floral", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Rave Now (for Women)", "brand": "Lattafa", "gender": "Female", "season": "Spring, Fall", "notes": "Top - Red Fruits, Orange / Heart - Marshmallow, Jasmine, Lily of the Valley / Base - Vanilla, Musk, Moss", "category": ["Fruity", "Gourmand", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Rave Now Intense", "brand": "Lattafa", "gender": "Male/Unisex", "season": "Spring, Fall", "notes": "Top - Cucumber, Watermelon, Tangerine / Heart - Basil, Sage / Base - Sandalwood, Leather, Cedar", "category": ["Fresh", "Woody", "Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Rave Rage", "brand": "Lattafa", "gender": "Unisex (leans masculine)", "season": "Year-round", "notes": "Top - Apple, mint / Heart - Geranium, cinnamon, lavender / Base - Vanilla, Peru balsam, cedarwood, guaiac wood", "category": ["Fresh", "Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Red 500", "brand": "Baraja", "gender": "Unisex/Male", "season": "Fall, Winter", "notes": "Top - Red Fruits, Spices / Heart - Sweet Notes / Base - Woody, Musk", "category": ["Fruity", "Woody", "Spicy"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Red Velvet Delicacy", "brand": "Armaf", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Strawberry, Lemon / Heart - Whipped Sugar, Sugarberry, Frangipani / Base - Vanilla Bean, Musk, Amber", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Royal Men", "brand": "Al Rehab", "gender": "Male", "season": "Fall, Winter", "notes": "Top - Spicy, Citrus, Woody / Heart - Floral, Sweet / Base - Amber, Musk, Vanilla", "category": ["Woody", "Spicy", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Safa", "brand": "Nusuk", "gender": "Unisex/Female", "season": "Spring-Summer / versatile", "notes": "Top - Marshmallow, Strawberry, Lemon / Heart - Coconut, Sugar, Nectarine / Base - Vanilla, Musk, Ambroxan", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sakeena", "brand": "Lattafa", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Passionfruit, Mandarin Orange, Ozonic Notes / Heart - Raspberry, Rose, Orange Blossom, Sea Salt / Base - Toffee, Praline, Vanilla, Musk", "category": ["Fruity", "Gourmand", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Samiya", "brand": "Khadlaj", "gender": "Female", "season": "Versatile", "notes": "Top/Head Notes: Jasmine, Lily of the ValleyMiddle/Heart Notes: Amber, VioletBase Notes: Oud, Saffron, Sandalwood", "category": ["Floral", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sceptre Malachite", "brand": "Maison Alhambra", "gender": "Unisex", "season": "Spring-Summer", "notes": "Top - Green tangerine, bergamot, blackcurrant / Heart - Aromatic + spicy notes, lavender, pink pepper, jasmine / Base - Amber, musk, woody notes, vetiver", "category": ["Fresh", "Aromatic", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sensual Vanilla", "brand": "Maison Alhambra", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Note: Bitter AlmondMiddle Notes: Vanilla, Floral NotesBase Notes: Vanilla Absolute, Tonka Bean, Sandalwood", "category": ["Oriental", "Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Silver", "brand": "Al Rehab", "gender": "Unisex/Male", "season": "Spring, Summer", "notes": "Top - Fresh Citrus, Metallic / Heart - Floral / Base - Musk, Sweet", "category": ["Fresh", "Citrus"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Soft", "brand": "Al Rehab", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Citruses / Heart - Orchid, Jasmine, Vanilla, Caramel / Base - White Musk, Woody Notes, Vetiver", "category": ["Floral", "Sweet", "Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Spectre Original", "brand": "French Avenue", "gender": "Male/Unisex (leans masculine)", "season": "Fall, Winter", "notes": "Top - Incense, Guaiac Wood, Saffron / Heart - Leather, Amberwood, Violet, Sugar Cane / Base - Smoke, Patchouli, Sandalwood, Woodsy Notes, Black Musk", "category": ["Woody", "Leather", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Strawberries & Cream", "brand": "Royal Apothic", "gender": "Female", "season": "Spring, summer", "notes": "Top Notes: Raspberry and plum (or juicy brightness like strawberry, raspberry, apple, and nectarine)Heart / Middle Notes: Strawberry and whipped creamBase Notes: Sugar cubes, caramel, tonka vanilla, and soft amber", "category": ["Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Strawberry Tres Leches", "brand": "Arabiyat Sugar", "gender": "Female", "season": "Spring-Summer / year-round", "notes": "Top Notes: Strawberry, Milk, Nectarine, FreesiaHeart / Middle Notes: Marshmallow, Milk Candy, Caramel, Orange BlossomBase Notes: Vanilla, White Musk, Ambergris", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sugar Crown", "brand": "Lattafa", "gender": "Female/Unisex", "season": "Fall-Winter", "notes": "Top Notes: Bitter orange, lemon, and candied fruitsMiddle Notes (Heart): Bubble gum, blueberry, peach, peach blossom, Bulgarian rose, ginger, and cinnamonBase Notes: Ambroxan, musk, and cedar", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sugar Me Dulce De Leche", "brand": "Maison Alhambra", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Dulce de leche / caramel-vanilla gourmand", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sugarcane Vanilla", "brand": "Arabiyat Prestige", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Notes: Raspberry, Cherry, MandarinMiddle/Heart Notes: Lactones (milky/creamy notes), Vanilla, White FlowersBase Notes: Sandalwood, Musk", "category": ["Sweet", "Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Supremacy Only Intense", "brand": "Afnan", "gender": "Male", "season": "Spring, autumn", "notes": "Top Notes: Black Currant, Bergamot, and AppleMiddle (Heart) Notes: Oakmoss, Patchouli, and LavenderBase Notes: Ambergris, Musk, and Saffron", "category": ["Woody", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sweet Surrender", "brand": "Mahajan", "gender": "Female", "season": "Fall-Winter / versatile", "notes": "Top Note: CaramelMiddle Notes: Coumarin (sweet, vanilla-like scent) and HoneyBase Notes: White Musk and Vanilla", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Sweet Surrender Pink Parfait", "brand": "Mahajan", "gender": "Female", "season": "Spring-Summer / year-round", "notes": "Top Notes: Graham Crackers, Marshmallow, Strawberry, Blackcurrant, and Chocolate (Strawberry S'mores)Middle (Heart) Notes: Marshmallow, Orange Blossom, and JasmineBase Notes: Vanilla, Whipped Cream, Sandalwood, Amber, and Musk", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Tahira", "brand": "Riiffs", "gender": "Female", "season": "Versatile", "notes": "Top Notes: Almond and Dragon fruitMiddle (Heart) Notes: Rose de Mai, Gardenia, and Praline (often listed as Rose de Mai and Gardenia with praline accents in the blend)Base Notes: Vanilla Absolute, Tonka Bean, and Patchouli", "category": ["Floral", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Taif", "brand": "Riiffs", "gender": "Unisex", "season": "Versatile (Spring-Summer preferred)", "notes": "Top - Ginger, Calabrian Bergamot, Lemon, Orange Blossom / Heart - Musk, Rose Petals, Tuberose / Base - Vanilla Bean, Amberwood, Clearwood", "category": ["Floral", "Fresh", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Teriaq", "brand": "Lattafa", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Bitter Almond, Apricot, Pink Pepper / Heart - Honey, Rhubarb, White Flowers, Rose / Base - Leather, Vanilla, Musk, Vetiver, Labdanum", "category": ["Gourmand", "Floral", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Teriaq Intense", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Saffron, Bergamot / Heart - Plum Liquor, Cinnamon / Base - Amber, Tonka Bean, Benzoin", "category": ["Oriental", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "The King", "brand": "Ali", "gender": "Male", "season": "Fall-Winter / versatile", "notes": "Top Notes: Plum, Ozonic notes, Grapefruit, BergamotMiddle (Heart) Notes: Hazelnut, Honey, Cedar, Cashmere Wood, Orange Blossom, JasmineBase Notes: Amberwood, Patchouli, Oakmoss, Vetiver", "category": ["Woody", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Tiramisu Candy", "brand": "Rizz", "gender": "Female", "season": "Spring, Fall", "notes": "Top - Bergamot / Heart - Blackcurrant, Strawberry Milk / Base - Musk, Vanilla", "category": ["Gourmand", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Tiramisu Coco", "brand": "Zimaya", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Notes: Amaretto and CoffeeMiddle Notes: Ice cream, Biscuit, and VanillaBase Notes: Vanilla, Brown sugar, and Amber", "category": ["Gourmand", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Toffee Ganache", "brand": "Arabiyat Sugar", "gender": "Unisex", "season": "Fall-Winter", "notes": "Top Notes: Hazelnut, Clove, Milk (or Vanilla Cream), and VanillaMiddle (Heart) Notes: Cinnamon, Toffee, and White FlowersBase Notes: Gourmand Accord, Milk, Biscuit (Speculoos/Biscoff), and Spices", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Tubbees Tres Leches", "brand": "Grandeur", "gender": "Unisex", "season": "Fall, winter", "notes": "Top Notes: Vanilla bean, cold milk accord, sweet notes, spicy notes, and caramelMiddle Notes (Heart): Milk, chocolate, and floral notes", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla", "brand": "Bellavita", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Aldehydes, Heliotrope, Coconut, Vanilla / Heart - Vanilla, Mango / Base - White Musk, Coconut, Vanilla Absolute", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Addiction", "brand": "Gulf Orchid", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Top Notes: Coconut, Lavender, and Lily of the ValleyHeart (Middle) Notes: Tonka Bean, Jasmine, Rose, and PatchouliBase Notes: Vanilla, Amber, and Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Aura", "brand": "Maison Asrar", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Vanilla / Heart - Creamy Sweet / Base - Vanilla, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Ayelet", "brand": "Khayali", "gender": "Unisex", "season": "Fall-Winter", "notes": "Vanilla orchid, jasmine / Brown sugar, tonka / Amber, musk, patchouli (Kayali-inspired)", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Cream Macaron", "brand": "Arabiyat Sugar", "gender": "Unisex", "season": "Versatile", "notes": "Top Note: Ripe BananaMiddle Note: Chantilly CreamBase Note: Custard Sauce (or Vanilla/Vanilla Musk)", "category": ["Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Dunes", "brand": "Khadlaj", "gender": "Unisex", "season": "Autumn, Winter", "notes": "Top - Vanilla, Cinnamon, Cardamom, Bergamot / Heart - Orange Blossom, Guaiac Wood, Bourbon / Base - Praline, Amber, Musk", "category": ["Gourmand", "Spicy", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Freak (Give Me Gourmand)", "brand": "Lattafa", "gender": "Unisex / Female-leaning", "season": "Fall, Spring", "notes": "Top - Cupcake / Heart - Sugar Frosting, Almond, Cinnamon / Base - Butter, Vanilla, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Madness", "brand": "Mamlakat Al Oud", "gender": "Unisex (leans feminine)", "season": "Fall, Winter (versatile year-round)", "notes": "Top - Vanilla (woody tones), Lavender, Cacao, Ginger / Heart - Vanilla Caviar / Base - Vanilla Absolute", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Milkshake", "brand": "Snack House", "gender": "Unisex", "season": "Fall, winter", "notes": "Top Notes: Vanilla Orchid and JasmineMiddle (Heart) Notes: Brown Sugar and Tonka BeanBase Notes: Amber, Amberwood, Musk, and Patchouli", "category": ["Gourmand", "Oriental"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Musk", "brand": "NatureWell", "gender": "Unisex", "season": "Fall, winter", "notes": "Top Notes: Sugared Petals & Mandarin MuskMid Notes: Vanilla Cream & SpiceBase Notes: Sleek Woods & Tonka", "category": ["Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Seduction", "brand": "Maison Asrar", "gender": "Female/Unisex", "season": "Fall, Winter", "notes": "Top - Plum, Jasmine, Lily of the Valley / Heart - Vanilla, Brown Sugar, Caramel / Base - Tonka, Patchouli, Amber, Musk", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vanilla Skin", "brand": "Phlur", "gender": "Unisex (female-leaning)", "season": "Fall, Winter", "notes": "Top - Sugar, Pink Pepper, Apple / Heart - Cashmere Wood, Jasmine, Lily / Base - Vanilla, Sandalwood, Agarwood, Benzoin", "category": ["Gourmand", "Woody", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Velvet Breeze", "brand": "Mamlakat Al Oud", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Italian Bergamot, Pistachio Gelato, Hazelnut, Sweet Rum, Cardamom / Heart - Geranium, White Peony, Muguet, Jasmine / Base - Amber, Musk, Woody Notes", "category": ["Gourmand", "Floral", "Woody"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Vulcan Baie", "brand": "French Avenue", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Blackberry, Black Currant, Rosemary, Bergamot / Heart - Raspberry, Vodka, Basil, Lily of the Valley / Base - Strawberry, Musk, Peach, Amber, Sandalwood, Patchouli, Incense", "category": ["Fruity", "Fresh", "Aromatic"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Whipped Pleasure (Give Me Gourmand)", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Caramel, Popcorn, Salted Caramel / Heart - Milk, Jasmine / Base - Tonka, Benzoin, Musk, Ambrofix", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Yara Candy Body Spray", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter", "notes": "Top - Candy, Sweet / Heart - Fruity / Base - Vanilla, Musk", "category": ["Gourmand", "Sweet", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Yara Elixir", "brand": "Lattafa", "gender": "Female", "season": "Fall, Winter, Cool Spring Days", "notes": "Top - Strawberry S'mores, Black Currant / Heart - Jasmine, Orange Blossom / Base - Vanilla, Caramel, Amber, Musk", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Yara Original", "brand": "Lattafa", "gender": "Female", "season": "Spring-Summer", "notes": "Top - Orchid, heliotrope, tangerine / Heart - Gourmand accord, tropical fruits / Base - Vanilla, musk, sandalwood", "category": ["Floral", "Gourmand", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Yara Tous", "brand": "Lattafa", "gender": "Female", "season": "Versatile", "notes": "Top - Fruity, Sweet / Heart - Floral / Base - Vanilla, Musk", "category": ["Floral", "Fruity", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Zainab Oil", "brand": "Khadlaj", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Bergamot, Gardenia, Almond / Heart - Coconut, Caramel / Base - Patchouli, Vanilla, Musk", "category": ["Gourmand", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Zenith", "brand": "Riiffs", "gender": "Unisex", "season": "Spring, summer, winter", "notes": "Top Notes: Coconut, Vanilla, Creamy AccordsHeart (Middle) Notes: Fruity Notes, Jasmine, Powdery AccordsBase Notes: Vanilla, Musk, Woody Notes", "category": ["Gourmand", "Sweet", "Powdery"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Zukhruf Pink", "brand": "Zimaya", "gender": "Unisex", "season": "Versatile", "notes": "Top Notes: Orchid, Heliotrope, and VanillaHeart (Middle) Notes: Musk, Marshmallow, and Almond MilkBase Notes: Amber, Vanilla, and Sandalwood", "category": ["Gourmand"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         ]
+
 
 # ==========================================
 # REACTIONS & SOTD (from persisted data)
@@ -3030,7 +1921,7 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
         b = sorted(n2 & family)
         if a and b:
             reasons.append(
-                f"Synergy ({', '.join(list(family)[:3])}â¦): "
+                f"Synergy ({', '.join(list(family)[:3])}ÂÂ¦): "
                 f"{f1.get('name')} has {', '.join(a[:3])}; "
                 f"{f2.get('name')} has {', '.join(b[:3])}"
             )
@@ -3375,14 +2266,66 @@ def score_for_horror(f: dict, mode: str) -> int:
     return score
 
 
-def get_horror_picks(mode: str, top_n: int = 3) -> list:
+def get_horror_picks(mode: str, top_n: int = 3, gender: str = "Any") -> list:
     scored = []
     for f in st.session_state.get("fragrances_db") or []:
+        if gender and gender != "Any":
+            if not matches_gender(f, gender):
+                continue
         s = score_for_horror(f, mode)
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [f for _, f in scored[:top_n]]
+
+
+def suggest_categories_from_notes(notes: str) -> list:
+    """Suggest scent families from free-text notes using keyword matching."""
+    if not notes:
+        return []
+    text = notes.lower()
+    # keyword -> category weights
+    rules = {
+        "Gourmand": ["vanilla", "caramel", "chocolate", "cocoa", "praline", "toffee", "cookie", "cake", "cream", "milk", "sugar", "marshmallow", "honey", "almond", "pistachio", "coffee", "latte", "dulce", "biscoff", "speculoos", "whipped"],
+        "Sweet": ["sweet", "candy", "sugar", "honey", "caramel", "vanilla", "praline", "toffee", "cotton candy", "bubble gum"],
+        "Floral": ["rose", "jasmine", "tuberose", "peony", "orchid", "lily", "violet", "iris", "freesia", "gardenia", "ylang", "orange blossom", "magnolia", "heliotrope", "muguet"],
+        "Woody": ["wood", "cedar", "sandalwood", "oak", "vetiver", "patchouli", "guaiac", "cypress", "fir", "pine", "cashmere wood", "clearwood"],
+        "Oriental": ["oud", "incense", "amber", "myrrh", "benzoin", "labdanum", "saffron", "resin", "oriental", "balsam"],
+        "Fresh": ["fresh", "clean", "aquatic", "ozonic", "marine", "cucumber", "mint", "green"],
+        "Fruity": ["apple", "pear", "peach", "berry", "strawberry", "raspberry", "cherry", "mango", "pineapple", "lychee", "blackcurrant", "cassis", "plum", "banana", "coconut", "fruity"],
+        "Spicy": ["pepper", "cinnamon", "cardamom", "nutmeg", "ginger", "clove", "spice", "pimento"],
+        "Citrus": ["citrus", "bergamot", "lemon", "orange", "grapefruit", "mandarin", "lime", "neroli"],
+        "Aromatic": ["lavender", "rosemary", "basil", "sage", "herbal", "aromatic", "anise"],
+        "Leather": ["leather"],
+        "Oud": ["oud", "agarwood", "agar"],
+        "Boozy": ["rum", "cognac", "whiskey", "whisky", "liquor", "boozy", "wine", "champagne"],
+        "Smoky": ["smoke", "smoky", "incense", "tobacco", "burnt"],
+        "Powdery": ["powder", "powdery", "iris", "violet", "heliotrope", "orris"],
+        "Musky": ["musk", "musky", "skin", "clean musk"],
+        "Amber": ["amber", "ambergris", "ambroxan", "amberwood"],
+        "Vanilla": ["vanilla"],
+        "Green": ["green", "galbanum", "grass", "leaf", "ivy", "tomato leaf"],
+        "Aquatic": ["aquatic", "marine", "sea", "ocean", "watery", "ozonic"],
+        "Creamy": ["cream", "creamy", "milk", "butter", "lactonic", "sandalwood"],
+        "Chypre": ["chypre", "oakmoss", "bergamot", "labdanum"],
+        "Fougere": ["fougere", "lavender", "coumarin", "oakmoss"],
+        "Animalic": ["animalic", "civet", "castoreum", "musk", "indolic"],
+        "Metallic": ["metallic", "metal", "aluminum", "ink"],
+    }
+    scores = {}
+    for cat, kws in rules.items():
+        score = 0
+        for kw in kws:
+            if kw in text:
+                score += 1 + (1 if len(kw) > 5 else 0)  # slight boost for longer/more specific
+        if score:
+            scores[cat] = score
+    # return top categories sorted by score, limit to 5
+    ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+    return [c for c, s in ranked[:5]]
+
+
+
 
 
 MOOD_PROFILES = {
@@ -3414,7 +2357,139 @@ MOOD_PROFILES = {
         "categories": ["Oriental", "Gourmand", "Floral", "Spicy"],
         "notes_keywords": ["amber", "vanilla", "oud", "rose", "cinnamon", "honey"],
     },
+    "Lazy / stay home": {
+        "categories": ["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla", "Powdery"],
+        "notes_keywords": [
+            "vanilla", "cream", "milk", "musk", "soft", "cozy", "caramel",
+            "marshmallow", "cotton", "skin", "powder", "tonka", "amber",
+            "cookie", "warm", "comfort",
+        ],
+    },
 }
+
+
+
+# Curated Middle Eastern / Arabian-inspired suggestions for weekly wishlist ideas
+ME_WISHLIST_POOL = [
+    {"name": "Khamrah", "brand": "Lattafa", "why": "Date + praline gourmand - cozy winter staple"},
+    {"name": "Asad", "brand": "Lattafa", "why": "Spicy woody amber - bold evening wear"},
+    {"name": "Qaed Al Fursan", "brand": "Lattafa", "why": "Pineapple + oud - fun fruity woody"},
+    {"name": "Yara", "brand": "Lattafa", "why": "Soft gourmand floral - easy daily sweet"},
+    {"name": "Eclaire", "brand": "Lattafa", "why": "Caramel milk gourmand - dessert skin scent"},
+    {"name": "Nebras", "brand": "Lattafa", "why": "Berry cacao gourmand - playful sweet"},
+    {"name": "Terrafuma", "brand": "Lattafa", "why": "Earthy spicy - if you like darker woods"},
+    {"name": "Her Confession", "brand": "Lattafa", "why": "Floral spicy - date-night leaning"},
+    {"name": "Vintage Radio", "brand": "Lattafa", "why": "Powdery iris + woods - soft unique"},
+    {"name": "Ajwad Pink to Black", "brand": "Lattafa", "why": "Fruity rose oud - if you like Ajwad"},
+    {"name": "Badee Al Oud Honor & Glory", "brand": "Lattafa", "why": "Pineapple creamy - tropical gourmand"},
+    {"name": "Mahd Al Dhahab", "brand": "Lattafa", "why": "Rich oriental - classic Arabic vibe"},
+    {"name": "Raghba Wood Intense", "brand": "Lattafa", "why": "Sweet woody - easy crowd-pleaser"},
+    {"name": "Opulent Oud", "brand": "Lattafa", "why": "Oud + rose - traditional leaning"},
+    {"name": "Ana Abiyedh Rouge", "brand": "Lattafa", "why": "Fruity floral musk - soft feminine"},
+    {"name": "Hayaati", "brand": "Lattafa", "why": "Fresh spicy - versatile daily"},
+    {"name": "Ramz Silver", "brand": "Lattafa", "why": "Fresh clean - office-safe ME pick"},
+    {"name": "24 Carat Pure Gold", "brand": "Lattafa", "why": "Honey tobacco - warm evening"},
+    {"name": "Art of Nature II", "brand": "Lattafa", "why": "Green woody - if you want less sweet"},
+    {"name": "Eternal Oud", "brand": "Lattafa", "why": "Deep oud - pure Middle Eastern"},
+    {"name": "Qissa Pink", "brand": "Paris Corner", "why": "Sweet floral - soft gourmand adjacent"},
+    {"name": "Qissa Red", "brand": "Paris Corner", "why": "Fruity sweet - playful layering base"},
+    {"name": "Khair Pistachio", "brand": "Paris Corner", "why": "Pistachio gourmand - nutty dessert"},
+    {"name": "Emir Vibrant Seduction", "brand": "Paris Corner", "why": "Sweet fruity - easy reach"},
+    {"name": "Flavia Black", "brand": "Fragrance World", "why": "Dark sweet - night-time vibe"},
+    {"name": "Barakkat Soft Diamond", "brand": "Fragrance World", "why": "Powdery soft - skin-scent style"},
+    {"name": "Club de Nuit Intense Man", "brand": "Armaf", "why": "Smoky pineapple - if you like bold"},
+    {"name": "Odyssey Homme White Edition", "brand": "Armaf", "why": "Fresh clean - summer ME pick"},
+    {"name": "Untold", "brand": "Armaf", "why": "Sweet amber - cozy daily"},
+    {"name": "Oddity", "brand": "Armaf", "why": "Modern sweet - unique twist"},
+    {"name": "Hawas Ice", "brand": "Rasasi", "why": "Fresh aquatic - hot weather"},
+    {"name": "Daarej", "brand": "Rasasi", "why": "Soft oriental - understated"},
+    {"name": "La Yuqawam", "brand": "Rasasi", "why": "Leather rose - refined ME classic"},
+    {"name": "Junoon Leather", "brand": "Rasasi", "why": "Leather spicy - fierce mood"},
+    {"name": "Shuhrah", "brand": "Rasasi", "why": "Woody aromatic - daily driver"},
+    {"name": "Oud Al Masih", "brand": "Rasasi", "why": "Oud focused - traditional"},
+    {"name": "Dirham", "brand": "Ard Al Zaafaran", "why": "Fresh spicy - budget daily"},
+    {"name": "Dirham Gold", "brand": "Ard Al Zaafaran", "why": "Sweeter Dirham style - easy"},
+    {"name": "Supreme Amber", "brand": "Ard Al Zaafaran", "why": "Amber vanilla - cozy home"},
+    {"name": "Oud 24 Hours", "brand": "Ard Al Zaafaran", "why": "Sweet oud - beginner oud"},
+    {"name": "Wasim Abiyad", "brand": "Ard Al Zaafaran", "why": "Clean musk - laundry-adjacent ME"},
+    {"name": "Amber Rouge", "brand": "Orientica", "why": "Rich amber - winter evening"},
+    {"name": "Rouge Absolute", "brand": "Orientica", "why": "Sweet oriental - date night"},
+    {"name": "Royal Bleu", "brand": "Orientica", "why": "Fresh blue - hot weather"},
+    {"name": "Ameer Al Oud", "brand": "Lattafa", "why": "Intense oud - pure Arabic"},
+    {"name": "Oud Mood Elixir", "brand": "Lattafa", "why": "Oud caramel - sweet oud hybrid"},
+    {"name": "Sheikh Al Shuyukh Final Edition", "brand": "Lattafa", "why": "Spicy woody - masculine lean"},
+    {"name": "Raghba", "brand": "Lattafa", "why": "Sweet vanilla musk - simple comfort"},
+    {"name": "Velvet Oud", "brand": "Lattafa", "why": "Soft oud - less aggressive"},
+    {"name": "Maahir Black Edition", "brand": "Lattafa", "why": "Dark spicy - night out"},
+    {"name": "Najdia", "brand": "Lattafa", "why": "Fresh spicy - versatile"},
+    {"name": "Fakhar Rose", "brand": "Lattafa", "why": "Rose focused - floral ME"},
+    {"name": "Mayar Intense", "brand": "Lattafa", "why": "Fruity floral - if you like Mayar"},
+    {"name": "Atlas", "brand": "Lattafa", "why": "Woody aromatic - less gourmand"},
+]
+
+# Filter out placeholder
+ME_WISHLIST_POOL = [x for x in ME_WISHLIST_POOL if "placeholder" not in (x.get("name") or "").lower() and "petite cherie" not in (x.get("name") or "").lower()]
+
+
+def weekly_wishlist_suggestions(n: int = 5) -> list:
+    """Suggest Middle Eastern bottles not already in vault or wishlist, biased to user tastes."""
+    import datetime as _dt
+    db = st.session_state.get("fragrances_db") or []
+    wl = st.session_state.get("wishlist") or []
+    owned = set()
+    for f in db:
+        owned.add(((f.get("name") or "").strip().lower(), (f.get("brand") or "").strip().lower()))
+    for w in wl:
+        owned.add(((w.get("name") or "").strip().lower(), (w.get("brand") or "").strip().lower()))
+
+    # Taste from vault categories
+    from collections import Counter
+    cat_counts = Counter()
+    for f in db:
+        for c in f.get("category") or []:
+            cat_counts[c] += 1
+    top_cats = {c for c, _ in cat_counts.most_common(8)}
+
+    # Score pool items
+    scored = []
+    for item in ME_WISHLIST_POOL:
+        key = ((item.get("name") or "").strip().lower(), (item.get("brand") or "").strip().lower())
+        # also skip if name alone matches owned (brand variants)
+        name_owned = any(key[0] == o[0] for o in owned if key[0])
+        if key in owned or name_owned:
+            continue
+        score = 1
+        why = (item.get("why") or "").lower()
+        if "gourmand" in why or "vanilla" in why or "caramel" in why or "sweet" in why:
+            if "Gourmand" in top_cats or "Sweet" in top_cats or "Vanilla" in top_cats:
+                score += 3
+        if "oud" in why or "oriental" in why:
+            if "Oriental" in top_cats or "Oud" in top_cats or "Woody" in top_cats:
+                score += 2
+        if "fresh" in why or "citrus" in why:
+            if "Fresh" in top_cats or "Citrus" in top_cats:
+                score += 2
+        if "floral" in why or "rose" in why:
+            if "Floral" in top_cats:
+                score += 2
+        if "cozy" in why or "soft" in why or "skin" in why:
+            score += 1
+        scored.append((score, item))
+
+    scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
+    candidates = [it for _, it in scored]
+    if not candidates:
+        return []
+
+    # Rotate by ISO week so suggestions change weekly
+    today = pacific_today()
+    week = int(today.strftime("%Y%W"))
+    start = (week * n) % max(1, len(candidates))
+    picks = []
+    for i in range(min(n, len(candidates))):
+        picks.append(candidates[(start + i) % len(candidates)])
+    return picks
+
 
 
 def score_for_mood(f: dict, mood: str) -> int:
@@ -3580,25 +2655,9 @@ def filter_play_pool(gender: str = "Any", season: str = "Any", priced_only: bool
     return pool
 
 
-def fragrances_in_price_range(min_p: float, max_p: float, gender: str = "Any") -> list:
-    hits = []
-    for f in st.session_state.get("fragrances_db") or []:
-        try:
-            px = float(f.get("price")) if f.get("price") is not None else None
-        except (TypeError, ValueError):
-            px = None
-        if px is None:
-            continue
-        if px < min_p or px > max_p:
-            continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
-            continue
-        hits.append(f)
-    hits.sort(key=lambda x: float(x.get("price") or 0))
-    return hits
 
-
-def get_mood_picks(mood: str, top_n: int = 3, pool: list = None) -> list:
+def get_mood_picks(mood: str, top_n: int = 3, pool: list = None, salt: int = 0) -> list:
+    """Return top mood matches. salt rotates through the ranked list so redraw is not identical."""
     source = pool if pool is not None else st.session_state["fragrances_db"]
     scored = []
     for f in source:
@@ -3606,7 +2665,18 @@ def get_mood_picks(mood: str, top_n: int = 3, pool: list = None) -> list:
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
+    ranked = [f for _, f in scored]
+    if not ranked:
+        return []
+    # Keep a wider pool of good matches, then rotate by salt
+    window = ranked[: max(top_n * 4, 12)]
+    if len(window) <= top_n:
+        return window
+    start = (salt * top_n) % len(window)
+    picks = []
+    for i in range(top_n):
+        picks.append(window[(start + i) % len(window)])
+    return picks
 
 
 def twin_score(f1: dict, f2: dict) -> int:
@@ -4333,34 +3403,36 @@ def get_weekly_recipe():
 
 
 CHALLENGE_DECK = [
-    "Wear only something you've never layered before.",
-    "No gourmands for the next 3 logs.",
-    "Only Male-leaning or pure Male this weekend.",
-    "Pick a bottle you haven't worn in 14+ days.",
-    "Layer a Fresh with a Gourmand today.",
-    "Wear your least-worn YAY bottle.",
-    "No vanilla-forward scents until tomorrow.",
-    "Choose something with oud, leather, or incense.",
-    "All-floral day - no woody bases if you can help it.",
-    "Blind-bottle yourself: pick without looking at the name.",
-    "Wear the opposite family of yesterday's SOTD.",
-    "Date-night intensity on an ordinary day.",
-    "Horror night: wear something smoky, incense, or dark woody.",
-    "High Desert heat check: lightest, airiest bottle you own.",
-    "Coffee + desk day: soft office-safe scent only.",
-    "Layer two bottles you have never combined.",
-    "No sweet notes today - dry, green, or citrus only.",
-    "Reach for a decant or travel size if you have one.",
-    "Wear a fragrance purely for the top notes - reapply later.",
-    "Match your scent to the weather outside right now.",
-    "Pick a brand you rarely reach for.",
-    "One spray only - see if it still reads on skin.",
-    "Movie-night vibe: gothic fog or slasher neon energy.",
-    "Skip your usual top 3 - force a deep-shelf bottle.",
-    "Fruity opening, clean dry-down - no heavy ambers.",
-    "Powdery or iris-forward only today.",
-    "Leather or cedar must show up in the mix.",
-    "Write three words about the scent at hour two.",
+    "Wear a bottle you haven't reached for in 2+ weeks.",
+    "Layer two scents you've never combined before.",
+    "No gourmands today â go dry, green, woody or citrus.",
+    "Pick something with coffee, chocolate or caramel.",
+    "Horror night: only smoky, incense, leather or dark woody.",
+    "One spray only â see if it still projects on you.",
+    "Wear your softest, skin-scent style bottle all day.",
+    "Match the weather outside right now (hot â fresh, cold â cozy).",
+    "Blind grab: close your eyes and pick from the shelf.",
+    "Date-night intensity on a regular Tuesday.",
+    "Only Female or Female-leaning bottles today.",
+    "Only Male or Male-leaning bottles today.",
+    "All vanilla-forward scents are banned until tomorrow.",
+    "Choose a brand you almost never wear.",
+    "Layer a Fresh top with a Gourmand base.",
+    "Wear something that smells like dessert for dinner.",
+    "Gothic fog only: incense, amber, rose, or oud.",
+    "High-desert heat check: lightest, airiest bottle you own.",
+    "Movie night: pick a scent that matches a horror film.",
+    "Office-safe only â nothing loud or sweet.",
+    "Revisit a bottle you once thought was 'meh'.",
+    "Three words only in your SOTD notes today.",
+    "Wear the opposite of whatever you wore yesterday.",
+    "Powdery or iris-forward must appear in the mix.",
+    "No Lattafa today â force the rest of the vault.",
+    "Pick a body spray or lighter concentration if you have one.",
+    "Coffee + desk day: soft, creamy, or skin-scent only.",
+    "Fruity opening + clean dry-down â no heavy ambers.",
+    "Leather or cedar has to show up somewhere.",
+    "Skip your usual top 5 â deep-shelf only.",
 ]
 
 
@@ -4443,6 +3515,116 @@ def draw_challenge() -> str:
         return "Wear something that feels like High Desert night air."
     seed = int(hashlib.md5(f"challenge-{today}-{salt}".encode()).hexdigest()[:8], 16)
     return deck[seed % len(deck)]
+
+
+
+def suggest_for_challenge(challenge: str, top_n: int = 3, salt: int = 0) -> list:
+    """Pick bottles that fit the challenge. salt rotates so redraws are not identical."""
+    db = st.session_state.get("fragrances_db") or []
+    if not db:
+        return []
+    text = (challenge or "").lower()
+
+    prefer_cats = set()
+    prefer_notes = set()
+    ban_cats = set()
+    gender_want = None
+    ban_brand = None
+
+    if "no gourmand" in text or "gourmands are banned" in text or "no vanilla" in text:
+        ban_cats.update(["Gourmand", "Sweet", "Vanilla"])
+    if "no lattafa" in text:
+        ban_brand = "lattafa"
+    if "only male" in text or "male or male-leaning" in text or "male-leaning" in text:
+        gender_want = "male"
+    if "only female" in text or "female or female-leaning" in text or "female-leaning" in text:
+        gender_want = "female"
+    if "horror" in text or "smoky" in text or "incense" in text or "gothic" in text:
+        prefer_cats.update(["Smoky", "Oriental", "Leather", "Oud", "Woody"])
+        prefer_notes.update(["smoke", "incense", "leather", "oud", "amber"])
+    if "coffee" in text or "desk" in text or "soft" in text or "creamy" in text or "skin-scent" in text:
+        prefer_cats.update(["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla"])
+        prefer_notes.update(["vanilla", "cream", "milk", "musk", "coffee", "soft"])
+    if "fresh" in text or "airiest" in text or "heat" in text or "summer" in text:
+        prefer_cats.update(["Fresh", "Citrus", "Aquatic"])
+        prefer_notes.update(["fresh", "citrus", "bergamot", "light"])
+    if "floral" in text or "powdery" in text:
+        prefer_cats.update(["Floral", "Powdery"])
+        prefer_notes.update(["rose", "jasmine", "iris", "powder"])
+    if "lazy" in text or "stay home" in text or "cozy" in text:
+        prefer_cats.update(["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla"])
+        prefer_notes.update(["vanilla", "cream", "musk", "soft", "cozy"])
+
+    scored = []
+    for f in db:
+        name = (f.get("name") or "").lower()
+        brand = (f.get("brand") or "").lower()
+        cats = set(f.get("category") or [])
+        notes = (f.get("notes") or "").lower()
+        gender = (f.get("gender") or "").lower()
+
+        if ban_brand and ban_brand in brand:
+            continue
+        if ban_cats and cats & ban_cats and not (prefer_cats and cats & prefer_cats):
+            if not (cats & prefer_cats):
+                continue
+        if gender_want == "male" and not any(x in gender for x in ["male", "masculine"]):
+            continue
+        if gender_want == "female" and not any(x in gender for x in ["female", "feminine"]):
+            continue
+
+        score = 1
+        if prefer_cats:
+            score += 3 * len(cats & prefer_cats)
+        if prefer_notes:
+            score += sum(2 for kw in prefer_notes if kw in notes or kw in name)
+        if not gender_want and "unisex" in gender:
+            score += 0.5
+        # tiny name hash so ties don't always sort the same way alphabetically
+        score += (_stable_tiebreak(name + brand + str(salt)) % 100) / 1000.0
+        scored.append((score, f))
+
+    scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
+    ranked = [f for _, f in scored]
+    if not ranked:
+        return []
+    window = ranked[: max(top_n * 5, 15)]
+    if len(window) <= top_n:
+        return window
+    start = (int(salt) * top_n) % len(window)
+    # Exclude recently shown names if provided via session
+    recent = set()
+    try:
+        for n in (st.session_state.get("_challenge_last_picks") or []):
+            if n:
+                recent.add(str(n).lower())
+    except Exception:
+        recent = set()
+    picks = []
+    seen_brands = set()
+    i = 0
+    guard = 0
+    while len(picks) < top_n and guard < len(window) * 3:
+        f = window[(start + i) % len(window)]
+        i += 1
+        guard += 1
+        nm = (f.get("name") or "").lower()
+        b = (f.get("brand") or "").lower()
+        if nm in recent and len(window) > top_n + len(recent):
+            continue
+        if b in seen_brands and len(window) > top_n:
+            continue
+        picks.append(f)
+        seen_brands.add(b)
+    # fill if needed (allow recent / same brand)
+    if len(picks) < top_n:
+        for f in window:
+            if f not in picks:
+                picks.append(f)
+            if len(picks) >= top_n:
+                break
+    return picks[:top_n]
+
 
 
 def average_performance(name: str) -> dict:
@@ -5687,7 +4869,7 @@ with st.sidebar:
     _n_bot = len(st.session_state.get("fragrances_db") or [])
     _last = st.session_state.get("last_saved_at") or st.session_state.get("_autosaved_at") or "never"
     _exp = st.session_state.get("last_export_date") or "never"
-    st.caption(f"Vault: **{_n_bot}** bottles Â· autosave on")
+    st.caption(f"Vault: **{_n_bot}** bottles | autosave on")
     st.caption(f"Last saved: {_last}")
     st.caption(f"Last JSON export: **{_exp}**")
     if _exp == "never" or (
@@ -5752,7 +4934,7 @@ with st.sidebar:
     _saved = st.session_state.get("last_saved_at")
     n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved} ÃÂ· **{n_now}** bottles")
+        st.caption(f"Vault last saved: {_saved} Â| **{n_now}** bottles")
     else:
         st.caption(
             f"Vault: **{n_now}** bottles (seed or session). "
@@ -5847,57 +5029,6 @@ with st.sidebar:
             }
             st.rerun()
 
-    if st.session_state.pop("_clear_price_sb", False):
-        st.session_state["price_sb_min"] = 0
-        st.session_state["price_sb_max"] = 100
-        st.session_state["price_sb_gender"] = "Any"
-        st.session_state.pop("price_sb_hits", None)
-    if "price_sb_min" not in st.session_state:
-        st.session_state["price_sb_min"] = 0
-    if "price_sb_max" not in st.session_state:
-        st.session_state["price_sb_max"] = 100
-    if "price_sb_gender" not in st.session_state:
-        st.session_state["price_sb_gender"] = "Any"
-
-    with st.expander("Price lookup", expanded=False):
-        st.caption("Bottles with a logged price in range.")
-        st.number_input("Min $", min_value=0, max_value=2000, key="price_sb_min")
-        st.number_input("Max $", min_value=0, max_value=5000, key="price_sb_max")
-        st.selectbox(
-            "Gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="price_sb_gender",
-        )
-        psb1, psb2 = st.columns(2)
-        with psb1:
-            if st.button("Find prices", type="primary", use_container_width=True, key="price_sb_btn"):
-                lo = float(min(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-                hi = float(max(st.session_state["price_sb_min"], st.session_state["price_sb_max"]))
-                hits = fragrances_in_price_range(lo, hi, st.session_state["price_sb_gender"])
-                st.session_state["price_sb_hits"] = {"hits": hits, "lo": lo, "hi": hi}
-        with psb2:
-            if st.button("Reset", use_container_width=True, key="price_sb_reset"):
-                st.session_state["_clear_price_sb"] = True
-                st.rerun()
-        priced_n = sum(
-            1
-            for f in st.session_state.get("fragrances_db") or []
-            if f.get("price") is not None
-        )
-        st.caption(f"{priced_n} priced bottle(s) in vault")
-        psb = st.session_state.get("price_sb_hits")
-        if psb is not None:
-            hits = psb.get("hits") or []
-            st.write(f"**{len(hits)}** in ${psb.get('lo'):.0f}-${psb.get('hi'):.0f}")
-            if not hits:
-                st.caption("None in range. Add prices in Edit bottle.")
-            else:
-                for f in hits[:12]:
-                    st.caption(
-                        f"${float(f.get('price')):.0f} - {f.get('name')} ({f.get('brand')})"
-                    )
-                if len(hits) > 12:
-                    st.caption(f"...and {len(hits) - 12} more (see Collection tab)")
 
     # Reset filters to defaults before widgets if flagged
     if st.session_state.pop("_clear_filters", False):
@@ -6166,7 +5297,7 @@ with st.sidebar:
                             f"**{target}**  \n"
                             f"From: *{src}*"
                             + (f" ({br})" if br else "")
-                            + (f" Â· {origin}" if origin else "")
+                            + (f" | {origin}" if origin else "")
                         )
                         if st.button(
                             "Save dupe_of on vault match",
@@ -6524,15 +5655,83 @@ with st.sidebar:
     # Daily challenge
     if "challenge_salt" not in st.session_state:
         st.session_state["challenge_salt"] = 0
+    # Weather band for today (affects suggestions)
+    weather_band = st.selectbox(
+        "Weather today",
+        ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+        key="today_weather_band",
+    )
     challenge = draw_challenge()
     st.caption("Daily challenge - new each day, or reroll anytime")
     st.info(challenge)
-    ch1, ch2 = st.columns(2)
+    if "challenge_suggest_salt" not in st.session_state:
+        st.session_state["challenge_suggest_salt"] = 0
+    # 3 wear suggestions for this challenge (+ weather when set)
+    suggestions = suggest_for_challenge(
+        challenge,
+        top_n=3,
+        salt=int(st.session_state.get("challenge_suggest_salt", 0))
+            + int(st.session_state.get("challenge_salt", 0)),
+    )
+    if weather_band and weather_band != "Any":
+        # Re-rank / filter suggestions toward season match
+        def _season_fit(f):
+            s = (f.get("season") or "").lower()
+            band = weather_band.lower()
+            score = 0
+            if "hot" in band or "summer" in band:
+                if any(x in s for x in ["summer", "spring", "hot", "warm"]):
+                    score += 2
+                if any(x in s for x in ["winter", "fall", "cold"]):
+                    score -= 1
+            elif "cold" in band or "winter" in band:
+                if any(x in s for x in ["winter", "fall", "cold", "cool"]):
+                    score += 2
+                if "summer" in s and "winter" not in s:
+                    score -= 1
+            elif "cool" in band or "autumn" in band:
+                if any(x in s for x in ["fall", "autumn", "cool", "spring", "versatile"]):
+                    score += 2
+            elif "warm" in band or "mild" in band:
+                if any(x in s for x in ["spring", "fall", "versatile", "mild", "warm"]):
+                    score += 2
+            return score
+        # Pull a wider pool then re-rank
+        _salt = int(st.session_state.get("challenge_suggest_salt", 0)) + int(
+            st.session_state.get("challenge_salt", 0)
+        )
+        wider = suggest_for_challenge(challenge, top_n=15, salt=_salt)
+        wider_sorted = sorted(
+            wider, key=lambda f: (-_season_fit(f), f.get("name") or "")
+        )
+        # rotate within weather-ranked list too
+        if len(wider_sorted) > 3:
+            rot = (_salt * 3) % len(wider_sorted)
+            suggestions = [wider_sorted[(rot + i) % len(wider_sorted)] for i in range(3)]
+        else:
+            suggestions = wider_sorted[:3]
+    if suggestions:
+        st.session_state["_challenge_last_picks"] = [f.get("name") for f in suggestions]
+        st.caption("Suggested for today" + (f" ({weather_band})" if weather_band != "Any" else ""))
+        for i, f in enumerate(suggestions, 1):
+            cats = ", ".join((f.get("category") or [])[:3])
+            st.markdown(
+                f"**{i}. {f.get('name')}** - *{f.get('brand')}*"
+                + (f" | {cats}" if cats else "")
+            )
+    ch1, ch2, ch3 = st.columns(3)
     with ch1:
         if st.button("New challenge", key="challenge_reroll_btn", use_container_width=True):
             st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
+            st.session_state["challenge_suggest_salt"] = 0
             st.rerun()
     with ch2:
+        if st.button("Redraw picks", key="challenge_redraw_picks", use_container_width=True):
+            st.session_state["challenge_suggest_salt"] = int(
+                st.session_state.get("challenge_suggest_salt", 0)
+            ) + 1
+            st.rerun()
+    with ch3:
         if st.button("Mark done", key="challenge_done_btn", use_container_width=True):
             st.session_state["play_stats"]["challenges_done"] = (
                 st.session_state["play_stats"].get("challenges_done", 0) + 1
@@ -7189,10 +6388,10 @@ with tab_roulette:
             st.markdown(
                 """
                 <div class="bat-container">
-                    <span class="floating-bat bat1">ð¦</span>
-                    <span class="floating-bat bat2">ð¦</span>
-                    <span class="floating-bat bat3">ð¦</span>
-                    <span class="floating-bat bat4">ð¦</span>
+                    <span class="floating-bat bat1">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat2">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat3">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat4">Ã°ÂÂ¦Â</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -7428,10 +6627,15 @@ with tab_sotd:
             list(HORROR_SCENT_PROFILES.keys()),
             key="sotd_horror_mode",
         )
+        horror_gender = st.selectbox(
+            "Gender filter",
+            ["Any", "Female", "Male", "Unisex"],
+            key="sotd_horror_gender",
+        )
         hp = HORROR_SCENT_PROFILES[horror_mode]
         st.write(hp.get("blurb", ""))
         if st.button("Draw horror night scents", type="primary", key="sotd_horror_draw"):
-            picks = get_horror_picks(horror_mode, top_n=3)
+            picks = get_horror_picks(horror_mode, top_n=3, gender=horror_gender)
             st.session_state["last_horror_picks"] = {
                 "mode": horror_mode,
                 "picks": picks,
@@ -8088,13 +7292,29 @@ with tab_play:
             f'</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Draw mood scents", type="primary", key="mood_draw"):
-            picks = get_mood_picks(mood, top_n=3, pool=play_pool)
-            st.session_state["last_mood"] = {"mood": mood, "picks": picks}
+        # salt lets you redraw different options for the same mood
+        if "mood_salt" not in st.session_state:
+            st.session_state["mood_salt"] = 0
+        md1, md2 = st.columns(2)
+        with md1:
+            draw_clicked = st.button("Draw mood scents", type="primary", key="mood_draw", use_container_width=True)
+        with md2:
+            redraw_clicked = st.button("Redraw options", key="mood_redraw", use_container_width=True)
+        if draw_clicked or redraw_clicked:
+            if redraw_clicked:
+                st.session_state["mood_salt"] = int(st.session_state.get("mood_salt", 0)) + 1
+            elif draw_clicked:
+                # fresh draw starts at current salt (or 0 if mood changed)
+                if st.session_state.get("last_mood", {}).get("mood") != mood:
+                    st.session_state["mood_salt"] = 0
+            salt = int(st.session_state.get("mood_salt", 0))
+            picks = get_mood_picks(mood, top_n=3, pool=play_pool, salt=salt)
+            st.session_state["last_mood"] = {"mood": mood, "picks": picks, "salt": salt}
             st.session_state["play_stats"]["moods_drawn"] = (
                 st.session_state["play_stats"].get("moods_drawn", 0) + 1
             )
             save_persisted_data()
+            st.rerun()
         last_mood = st.session_state.get("last_mood")
         if last_mood:
             st.caption(f"Drawn for: {last_mood.get('mood')}")
@@ -8286,64 +7506,6 @@ with tab_play:
 with tab_collection:
     st.subheader("Collection browser")
 
-    with st.expander("Price range lookup", expanded=True):
-        st.caption(
-            "Find bottles you logged a price for. Leave wide range to see all priced bottles."
-        )
-        if st.session_state.pop("_clear_price_lookup", False):
-            st.session_state["price_min"] = 0
-            st.session_state["price_max"] = 500
-            st.session_state["price_gender"] = "Any"
-        pr1, pr2, pr3 = st.columns(3)
-        with pr1:
-            price_min = st.number_input("Min $", min_value=0, max_value=2000, value=0, key="price_min")
-        with pr2:
-            price_max = st.number_input("Max $", min_value=0, max_value=5000, value=500, key="price_max")
-        with pr3:
-            price_gender = st.selectbox(
-                "Gender",
-                ["Any", "Male", "Female", "Unisex"],
-                key="price_gender",
-            )
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            do_price = st.button("Search prices", type="primary", key="price_search_btn")
-        with pc2:
-            if st.button("Clear", key="price_clear_btn"):
-                st.session_state["_clear_price_lookup"] = True
-                st.session_state.pop("price_lookup_hits", None)
-                st.rerun()
-        if do_price:
-            lo, hi = float(min(price_min, price_max)), float(max(price_min, price_max))
-            hits = fragrances_in_price_range(lo, hi, price_gender)
-            st.session_state["price_lookup_hits"] = {
-                "hits": hits,
-                "lo": lo,
-                "hi": hi,
-                "gender": price_gender,
-            }
-        priced_n = sum(
-            1
-            for f in st.session_state.get("fragrances_db") or []
-            if f.get("price") is not None
-        )
-        st.caption(f"{priced_n} bottle(s) in the vault have a price logged.")
-        pl = st.session_state.get("price_lookup_hits")
-        if pl is not None:
-            hits = pl.get("hits") or []
-            st.write(
-                f"**{len(hits)}** match ${pl.get('lo'):.0f} - ${pl.get('hi'):.0f}"
-                f" ({pl.get('gender')})"
-            )
-            if not hits:
-                st.info("No priced bottles in that range. Add prices when editing bottles.")
-            else:
-                for f in hits:
-                    st.write(
-                        f"**${float(f.get('price')):.0f}** - **{f.get('name')}** "
-                        f"({f.get('brand')}) | {f.get('gender')} | "
-                        f"{', '.join(f.get('category') or [])}"
-                    )
     wear_counts = get_wear_counts()
     favs = [
         name
@@ -8398,6 +7560,38 @@ with tab_collection:
     # ----- Wishlist -----
     with st.expander("Wishlist", expanded=False):
         st.caption("Track bottles you want. Check off, then To vault (or move all checked) to add them to your collection.")
+        # --- Weekly Middle Eastern suggestions ---
+        with st.expander("Weekly ME ideas for you", expanded=True):
+            st.caption(
+                "Middle Eastern picks based on your vault tastes. Rotates each week. "
+                "Already-owned and already-wishlisted bottles are skipped."
+            )
+            ideas = weekly_wishlist_suggestions(n=5)
+            if not ideas:
+                st.info("No new ME ideas right now - your vault/wishlist may already cover the pool.")
+            else:
+                for j, idea in enumerate(ideas):
+                    ic1, ic2 = st.columns([4, 1])
+                    with ic1:
+                        st.markdown(
+                            f"**{idea.get('name')}** - *{idea.get('brand')}*  \n"
+                            f"{idea.get('why') or ''}"
+                        )
+                    with ic2:
+                        if st.button("Add", key=f"me_wish_add_{j}_{idea.get('name','')}"):
+                            st.session_state.setdefault("wishlist", []).insert(
+                                0,
+                                {
+                                    "name": idea.get("name") or "",
+                                    "brand": idea.get("brand") or "",
+                                    "notes": idea.get("why") or "Weekly ME suggestion",
+                                    "checked": False,
+                                },
+                            )
+                            save_persisted_data()
+                            st.success(f"Added {idea.get('name')} to wishlist")
+                            st.rerun()
+
         # Clear form fields before widgets if flagged
         if st.session_state.pop("_clear_wishlist_form", False):
             st.session_state["wl_name"] = ""
@@ -8697,7 +7891,7 @@ with tab_collection:
                         if url:
                             link_bits.append(f"[{label}]({url})")
                     if link_bits:
-                        st.markdown("Search notes: " + " Â· ".join(link_bits))
+                        st.markdown("Search notes: " + " | ".join(link_bits))
                 if st.button(
                     "Open in Fragrance lookup",
                     key=f"short_open_lu_{short_name}",
@@ -8827,7 +8021,7 @@ with tab_collection:
                         if url:
                             link_bits.append(f"[{label}]({url})")
                     if link_bits:
-                        st.markdown("Search profile: " + " Â· ".join(link_bits))
+                        st.markdown("Search profile: " + " | ".join(link_bits))
                 if st.button(
                     "Open in Fragrance lookup",
                     key=f"need_open_lu_{pick_name}",
@@ -8863,6 +8057,16 @@ with tab_collection:
                     "Boozy",
                     "Smoky",
                     "Powdery",
+                    "Musky",
+                    "Amber",
+                    "Vanilla",
+                    "Green",
+                    "Aquatic",
+                    "Chypre",
+                    "Fougere",
+                    "Animalic",
+                    "Metallic",
+                    "Creamy",
                 ]
                 fx1, fx2 = st.columns(2)
                 with fx1:
@@ -9001,7 +8205,7 @@ with tab_vault:
                 f"at {st.session_state.get('last_saved_at')}."
             )
         else:
-            st.error("Save did not complete â check the sidebar for details.")
+            st.error("Save did not complete - check the sidebar for details.")
 
     favs = [
         name
@@ -9165,11 +8369,7 @@ with tab_vault:
                         value=str(frag.get("size_ml") or ""),
                         placeholder="e.g. 100",
                     )
-                    e_price = st.text_input(
-                        "Price (optional)",
-                        value=str(frag.get("price") or ""),
-                        placeholder="e.g. 35",
-                    )
+                    e_price = frag.get("price")  # price UI removed
                     cat_opts = [
                         "Gourmand",
                         "Sweet",
@@ -9321,6 +8521,247 @@ with tab_vault:
             st.success(f"Banished {len(names)} bottle(s).")
             st.rerun()
 
+    
+    
+    with st.expander("Compare two bottles", expanded=False):
+        st.caption("Side-by-side look at notes, families, season, gender, and more.")
+        names = sorted(
+            (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
+        )
+        names = [n for n in names if n]
+        c1, c2 = st.columns(2)
+        with c1:
+            left = st.selectbox("Bottle A", ["- select -"] + names, key="compare_a")
+        with c2:
+            right = st.selectbox("Bottle B", ["- select -"] + names, key="compare_b")
+        if left != "- select -" and right != "- select -":
+            fa = next((f for f in st.session_state["fragrances_db"] if f.get("name") == left), None)
+            fb = next((f for f in st.session_state["fragrances_db"] if f.get("name") == right), None)
+            if fa and fb:
+                def _row(label, va, vb):
+                    st.markdown(f"**{label}**")
+                    r1, r2 = st.columns(2)
+                    with r1:
+                        st.write(va if va else "-")
+                    with r2:
+                        st.write(vb if vb else "-")
+                _row("Name", fa.get("name"), fb.get("name"))
+                _row("Brand", fa.get("brand"), fb.get("brand"))
+                _row("Gender", fa.get("gender"), fb.get("gender"))
+                _row("Season", fa.get("season"), fb.get("season"))
+                _row(
+                    "Families",
+                    ", ".join(fa.get("category") or []) or "-",
+                    ", ".join(fb.get("category") or []) or "-",
+                )
+                _row("Shelf", fa.get("shelf_status") or "Own", fb.get("shelf_status") or "Own")
+                size_a = fa.get("size_ml")
+                size_b = fb.get("size_ml")
+                _row(
+                    "Size (ml)",
+                    str(size_a) if size_a is not None else "-",
+                    str(size_b) if size_b is not None else "-",
+                )
+                st.markdown("**Notes**")
+                n1, n2 = st.columns(2)
+                with n1:
+                    st.write(fa.get("notes") or "-")
+                with n2:
+                    st.write(fb.get("notes") or "-")
+                # Quick overlap hint
+                cats_a = set(fa.get("category") or [])
+                cats_b = set(fb.get("category") or [])
+                shared = cats_a & cats_b
+                only_a = cats_a - cats_b
+                only_b = cats_b - cats_a
+                if shared:
+                    st.caption("Shared families: " + ", ".join(sorted(shared)))
+                if only_a:
+                    st.caption(f"Only in {left}: " + ", ".join(sorted(only_a)))
+                if only_b:
+                    st.caption(f"Only in {right}: " + ", ".join(sorted(only_b)))
+
+
+    with st.expander("Scent family helper", expanded=False):
+        st.caption(
+            "Paste notes (or pick a bottle) to get suggested scent families. "
+            "You can also search your vault by family."
+        )
+        mode = st.radio(
+            "Mode",
+            ["Suggest from notes", "Search vault by family", "Check a bottle", "Audit whole vault"],
+            horizontal=True,
+            key="family_helper_mode",
+        )
+        if mode == "Suggest from notes":
+            notes_in = st.text_area(
+                "Notes or description",
+                placeholder="e.g. Top - Vanilla, caramel / Heart - Jasmine / Base - Musk, sandalwood",
+                key="family_notes_in",
+                height=100,
+            )
+            if st.button("Suggest families", key="family_suggest_btn"):
+                suggested = suggest_categories_from_notes(notes_in or "")
+                if suggested:
+                    st.success("Suggested: **" + " | ".join(suggested) + "**")
+                    st.session_state["_last_family_suggest"] = suggested
+                else:
+                    st.info("No strong matches - try adding more note keywords.")
+            if st.session_state.get("_last_family_suggest"):
+                st.caption("Last suggestion: " + ", ".join(st.session_state["_last_family_suggest"]))
+        elif mode == "Search vault by family":
+            all_cats = sorted({
+                c
+                for f in (st.session_state.get("fragrances_db") or [])
+                for c in (f.get("category") or [])
+            })
+            pick_cat = st.selectbox("Family / category", ["Any"] + all_cats, key="family_search_cat")
+            q = st.text_input("Optional name filter", key="family_search_q")
+            results = []
+            for f in st.session_state.get("fragrances_db") or []:
+                cats = f.get("category") or []
+                if pick_cat != "Any" and pick_cat not in cats:
+                    continue
+                if q and q.lower() not in (f.get("name") or "").lower() and q.lower() not in (f.get("brand") or "").lower():
+                    continue
+                results.append(f)
+            st.caption(f"{len(results)} match(es)")
+            for f in results[:40]:
+                st.markdown(
+                    f"**{f.get('name')}** â *{f.get('brand')}* Â· "
+                    + ", ".join(f.get("category") or [])
+                )
+            if len(results) > 40:
+                st.caption(f"â¦and {len(results)-40} more")
+        elif mode == "Check a bottle":  # Check a bottle
+            names = sorted(f.get("name") or "" for f in (st.session_state.get("fragrances_db") or []))
+            bottle = st.selectbox("Bottle", ["- select -"] + names, key="family_check_bottle")
+            if bottle and bottle != "- select -":
+                frag = next((f for f in st.session_state["fragrances_db"] if f.get("name") == bottle), None)
+                if frag:
+                    current = frag.get("category") or []
+                    st.write("Current families: **" + (", ".join(current) if current else "none") + "**")
+                    suggested = suggest_categories_from_notes(frag.get("notes") or "")
+                    if suggested:
+                        st.write("Suggested from notes: **" + " | ".join(suggested) + "**")
+                        if st.button("Apply suggested families to this bottle", key="family_apply_btn"):
+                            # merge unique
+                            merged = list(dict.fromkeys(list(current) + suggested))
+                            for i, f in enumerate(st.session_state["fragrances_db"]):
+                                if f.get("name") == bottle:
+                                    st.session_state["fragrances_db"][i]["category"] = merged
+                                    break
+                            log_vault_action("edited", bottle, "family-helper")
+                            save_persisted_data()
+                            st.success(f"Updated **{bottle}** -> {', '.join(merged)}")
+                            st.rerun()
+                    else:
+                        st.info("No strong suggestions from the current notes.")
+
+        elif mode == "Audit whole vault":
+            st.caption(
+                "Scans every bottle for missing or weak notes, gender, season, and scent families. "
+                "You can auto-apply suggested families to bottles that need them."
+            )
+            run = st.button("Run full vault audit", type="primary", key="vault_audit_run")
+            apply_all = st.checkbox(
+                "Also auto-apply suggested families where categories look weak",
+                value=False,
+                key="vault_audit_apply",
+            )
+            if run or st.session_state.get("_audit_results"):
+                if run:
+                    issues = []
+                    auto_fixed = 0
+                    db = st.session_state.get("fragrances_db") or []
+                    for i, f in enumerate(db):
+                        name = f.get("name") or "?"
+                        brand = f.get("brand") or "?"
+                        notes = (f.get("notes") or "").strip()
+                        gender = (f.get("gender") or "").strip()
+                        season = (f.get("season") or "").strip()
+                        cats = f.get("category") or []
+                        flags = []
+                        if len(notes) < 15:
+                            flags.append("weak/missing notes")
+                        if not gender:
+                            flags.append("missing gender")
+                        if not season or season.lower() in ("versatile", "any", ""):
+                            if not season:
+                                flags.append("missing season")
+                        if not cats:
+                            flags.append("no scent family")
+                        elif len(cats) == 1 and cats[0] in ("Gourmand", "Sweet"):
+                            # very generic single tag - still ok but note it
+                            pass
+                        # Suggest families from notes
+                        suggested = suggest_categories_from_notes(notes) if notes else []
+                        if flags or (suggested and set(suggested) - set(cats)):
+                            issues.append({
+                                "idx": i,
+                                "name": name,
+                                "brand": brand,
+                                "flags": flags,
+                                "current_cats": cats,
+                                "suggested": suggested,
+                            })
+                        # Auto-apply if requested and categories are empty/weak
+                        if apply_all and suggested:
+                            if not cats or len(cats) <= 1:
+                                merged = list(dict.fromkeys(list(cats) + suggested))
+                                st.session_state["fragrances_db"][i]["category"] = merged
+                                auto_fixed += 1
+                    if apply_all and auto_fixed:
+                        log_vault_action("edited", f"{auto_fixed} bottles", "audit-auto-family")
+                        save_persisted_data()
+                    st.session_state["_audit_results"] = {
+                        "issues": issues,
+                        "auto_fixed": auto_fixed,
+                        "total": len(db),
+                    }
+                res = st.session_state.get("_audit_results") or {}
+                issues = res.get("issues") or []
+                total = res.get("total") or 0
+                auto_fixed = res.get("auto_fixed") or 0
+                st.write(
+                    f"Scanned **{total}** bottles. "
+                    f"**{len(issues)}** need attention."
+                    + (f" Auto-updated families on **{auto_fixed}**." if auto_fixed else "")
+                )
+                if not issues:
+                    st.success("Vault looks solid - no major gaps found.")
+                else:
+                    show_n = st.slider("Show first N issues", 5, max(5, len(issues)), min(25, len(issues)), key="audit_show_n")
+                    for item in issues[:show_n]:
+                        flag_txt = ", ".join(item["flags"]) if item["flags"] else "family mismatch"
+                        st.markdown(
+                            f"**{item['name']}** - *{item['brand']}*  \n"
+                            f"Issues: {flag_txt}  \n"
+                            f"Current: {', '.join(item['current_cats']) or 'none'}  \n"
+                            f"Suggested: {' | '.join(item['suggested']) or 'n/a'}"
+                        )
+                    if len(issues) > show_n:
+                        st.caption(f"...and {len(issues) - show_n} more")
+                    # One-click apply all suggested for listed issues
+                    if st.button("Apply all suggested families to flagged bottles", key="audit_apply_flagged"):
+                        fixed = 0
+                        for item in issues:
+                            sug = item.get("suggested") or []
+                            if not sug:
+                                continue
+                            i = item["idx"]
+                            cur = st.session_state["fragrances_db"][i].get("category") or []
+                            merged = list(dict.fromkeys(list(cur) + sug))
+                            st.session_state["fragrances_db"][i]["category"] = merged
+                            fixed += 1
+                        if fixed:
+                            log_vault_action("edited", f"{fixed} bottles", "audit-apply-families")
+                            save_persisted_data()
+                            st.session_state.pop("_audit_results", None)
+                            st.success(f"Updated families on {fixed} bottle(s).")
+                            st.rerun()
+
+
     with st.expander("Activity log", expanded=False):
         vlog = st.session_state.get("vault_log") or []
         if not vlog:
@@ -9424,7 +8865,10 @@ with tab_vault:
 # ==========================================
 # AUTO-SAVE (any vault change this run)
 # ==========================================
+# AUTO-SAVE: runs at the end of every script run.
 # Catches fragrances, edits, reactions, wishlist, recipes, SOTD, chart, etc.
+# Any change to the vault fingerprint triggers a save to disk + .bak + /tmp.
+# This protects against Streamlit Cloud redeploys wiping memory.
 # even if a specific button forgot to call save_persisted_data().
 try:
     _auto_ok = autosave_if_changed(force=False)
