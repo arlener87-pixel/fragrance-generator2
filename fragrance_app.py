@@ -3260,33 +3260,6 @@ def search_fragrances_by_notes(query: str) -> list:
     scored.sort(key=lambda x: (-x[0], search_rank_key(x[1])))
     return [f for _, f in scored]
 
-def performance_leaderboard(top_n: int = 5) -> dict:
-    """Best average sillage / longevity from SOTD logs."""
-    # Collect per-bottle samples
-    sil_map = {}  # name -> list
-    lon_map = {}
-    for entry in st.session_state.get("sotd_history") or []:
-        scents = entry.get("scents") or []
-        if not scents and entry.get("scent"):
-            scents = [p.strip() for p in entry["scent"].split(" + ")]
-        for s in scents:
-            if entry.get("sillage"):
-                sil_map.setdefault(s, []).append(int(entry["sillage"]))
-            if entry.get("longevity"):
-                lon_map.setdefault(s, []).append(int(entry["longevity"]))
-
-    def top_avg(m):
-        rows = []
-        for name, vals in m.items():
-            if not vals:
-                continue
-            rows.append((sum(vals) / len(vals), len(vals), name))
-        rows.sort(key=lambda x: (-x[0], -x[1], x[2]))
-        return rows[:top_n]
-
-    return {"sillage": top_avg(sil_map), "longevity": top_avg(lon_map)}
-
-
 
 def get_favorite_notes(top_n: int = 12) -> list:
     """Ranked note keywords from YAY bottles."""
@@ -7729,27 +7702,8 @@ with tab_collection:
         fam_bits = "  -  ".join(f"{k}: {v}" for k, v in list(fam.items())[:8])
         st.write(fam_bits)
 
-    # Performance leaderboard from logged sillage / longevity
-    with st.expander("Performance leaderboard (from SOTD logs)", expanded=False):
-        board = performance_leaderboard(top_n=5)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**Best projection (sillage)**")
-            if not board["sillage"]:
-                st.caption("Log sillage on SOTD entries to unlock.")
-            else:
-                for avg, n, name in board["sillage"]:
-                    st.write(f"**{name}**  -  {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
-        with c2:
-            st.markdown("**Longest wear (longevity)**")
-            if not board["longevity"]:
-                st.caption("Log longevity on SOTD entries to unlock.")
-            else:
-                for avg, n, name in board["longevity"]:
-                    st.write(f"**{name}**  -  {avg:.1f}/5 ({n} log{'s' if n != 1 else ''})")
-
-
-    filter_col, sort_col, flag_col, shelf_col = st.columns(4)
+    # Collection browser filters
+        filter_col, sort_col, flag_col, shelf_col = st.columns(4)
     with filter_col:
         browse_gender = st.selectbox(
             "Filter by gender",
@@ -8523,65 +8477,6 @@ with tab_vault:
 
     
     
-    with st.expander("Compare two bottles", expanded=False):
-        st.caption("Side-by-side look at notes, families, season, gender, and more.")
-        names = sorted(
-            (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
-        )
-        names = [n for n in names if n]
-        c1, c2 = st.columns(2)
-        with c1:
-            left = st.selectbox("Bottle A", ["- select -"] + names, key="compare_a")
-        with c2:
-            right = st.selectbox("Bottle B", ["- select -"] + names, key="compare_b")
-        if left != "- select -" and right != "- select -":
-            fa = next((f for f in st.session_state["fragrances_db"] if f.get("name") == left), None)
-            fb = next((f for f in st.session_state["fragrances_db"] if f.get("name") == right), None)
-            if fa and fb:
-                def _row(label, va, vb):
-                    st.markdown(f"**{label}**")
-                    r1, r2 = st.columns(2)
-                    with r1:
-                        st.write(va if va else "-")
-                    with r2:
-                        st.write(vb if vb else "-")
-                _row("Name", fa.get("name"), fb.get("name"))
-                _row("Brand", fa.get("brand"), fb.get("brand"))
-                _row("Gender", fa.get("gender"), fb.get("gender"))
-                _row("Season", fa.get("season"), fb.get("season"))
-                _row(
-                    "Families",
-                    ", ".join(fa.get("category") or []) or "-",
-                    ", ".join(fb.get("category") or []) or "-",
-                )
-                _row("Shelf", fa.get("shelf_status") or "Own", fb.get("shelf_status") or "Own")
-                size_a = fa.get("size_ml")
-                size_b = fb.get("size_ml")
-                _row(
-                    "Size (ml)",
-                    str(size_a) if size_a is not None else "-",
-                    str(size_b) if size_b is not None else "-",
-                )
-                st.markdown("**Notes**")
-                n1, n2 = st.columns(2)
-                with n1:
-                    st.write(fa.get("notes") or "-")
-                with n2:
-                    st.write(fb.get("notes") or "-")
-                # Quick overlap hint
-                cats_a = set(fa.get("category") or [])
-                cats_b = set(fb.get("category") or [])
-                shared = cats_a & cats_b
-                only_a = cats_a - cats_b
-                only_b = cats_b - cats_a
-                if shared:
-                    st.caption("Shared families: " + ", ".join(sorted(shared)))
-                if only_a:
-                    st.caption(f"Only in {left}: " + ", ".join(sorted(only_a)))
-                if only_b:
-                    st.caption(f"Only in {right}: " + ", ".join(sorted(only_b)))
-
-
     with st.expander("Scent family helper", expanded=False):
         st.caption(
             "Paste notes (or pick a bottle) to get suggested scent families. "
