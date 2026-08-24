@@ -1921,7 +1921,7 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
         b = sorted(n2 & family)
         if a and b:
             reasons.append(
-                f"Synergy ({', '.join(list(family)[:3])}Ã¢ÂÂ¦): "
+                f"Synergy ({', '.join(list(family)[:3])}ÂÂ¦): "
                 f"{f1.get('name')} has {', '.join(a[:3])}; "
                 f"{f2.get('name')} has {', '.join(b[:3])}"
             )
@@ -4752,7 +4752,7 @@ with st.sidebar:
     _n_bot = len(st.session_state.get("fragrances_db") or [])
     _last = st.session_state.get("last_saved_at") or st.session_state.get("_autosaved_at") or "never"
     _exp = st.session_state.get("last_export_date") or "never"
-    st.caption(f"Vault: **{_n_bot}** bottles ÃÂ· autosave on")
+    st.caption(f"Vault: **{_n_bot}** bottles | autosave on")
     st.caption(f"Last saved: {_last}")
     st.caption(f"Last JSON export: **{_exp}**")
     if _exp == "never" or (
@@ -4817,7 +4817,7 @@ with st.sidebar:
     _saved = st.session_state.get("last_saved_at")
     n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved} ÃÂÃÂ· **{n_now}** bottles")
+        st.caption(f"Vault last saved: {_saved} ÃÂ| **{n_now}** bottles")
     else:
         st.caption(
             f"Vault: **{n_now}** bottles (seed or session). "
@@ -5231,7 +5231,7 @@ with st.sidebar:
                             f"**{target}**  \n"
                             f"From: *{src}*"
                             + (f" ({br})" if br else "")
-                            + (f" ÃÂ· {origin}" if origin else "")
+                            + (f" | {origin}" if origin else "")
                         )
                         if st.button(
                             "Save dupe_of on vault match",
@@ -5599,8 +5599,8 @@ with st.sidebar:
         for i, f in enumerate(suggestions, 1):
             cats = ", ".join((f.get("category") or [])[:3])
             st.markdown(
-                f"**{i}. {f.get('name')}** â *{f.get('brand')}*"
-                + (f" Â· {cats}" if cats else "")
+                f"**{i}. {f.get('name')}** - *{f.get('brand')}*"
+                + (f" | {cats}" if cats else "")
             )
     ch1, ch2 = st.columns(2)
     with ch1:
@@ -7777,7 +7777,7 @@ with tab_collection:
                         if url:
                             link_bits.append(f"[{label}]({url})")
                     if link_bits:
-                        st.markdown("Search notes: " + " ÃÂ· ".join(link_bits))
+                        st.markdown("Search notes: " + " | ".join(link_bits))
                 if st.button(
                     "Open in Fragrance lookup",
                     key=f"short_open_lu_{short_name}",
@@ -7907,7 +7907,7 @@ with tab_collection:
                         if url:
                             link_bits.append(f"[{label}]({url})")
                     if link_bits:
-                        st.markdown("Search profile: " + " ÃÂ· ".join(link_bits))
+                        st.markdown("Search profile: " + " | ".join(link_bits))
                 if st.button(
                     "Open in Fragrance lookup",
                     key=f"need_open_lu_{pick_name}",
@@ -8091,7 +8091,7 @@ with tab_vault:
                 f"at {st.session_state.get('last_saved_at')}."
             )
         else:
-            st.error("Save did not complete â check the sidebar for details.")
+            st.error("Save did not complete - check the sidebar for details.")
 
     favs = [
         name
@@ -8433,10 +8433,10 @@ with tab_vault:
             if st.button("Suggest families", key="family_suggest_btn"):
                 suggested = suggest_categories_from_notes(notes_in or "")
                 if suggested:
-                    st.success("Suggested: **" + " Â· ".join(suggested) + "**")
+                    st.success("Suggested: **" + " | ".join(suggested) + "**")
                     st.session_state["_last_family_suggest"] = suggested
                 else:
-                    st.info("No strong matches â try adding more note keywords.")
+                    st.info("No strong matches - try adding more note keywords.")
             if st.session_state.get("_last_family_suggest"):
                 st.caption("Last suggestion: " + ", ".join(st.session_state["_last_family_suggest"]))
         elif mode == "Search vault by family":
@@ -8473,7 +8473,7 @@ with tab_vault:
                     st.write("Current families: **" + (", ".join(current) if current else "none") + "**")
                     suggested = suggest_categories_from_notes(frag.get("notes") or "")
                     if suggested:
-                        st.write("Suggested from notes: **" + " Â· ".join(suggested) + "**")
+                        st.write("Suggested from notes: **" + " | ".join(suggested) + "**")
                         if st.button("Apply suggested families to this bottle", key="family_apply_btn"):
                             # merge unique
                             merged = list(dict.fromkeys(list(current) + suggested))
@@ -8483,7 +8483,7 @@ with tab_vault:
                                     break
                             log_vault_action("edited", bottle, "family-helper")
                             save_persisted_data()
-                            st.success(f"Updated **{bottle}** â {', '.join(merged)}")
+                            st.success(f"Updated **{bottle}** -> {', '.join(merged)}")
                             st.rerun()
                     else:
                         st.info("No strong suggestions from the current notes.")
