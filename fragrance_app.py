@@ -2549,7 +2549,8 @@ def fragrances_in_price_range(min_p: float, max_p: float, gender: str = "Any") -
     return hits
 
 
-def get_mood_picks(mood: str, top_n: int = 3, pool: list = None) -> list:
+def get_mood_picks(mood: str, top_n: int = 3, pool: list = None, salt: int = 0) -> list:
+    """Return top mood matches. salt rotates through the ranked list so redraw is not identical."""
     source = pool if pool is not None else st.session_state["fragrances_db"]
     scored = []
     for f in source:
@@ -2557,7 +2558,18 @@ def get_mood_picks(mood: str, top_n: int = 3, pool: list = None) -> list:
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
+    ranked = [f for _, f in scored]
+    if not ranked:
+        return []
+    # Keep a wider pool of good matches, then rotate by salt
+    window = ranked[: max(top_n * 4, 12)]
+    if len(window) <= top_n:
+        return window
+    start = (salt * top_n) % len(window)
+    picks = []
+    for i in range(top_n):
+        picks.append(window[(start + i) % len(window)])
+    return picks
 
 
 def twin_score(f1: dict, f2: dict) -> int:
@@ -7209,13 +7221,29 @@ with tab_play:
             f'</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Draw mood scents", type="primary", key="mood_draw"):
-            picks = get_mood_picks(mood, top_n=3, pool=play_pool)
-            st.session_state["last_mood"] = {"mood": mood, "picks": picks}
+        # salt lets you redraw different options for the same mood
+        if "mood_salt" not in st.session_state:
+            st.session_state["mood_salt"] = 0
+        md1, md2 = st.columns(2)
+        with md1:
+            draw_clicked = st.button("Draw mood scents", type="primary", key="mood_draw", use_container_width=True)
+        with md2:
+            redraw_clicked = st.button("Redraw options", key="mood_redraw", use_container_width=True)
+        if draw_clicked or redraw_clicked:
+            if redraw_clicked:
+                st.session_state["mood_salt"] = int(st.session_state.get("mood_salt", 0)) + 1
+            elif draw_clicked:
+                # fresh draw starts at current salt (or 0 if mood changed)
+                if st.session_state.get("last_mood", {}).get("mood") != mood:
+                    st.session_state["mood_salt"] = 0
+            salt = int(st.session_state.get("mood_salt", 0))
+            picks = get_mood_picks(mood, top_n=3, pool=play_pool, salt=salt)
+            st.session_state["last_mood"] = {"mood": mood, "picks": picks, "salt": salt}
             st.session_state["play_stats"]["moods_drawn"] = (
                 st.session_state["play_stats"].get("moods_drawn", 0) + 1
             )
             save_persisted_data()
+            st.rerun()
         last_mood = st.session_state.get("last_mood")
         if last_mood:
             st.caption(f"Drawn for: {last_mood.get('mood')}")
