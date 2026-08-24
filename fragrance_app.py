@@ -4837,7 +4837,7 @@ with st.sidebar:
     _saved = st.session_state.get("last_saved_at")
     n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved} ÃÂ| **{n_now}** bottles")
+        st.caption(f"Vault last saved: {_saved} Â| **{n_now}** bottles")
     else:
         st.caption(
             f"Vault: **{n_now}** bottles (seed or session). "
@@ -4944,8 +4944,6 @@ with st.sidebar:
     if "price_sb_gender" not in st.session_state:
         st.session_state["price_sb_gender"] = "Any"
 
-    with st.expander("Price features removed", expanded=False):
-        st.caption("Price tracking was removed. Use size/shelf notes if you still want cost context.")
     # Reset filters to defaults before widgets if flagged
     if st.session_state.pop("_clear_filters", False):
         st.session_state["filter_gender"] = "Any"
@@ -7397,8 +7395,6 @@ with tab_play:
 with tab_collection:
     st.subheader("Collection browser")
 
-    with st.expander("Price features removed", expanded=False):
-        st.caption("Price tracking was removed. Use size/shelf notes if you still want cost context.")
     wear_counts = get_wear_counts()
     favs = [
         name
