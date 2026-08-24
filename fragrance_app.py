@@ -8655,41 +8655,6 @@ with tab_vault:
                 if frag:
                     current = frag.get("category") or []
                     st.write("Current families: **" + (", ".join(current) if current else "none") + "**")
-                    # Performance (projection = sillage)
-                    sil = frag.get("sillage")
-                    lon = frag.get("longevity")
-                    try:
-                        perf = average_performance(bottle)
-                    except Exception:
-                        perf = {}
-                    sil_txt = str(sil) if sil is not None else (str(perf.get("sillage")) + " (from SOTD)" if perf.get("sillage") else "not set")
-                    lon_txt = str(lon) if lon is not None else (str(perf.get("longevity")) + " (from SOTD)" if perf.get("longevity") else "not set")
-                    st.write(f"Projection: **{sil_txt}** | Longevity: **{lon_txt}**")
-                    pc1, pc2 = st.columns(2)
-                    with pc1:
-                        new_sil = st.selectbox(
-                            "Set projection (1-5)",
-                            ["- keep -", "1", "2", "3", "4", "5"],
-                            key=f"fam_sil_{bottle}",
-                        )
-                    with pc2:
-                        new_lon = st.selectbox(
-                            "Set longevity (1-5)",
-                            ["- keep -", "1", "2", "3", "4", "5"],
-                            key=f"fam_lon_{bottle}",
-                        )
-                    if st.button("Save performance", key=f"fam_perf_save_{bottle}"):
-                        for i, f in enumerate(st.session_state["fragrances_db"]):
-                            if f.get("name") == bottle:
-                                if new_sil != "- keep -":
-                                    st.session_state["fragrances_db"][i]["sillage"] = int(new_sil)
-                                if new_lon != "- keep -":
-                                    st.session_state["fragrances_db"][i]["longevity"] = int(new_lon)
-                                break
-                        log_vault_action("edited", bottle, "performance")
-                        save_persisted_data()
-                        st.success("Performance saved.")
-                        st.rerun()
                     suggested = suggest_categories_from_notes(frag.get("notes") or "")
                     if suggested:
                         st.write("Suggested from notes: **" + " | ".join(suggested) + "**")
@@ -8709,8 +8674,7 @@ with tab_vault:
 
         elif mode == "Audit whole vault":
             st.caption(
-                "Scans every bottle for missing or weak notes, gender, season, scent families, "
-                "and performance (longevity / projection). "
+                "Scans every bottle for missing or weak notes, gender, season, and scent families. "
                 "You can auto-apply suggested families to bottles that need them."
             )
             run = st.button("Run full vault audit", type="primary", key="vault_audit_run")
@@ -8744,17 +8708,6 @@ with tab_vault:
                         elif len(cats) == 1 and cats[0] in ("Gourmand", "Sweet"):
                             # very generic single tag - still ok but note it
                             pass
-                        # Performance: bottle-level or derived from SOTD
-                        sil = f.get("sillage")
-                        lon = f.get("longevity")
-                        try:
-                            perf = average_performance(name)
-                        except Exception:
-                            perf = {}
-                        if sil is None and not perf.get("sillage"):
-                            flags.append("no projection data")
-                        if lon is None and not perf.get("longevity"):
-                            flags.append("no longevity data")
                         # Suggest families from notes
                         suggested = suggest_categories_from_notes(notes) if notes else []
                         if flags or (suggested and set(suggested) - set(cats)):
