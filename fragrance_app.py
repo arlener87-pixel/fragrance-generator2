@@ -2357,6 +2357,14 @@ MOOD_PROFILES = {
         "categories": ["Oriental", "Gourmand", "Floral", "Spicy"],
         "notes_keywords": ["amber", "vanilla", "oud", "rose", "cinnamon", "honey"],
     },
+    "Lazy / stay home": {
+        "categories": ["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla", "Powdery"],
+        "notes_keywords": [
+            "vanilla", "cream", "milk", "musk", "soft", "cozy", "caramel",
+            "marshmallow", "cotton", "skin", "powder", "tonka", "amber",
+            "cookie", "warm", "comfort",
+        ],
+    },
 }
 
 
