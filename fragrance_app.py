@@ -902,7 +902,7 @@ try:
 except Exception:
     pass
 
-# Snapshot vault after all loads Ã¢ÂÂ any later mutation this run triggers autosave
+# Snapshot vault after all loads â any later mutation this run triggers autosave
 try:
     st.session_state["_vault_fp_run_start"] = vault_fingerprint()
 except Exception:
@@ -1161,7 +1161,7 @@ def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
                 return out
             return {
                 "ok": False,
-                "detail": "HTTP 429 Too Many Requests Ã¢ÂÂ wait a few minutes, or use the slider",
+                "detail": "HTTP 429 Too Many Requests â wait a few minutes, or use the slider",
             }
         return {"ok": False, "detail": f"HTTP Error {ex.code}: {ex.reason}"}
     except Exception as ex:
@@ -2266,14 +2266,66 @@ def score_for_horror(f: dict, mode: str) -> int:
     return score
 
 
-def get_horror_picks(mode: str, top_n: int = 3) -> list:
+def get_horror_picks(mode: str, top_n: int = 3, gender: str = "Any") -> list:
     scored = []
     for f in st.session_state.get("fragrances_db") or []:
+        if gender and gender != "Any":
+            if not matches_gender(f, gender):
+                continue
         s = score_for_horror(f, mode)
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [f for _, f in scored[:top_n]]
+
+
+def suggest_categories_from_notes(notes: str) -> list:
+    """Suggest scent families from free-text notes using keyword matching."""
+    if not notes:
+        return []
+    text = notes.lower()
+    # keyword -> category weights
+    rules = {
+        "Gourmand": ["vanilla", "caramel", "chocolate", "cocoa", "praline", "toffee", "cookie", "cake", "cream", "milk", "sugar", "marshmallow", "honey", "almond", "pistachio", "coffee", "latte", "dulce", "biscoff", "speculoos", "whipped"],
+        "Sweet": ["sweet", "candy", "sugar", "honey", "caramel", "vanilla", "praline", "toffee", "cotton candy", "bubble gum"],
+        "Floral": ["rose", "jasmine", "tuberose", "peony", "orchid", "lily", "violet", "iris", "freesia", "gardenia", "ylang", "orange blossom", "magnolia", "heliotrope", "muguet"],
+        "Woody": ["wood", "cedar", "sandalwood", "oak", "vetiver", "patchouli", "guaiac", "cypress", "fir", "pine", "cashmere wood", "clearwood"],
+        "Oriental": ["oud", "incense", "amber", "myrrh", "benzoin", "labdanum", "saffron", "resin", "oriental", "balsam"],
+        "Fresh": ["fresh", "clean", "aquatic", "ozonic", "marine", "cucumber", "mint", "green"],
+        "Fruity": ["apple", "pear", "peach", "berry", "strawberry", "raspberry", "cherry", "mango", "pineapple", "lychee", "blackcurrant", "cassis", "plum", "banana", "coconut", "fruity"],
+        "Spicy": ["pepper", "cinnamon", "cardamom", "nutmeg", "ginger", "clove", "spice", "pimento"],
+        "Citrus": ["citrus", "bergamot", "lemon", "orange", "grapefruit", "mandarin", "lime", "neroli"],
+        "Aromatic": ["lavender", "rosemary", "basil", "sage", "herbal", "aromatic", "anise"],
+        "Leather": ["leather"],
+        "Oud": ["oud", "agarwood", "agar"],
+        "Boozy": ["rum", "cognac", "whiskey", "whisky", "liquor", "boozy", "wine", "champagne"],
+        "Smoky": ["smoke", "smoky", "incense", "tobacco", "burnt"],
+        "Powdery": ["powder", "powdery", "iris", "violet", "heliotrope", "orris"],
+        "Musky": ["musk", "musky", "skin", "clean musk"],
+        "Amber": ["amber", "ambergris", "ambroxan", "amberwood"],
+        "Vanilla": ["vanilla"],
+        "Green": ["green", "galbanum", "grass", "leaf", "ivy", "tomato leaf"],
+        "Aquatic": ["aquatic", "marine", "sea", "ocean", "watery", "ozonic"],
+        "Creamy": ["cream", "creamy", "milk", "butter", "lactonic", "sandalwood"],
+        "Chypre": ["chypre", "oakmoss", "bergamot", "labdanum"],
+        "Fougere": ["fougere", "lavender", "coumarin", "oakmoss"],
+        "Animalic": ["animalic", "civet", "castoreum", "musk", "indolic"],
+        "Metallic": ["metallic", "metal", "aluminum", "ink"],
+    }
+    scores = {}
+    for cat, kws in rules.items():
+        score = 0
+        for kw in kws:
+            if kw in text:
+                score += 1 + (1 if len(kw) > 5 else 0)  # slight boost for longer/more specific
+        if score:
+            scores[cat] = score
+    # return top categories sorted by score, limit to 5
+    ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+    return [c for c, s in ranked[:5]]
+
+
+
 
 
 MOOD_PROFILES = {
@@ -2432,7 +2484,7 @@ def bulk_add_fragrances(
             "brand": brand,
             "gender": default_gender or "Unisex",
             "season": default_season or "Versatile",
-            "notes": "Not specified Ã¢ÂÂ edit later",
+            "notes": "Not specified â edit later",
             "category": ["Gourmand"],
             "dupe_of": "",
             "shelf_status": "Own",
@@ -2902,9 +2954,9 @@ def fragrance_search_score(f: dict, query: str) -> int:
     """
     Name/brand relevance score. Higher = better. 0 = no match.
 
-    Priority (high Ã¢ÂÂ low):
-      exact name Ã¢ÂÂ exact brand Ã¢ÂÂ name starts with query / query starts with name
-      Ã¢ÂÂ full phrase inside name Ã¢ÂÂ token matches on name/brand words
+    Priority (high â low):
+      exact name â exact brand â name starts with query / query starts with name
+      â full phrase inside name â token matches on name/brand words
     Loose substring-inside-word matching is avoided so "Yara" does not
     pull every bottle that merely shares letters with another word.
     """
@@ -2960,7 +3012,7 @@ def fragrance_search_score(f: dict, query: str) -> int:
             hit = True
             score += 25
         else:
-            # Prefix match on a whole word (e.g. "ecl" Ã¢ÂÂ "eclaire")
+            # Prefix match on a whole word (e.g. "ecl" â "eclaire")
             for w in all_words:
                 if len(w) >= 3 and len(t) >= 3 and (w.startswith(t) or t.startswith(w)):
                     hit = True
@@ -3224,34 +3276,36 @@ def get_weekly_recipe():
 
 
 CHALLENGE_DECK = [
-    "Wear only something you've never layered before.",
-    "No gourmands for the next 3 logs.",
-    "Only Male-leaning or pure Male this weekend.",
-    "Pick a bottle you haven't worn in 14+ days.",
-    "Layer a Fresh with a Gourmand today.",
-    "Wear your least-worn YAY bottle.",
-    "No vanilla-forward scents until tomorrow.",
-    "Choose something with oud, leather, or incense.",
-    "All-floral day - no woody bases if you can help it.",
-    "Blind-bottle yourself: pick without looking at the name.",
-    "Wear the opposite family of yesterday's SOTD.",
-    "Date-night intensity on an ordinary day.",
-    "Horror night: wear something smoky, incense, or dark woody.",
-    "High Desert heat check: lightest, airiest bottle you own.",
-    "Coffee + desk day: soft office-safe scent only.",
-    "Layer two bottles you have never combined.",
-    "No sweet notes today - dry, green, or citrus only.",
-    "Reach for a decant or travel size if you have one.",
-    "Wear a fragrance purely for the top notes - reapply later.",
-    "Match your scent to the weather outside right now.",
-    "Pick a brand you rarely reach for.",
-    "One spray only - see if it still reads on skin.",
-    "Movie-night vibe: gothic fog or slasher neon energy.",
-    "Skip your usual top 3 - force a deep-shelf bottle.",
-    "Fruity opening, clean dry-down - no heavy ambers.",
-    "Powdery or iris-forward only today.",
-    "Leather or cedar must show up in the mix.",
-    "Write three words about the scent at hour two.",
+    "Wear a bottle you haven't reached for in 2+ weeks.",
+    "Layer two scents you've never combined before.",
+    "No gourmands today â go dry, green, woody or citrus.",
+    "Pick something with coffee, chocolate or caramel.",
+    "Horror night: only smoky, incense, leather or dark woody.",
+    "One spray only â see if it still projects on you.",
+    "Wear your softest, skin-scent style bottle all day.",
+    "Match the weather outside right now (hot â fresh, cold â cozy).",
+    "Blind grab: close your eyes and pick from the shelf.",
+    "Date-night intensity on a regular Tuesday.",
+    "Only Female or Female-leaning bottles today.",
+    "Only Male or Male-leaning bottles today.",
+    "All vanilla-forward scents are banned until tomorrow.",
+    "Choose a brand you almost never wear.",
+    "Layer a Fresh top with a Gourmand base.",
+    "Wear something that smells like dessert for dinner.",
+    "Gothic fog only: incense, amber, rose, or oud.",
+    "High-desert heat check: lightest, airiest bottle you own.",
+    "Movie night: pick a scent that matches a horror film.",
+    "Office-safe only â nothing loud or sweet.",
+    "Revisit a bottle you once thought was 'meh'.",
+    "Three words only in your SOTD notes today.",
+    "Wear the opposite of whatever you wore yesterday.",
+    "Powdery or iris-forward must appear in the mix.",
+    "No Lattafa today â force the rest of the vault.",
+    "Pick a body spray or lighter concentration if you have one.",
+    "Coffee + desk day: soft, creamy, or skin-scent only.",
+    "Fruity opening + clean dry-down â no heavy ambers.",
+    "Leather or cedar has to show up somewhere.",
+    "Skip your usual top 5 â deep-shelf only.",
 ]
 
 
@@ -3667,7 +3721,7 @@ def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
     return build_simple_pdf(title, lines)
 
 
-# Popular clone / inspired-by map (name lowercase Ã¢ÂÂ original). Not exhaustive.
+# Popular clone / inspired-by map (name lowercase â original). Not exhaustive.
 KNOWN_DUPE_OF = {
     "asad": "Dior Sauvage Elixir",
     "lattafa asad": "Dior Sauvage Elixir",
@@ -4586,10 +4640,10 @@ with st.sidebar:
         and _exp != "never"
         and _n_bot >= 5
     ):
-        # Nudge export Ã¢ÂÂ Cloud can wipe the data file on redeploy
+        # Nudge export â Cloud can wipe the data file on redeploy
         st.info(
             "Cloud can erase the on-server data file when the app redeploys. "
-            "After edits or adds, open **Vault Ã¢ÂÂ Backup & restore Ã¢ÂÂ Export vault as JSON** "
+            "After edits or adds, open **Vault â Backup & restore â Export vault as JSON** "
             "and keep a copy on your phone. Use **Restore** after a wipe."
         )
 
@@ -4902,7 +4956,7 @@ with st.sidebar:
 
     with st.expander("Add fragrance", expanded=False):
         # Notes helper (outside form so links work without submitting)
-        # Prefill from Collection Ã¢ÂÂ Short notes / Needs fix "Lookup" buttons
+        # Prefill from Collection â Short notes / Needs fix "Lookup" buttons
         _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
         if isinstance(_pending_lu, dict):
             if _pending_lu.get("name"):
@@ -5291,7 +5345,7 @@ with st.sidebar:
         with st.expander("Add multiple (name + brand only)", expanded=False):
             st.caption(
                 "Paste one bottle per line. Fill in notes, gender, season, and categories later "
-                "in **Vault Ã¢ÂÂ Edit** or **Collection Ã¢ÂÂ Needs fix / Short notes**."
+                "in **Vault â Edit** or **Collection â Needs fix / Short notes**."
             )
             st.markdown(
                 "Formats accepted:\n"
@@ -5372,7 +5426,7 @@ with st.sidebar:
                     st.rerun()
                 elif n_skip and not n_add:
                     st.warning(
-                        f"Nothing new added Ã¢ÂÂ {n_skip} already in vault or invalid."
+                        f"Nothing new added â {n_skip} already in vault or invalid."
                     )
                 else:
                     st.warning("Paste at least one line with a fragrance name.")
@@ -5513,7 +5567,7 @@ with tab_discover:
             st.session_state.pop("last_temp_search", None)
             st.rerun()
 
-    # Name / brand search (ranked: YAY Ã¢ÂÂ most worn Ã¢ÂÂ complete notes)
+    # Name / brand search (ranked: YAY â most worn â complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
         qn = _search_normalize(search_query)
@@ -5542,12 +5596,12 @@ with tab_discover:
         else:
             if exact_hits:
                 st.caption(
-                    f"**Exact name match** Ã¢ÂÂ {len(matching)} bottle(s). "
+                    f"**Exact name match** â {len(matching)} bottle(s). "
                     "Similar names are hidden when an exact name exists."
                 )
             else:
                 st.caption(
-                    f"{len(matching)} match(es) Ã¢ÂÂ no exact name; showing closest "
+                    f"{len(matching)} match(es) â no exact name; showing closest "
                     "name/brand hits (prefix and whole-word tokens)."
                 )
             for f in matching:
@@ -6172,7 +6226,7 @@ with tab_roulette:
         st.caption(
             "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
             + str(ev.get("suggested_name") or "")
-            + "* Ã¢ÂÂ use **Reroll name from notes** for another"
+            + "* â use **Reroll name from notes** for another"
         )
         season = ev.get("season") or {}
         if season.get("detail"):
@@ -6253,7 +6307,7 @@ with tab_roulette:
                         st.session_state["_roulette_recipe_save_flash"] = (
                             f"Saved **{final_name}** "
                             f"(season: {season.get('label', '?')}). "
-                            "See Layer tab Ã¢ÂÂ Saved layer recipes."
+                            "See Layer tab â Saved layer recipes."
                         )
                     st.rerun()
 
@@ -6319,10 +6373,15 @@ with tab_sotd:
             list(HORROR_SCENT_PROFILES.keys()),
             key="sotd_horror_mode",
         )
+        horror_gender = st.selectbox(
+            "Gender filter",
+            ["Any", "Female", "Male", "Unisex"],
+            key="sotd_horror_gender",
+        )
         hp = HORROR_SCENT_PROFILES[horror_mode]
         st.write(hp.get("blurb", ""))
         if st.button("Draw horror night scents", type="primary", key="sotd_horror_draw"):
-            picks = get_horror_picks(horror_mode, top_n=3)
+            picks = get_horror_picks(horror_mode, top_n=3, gender=horror_gender)
             st.session_state["last_horror_picks"] = {
                 "mode": horror_mode,
                 "picks": picks,
@@ -7754,6 +7813,16 @@ with tab_collection:
                     "Boozy",
                     "Smoky",
                     "Powdery",
+                    "Musky",
+                    "Amber",
+                    "Vanilla",
+                    "Green",
+                    "Aquatic",
+                    "Chypre",
+                    "Fougere",
+                    "Animalic",
+                    "Metallic",
+                    "Creamy",
                 ]
                 fx1, fx2 = st.columns(2)
                 with fx1:
@@ -7882,7 +7951,7 @@ with tab_vault:
         st.caption(f"Last saved: {st.session_state['last_saved_at']} (Pacific)")
     st.caption(
         "Edits auto-save to the data file on this server. "
-        "**Streamlit Cloud can wipe that file on redeploy** Ã¢ÂÂ export JSON after big changes."
+        "**Streamlit Cloud can wipe that file on redeploy** â export JSON after big changes."
     )
     if st.button("Save vault now", key="vault_force_save_btn"):
         ok = save_persisted_data(force=True)
@@ -7892,7 +7961,7 @@ with tab_vault:
                 f"at {st.session_state.get('last_saved_at')}."
             )
         else:
-            st.error("Save did not complete Ã¢ÂÂ check the sidebar for details.")
+            st.error("Save did not complete â check the sidebar for details.")
 
     favs = [
         name
@@ -8212,6 +8281,84 @@ with tab_vault:
             st.success(f"Banished {len(names)} bottle(s).")
             st.rerun()
 
+    
+    with st.expander("Scent family helper", expanded=False):
+        st.caption(
+            "Paste notes (or pick a bottle) to get suggested scent families. "
+            "You can also search your vault by family."
+        )
+        mode = st.radio(
+            "Mode",
+            ["Suggest from notes", "Search vault by family", "Check a bottle"],
+            horizontal=True,
+            key="family_helper_mode",
+        )
+        if mode == "Suggest from notes":
+            notes_in = st.text_area(
+                "Notes or description",
+                placeholder="e.g. Top - Vanilla, caramel / Heart - Jasmine / Base - Musk, sandalwood",
+                key="family_notes_in",
+                height=100,
+            )
+            if st.button("Suggest families", key="family_suggest_btn"):
+                suggested = suggest_categories_from_notes(notes_in or "")
+                if suggested:
+                    st.success("Suggested: **" + " Â· ".join(suggested) + "**")
+                    st.session_state["_last_family_suggest"] = suggested
+                else:
+                    st.info("No strong matches â try adding more note keywords.")
+            if st.session_state.get("_last_family_suggest"):
+                st.caption("Last suggestion: " + ", ".join(st.session_state["_last_family_suggest"]))
+        elif mode == "Search vault by family":
+            all_cats = sorted({
+                c
+                for f in (st.session_state.get("fragrances_db") or [])
+                for c in (f.get("category") or [])
+            })
+            pick_cat = st.selectbox("Family / category", ["Any"] + all_cats, key="family_search_cat")
+            q = st.text_input("Optional name filter", key="family_search_q")
+            results = []
+            for f in st.session_state.get("fragrances_db") or []:
+                cats = f.get("category") or []
+                if pick_cat != "Any" and pick_cat not in cats:
+                    continue
+                if q and q.lower() not in (f.get("name") or "").lower() and q.lower() not in (f.get("brand") or "").lower():
+                    continue
+                results.append(f)
+            st.caption(f"{len(results)} match(es)")
+            for f in results[:40]:
+                st.markdown(
+                    f"**{f.get('name')}** â *{f.get('brand')}* Â· "
+                    + ", ".join(f.get("category") or [])
+                )
+            if len(results) > 40:
+                st.caption(f"â¦and {len(results)-40} more")
+        else:  # Check a bottle
+            names = sorted(f.get("name") or "" for f in (st.session_state.get("fragrances_db") or []))
+            bottle = st.selectbox("Bottle", ["- select -"] + names, key="family_check_bottle")
+            if bottle and bottle != "- select -":
+                frag = next((f for f in st.session_state["fragrances_db"] if f.get("name") == bottle), None)
+                if frag:
+                    current = frag.get("category") or []
+                    st.write("Current families: **" + (", ".join(current) if current else "none") + "**")
+                    suggested = suggest_categories_from_notes(frag.get("notes") or "")
+                    if suggested:
+                        st.write("Suggested from notes: **" + " Â· ".join(suggested) + "**")
+                        if st.button("Apply suggested families to this bottle", key="family_apply_btn"):
+                            # merge unique
+                            merged = list(dict.fromkeys(list(current) + suggested))
+                            for i, f in enumerate(st.session_state["fragrances_db"]):
+                                if f.get("name") == bottle:
+                                    st.session_state["fragrances_db"][i]["category"] = merged
+                                    break
+                            log_vault_action("edited", bottle, "family-helper")
+                            save_persisted_data()
+                            st.success(f"Updated **{bottle}** â {', '.join(merged)}")
+                            st.rerun()
+                    else:
+                        st.info("No strong suggestions from the current notes.")
+
+
     with st.expander("Activity log", expanded=False):
         vlog = st.session_state.get("vault_log") or []
         if not vlog:
@@ -8295,7 +8442,7 @@ with tab_vault:
                     if "last_export_date" in imported_data:
                         st.session_state["last_export_date"] = imported_data["last_export_date"]
                     if "chart" in imported_data and isinstance(imported_data["chart"], dict):
-                        # Defer chart_* keys Ã¢ÂÂ Stars widgets already ran this script cycle
+                        # Defer chart_* keys â Stars widgets already ran this script cycle
                         st.session_state["_pending_chart_restore"] = imported_data["chart"]
                     if "wishlist" in imported_data:
                         st.session_state["wishlist"] = imported_data["wishlist"]
@@ -8304,7 +8451,7 @@ with tab_vault:
                     n_bot = len(st.session_state.get("fragrances_db") or [])
                     save_persisted_data(force=True)
                     st.session_state["_restore_flash"] = (
-                        f"Vault restored Ã¢ÂÂ **{n_bot}** bottles loaded. "
+                        f"Vault restored â **{n_bot}** bottles loaded. "
                         "Export JSON again and keep a copy off Cloud."
                     )
                     st.rerun()
@@ -8323,7 +8470,7 @@ with tab_vault:
 try:
     _auto_ok = autosave_if_changed(force=False)
     if _auto_ok and st.session_state.get("_autosaved_at"):
-        # Quiet status in sidebar area via session flag for next widgets Ã¢ÂÂ already saved
+        # Quiet status in sidebar area via session flag for next widgets â already saved
         pass
 except Exception as _auto_ex:
     try:
