@@ -8419,7 +8419,7 @@ with tab_vault:
         )
         mode = st.radio(
             "Mode",
-            ["Suggest from notes", "Search vault by family", "Check a bottle"],
+            ["Suggest from notes", "Search vault by family", "Check a bottle", "Audit whole vault"],
             horizontal=True,
             key="family_helper_mode",
         )
@@ -8463,7 +8463,7 @@ with tab_vault:
                 )
             if len(results) > 40:
                 st.caption(f"â¦and {len(results)-40} more")
-        else:  # Check a bottle
+        elif mode == "Check a bottle":  # Check a bottle
             names = sorted(f.get("name") or "" for f in (st.session_state.get("fragrances_db") or []))
             bottle = st.selectbox("Bottle", ["- select -"] + names, key="family_check_bottle")
             if bottle and bottle != "- select -":
@@ -8487,6 +8487,109 @@ with tab_vault:
                             st.rerun()
                     else:
                         st.info("No strong suggestions from the current notes.")
+
+        elif mode == "Audit whole vault":
+            st.caption(
+                "Scans every bottle for missing or weak notes, gender, season, and scent families. "
+                "You can auto-apply suggested families to bottles that need them."
+            )
+            run = st.button("Run full vault audit", type="primary", key="vault_audit_run")
+            apply_all = st.checkbox(
+                "Also auto-apply suggested families where categories look weak",
+                value=False,
+                key="vault_audit_apply",
+            )
+            if run or st.session_state.get("_audit_results"):
+                if run:
+                    issues = []
+                    auto_fixed = 0
+                    db = st.session_state.get("fragrances_db") or []
+                    for i, f in enumerate(db):
+                        name = f.get("name") or "?"
+                        brand = f.get("brand") or "?"
+                        notes = (f.get("notes") or "").strip()
+                        gender = (f.get("gender") or "").strip()
+                        season = (f.get("season") or "").strip()
+                        cats = f.get("category") or []
+                        flags = []
+                        if len(notes) < 15:
+                            flags.append("weak/missing notes")
+                        if not gender:
+                            flags.append("missing gender")
+                        if not season or season.lower() in ("versatile", "any", ""):
+                            if not season:
+                                flags.append("missing season")
+                        if not cats:
+                            flags.append("no scent family")
+                        elif len(cats) == 1 and cats[0] in ("Gourmand", "Sweet"):
+                            # very generic single tag â still ok but note it
+                            pass
+                        # Suggest families from notes
+                        suggested = suggest_categories_from_notes(notes) if notes else []
+                        if flags or (suggested and set(suggested) - set(cats)):
+                            issues.append({
+                                "idx": i,
+                                "name": name,
+                                "brand": brand,
+                                "flags": flags,
+                                "current_cats": cats,
+                                "suggested": suggested,
+                            })
+                        # Auto-apply if requested and categories are empty/weak
+                        if apply_all and suggested:
+                            if not cats or len(cats) <= 1:
+                                merged = list(dict.fromkeys(list(cats) + suggested))
+                                st.session_state["fragrances_db"][i]["category"] = merged
+                                auto_fixed += 1
+                    if apply_all and auto_fixed:
+                        log_vault_action("edited", f"{auto_fixed} bottles", "audit-auto-family")
+                        save_persisted_data()
+                    st.session_state["_audit_results"] = {
+                        "issues": issues,
+                        "auto_fixed": auto_fixed,
+                        "total": len(db),
+                    }
+                res = st.session_state.get("_audit_results") or {}
+                issues = res.get("issues") or []
+                total = res.get("total") or 0
+                auto_fixed = res.get("auto_fixed") or 0
+                st.write(
+                    f"Scanned **{total}** bottles. "
+                    f"**{len(issues)}** need attention."
+                    + (f" Auto-updated families on **{auto_fixed}**." if auto_fixed else "")
+                )
+                if not issues:
+                    st.success("Vault looks solid - no major gaps found.")
+                else:
+                    show_n = st.slider("Show first N issues", 5, max(5, len(issues)), min(25, len(issues)), key="audit_show_n")
+                    for item in issues[:show_n]:
+                        flag_txt = ", ".join(item["flags"]) if item["flags"] else "family mismatch"
+                        st.markdown(
+                            f"**{item['name']}** - *{item['brand']}*  \n"
+                            f"Issues: {flag_txt}  \n"
+                            f"Current: {', '.join(item['current_cats']) or 'none'}  \n"
+                            f"Suggested: {' | '.join(item['suggested']) or 'n/a'}"
+                        )
+                    if len(issues) > show_n:
+                        st.caption(f"...and {len(issues) - show_n} more")
+                    # One-click apply all suggested for listed issues
+                    if st.button("Apply all suggested families to flagged bottles", key="audit_apply_flagged"):
+                        fixed = 0
+                        for item in issues:
+                            sug = item.get("suggested") or []
+                            if not sug:
+                                continue
+                            i = item["idx"]
+                            cur = st.session_state["fragrances_db"][i].get("category") or []
+                            merged = list(dict.fromkeys(list(cur) + sug))
+                            st.session_state["fragrances_db"][i]["category"] = merged
+                            fixed += 1
+                        if fixed:
+                            log_vault_action("edited", f"{fixed} bottles", "audit-apply-families")
+                            save_persisted_data()
+                            st.session_state.pop("_audit_results", None)
+                            st.success(f"Updated families on {fixed} bottle(s).")
+                            st.rerun()
 
 
     with st.expander("Activity log", expanded=False):
