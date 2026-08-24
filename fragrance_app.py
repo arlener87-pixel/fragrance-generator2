@@ -5589,13 +5589,46 @@ with st.sidebar:
     # Daily challenge
     if "challenge_salt" not in st.session_state:
         st.session_state["challenge_salt"] = 0
+    # Weather band for today (affects suggestions)
+    weather_band = st.selectbox(
+        "Weather today",
+        ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+        key="today_weather_band",
+    )
     challenge = draw_challenge()
     st.caption("Daily challenge - new each day, or reroll anytime")
     st.info(challenge)
-    # 3 wear suggestions for this challenge
+    # 3 wear suggestions for this challenge (+ weather when set)
     suggestions = suggest_for_challenge(challenge, top_n=3)
+    if weather_band and weather_band != "Any":
+        # Re-rank / filter suggestions toward season match
+        def _season_fit(f):
+            s = (f.get("season") or "").lower()
+            band = weather_band.lower()
+            score = 0
+            if "hot" in band or "summer" in band:
+                if any(x in s for x in ["summer", "spring", "hot", "warm"]):
+                    score += 2
+                if any(x in s for x in ["winter", "fall", "cold"]):
+                    score -= 1
+            elif "cold" in band or "winter" in band:
+                if any(x in s for x in ["winter", "fall", "cold", "cool"]):
+                    score += 2
+                if "summer" in s and "winter" not in s:
+                    score -= 1
+            elif "cool" in band or "autumn" in band:
+                if any(x in s for x in ["fall", "autumn", "cool", "spring", "versatile"]):
+                    score += 2
+            elif "warm" in band or "mild" in band:
+                if any(x in s for x in ["spring", "fall", "versatile", "mild", "warm"]):
+                    score += 2
+            return score
+        # Pull a wider pool then re-rank
+        wider = suggest_for_challenge(challenge, top_n=12)
+        wider_sorted = sorted(wider, key=lambda f: (-_season_fit(f), f.get("name") or ""))
+        suggestions = wider_sorted[:3]
     if suggestions:
-        st.caption("Suggested for today")
+        st.caption("Suggested for today" + (f" ({weather_band})" if weather_band != "Any" else ""))
         for i, f in enumerate(suggestions, 1):
             cats = ", ".join((f.get("category") or [])[:3])
             st.markdown(
@@ -8412,6 +8445,66 @@ with tab_vault:
             st.rerun()
 
     
+    
+    with st.expander("Compare two bottles", expanded=False):
+        st.caption("Side-by-side look at notes, families, season, gender, and more.")
+        names = sorted(
+            (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
+        )
+        names = [n for n in names if n]
+        c1, c2 = st.columns(2)
+        with c1:
+            left = st.selectbox("Bottle A", ["- select -"] + names, key="compare_a")
+        with c2:
+            right = st.selectbox("Bottle B", ["- select -"] + names, key="compare_b")
+        if left != "- select -" and right != "- select -":
+            fa = next((f for f in st.session_state["fragrances_db"] if f.get("name") == left), None)
+            fb = next((f for f in st.session_state["fragrances_db"] if f.get("name") == right), None)
+            if fa and fb:
+                def _row(label, va, vb):
+                    st.markdown(f"**{label}**")
+                    r1, r2 = st.columns(2)
+                    with r1:
+                        st.write(va if va else "-")
+                    with r2:
+                        st.write(vb if vb else "-")
+                _row("Name", fa.get("name"), fb.get("name"))
+                _row("Brand", fa.get("brand"), fb.get("brand"))
+                _row("Gender", fa.get("gender"), fb.get("gender"))
+                _row("Season", fa.get("season"), fb.get("season"))
+                _row(
+                    "Families",
+                    ", ".join(fa.get("category") or []) or "-",
+                    ", ".join(fb.get("category") or []) or "-",
+                )
+                _row("Shelf", fa.get("shelf_status") or "Own", fb.get("shelf_status") or "Own")
+                size_a = fa.get("size_ml")
+                size_b = fb.get("size_ml")
+                _row(
+                    "Size (ml)",
+                    str(size_a) if size_a is not None else "-",
+                    str(size_b) if size_b is not None else "-",
+                )
+                st.markdown("**Notes**")
+                n1, n2 = st.columns(2)
+                with n1:
+                    st.write(fa.get("notes") or "-")
+                with n2:
+                    st.write(fb.get("notes") or "-")
+                # Quick overlap hint
+                cats_a = set(fa.get("category") or [])
+                cats_b = set(fb.get("category") or [])
+                shared = cats_a & cats_b
+                only_a = cats_a - cats_b
+                only_b = cats_b - cats_a
+                if shared:
+                    st.caption("Shared families: " + ", ".join(sorted(shared)))
+                if only_a:
+                    st.caption(f"Only in {left}: " + ", ".join(sorted(only_a)))
+                if only_b:
+                    st.caption(f"Only in {right}: " + ", ".join(sorted(only_b)))
+
+
     with st.expander("Scent family helper", expanded=False):
         st.caption(
             "Paste notes (or pick a bottle) to get suggested scent families. "
