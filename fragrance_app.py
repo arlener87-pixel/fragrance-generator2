@@ -2425,11 +2425,10 @@ ME_WISHLIST_POOL = [
     {"name": "Fakhar Rose", "brand": "Lattafa", "why": "Rose focused - floral ME"},
     {"name": "Mayar Intense", "brand": "Lattafa", "why": "Fruity floral - if you like Mayar"},
     {"name": "Atlas", "brand": "Lattafa", "why": "Woody aromatic - less gourmand"},
-    {"name": "Petite Cherie style ME picks", "brand": "Various", "why": "Skip placeholder"},
 ]
 
 # Filter out placeholder
-ME_WISHLIST_POOL = [x for x in ME_WISHLIST_POOL if x.get("name") != "Petite Cherie style ME picks"]
+ME_WISHLIST_POOL = [x for x in ME_WISHLIST_POOL if "placeholder" not in (x.get("name") or "").lower() and "petite cherie" not in (x.get("name") or "").lower()]
 
 
 def weekly_wishlist_suggestions(n: int = 5) -> list:
@@ -2655,23 +2654,6 @@ def filter_play_pool(gender: str = "Any", season: str = "Any", priced_only: bool
         pool.append(f)
     return pool
 
-
-def fragrances_in_price_range(min_p: float, max_p: float, gender: str = "Any") -> list:
-    hits = []
-    for f in st.session_state.get("fragrances_db") or []:
-        try:
-            px = float(f.get("price")) if f.get("price") is not None else None
-        except (TypeError, ValueError):
-            px = None
-        if px is None:
-            continue
-        if px < min_p or px > max_p:
-            continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
-            continue
-        hits.append(f)
-    hits.sort(key=lambda x: float(x.get("price") or 0))
-    return hits
 
 
 def get_mood_picks(mood: str, top_n: int = 3, pool: list = None, salt: int = 0) -> list:
@@ -3610,24 +3592,31 @@ def suggest_for_challenge(challenge: str, top_n: int = 3, salt: int = 0) -> list
     if len(window) <= top_n:
         return window
     start = (int(salt) * top_n) % len(window)
+    # Exclude recently shown names if provided via session
+    recent = set()
+    try:
+        for n in (st.session_state.get("_challenge_last_picks") or []):
+            if n:
+                recent.add(str(n).lower())
+    except Exception:
+        recent = set()
     picks = []
     seen_brands = set()
     i = 0
-    # prefer brand diversity while rotating
-    while len(picks) < top_n and i < len(window) * 2:
+    guard = 0
+    while len(picks) < top_n and guard < len(window) * 3:
         f = window[(start + i) % len(window)]
+        i += 1
+        guard += 1
+        nm = (f.get("name") or "").lower()
         b = (f.get("brand") or "").lower()
+        if nm in recent and len(window) > top_n + len(recent):
+            continue
         if b in seen_brands and len(window) > top_n:
-            i += 1
-            # allow same brand if we run out
-            if i >= len(window):
-                picks.append(f)
-                break
             continue
         picks.append(f)
         seen_brands.add(b)
-        i += 1
-    # fill if needed
+    # fill if needed (allow recent / same brand)
     if len(picks) < top_n:
         for f in window:
             if f not in picks:
@@ -5040,17 +5029,6 @@ with st.sidebar:
             }
             st.rerun()
 
-    if st.session_state.pop("_clear_price_sb", False):
-        st.session_state["price_sb_min"] = 0
-        st.session_state["price_sb_max"] = 100
-        st.session_state["price_sb_gender"] = "Any"
-        st.session_state.pop("price_sb_hits", None)
-    if "price_sb_min" not in st.session_state:
-        st.session_state["price_sb_min"] = 0
-    if "price_sb_max" not in st.session_state:
-        st.session_state["price_sb_max"] = 100
-    if "price_sb_gender" not in st.session_state:
-        st.session_state["price_sb_gender"] = "Any"
 
     # Reset filters to defaults before widgets if flagged
     if st.session_state.pop("_clear_filters", False):
@@ -5733,6 +5711,7 @@ with st.sidebar:
         else:
             suggestions = wider_sorted[:3]
     if suggestions:
+        st.session_state["_challenge_last_picks"] = [f.get("name") for f in suggestions]
         st.caption("Suggested for today" + (f" ({weather_band})" if weather_band != "Any" else ""))
         for i, f in enumerate(suggestions, 1):
             cats = ", ".join((f.get("category") or [])[:3])
