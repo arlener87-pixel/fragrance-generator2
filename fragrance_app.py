@@ -3536,46 +3536,12 @@ def draw_challenge() -> str:
 
 
 
-def suggest_for_challenge(challenge: str, top_n: int = 3) -> list:
-    """Pick up to top_n bottles from the vault that fit the daily challenge text."""
+def suggest_for_challenge(challenge: str, top_n: int = 3, salt: int = 0) -> list:
+    """Pick bottles that fit the challenge. salt rotates so redraws are not identical."""
     db = st.session_state.get("fragrances_db") or []
     if not db:
         return []
     text = (challenge or "").lower()
-    scored = []
-
-    # Keyword â preferred categories / note fragments
-    rules = [
-        (["gourmand", "dessert", "sweet", "vanilla", "creamy", "skin-scent", "soft"],
-         ["Gourmand", "Sweet", "Creamy", "Vanilla", "Musky"],
-         ["vanilla", "cream", "milk", "caramel", "musk", "soft"]),
-        (["no gourmand", "no sweet", "dry", "green", "woody", "citrus"],
-         ["Woody", "Fresh", "Citrus", "Green", "Aromatic"],
-         ["cedar", "vetiver", "citrus", "bergamot", "green", "wood"]),
-        (["horror", "smoky", "incense", "leather", "dark woody", "gothic", "oud"],
-         ["Smoky", "Oriental", "Leather", "Oud", "Woody"],
-         ["smoke", "incense", "leather", "oud", "amber", "myrrh"]),
-        (["fresh", "light", "airiest", "heat", "summer", "office-safe"],
-         ["Fresh", "Citrus", "Aquatic", "Floral"],
-         ["fresh", "citrus", "bergamot", "musk", "light"]),
-        (["floral", "powdery", "iris"],
-         ["Floral", "Powdery"],
-         ["rose", "jasmine", "iris", "powder", "violet"]),
-        (["fruity"],
-         ["Fruity", "Sweet"],
-         ["berry", "peach", "apple", "mango", "fruit"]),
-        (["coffee", "chocolate", "caramel"],
-         ["Gourmand", "Sweet"],
-         ["coffee", "chocolate", "cocoa", "caramel", "praline"]),
-        (["male", "masculine"],
-         None, None),  # gender filter handled below
-        (["female", "feminine"],
-         None, None),
-        (["layer"],
-         None, None),
-        (["lattafa"],
-         None, None),
-    ]
 
     prefer_cats = set()
     prefer_notes = set()
@@ -3603,7 +3569,11 @@ def suggest_for_challenge(challenge: str, top_n: int = 3) -> list:
     if "floral" in text or "powdery" in text:
         prefer_cats.update(["Floral", "Powdery"])
         prefer_notes.update(["rose", "jasmine", "iris", "powder"])
+    if "lazy" in text or "stay home" in text or "cozy" in text:
+        prefer_cats.update(["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla"])
+        prefer_notes.update(["vanilla", "cream", "musk", "soft", "cozy"])
 
+    scored = []
     for f in db:
         name = (f.get("name") or "").lower()
         brand = (f.get("brand") or "").lower()
@@ -3614,7 +3584,6 @@ def suggest_for_challenge(challenge: str, top_n: int = 3) -> list:
         if ban_brand and ban_brand in brand:
             continue
         if ban_cats and cats & ban_cats and not (prefer_cats and cats & prefer_cats):
-            # allow if it also has preferred cats
             if not (cats & prefer_cats):
                 continue
         if gender_want == "male" and not any(x in gender for x in ["male", "masculine"]):
@@ -3622,31 +3591,45 @@ def suggest_for_challenge(challenge: str, top_n: int = 3) -> list:
         if gender_want == "female" and not any(x in gender for x in ["female", "feminine"]):
             continue
 
-        score = 1  # baseline so we always have some picks
+        score = 1
         if prefer_cats:
             score += 3 * len(cats & prefer_cats)
         if prefer_notes:
             score += sum(2 for kw in prefer_notes if kw in notes or kw in name)
-        # slight boost for unisex when no gender filter
         if not gender_want and "unisex" in gender:
             score += 0.5
+        # tiny name hash so ties don't always sort the same way alphabetically
+        score += (_stable_tiebreak(name + brand + str(salt)) % 100) / 1000.0
         scored.append((score, f))
 
     scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
-    # diversify a bit: take top unique brands when possible
+    ranked = [f for _, f in scored]
+    if not ranked:
+        return []
+    window = ranked[: max(top_n * 5, 15)]
+    if len(window) <= top_n:
+        return window
+    start = (int(salt) * top_n) % len(window)
     picks = []
     seen_brands = set()
-    for s, f in scored:
+    i = 0
+    # prefer brand diversity while rotating
+    while len(picks) < top_n and i < len(window) * 2:
+        f = window[(start + i) % len(window)]
         b = (f.get("brand") or "").lower()
-        if len(picks) >= top_n:
-            break
-        if b in seen_brands and len(scored) > top_n * 2:
+        if b in seen_brands and len(window) > top_n:
+            i += 1
+            # allow same brand if we run out
+            if i >= len(window):
+                picks.append(f)
+                break
             continue
         picks.append(f)
         seen_brands.add(b)
+        i += 1
     # fill if needed
     if len(picks) < top_n:
-        for s, f in scored:
+        for f in window:
             if f not in picks:
                 picks.append(f)
             if len(picks) >= top_n:
@@ -5703,8 +5686,15 @@ with st.sidebar:
     challenge = draw_challenge()
     st.caption("Daily challenge - new each day, or reroll anytime")
     st.info(challenge)
+    if "challenge_suggest_salt" not in st.session_state:
+        st.session_state["challenge_suggest_salt"] = 0
     # 3 wear suggestions for this challenge (+ weather when set)
-    suggestions = suggest_for_challenge(challenge, top_n=3)
+    suggestions = suggest_for_challenge(
+        challenge,
+        top_n=3,
+        salt=int(st.session_state.get("challenge_suggest_salt", 0))
+            + int(st.session_state.get("challenge_salt", 0)),
+    )
     if weather_band and weather_band != "Any":
         # Re-rank / filter suggestions toward season match
         def _season_fit(f):
@@ -5729,9 +5719,19 @@ with st.sidebar:
                     score += 2
             return score
         # Pull a wider pool then re-rank
-        wider = suggest_for_challenge(challenge, top_n=12)
-        wider_sorted = sorted(wider, key=lambda f: (-_season_fit(f), f.get("name") or ""))
-        suggestions = wider_sorted[:3]
+        _salt = int(st.session_state.get("challenge_suggest_salt", 0)) + int(
+            st.session_state.get("challenge_salt", 0)
+        )
+        wider = suggest_for_challenge(challenge, top_n=15, salt=_salt)
+        wider_sorted = sorted(
+            wider, key=lambda f: (-_season_fit(f), f.get("name") or "")
+        )
+        # rotate within weather-ranked list too
+        if len(wider_sorted) > 3:
+            rot = (_salt * 3) % len(wider_sorted)
+            suggestions = [wider_sorted[(rot + i) % len(wider_sorted)] for i in range(3)]
+        else:
+            suggestions = wider_sorted[:3]
     if suggestions:
         st.caption("Suggested for today" + (f" ({weather_band})" if weather_band != "Any" else ""))
         for i, f in enumerate(suggestions, 1):
@@ -5740,12 +5740,19 @@ with st.sidebar:
                 f"**{i}. {f.get('name')}** - *{f.get('brand')}*"
                 + (f" | {cats}" if cats else "")
             )
-    ch1, ch2 = st.columns(2)
+    ch1, ch2, ch3 = st.columns(3)
     with ch1:
         if st.button("New challenge", key="challenge_reroll_btn", use_container_width=True):
             st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
+            st.session_state["challenge_suggest_salt"] = 0
             st.rerun()
     with ch2:
+        if st.button("Redraw picks", key="challenge_redraw_picks", use_container_width=True):
+            st.session_state["challenge_suggest_salt"] = int(
+                st.session_state.get("challenge_suggest_salt", 0)
+            ) + 1
+            st.rerun()
+    with ch3:
         if st.button("Mark done", key="challenge_done_btn", use_container_width=True):
             st.session_state["play_stats"]["challenges_done"] = (
                 st.session_state["play_stats"].get("challenges_done", 0) + 1
