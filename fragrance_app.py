@@ -3390,6 +3390,126 @@ def draw_challenge() -> str:
     return deck[seed % len(deck)]
 
 
+
+def suggest_for_challenge(challenge: str, top_n: int = 3) -> list:
+    """Pick up to top_n bottles from the vault that fit the daily challenge text."""
+    db = st.session_state.get("fragrances_db") or []
+    if not db:
+        return []
+    text = (challenge or "").lower()
+    scored = []
+
+    # Keyword â preferred categories / note fragments
+    rules = [
+        (["gourmand", "dessert", "sweet", "vanilla", "creamy", "skin-scent", "soft"],
+         ["Gourmand", "Sweet", "Creamy", "Vanilla", "Musky"],
+         ["vanilla", "cream", "milk", "caramel", "musk", "soft"]),
+        (["no gourmand", "no sweet", "dry", "green", "woody", "citrus"],
+         ["Woody", "Fresh", "Citrus", "Green", "Aromatic"],
+         ["cedar", "vetiver", "citrus", "bergamot", "green", "wood"]),
+        (["horror", "smoky", "incense", "leather", "dark woody", "gothic", "oud"],
+         ["Smoky", "Oriental", "Leather", "Oud", "Woody"],
+         ["smoke", "incense", "leather", "oud", "amber", "myrrh"]),
+        (["fresh", "light", "airiest", "heat", "summer", "office-safe"],
+         ["Fresh", "Citrus", "Aquatic", "Floral"],
+         ["fresh", "citrus", "bergamot", "musk", "light"]),
+        (["floral", "powdery", "iris"],
+         ["Floral", "Powdery"],
+         ["rose", "jasmine", "iris", "powder", "violet"]),
+        (["fruity"],
+         ["Fruity", "Sweet"],
+         ["berry", "peach", "apple", "mango", "fruit"]),
+        (["coffee", "chocolate", "caramel"],
+         ["Gourmand", "Sweet"],
+         ["coffee", "chocolate", "cocoa", "caramel", "praline"]),
+        (["male", "masculine"],
+         None, None),  # gender filter handled below
+        (["female", "feminine"],
+         None, None),
+        (["layer"],
+         None, None),
+        (["lattafa"],
+         None, None),
+    ]
+
+    prefer_cats = set()
+    prefer_notes = set()
+    ban_cats = set()
+    gender_want = None
+    ban_brand = None
+
+    if "no gourmand" in text or "gourmands are banned" in text or "no vanilla" in text:
+        ban_cats.update(["Gourmand", "Sweet", "Vanilla"])
+    if "no lattafa" in text:
+        ban_brand = "lattafa"
+    if "only male" in text or "male or male-leaning" in text or "male-leaning" in text:
+        gender_want = "male"
+    if "only female" in text or "female or female-leaning" in text or "female-leaning" in text:
+        gender_want = "female"
+    if "horror" in text or "smoky" in text or "incense" in text or "gothic" in text:
+        prefer_cats.update(["Smoky", "Oriental", "Leather", "Oud", "Woody"])
+        prefer_notes.update(["smoke", "incense", "leather", "oud", "amber"])
+    if "coffee" in text or "desk" in text or "soft" in text or "creamy" in text or "skin-scent" in text:
+        prefer_cats.update(["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla"])
+        prefer_notes.update(["vanilla", "cream", "milk", "musk", "coffee", "soft"])
+    if "fresh" in text or "airiest" in text or "heat" in text or "summer" in text:
+        prefer_cats.update(["Fresh", "Citrus", "Aquatic"])
+        prefer_notes.update(["fresh", "citrus", "bergamot", "light"])
+    if "floral" in text or "powdery" in text:
+        prefer_cats.update(["Floral", "Powdery"])
+        prefer_notes.update(["rose", "jasmine", "iris", "powder"])
+
+    for f in db:
+        name = (f.get("name") or "").lower()
+        brand = (f.get("brand") or "").lower()
+        cats = set(f.get("category") or [])
+        notes = (f.get("notes") or "").lower()
+        gender = (f.get("gender") or "").lower()
+
+        if ban_brand and ban_brand in brand:
+            continue
+        if ban_cats and cats & ban_cats and not (prefer_cats and cats & prefer_cats):
+            # allow if it also has preferred cats
+            if not (cats & prefer_cats):
+                continue
+        if gender_want == "male" and not any(x in gender for x in ["male", "masculine"]):
+            continue
+        if gender_want == "female" and not any(x in gender for x in ["female", "feminine"]):
+            continue
+
+        score = 1  # baseline so we always have some picks
+        if prefer_cats:
+            score += 3 * len(cats & prefer_cats)
+        if prefer_notes:
+            score += sum(2 for kw in prefer_notes if kw in notes or kw in name)
+        # slight boost for unisex when no gender filter
+        if not gender_want and "unisex" in gender:
+            score += 0.5
+        scored.append((score, f))
+
+    scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
+    # diversify a bit: take top unique brands when possible
+    picks = []
+    seen_brands = set()
+    for s, f in scored:
+        b = (f.get("brand") or "").lower()
+        if len(picks) >= top_n:
+            break
+        if b in seen_brands and len(scored) > top_n * 2:
+            continue
+        picks.append(f)
+        seen_brands.add(b)
+    # fill if needed
+    if len(picks) < top_n:
+        for s, f in scored:
+            if f not in picks:
+                picks.append(f)
+            if len(picks) >= top_n:
+                break
+    return picks[:top_n]
+
+
+
 def average_performance(name: str) -> dict:
     """Average sillage / longevity from SOTD logs that recorded them."""
     sil, lon, n_s, n_l = 0, 0, 0, 0
@@ -5472,6 +5592,16 @@ with st.sidebar:
     challenge = draw_challenge()
     st.caption("Daily challenge - new each day, or reroll anytime")
     st.info(challenge)
+    # 3 wear suggestions for this challenge
+    suggestions = suggest_for_challenge(challenge, top_n=3)
+    if suggestions:
+        st.caption("Suggested for today")
+        for i, f in enumerate(suggestions, 1):
+            cats = ", ".join((f.get("category") or [])[:3])
+            st.markdown(
+                f"**{i}. {f.get('name')}** â *{f.get('brand')}*"
+                + (f" Â· {cats}" if cats else "")
+            )
     ch1, ch2 = st.columns(2)
     with ch1:
         if st.button("New challenge", key="challenge_reroll_btn", use_container_width=True):
