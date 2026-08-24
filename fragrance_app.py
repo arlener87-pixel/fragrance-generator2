@@ -2368,6 +2368,131 @@ MOOD_PROFILES = {
 }
 
 
+
+# Curated Middle Eastern / Arabian-inspired suggestions for weekly wishlist ideas
+ME_WISHLIST_POOL = [
+    {"name": "Khamrah", "brand": "Lattafa", "why": "Date + praline gourmand - cozy winter staple"},
+    {"name": "Asad", "brand": "Lattafa", "why": "Spicy woody amber - bold evening wear"},
+    {"name": "Qaed Al Fursan", "brand": "Lattafa", "why": "Pineapple + oud - fun fruity woody"},
+    {"name": "Yara", "brand": "Lattafa", "why": "Soft gourmand floral - easy daily sweet"},
+    {"name": "Eclaire", "brand": "Lattafa", "why": "Caramel milk gourmand - dessert skin scent"},
+    {"name": "Nebras", "brand": "Lattafa", "why": "Berry cacao gourmand - playful sweet"},
+    {"name": "Terrafuma", "brand": "Lattafa", "why": "Earthy spicy - if you like darker woods"},
+    {"name": "Her Confession", "brand": "Lattafa", "why": "Floral spicy - date-night leaning"},
+    {"name": "Vintage Radio", "brand": "Lattafa", "why": "Powdery iris + woods - soft unique"},
+    {"name": "Ajwad Pink to Black", "brand": "Lattafa", "why": "Fruity rose oud - if you like Ajwad"},
+    {"name": "Badee Al Oud Honor & Glory", "brand": "Lattafa", "why": "Pineapple creamy - tropical gourmand"},
+    {"name": "Mahd Al Dhahab", "brand": "Lattafa", "why": "Rich oriental - classic Arabic vibe"},
+    {"name": "Raghba Wood Intense", "brand": "Lattafa", "why": "Sweet woody - easy crowd-pleaser"},
+    {"name": "Opulent Oud", "brand": "Lattafa", "why": "Oud + rose - traditional leaning"},
+    {"name": "Ana Abiyedh Rouge", "brand": "Lattafa", "why": "Fruity floral musk - soft feminine"},
+    {"name": "Hayaati", "brand": "Lattafa", "why": "Fresh spicy - versatile daily"},
+    {"name": "Ramz Silver", "brand": "Lattafa", "why": "Fresh clean - office-safe ME pick"},
+    {"name": "24 Carat Pure Gold", "brand": "Lattafa", "why": "Honey tobacco - warm evening"},
+    {"name": "Art of Nature II", "brand": "Lattafa", "why": "Green woody - if you want less sweet"},
+    {"name": "Eternal Oud", "brand": "Lattafa", "why": "Deep oud - pure Middle Eastern"},
+    {"name": "Qissa Pink", "brand": "Paris Corner", "why": "Sweet floral - soft gourmand adjacent"},
+    {"name": "Qissa Red", "brand": "Paris Corner", "why": "Fruity sweet - playful layering base"},
+    {"name": "Khair Pistachio", "brand": "Paris Corner", "why": "Pistachio gourmand - nutty dessert"},
+    {"name": "Emir Vibrant Seduction", "brand": "Paris Corner", "why": "Sweet fruity - easy reach"},
+    {"name": "Flavia Black", "brand": "Fragrance World", "why": "Dark sweet - night-time vibe"},
+    {"name": "Barakkat Soft Diamond", "brand": "Fragrance World", "why": "Powdery soft - skin-scent style"},
+    {"name": "Club de Nuit Intense Man", "brand": "Armaf", "why": "Smoky pineapple - if you like bold"},
+    {"name": "Odyssey Homme White Edition", "brand": "Armaf", "why": "Fresh clean - summer ME pick"},
+    {"name": "Untold", "brand": "Armaf", "why": "Sweet amber - cozy daily"},
+    {"name": "Oddity", "brand": "Armaf", "why": "Modern sweet - unique twist"},
+    {"name": "Hawas Ice", "brand": "Rasasi", "why": "Fresh aquatic - hot weather"},
+    {"name": "Daarej", "brand": "Rasasi", "why": "Soft oriental - understated"},
+    {"name": "La Yuqawam", "brand": "Rasasi", "why": "Leather rose - refined ME classic"},
+    {"name": "Junoon Leather", "brand": "Rasasi", "why": "Leather spicy - fierce mood"},
+    {"name": "Shuhrah", "brand": "Rasasi", "why": "Woody aromatic - daily driver"},
+    {"name": "Oud Al Masih", "brand": "Rasasi", "why": "Oud focused - traditional"},
+    {"name": "Dirham", "brand": "Ard Al Zaafaran", "why": "Fresh spicy - budget daily"},
+    {"name": "Dirham Gold", "brand": "Ard Al Zaafaran", "why": "Sweeter Dirham style - easy"},
+    {"name": "Supreme Amber", "brand": "Ard Al Zaafaran", "why": "Amber vanilla - cozy home"},
+    {"name": "Oud 24 Hours", "brand": "Ard Al Zaafaran", "why": "Sweet oud - beginner oud"},
+    {"name": "Wasim Abiyad", "brand": "Ard Al Zaafaran", "why": "Clean musk - laundry-adjacent ME"},
+    {"name": "Amber Rouge", "brand": "Orientica", "why": "Rich amber - winter evening"},
+    {"name": "Rouge Absolute", "brand": "Orientica", "why": "Sweet oriental - date night"},
+    {"name": "Royal Bleu", "brand": "Orientica", "why": "Fresh blue - hot weather"},
+    {"name": "Ameer Al Oud", "brand": "Lattafa", "why": "Intense oud - pure Arabic"},
+    {"name": "Oud Mood Elixir", "brand": "Lattafa", "why": "Oud caramel - sweet oud hybrid"},
+    {"name": "Sheikh Al Shuyukh Final Edition", "brand": "Lattafa", "why": "Spicy woody - masculine lean"},
+    {"name": "Raghba", "brand": "Lattafa", "why": "Sweet vanilla musk - simple comfort"},
+    {"name": "Velvet Oud", "brand": "Lattafa", "why": "Soft oud - less aggressive"},
+    {"name": "Maahir Black Edition", "brand": "Lattafa", "why": "Dark spicy - night out"},
+    {"name": "Najdia", "brand": "Lattafa", "why": "Fresh spicy - versatile"},
+    {"name": "Fakhar Rose", "brand": "Lattafa", "why": "Rose focused - floral ME"},
+    {"name": "Mayar Intense", "brand": "Lattafa", "why": "Fruity floral - if you like Mayar"},
+    {"name": "Atlas", "brand": "Lattafa", "why": "Woody aromatic - less gourmand"},
+    {"name": "Petite Cherie style ME picks", "brand": "Various", "why": "Skip placeholder"},
+]
+
+# Filter out placeholder
+ME_WISHLIST_POOL = [x for x in ME_WISHLIST_POOL if x.get("name") != "Petite Cherie style ME picks"]
+
+
+def weekly_wishlist_suggestions(n: int = 5) -> list:
+    """Suggest Middle Eastern bottles not already in vault or wishlist, biased to user tastes."""
+    import datetime as _dt
+    db = st.session_state.get("fragrances_db") or []
+    wl = st.session_state.get("wishlist") or []
+    owned = set()
+    for f in db:
+        owned.add(((f.get("name") or "").strip().lower(), (f.get("brand") or "").strip().lower()))
+    for w in wl:
+        owned.add(((w.get("name") or "").strip().lower(), (w.get("brand") or "").strip().lower()))
+
+    # Taste from vault categories
+    from collections import Counter
+    cat_counts = Counter()
+    for f in db:
+        for c in f.get("category") or []:
+            cat_counts[c] += 1
+    top_cats = {c for c, _ in cat_counts.most_common(8)}
+
+    # Score pool items
+    scored = []
+    for item in ME_WISHLIST_POOL:
+        key = ((item.get("name") or "").strip().lower(), (item.get("brand") or "").strip().lower())
+        # also skip if name alone matches owned (brand variants)
+        name_owned = any(key[0] == o[0] for o in owned if key[0])
+        if key in owned or name_owned:
+            continue
+        score = 1
+        why = (item.get("why") or "").lower()
+        if "gourmand" in why or "vanilla" in why or "caramel" in why or "sweet" in why:
+            if "Gourmand" in top_cats or "Sweet" in top_cats or "Vanilla" in top_cats:
+                score += 3
+        if "oud" in why or "oriental" in why:
+            if "Oriental" in top_cats or "Oud" in top_cats or "Woody" in top_cats:
+                score += 2
+        if "fresh" in why or "citrus" in why:
+            if "Fresh" in top_cats or "Citrus" in top_cats:
+                score += 2
+        if "floral" in why or "rose" in why:
+            if "Floral" in top_cats:
+                score += 2
+        if "cozy" in why or "soft" in why or "skin" in why:
+            score += 1
+        scored.append((score, item))
+
+    scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
+    candidates = [it for _, it in scored]
+    if not candidates:
+        return []
+
+    # Rotate by ISO week so suggestions change weekly
+    today = pacific_today()
+    week = int(today.strftime("%Y%W"))
+    start = (week * n) % max(1, len(candidates))
+    picks = []
+    for i in range(min(n, len(candidates))):
+        picks.append(candidates[(start + i) % len(candidates)])
+    return picks
+
+
+
 def score_for_mood(f: dict, mood: str) -> int:
     if st.session_state["user_reactions"].get(f["name"]) == "dislike":
         return -999
@@ -7449,6 +7574,38 @@ with tab_collection:
     # ----- Wishlist -----
     with st.expander("Wishlist", expanded=False):
         st.caption("Track bottles you want. Check off, then To vault (or move all checked) to add them to your collection.")
+        # --- Weekly Middle Eastern suggestions ---
+        with st.expander("Weekly ME ideas for you", expanded=True):
+            st.caption(
+                "Middle Eastern picks based on your vault tastes. Rotates each week. "
+                "Already-owned and already-wishlisted bottles are skipped."
+            )
+            ideas = weekly_wishlist_suggestions(n=5)
+            if not ideas:
+                st.info("No new ME ideas right now - your vault/wishlist may already cover the pool.")
+            else:
+                for j, idea in enumerate(ideas):
+                    ic1, ic2 = st.columns([4, 1])
+                    with ic1:
+                        st.markdown(
+                            f"**{idea.get('name')}** - *{idea.get('brand')}*  \n"
+                            f"{idea.get('why') or ''}"
+                        )
+                    with ic2:
+                        if st.button("Add", key=f"me_wish_add_{j}_{idea.get('name','')}"):
+                            st.session_state.setdefault("wishlist", []).insert(
+                                0,
+                                {
+                                    "name": idea.get("name") or "",
+                                    "brand": idea.get("brand") or "",
+                                    "notes": idea.get("why") or "Weekly ME suggestion",
+                                    "checked": False,
+                                },
+                            )
+                            save_persisted_data()
+                            st.success(f"Added {idea.get('name')} to wishlist")
+                            st.rerun()
+
         # Clear form fields before widgets if flagged
         if st.session_state.pop("_clear_wishlist_form", False):
             st.session_state["wl_name"] = ""
