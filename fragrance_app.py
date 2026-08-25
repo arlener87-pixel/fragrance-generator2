@@ -2292,6 +2292,75 @@ def season_for_layer_recipe(frags: list) -> dict:
 
 
 
+
+def recipes_for_band(band: str, gender: str = "Any", limit: int = 5) -> list:
+    """Saved layer recipes that fit a temp/season band."""
+    band = (band or "").strip()
+    if not band or band == "Any":
+        return list(st.session_state.get("layer_recipes") or [])[:limit]
+    out = []
+    for recipe in st.session_state.get("layer_recipes") or []:
+        bands = recipe.get("bands") or []
+        label = (recipe.get("season_label") or "").lower()
+        # rebuild if missing
+        if not bands:
+            names = recipe.get("bottles") or []
+            name_map = {f.get("name"): f for f in st.session_state.get("fragrances_db") or []}
+            frags = [name_map[n] for n in names if n in name_map]
+            if frags:
+                season = season_for_layer_recipe(frags)
+                bands = season.get("bands") or []
+                label = (season.get("label") or label or "").lower()
+        band_l = band.lower()
+        matched = False
+        for b in bands:
+            if band_l in (b or "").lower() or (b or "").lower() in band_l:
+                matched = True
+                break
+        if not matched and label:
+            # partial: Hot matches Hot / Summer label
+            key = band_l.split("/")[0].strip()
+            if key and key in label:
+                matched = True
+        if not matched:
+            # versatile recipes work mild/warm
+            if "versatile" in label and band in ("Warm / Mild", "Hot / Summer", "Cool / Autumn"):
+                matched = True
+        if not matched:
+            continue
+        # optional gender: all bottles should roughly match
+        if gender and gender != "Any":
+            name_map = {f.get("name"): f for f in st.session_state.get("fragrances_db") or []}
+            ok = True
+            for n in recipe.get("bottles") or []:
+                f = name_map.get(n)
+                if not f:
+                    continue
+                try:
+                    if not matches_gender(f, gender):
+                        ok = False
+                        break
+                except Exception:
+                    g = (f.get("gender") or "").lower()
+                    if gender.lower() == "female" and not any(
+                        x in g for x in ("female", "feminine", "women", "unisex")
+                    ):
+                        ok = False
+                        break
+                    if gender.lower() == "male" and not any(
+                        x in g for x in ("male", "masculine", "men", "unisex")
+                    ):
+                        ok = False
+                        break
+            if not ok:
+                continue
+        out.append(recipe)
+        if len(out) >= limit:
+            break
+    return out
+
+
+
 def fragrance_weight_score(f: dict) -> int:
     """Higher = heavier / denser on skin (apply earlier as base)."""
     cats = set(f.get("category") or [])
@@ -6472,6 +6541,37 @@ with tab_discover:
                         send_to_sotd([f["name"]])
                         st.rerun()
                 st.markdown("---")
+        # Saved recipes that fit this temp band
+        band = last_temp.get("band") or ""
+        gender = last_temp.get("gender") or "Any"
+        matched_recipes = recipes_for_band(band, gender=gender, limit=5)
+        st.markdown("#### Layer recipes for this temp")
+        if not matched_recipes:
+            st.caption(
+                "No saved recipes tagged for this band yet. "
+                "Save a Layer check recipe and it will show up when the season matches."
+            )
+        else:
+            for ri, recipe in enumerate(matched_recipes):
+                bottles = recipe.get("bottles") or []
+                st.markdown(f"**{recipe.get('name', 'Recipe')}**")
+                st.caption(
+                    " + ".join(bottles)
+                    + (f" | {recipe.get('season_label')}" if recipe.get("season_label") else "")
+                )
+                if recipe.get("why"):
+                    st.caption(recipe.get("why")[:200])
+                rc1, rc2 = st.columns(2)
+                with rc1:
+                    if st.button("Wear layer", key=f"temp_recipe_wear_{ri}"):
+                        if bottles:
+                            send_to_sotd(list(bottles), notes=recipe.get("name") or "Layer recipe")
+                            st.rerun()
+                with rc2:
+                    if st.button("Open how to wear", key=f"temp_recipe_how_{ri}"):
+                        st.session_state["roulette_layer_pick"] = list(bottles)
+                        st.session_state["last_layer_check"] = evaluate_layer_recipe(list(bottles))
+                        st.info("Loaded in Layer check - open the Layer tab for full guidance.")
         if st.button("Clear temp results", key="clear_temp_results"):
             st.session_state.pop("last_temp_search", None)
             st.rerun()
@@ -6792,6 +6892,7 @@ with tab_layer:
                                         "bottles": names,
                                         "season_label": (ev.get("season") or {}).get("label", ""),
                                         "season_detail": (ev.get("season") or {}).get("detail", ""),
+                                        "bands": list((ev.get("season") or {}).get("bands") or []),
                                         "application": ev.get("application") or {},
                                         "score": ev.get("score"),
                                         "label": ev.get("label"),
@@ -6960,8 +7061,9 @@ with tab_layer:
                             {
                                 "name": final_name,
                                 "bottles": list(names),
-                                "season_label": season.get("label", ""),
-                                "season_detail": season.get("detail", ""),
+                                "season_label": season.get("label", "") or ((_ev_r or {}).get("season") or {}).get("label", ""),
+                                "season_detail": season.get("detail", "") or ((_ev_r or {}).get("season") or {}).get("detail", ""),
+                                "bands": list(((_ev_r or {}).get("season") or {}).get("bands") or season.get("bands") or []),
                                 "application": (_ev_r or {}).get("application") or {},
                                 "score": (_ev_r or {}).get("score"),
                                 "label": (_ev_r or {}).get("label"),
@@ -7089,8 +7191,9 @@ with tab_layer:
                     {
                         "name": final_name,
                         "bottles": list(rec_pick),
-                        "season_label": season.get("label", ""),
-                        "season_detail": season.get("detail", ""),
+                        "season_label": season.get("label", "") or (_ev_save or {}).get("season", {}).get("label", ""),
+                        "season_detail": season.get("detail", "") or (_ev_save or {}).get("season", {}).get("detail", ""),
+                        "bands": list(((_ev_save or {}).get("season") or {}).get("bands") or season.get("bands") or []),
                         "suggested_name": suggested,
                         "application": (_ev_save or {}).get("application") or {},
                         "score": (_ev_save or {}).get("score"),
@@ -7111,10 +7214,22 @@ with tab_layer:
         if _rsf:
             st.success(_rsf)
 
-        for ri, recipe in enumerate(st.session_state.get("layer_recipes") or []):
+        recipe_band_filter = st.selectbox(
+            "Show recipes for season / temp",
+            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+            key="recipe_band_filter",
+        )
+        recipes_view = st.session_state.get("layer_recipes") or []
+        if recipe_band_filter != "Any":
+            recipes_view = recipes_for_band(recipe_band_filter, gender="Any", limit=50)
+            st.caption(f"{len(recipes_view)} recipe(s) for {recipe_band_filter}")
+        for ri, recipe in enumerate(recipes_view):
             bottles = list(recipe.get("bottles") or [])
             st.markdown(f"**{recipe.get('name', 'Recipe')}**")
-            st.caption(" + ".join(bottles))
+            st.caption(
+                " + ".join(bottles)
+                + (f" | Best: {recipe.get('season_label')}" if recipe.get("season_label") else "")
+            )
             ev = evaluate_layer_recipe(bottles)
             why = recipe.get("why") or ev.get("why")
             if why:
@@ -7167,8 +7282,17 @@ with tab_layer:
                     st.session_state["sotd_prefill"] = bottles
                     st.rerun()
             with rb2:
-                if st.button("Delete", key=f"recipe_del_{ri}"):
-                    st.session_state["layer_recipes"].pop(ri)
+                if st.button("Delete", key=f"recipe_del_{ri}_{recipe.get('name','')}"):
+                    full = st.session_state.get("layer_recipes") or []
+                    # delete by identity, not filtered index
+                    for j, r in enumerate(full):
+                        if r is recipe or (
+                            r.get("name") == recipe.get("name")
+                            and list(r.get("bottles") or []) == list(bottles)
+                        ):
+                            full.pop(j)
+                            break
+                    st.session_state["layer_recipes"] = full
                     save_persisted_data()
                     st.rerun()
             st.markdown("---")
