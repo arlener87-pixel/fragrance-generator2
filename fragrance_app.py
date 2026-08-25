@@ -2198,6 +2198,149 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 
 
 
+
+HALLOWEEN_PROFILES = {
+    "Pumpkin patch": {
+        "categories": ["Gourmand", "Sweet", "Spicy", "Woody"],
+        "notes_keywords": [
+            "pumpkin", "spice", "cinnamon", "nutmeg", "caramel", "vanilla",
+            "praline", "apple", "clove", "tonka", "amber",
+        ],
+        "blurb": "Sweater weather, pumpkin spice, caramel drizzle, leaf piles.",
+    },
+    "Candy bowl": {
+        "categories": ["Gourmand", "Sweet", "Fruity"],
+        "notes_keywords": [
+            "candy", "sugar", "marshmallow", "chocolate", "caramel", "berry",
+            "vanilla", "cotton candy", "toffee", "praline", "cream",
+        ],
+        "blurb": "Trick-or-treat stash - sticky sweet, playful, dessert-forward.",
+    },
+    "Haunted house": {
+        "categories": ["Smoky", "Oriental", "Woody", "Leather", "Oud"],
+        "notes_keywords": [
+            "smoke", "incense", "oud", "leather", "myrrh", "amber", "patchouli",
+            "tobacco", "wood", "vetiver", "labdanum",
+        ],
+        "blurb": "Creaky floors, candle smoke, something in the attic.",
+    },
+    "Witching hour": {
+        "categories": ["Oriental", "Spicy", "Floral", "Woody"],
+        "notes_keywords": [
+            "incense", "rose", "saffron", "pepper", "amber", "oud", "spice",
+            "cinnamon", "myrrh", "violet", "iris",
+        ],
+        "blurb": "Midnight ritual - spicy, mysterious, a little glamorous.",
+    },
+    "Autumn fog": {
+        "categories": ["Woody", "Fresh", "Aromatic", "Green"],
+        "notes_keywords": [
+            "moss", "earth", "wood", "pine", "cedar", "vetiver", "green",
+            "oakmoss", "smoke", "damp", "forest",
+        ],
+        "blurb": "Cold air, wet leaves, fog on the trail.",
+    },
+    "Vampire soirÃ©e": {
+        "categories": ["Oriental", "Floral", "Sweet", "Leather"],
+        "notes_keywords": [
+            "rose", "blood", "cherry", "dark", "amber", "vanilla", "leather",
+            "incense", "plum", "oud", "musk",
+        ],
+        "blurb": "Dark florals, red fruit, velvet and fangs.",
+    },
+}
+
+
+def score_for_halloween(f: dict, mode: str) -> int:
+    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+        return -999
+    prof = HALLOWEEN_PROFILES.get(mode, {})
+    score = 0
+    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
+        score += 20
+    for c in f.get("category") or []:
+        if c in prof.get("categories", []):
+            score += 15
+    notes_l = (f.get("notes") or "").lower()
+    name_l = (f.get("name") or "").lower()
+    for kw in prof.get("notes_keywords", []):
+        if kw in notes_l or kw in name_l:
+            score += 8
+    score += _stable_tiebreak((f.get("name") or "") + mode) % 7
+    return score
+
+
+def get_halloween_picks(
+    mode: str,
+    top_n: int = 5,
+    gender: str = "Any",
+    season_band: str = "Any",
+    salt: int = 0,
+) -> list:
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        if gender and gender != "Any":
+            try:
+                if not matches_gender(f, gender):
+                    continue
+            except Exception:
+                g = (f.get("gender") or "").lower()
+                if gender.lower() == "female" and not any(
+                    x in g for x in ("female", "feminine", "women")
+                ):
+                    continue
+                if gender.lower() == "male" and not any(
+                    x in g for x in ("male", "masculine", "men")
+                ):
+                    continue
+                if gender.lower() == "unisex" and "unisex" not in g:
+                    continue
+        if season_band and season_band != "Any":
+            s = (f.get("season") or "").lower()
+            band = season_band.lower()
+            ok = True
+            if "fall" in band or "autumn" in band or "cool" in band:
+                ok = any(
+                    x in s
+                    for x in ("fall", "autumn", "cool", "winter", "versatile", "year")
+                )
+            elif "cold" in band or "winter" in band:
+                ok = any(x in s for x in ("winter", "fall", "cold", "cool", "versatile"))
+            elif "spring" in band or "mild" in band:
+                ok = any(x in s for x in ("spring", "fall", "mild", "versatile", "year"))
+            elif "summer" in band or "hot" in band:
+                ok = any(x in s for x in ("summer", "spring", "hot", "warm", "versatile"))
+            if not ok:
+                continue
+        sc = score_for_halloween(f, mode)
+        if sc > 0:
+            scored.append((sc, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    ranked = [f for _, f in scored]
+    if not ranked:
+        return []
+    window = ranked[: max(top_n * 4, 12)]
+    start = (int(salt) * top_n) % max(1, len(window))
+    picks = []
+    seen = set()
+    i = 0
+    while len(picks) < top_n and i < len(window) * 2:
+        f = window[(start + i) % len(window)]
+        i += 1
+        b = (f.get("brand") or "").lower()
+        if b in seen and len(window) > top_n:
+            continue
+        picks.append(f)
+        seen.add(b)
+    if len(picks) < top_n:
+        for f in window:
+            if f not in picks:
+                picks.append(f)
+            if len(picks) >= top_n:
+                break
+    return picks[:top_n]
+
+
 HORROR_SCENT_PROFILES = {
     "Gothic fog": {
         "categories": ["Oriental", "Woody", "Powdery", "Smoky"],
@@ -7176,7 +7319,7 @@ with tab_play:
     st.caption("Three games only - Mood, Blind bottle, Family roulette.")
 
     # Reset invalid play_mode from older builds
-    _allowed_play = ["Mood board", "Blind bottle", "Family roulette"]
+    _allowed_play = ["Mood board", "Blind bottle", "Family roulette", "Halloween"]
     if st.session_state.get("play_mode") not in _allowed_play:
         st.session_state["play_mode"] = "Mood board"
 
@@ -7308,6 +7451,86 @@ with tab_play:
                     if st.button("Wear today", key=f"mood_wear_{i}"):
                         st.session_state["sotd_prefill"] = [f["name"]]
                         st.rerun()
+
+
+    elif play_mode == "Halloween":
+        st.markdown(
+            '<div style="border:1px solid #3a2040;border-radius:10px;padding:0.75rem 1rem;'
+            'background:linear-gradient(135deg,#120810,#1a0e18);margin-bottom:0.5rem;">'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">Halloween</div>'
+            '<div style="color:#a890b8;font-size:0.85rem;">'
+            "Seasonal vibes from your vault - filter with Gender + Season above, then draw.</div>"
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        hall_mode = st.selectbox(
+            "Halloween mood",
+            list(HALLOWEEN_PROFILES.keys()),
+            key="play_halloween_mode",
+        )
+        hp = HALLOWEEN_PROFILES[hall_mode]
+        st.caption(hp.get("blurb", ""))
+        st.caption("Lean: " + ", ".join(hp.get("categories") or []))
+        if "halloween_salt" not in st.session_state:
+            st.session_state["halloween_salt"] = 0
+        h1, h2 = st.columns(2)
+        with h1:
+            h_draw = st.button(
+                "Draw Halloween scents",
+                type="primary",
+                key="halloween_draw",
+                use_container_width=True,
+            )
+        with h2:
+            h_redraw = st.button(
+                "Redraw",
+                key="halloween_redraw",
+                use_container_width=True,
+            )
+        if h_draw or h_redraw:
+            if h_redraw:
+                st.session_state["halloween_salt"] = int(
+                    st.session_state.get("halloween_salt", 0)
+                ) + 1
+            elif h_draw and st.session_state.get("last_halloween", {}).get("mode") != hall_mode:
+                st.session_state["halloween_salt"] = 0
+            salt = int(st.session_state.get("halloween_salt", 0))
+            picks = get_halloween_picks(
+                hall_mode,
+                top_n=5,
+                gender=play_gender,
+                season_band=play_season,
+                salt=salt,
+            )
+            st.session_state["last_halloween"] = {
+                "mode": hall_mode,
+                "picks": picks,
+                "gender": play_gender,
+                "season": play_season,
+            }
+            st.rerun()
+        last_h = st.session_state.get("last_halloween")
+        if last_h:
+            st.caption(
+                f"Drawn for: {last_h.get('mode')} | "
+                f"{last_h.get('gender')} | {last_h.get('season')}"
+            )
+            picks = last_h.get("picks") or []
+            if not picks:
+                st.info("No matches in your vault for that filter combo - try Any gender/season.")
+            for i, f in enumerate(picks):
+                badge = (
+                    " YAY"
+                    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav"
+                    else ""
+                )
+                st.markdown(
+                    f"**{i+1}. {f.get('name')}**{badge} - *{f.get('brand')}* | "
+                    + ", ".join((f.get("category") or [])[:4])
+                )
+                if st.button("Wear today", key=f"hall_wear_{i}_{f.get('name','')}"):
+                    st.session_state["sotd_prefill"] = [f.get("name")]
+                    st.rerun()
 
     elif play_mode == "Blind bottle":
         st.markdown(
