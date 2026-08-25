@@ -2291,6 +2291,100 @@ def season_for_layer_recipe(frags: list) -> dict:
     return {"label": label, "detail": detail, "bands": top}
 
 
+
+def fragrance_weight_score(f: dict) -> int:
+    """Higher = heavier / denser on skin (apply earlier as base)."""
+    cats = set(f.get("category") or [])
+    notes = (f.get("notes") or "").lower()
+    name = (f.get("name") or "").lower()
+    score = 50
+    heavy_cats = {"Oriental", "Oud", "Leather", "Smoky", "Woody", "Gourmand", "Amber", "Boozy"}
+    light_cats = {"Fresh", "Citrus", "Aquatic", "Green", "Aromatic"}
+    mid_cats = {"Floral", "Fruity", "Powdery", "Musky", "Sweet", "Spicy", "Vanilla", "Creamy"}
+    score += 12 * len(cats & heavy_cats)
+    score -= 12 * len(cats & light_cats)
+    score += 4 * len(cats & mid_cats)
+    heavy_kw = [
+        "oud", "incense", "leather", "tobacco", "amber", "vanilla", "caramel",
+        "chocolate", "coffee", "smoke", "patchouli", "myrrh", "tonka", "benzoin",
+        "labdanum", "resin", "boozy", "rum", "cedar", "sandalwood",
+    ]
+    light_kw = [
+        "citrus", "bergamot", "lemon", "fresh", "aquatic", "marine", "green",
+        "tea", "mint", "ozonic", "light", "airy", "cucumber",
+    ]
+    score += sum(6 for k in heavy_kw if k in notes or k in name)
+    score -= sum(6 for k in light_kw if k in notes or k in name)
+    # body spray / mist often lighter
+    if any(x in name for x in ("body spray", "mist", "cologne", "hair")):
+        score -= 15
+    if any(x in name for x in ("intense", "elixir", "extrait", "concentre", "concentrÃ©")):
+        score += 10
+    return score
+
+
+def layer_application_guide(frags: list) -> dict:
+    """Order, sprays, placement for a multi-bottle layer."""
+    if not frags:
+        return {}
+    ranked = sorted(
+        frags,
+        key=lambda f: (fragrance_weight_score(f), f.get("name") or ""),
+        reverse=True,
+    )
+    n = len(ranked)
+    # sprays: heavier gets fewer if very heavy; lighter can take slightly more
+    steps = []
+    total_sprays = 0
+    for i, f in enumerate(ranked):
+        w = fragrance_weight_score(f)
+        if w >= 85:
+            sprays = 1 if n >= 3 else 2
+            role = "Heaviest base"
+            where = "Skin first - chest and behind knees (warm spots). Let it settle 30-60 sec."
+        elif w >= 65:
+            sprays = 2
+            role = "Base / heart"
+            where = "Pulse points - wrists, inner elbows, neck. Do not rub."
+        elif w >= 45:
+            sprays = 2
+            role = "Mid layer"
+            where = "Neck and collarbone, or one spray through hair mist-style from a distance."
+        else:
+            sprays = 2 if n <= 2 else 1
+            role = "Light top"
+            where = "Last - throat, hair, or clothing hem for a soft trail."
+        total_sprays += sprays
+        steps.append(
+            {
+                "order": i + 1,
+                "name": f.get("name"),
+                "brand": f.get("brand"),
+                "weight": w,
+                "role": role,
+                "sprays": sprays,
+                "where": where,
+                "cats": ", ".join((f.get("category") or [])[:4]),
+            }
+        )
+    tips = [
+        "Apply heaviest first, lightest last so the top notes stay bright.",
+        "Wait 30-60 seconds between bottles so they do not wet-mix into mud.",
+        "Start low - you can always add one spray; hard to remove.",
+        f"Suggested total around {total_sprays} sprays for this combo (adjust for heat and space).",
+    ]
+    if total_sprays > 6:
+        tips.append("This stack is loud - for close spaces, cut each bottle by one spray.")
+    if any(s["weight"] >= 90 for s in steps) and any(s["weight"] <= 40 for s in steps):
+        tips.append("Strong contrast stack - keep the heavy one minimal so the light one can show.")
+    return {
+        "steps": steps,
+        "tips": tips,
+        "total_sprays": total_sprays,
+        "order_names": [s["name"] for s in steps],
+    }
+
+
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer recipe and build a short verdict."""
     name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
@@ -2308,6 +2402,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
             "missing": missing,
             "season": season_info,
             "suggested_name": suggested_name,
+            "application": {},
         }
     pairs = []
     scores = []
@@ -2337,6 +2432,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         label, verdict = "Risky", "Families may clash. Test on skin before a full wear."
     if any(s <= -50 for s in scores):
         label, verdict = "Avoid", "Includes a DEL bottle or a very weak pair."
+    guide = layer_application_guide(frags)
     return {
         "score": round(avg, 1),
         "verdict": verdict,
@@ -2346,6 +2442,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         "missing": missing,
         "season": season_info,
         "suggested_name": suggested_name,
+        "application": guide,
     }
 
 
@@ -6690,6 +6787,7 @@ with tab_layer:
             final_name = (rec_name or "").strip() or suggested or "Untitled layer"
             if len(rec_pick) >= 2:
                 season = (preview or {}).get("season") or {}
+                _ev_save = preview if preview else evaluate_layer_recipe(list(rec_pick))
                 st.session_state["layer_recipes"].insert(
                     0,
                     {
@@ -6698,6 +6796,10 @@ with tab_layer:
                         "season_label": season.get("label", ""),
                         "season_detail": season.get("detail", ""),
                         "suggested_name": suggested,
+                        "application": (_ev_save or {}).get("application") or {},
+                        "score": (_ev_save or {}).get("score"),
+                        "label": (_ev_save or {}).get("label"),
+                        "verdict": (_ev_save or {}).get("verdict"),
                     },
                 )
                 save_persisted_data()
@@ -6724,6 +6826,22 @@ with tab_layer:
                     f"Season: **{saved_season}** - "
                     f"{recipe.get('season_detail') or season.get('detail', '')}"
                 )
+            # Wear guidance (saved with recipe, or rebuilt from bottles)
+            app = recipe.get("application") or ev.get("application") or {}
+            steps = app.get("steps") or []
+            if steps:
+                with st.expander("How to wear", expanded=False):
+                    st.caption("Heaviest first, lightest last.")
+                    for s in steps:
+                        st.markdown(
+                            f"**{s.get('order')}. {s.get('name')}** - "
+                            f"{s.get('role')} Â· **{s.get('sprays')}** spray(s)  \n"
+                            f"{s.get('where')}"
+                        )
+                    if app.get("order_names"):
+                        st.caption("Order: " + " -> ".join(app.get("order_names") or []))
+                    for t in app.get("tips") or []:
+                        st.caption("- " + t)
             # Verdict banner
             if ev["label"] in ("Strong layer", "Good layer"):
                 st.success(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
@@ -6954,6 +7072,27 @@ with tab_roulette:
         season = ev.get("season") or {}
         if season.get("detail"):
             st.info(season.get("detail"))
+        app = ev.get("application") or {}
+        steps = app.get("steps") or []
+        if steps:
+            st.markdown("#### How to wear this layer")
+            st.caption(
+                "Order is heaviest to lightest. Apply in this order on skin."
+            )
+            for s in steps:
+                st.markdown(
+                    f"**{s.get('order')}. {s.get('name')}** (*{s.get('brand')}*)  \n"
+                    f"Role: **{s.get('role')}** Â· Suggested sprays: **{s.get('sprays')}**  \n"
+                    f"{s.get('where')}  \n"
+                    f"Families: {s.get('cats') or '-'} Â· Weight score: {s.get('weight')}"
+                )
+            st.markdown("**Tips**")
+            for t in app.get("tips") or []:
+                st.caption("- " + t)
+            if app.get("order_names"):
+                st.success(
+                    "Spray order: " + " â ".join(app.get("order_names") or [])
+                )
         for pair in ev.get("pairs") or []:
             line = (
                 "**" + str(pair.get("a")) + "** + **" + str(pair.get("b"))
@@ -7017,6 +7156,7 @@ with tab_roulette:
                             f"Recipe **{final_name}** already saved."
                         )
                     else:
+                        _ev_r = st.session_state.get("last_layer_check") or evaluate_layer_recipe(list(names))
                         st.session_state.setdefault("layer_recipes", []).insert(
                             0,
                             {
@@ -7024,6 +7164,10 @@ with tab_roulette:
                                 "bottles": list(names),
                                 "season_label": season.get("label", ""),
                                 "season_detail": season.get("detail", ""),
+                                "application": (_ev_r or {}).get("application") or {},
+                                "score": (_ev_r or {}).get("score"),
+                                "label": (_ev_r or {}).get("label"),
+                                "verdict": (_ev_r or {}).get("verdict"),
                             },
                         )
                         save_persisted_data()
