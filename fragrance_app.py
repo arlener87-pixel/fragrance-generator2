@@ -2240,7 +2240,7 @@ HALLOWEEN_PROFILES = {
         ],
         "blurb": "Cold air, wet leaves, fog on the trail.",
     },
-    "Vampire soirÃ©e": {
+    "Vampire soiree": {
         "categories": ["Oriental", "Floral", "Sweet", "Leather"],
         "notes_keywords": [
             "rose", "blood", "cherry", "dark", "amber", "vanilla", "leather",
