@@ -2635,6 +2635,148 @@ def weekly_wishlist_suggestions(n: int = 5) -> list:
 
 
 
+
+def sotd_streak() -> int:
+    """Consecutive days with at least one SOTD log ending today (Pacific)."""
+    hist = st.session_state.get("sotd_history") or []
+    days = set()
+    for e in hist:
+        d = e.get("date") or e.get("when") or ""
+        if d:
+            days.add(str(d)[:10])
+    if not days:
+        return 0
+    today = pacific_today()
+    streak = 0
+    from datetime import timedelta
+    cur = today
+    while cur.isoformat() in days:
+        streak += 1
+        cur = cur - timedelta(days=1)
+    return streak
+
+
+def brand_stats() -> list:
+    """Return list of (brand, count) sorted by count desc."""
+    from collections import Counter
+    c = Counter()
+    for f in st.session_state.get("fragrances_db") or []:
+        b = (f.get("brand") or "Unknown").strip() or "Unknown"
+        c[b] += 1
+    return c.most_common()
+
+
+def is_october_mode() -> bool:
+    if st.session_state.get("force_october_mode"):
+        return True
+    try:
+        return pacific_today().month == 10
+    except Exception:
+        return False
+
+
+def halloween_countdown_text() -> str:
+    from datetime import date
+    today = pacific_today()
+    year = today.year
+    target = date(year, 10, 31)
+    if today > target:
+        target = date(year + 1, 10, 31)
+    delta = (target - today).days
+    if delta == 0:
+        return "It is Halloween. The vault is open."
+    if today.month == 10:
+        return f"{delta} day(s) until Halloween."
+    return f"{delta} day(s) until Halloween."
+
+
+def suggest_layer_partners(base_name: str, top_n: int = 3) -> list:
+    """Suggest vault bottles that layer well with base_name."""
+    db = st.session_state.get("fragrances_db") or []
+    base = next((f for f in db if f.get("name") == base_name), None)
+    if not base:
+        return []
+    base_cats = set(base.get("category") or [])
+    base_notes = (base.get("notes") or "").lower()
+    scored = []
+    for f in db:
+        if f.get("name") == base_name:
+            continue
+        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+            continue
+        cats = set(f.get("category") or [])
+        notes = (f.get("notes") or "").lower()
+        score = 0
+        # complementary families
+        if base_cats & {"Gourmand", "Sweet", "Vanilla", "Creamy"}:
+            if cats & {"Fresh", "Floral", "Woody", "Spicy", "Musky"}:
+                score += 12
+            if cats & {"Gourmand", "Sweet"}:
+                score += 4  # same family can still work
+        if base_cats & {"Fresh", "Citrus", "Aquatic"}:
+            if cats & {"Gourmand", "Woody", "Musky", "Floral"}:
+                score += 12
+        if base_cats & {"Oriental", "Oud", "Smoky", "Leather"}:
+            if cats & {"Floral", "Sweet", "Vanilla", "Fresh"}:
+                score += 10
+            if cats & {"Oriental", "Woody"}:
+                score += 6
+        if base_cats & {"Floral"}:
+            if cats & {"Musky", "Woody", "Gourmand", "Fresh"}:
+                score += 10
+        shared = len(base_cats & cats)
+        score += shared * 3
+        # note keyword bridges
+        bridges = [
+            ("vanilla", "musk"), ("vanilla", "rose"), ("coffee", "vanilla"),
+            ("oud", "rose"), ("oud", "vanilla"), ("citrus", "musk"),
+            ("caramel", "salt"), ("leather", "vanilla"), ("incense", "rose"),
+        ]
+        for a, b in bridges:
+            if (a in base_notes and b in notes) or (b in base_notes and a in notes):
+                score += 8
+        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
+            score += 5
+        score += _stable_tiebreak((f.get("name") or "") + base_name) % 5
+        if score > 0:
+            scored.append((score, f))
+    scored.sort(key=lambda x: -x[0])
+    picks = []
+    seen_brands = set()
+    for sc, f in scored:
+        b = (f.get("brand") or "").lower()
+        if b in seen_brands and len(scored) > top_n:
+            continue
+        picks.append(f)
+        seen_brands.add(b)
+        if len(picks) >= top_n:
+            break
+    return picks
+
+
+TAROT_CARDS = [
+    {"name": "The Moon", "mood": "Soft", "blurb": "Fog, intuition, silver musk."},
+    {"name": "The Tower", "mood": "Fierce", "blurb": "Smoke, spice, something breaks open."},
+    {"name": "The Empress", "mood": "Date night", "blurb": "Rose, honey, full bloom."},
+    {"name": "The Hermit", "mood": "Lazy / stay home", "blurb": "Candlelight, cream, quiet skin."},
+    {"name": "Death", "mood": "Fierce", "blurb": "Oud, incense, transformation."},
+    {"name": "The Star", "mood": "Soft", "blurb": "Clean light, soft florals, hope."},
+    {"name": "The Devil", "mood": "Date night", "blurb": "Caramel, leather, temptation."},
+    {"name": "Wheel of Fortune", "mood": "Main character", "blurb": "Whatever turns - wear it loud."},
+    {"name": "The High Priestess", "mood": "Rainy day", "blurb": "Powder, iris, secret notes."},
+    {"name": "The Magician", "mood": "Focus / work", "blurb": "Sharp citrus, green focus."},
+    {"name": "The Lovers", "mood": "Date night", "blurb": "Shared air, sweet and deep."},
+    {"name": "Judgement", "mood": "Main character", "blurb": "Amber wake-up call."},
+]
+
+
+def draw_tarot_card(salt: int = 0) -> dict:
+    import hashlib
+    today = pacific_today().isoformat()
+    seed = int(hashlib.md5(f"tarot-{today}-{salt}".encode()).hexdigest()[:8], 16)
+    return TAROT_CARDS[seed % len(TAROT_CARDS)]
+
+
 def score_for_mood(f: dict, mood: str) -> int:
     if st.session_state["user_reactions"].get(f["name"]) == "dislike":
         return -999
@@ -4349,13 +4491,18 @@ def wishlist_item_to_vault(item: dict) -> dict:
         label = f"{existing.get('name')} ({existing.get('brand')})" if existing else name
         return {"ok": False, "message": f"Already in vault: {label}", "frag": existing}
     notes = (item.get("notes") or "").strip() or "From wishlist"
+    gender = (item.get("gender") or "").strip() or "Unisex"
+    season = (item.get("season") or "").strip() or "Versatile"
+    cats = item.get("category")
+    if not cats:
+        cats = suggest_categories_from_notes(notes) or ["Gourmand"]
     frag = {
         "name": name,
         "brand": brand,
-        "gender": "Unisex",
-        "season": "Versatile",
+        "gender": gender,
+        "season": season,
         "notes": notes,
-        "category": ["Gourmand"],
+        "category": list(cats),
         "dupe_of": "",
         "shelf_status": "Own",
         "size_ml": None,
@@ -5768,6 +5915,24 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Today")
+    # October / Halloween mode + SOTD streak
+    oc1, oc2 = st.columns(2)
+    with oc1:
+        force_oct = st.checkbox(
+            "Halloween mode",
+            value=bool(st.session_state.get("force_october_mode")) or is_october_mode(),
+            key="force_october_mode",
+            help="Highlights Halloween Play and fall vibes. Auto-on in October.",
+        )
+        if is_october_mode() or force_oct:
+            st.caption(halloween_countdown_text())
+    with oc2:
+        streak = sotd_streak()
+        if streak > 0:
+            st.metric("SOTD streak", f"{streak} day(s)")
+        else:
+            st.caption("SOTD streak: log today to start")
+
     # Daily challenge
     if "challenge_salt" not in st.session_state:
         st.session_state["challenge_salt"] = 0
@@ -7319,7 +7484,7 @@ with tab_play:
     st.caption("Three games only - Mood, Blind bottle, Family roulette.")
 
     # Reset invalid play_mode from older builds
-    _allowed_play = ["Mood board", "Blind bottle", "Family roulette", "Halloween"]
+    _allowed_play = ["Mood board", "Blind bottle", "Family roulette", "Halloween", "Tarot"]
     if st.session_state.get("play_mode") not in _allowed_play:
         st.session_state["play_mode"] = "Mood board"
 
@@ -7529,6 +7694,56 @@ with tab_play:
                     + ", ".join((f.get("category") or [])[:4])
                 )
                 if st.button("Wear today", key=f"hall_wear_{i}_{f.get('name','')}"):
+                    st.session_state["sotd_prefill"] = [f.get("name")]
+                    st.rerun()
+
+
+    elif play_mode == "Tarot":
+        st.markdown(
+            '<div style="border:1px solid #3a2040;border-radius:10px;padding:0.75rem 1rem;'
+            'background:linear-gradient(135deg,#100818,#1a1020);margin-bottom:0.5rem;">'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">Tarot draw</div>'
+            '<div style="color:#a890b8;font-size:0.85rem;">One card. One mood. Three bottles from your vault.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        if "tarot_salt" not in st.session_state:
+            st.session_state["tarot_salt"] = 0
+        t1, t2 = st.columns(2)
+        with t1:
+            t_draw = st.button("Draw a card", type="primary", key="tarot_draw", use_container_width=True)
+        with t2:
+            t_redraw = st.button("Redraw card", key="tarot_redraw", use_container_width=True)
+        if t_draw or t_redraw:
+            if t_redraw:
+                st.session_state["tarot_salt"] = int(st.session_state.get("tarot_salt", 0)) + 1
+            card = draw_tarot_card(salt=int(st.session_state.get("tarot_salt", 0)))
+            mood_name = card.get("mood") or "Soft"
+            # map Lazy / stay home if present
+            if mood_name not in MOOD_PROFILES and mood_name == "Lazy / stay home":
+                pass
+            picks = []
+            if mood_name in MOOD_PROFILES:
+                picks = get_mood_picks(
+                    mood_name,
+                    top_n=3,
+                    pool=play_pool,
+                    salt=int(st.session_state.get("tarot_salt", 0)),
+                )
+            st.session_state["last_tarot"] = {"card": card, "picks": picks}
+            st.rerun()
+        last_t = st.session_state.get("last_tarot")
+        if last_t:
+            card = last_t.get("card") or {}
+            st.markdown(f"### {card.get('name', 'Card')}")
+            st.caption(card.get("blurb") or "")
+            st.write(f"Mood lean: **{card.get('mood')}**")
+            for i, f in enumerate(last_t.get("picks") or []):
+                st.markdown(
+                    f"**{i+1}. {f.get('name')}** - *{f.get('brand')}* | "
+                    + ", ".join((f.get("category") or [])[:3])
+                )
+                if st.button("Wear today", key=f"tarot_wear_{i}"):
                     st.session_state["sotd_prefill"] = [f.get("name")]
                     st.rerun()
 
@@ -7796,6 +8011,19 @@ with tab_collection:
         wl_name = st.text_input("Name", key="wl_name")
         wl_brand = st.text_input("Brand (optional)", key="wl_brand")
         wl_notes = st.text_input("Notes (optional)", key="wl_notes")
+        wl_g, wl_s = st.columns(2)
+        with wl_g:
+            wl_gender = st.selectbox(
+                "Gender (for vault later)",
+                ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
+                key="wl_gender",
+            )
+        with wl_s:
+            wl_season = st.selectbox(
+                "Season (for vault later)",
+                ["Versatile", "Fall, Winter", "Spring, Summer", "Hot / Summer", "Cool / Autumn", "Cold / Winter"],
+                key="wl_season",
+            )
         wa, wb = st.columns(2)
         with wa:
             add_clicked = st.button("Add to wishlist", key="wl_add", use_container_width=True)
@@ -7811,6 +8039,8 @@ with tab_collection:
                         "name": wl_name.strip(),
                         "brand": (wl_brand or "").strip(),
                         "notes": (wl_notes or "").strip(),
+                        "gender": wl_gender,
+                        "season": wl_season,
                         "checked": False,
                     },
                 )
@@ -8700,6 +8930,28 @@ with tab_vault:
 
     
     
+    
+    with st.expander("Works with (layer partners)", expanded=False):
+        st.caption("Pick a bottle - get 3 partners from your vault that layer well with it.")
+        names = sorted(
+            (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
+        )
+        names = [n for n in names if n]
+        base = st.selectbox("Base bottle", ["- select -"] + names, key="layer_partner_base")
+        if base and base != "- select -":
+            partners = suggest_layer_partners(base, top_n=3)
+            if not partners:
+                st.info("No strong partners found - try another base.")
+            else:
+                for i, f in enumerate(partners, 1):
+                    st.markdown(
+                        f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                        + ", ".join((f.get("category") or [])[:3])
+                    )
+                    if st.button("Wear both today", key=f"layer_both_{i}"):
+                        st.session_state["sotd_prefill"] = [base, f.get("name")]
+                        st.rerun()
+
     with st.expander("Scent family helper", expanded=False):
         st.caption(
             "Paste notes (or pick a bottle) to get suggested scent families. "
@@ -8878,6 +9130,78 @@ with tab_vault:
                             st.session_state.pop("_audit_results", None)
                             st.success(f"Updated families on {fixed} bottle(s).")
                             st.rerun()
+
+
+    
+    with st.expander("Brand stats", expanded=False):
+        stats = brand_stats()
+        st.caption(f"{len(stats)} brands in vault")
+        for brand, n in stats[:25]:
+            st.write(f"**{brand}** - {n} bottle(s)")
+        if len(stats) > 25:
+            st.caption(f"...and {len(stats)-25} more brands")
+
+    with st.expander("Batch edit", expanded=False):
+        st.caption("Apply gender, season, or a category to several bottles at once.")
+        all_names = sorted(
+            (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
+        )
+        picks = st.multiselect("Bottles", all_names, key="batch_edit_picks")
+        be1, be2, be3 = st.columns(3)
+        with be1:
+            be_gender = st.selectbox(
+                "Set gender",
+                ["- no change -", "Female", "Male", "Unisex", "Female-leaning", "Male-leaning"],
+                key="batch_edit_gender",
+            )
+        with be2:
+            be_season = st.selectbox(
+                "Set season",
+                [
+                    "- no change -",
+                    "Fall, Winter",
+                    "Spring, Summer",
+                    "Versatile",
+                    "Hot / Summer",
+                    "Cool / Autumn",
+                    "Cold / Winter",
+                ],
+                key="batch_edit_season",
+            )
+        with be3:
+            be_cat = st.selectbox(
+                "Add category",
+                ["- no change -"]
+                + [
+                    "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
+                    "Fruity", "Spicy", "Citrus", "Musky", "Vanilla", "Creamy",
+                    "Smoky", "Oud", "Leather", "Powdery",
+                ],
+                key="batch_edit_cat",
+            )
+        if st.button("Apply batch edit", type="primary", key="batch_edit_go"):
+            if not picks:
+                st.warning("Pick at least one bottle.")
+            else:
+                changed = 0
+                for i, f in enumerate(st.session_state["fragrances_db"]):
+                    if f.get("name") not in picks:
+                        continue
+                    if be_gender != "- no change -":
+                        st.session_state["fragrances_db"][i]["gender"] = be_gender
+                    if be_season != "- no change -":
+                        st.session_state["fragrances_db"][i]["season"] = be_season
+                    if be_cat != "- no change -":
+                        cats = list(f.get("category") or [])
+                        if be_cat not in cats:
+                            cats.append(be_cat)
+                        st.session_state["fragrances_db"][i]["category"] = cats
+                    changed += 1
+                if changed:
+                    log_vault_action("edited", f"{changed} bottles", "batch-edit")
+                    save_persisted_data()
+                    st.success(f"Updated {changed} bottle(s).")
+                    st.rerun()
 
 
     with st.expander("Activity log", expanded=False):
