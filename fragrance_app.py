@@ -6678,9 +6678,212 @@ with tab_layer:
                             f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}{score_bit}\n\n"
                             f"*{reason}*"
                         )
-                        if st.button("Use in SOTD", key=f"layer_base_use_{pi}"):
-                            st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
-                            st.rerun()
+                        b1, b2, b3 = st.columns(3)
+                        with b1:
+                            if st.button("Layer check", key=f"layer_base_check_{pi}"):
+                                st.session_state["roulette_layer_pick"] = [
+                                    base_choice,
+                                    pf["name"],
+                                ]
+                                st.session_state["last_layer_check"] = evaluate_layer_recipe(
+                                    [base_choice, pf["name"]]
+                                )
+                                st.session_state["_seed_roulette_recipe_name"] = True
+                                st.session_state["_open_layer_check"] = True
+                                st.rerun()
+                        with b2:
+                            if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
+                                names = [base_choice, pf["name"]]
+                                ev = evaluate_layer_recipe(names)
+                                final_name = (ev.get("suggested_name") or f"{base_choice} x {pf['name']}")
+                                st.session_state.setdefault("layer_recipes", []).insert(
+                                    0,
+                                    {
+                                        "name": final_name,
+                                        "bottles": names,
+                                        "season_label": (ev.get("season") or {}).get("label", ""),
+                                        "season_detail": (ev.get("season") or {}).get("detail", ""),
+                                        "application": ev.get("application") or {},
+                                        "score": ev.get("score"),
+                                        "label": ev.get("label"),
+                                        "verdict": ev.get("verdict"),
+                                    },
+                                )
+                                save_persisted_data()
+                                st.success(f"Saved recipe: {final_name}")
+                        with b3:
+                            if st.button("SOTD", key=f"layer_base_use_{pi}"):
+                                st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
+                                st.rerun()
+
+
+    # --- Layer check (moved into Layer tab) ---
+    st.markdown("---")
+    st.subheader("Layer check")
+    st.caption(
+        "Pick two or more bottles. We score the combo from categories and notes "
+        "so you can see if it is a good layer."
+    )
+    # Clear multiselect BEFORE the widget is created (Streamlit forbids writing
+    # to a widget key after that widget has been instantiated).
+    if st.session_state.pop("_clear_roulette_layer_pick", False):
+        st.session_state["roulette_layer_pick"] = []
+        st.session_state.pop("last_layer_check", None)
+
+    all_names_layer = sorted(
+        f.get("name") for f in st.session_state.get("fragrances_db") or [] if f.get("name")
+    )
+    layer_pick = st.multiselect(
+        "Bottles to layer",
+        all_names_layer,
+        key="roulette_layer_pick",
+        placeholder="Choose 2+ fragrances...",
+    )
+    lc1, lc2 = st.columns(2)
+    with lc1:
+        run_layer = st.button(
+            "Check layer", type="primary", key="roulette_layer_check", use_container_width=True
+        )
+    with lc2:
+        if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
+            st.session_state["_clear_roulette_layer_pick"] = True
+            st.rerun()
+
+    if run_layer:
+        if len(layer_pick) < 2:
+            st.warning("Pick at least two bottles.")
+        else:
+            result = evaluate_layer_recipe(list(layer_pick))
+            # Fresh random poetic name from notes each time you check
+            result["suggested_name"] = suggest_recipe_name_from_notes(
+                list(layer_pick), randomize=True
+            )
+            st.session_state["last_layer_check"] = result
+            st.session_state["_seed_roulette_recipe_name"] = True
+
+    _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
+    if _rl_save_flash:
+        st.success(_rl_save_flash)
+
+    ev = st.session_state.get("last_layer_check")
+    if ev:
+        label = ev.get("label") or "?"
+        st.markdown("### " + str(label))
+        st.write(ev.get("verdict") or "")
+        st.caption(
+            "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
+            + str(ev.get("suggested_name") or "")
+            + "* â use **Reroll name from notes** for another"
+        )
+        season = ev.get("season") or {}
+        if season.get("detail"):
+            st.info(season.get("detail"))
+        app = ev.get("application") or {}
+        steps = app.get("steps") or []
+        if steps:
+            st.markdown("#### How to wear this layer")
+            st.caption(
+                "Order is heaviest to lightest. Apply in this order on skin."
+            )
+            for s in steps:
+                st.markdown(
+                    f"**{s.get('order')}. {s.get('name')}** (*{s.get('brand')}*)  \n"
+                    f"Role: **{s.get('role')}** Â· Suggested sprays: **{s.get('sprays')}**  \n"
+                    f"{s.get('where')}  \n"
+                    f"Families: {s.get('cats') or '-'} Â· Weight score: {s.get('weight')}"
+                )
+            st.markdown("**Tips**")
+            for t in app.get("tips") or []:
+                st.caption("- " + t)
+            if app.get("order_names"):
+                st.success(
+                    "Spray order: " + " â ".join(app.get("order_names") or [])
+                )
+        for pair in ev.get("pairs") or []:
+            line = (
+                "**" + str(pair.get("a")) + "** + **" + str(pair.get("b"))
+                + "** (pair score " + str(pair.get("score")) + ")"
+            )
+            st.markdown(line)
+            st.caption(str(pair.get("cats") or ""))
+            for r in pair.get("reasons") or []:
+                st.caption("- " + str(r))
+        with st.expander("Notes side by side", expanded=False):
+            for fr in ev.get("frags") or []:
+                st.markdown(
+                    "**" + str(fr.get("name")) + "** (*" + str(fr.get("brand")) + "*)"
+                )
+                st.caption(str(fr.get("notes") or "(no notes)"))
+
+        names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
+        suggested = (ev.get("suggested_name") or "").strip()
+        # Seed name once when a new layer check appears (avoid value= + key conflict)
+        if st.session_state.pop("_seed_roulette_recipe_name", False) or (
+            "roulette_layer_recipe_name" not in st.session_state and suggested
+        ):
+            st.session_state["roulette_layer_recipe_name"] = suggested
+        # Reroll before the text input so the new name is applied this run
+        if st.session_state.pop("_reroll_layer_name", False) and names:
+            new_nm = suggest_recipe_name_from_notes(names, randomize=True)
+            st.session_state["roulette_layer_recipe_name"] = new_nm
+            if isinstance(st.session_state.get("last_layer_check"), dict):
+                st.session_state["last_layer_check"]["suggested_name"] = new_nm
+            suggested = new_nm
+        save_name = st.text_input(
+            "Save as recipe name",
+            key="roulette_layer_recipe_name",
+            placeholder=suggested or "e.g. Coconut vanilla night",
+        )
+        if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
+            st.session_state["_reroll_layer_name"] = True
+            st.rerun()
+        rb1, rb2 = st.columns(2)
+        with rb1:
+            if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
+                if names:
+                    send_to_sotd(names, notes=suggested or "Layer check")
+                    st.rerun()
+        with rb2:
+            if st.button("Save recipe", type="primary", key="roulette_layer_save_recipe"):
+                if len(names) < 2:
+                    st.warning("Need at least two bottles to save a recipe.")
+                else:
+                    final_name = (save_name or "").strip() or suggested or "Untitled layer"
+                    # Avoid exact duplicates (same name + same bottle set)
+                    existing = st.session_state.get("layer_recipes") or []
+                    bottles_key = tuple(sorted(names))
+                    already = any(
+                        (r.get("name") or "").strip().lower() == final_name.lower()
+                        and tuple(sorted(r.get("bottles") or [])) == bottles_key
+                        for r in existing
+                    )
+                    if already:
+                        st.session_state["_roulette_recipe_save_flash"] = (
+                            f"Recipe **{final_name}** already saved."
+                        )
+                    else:
+                        _ev_r = st.session_state.get("last_layer_check") or evaluate_layer_recipe(list(names))
+                        st.session_state.setdefault("layer_recipes", []).insert(
+                            0,
+                            {
+                                "name": final_name,
+                                "bottles": list(names),
+                                "season_label": season.get("label", ""),
+                                "season_detail": season.get("detail", ""),
+                                "application": (_ev_r or {}).get("application") or {},
+                                "score": (_ev_r or {}).get("score"),
+                                "label": (_ev_r or {}).get("label"),
+                                "verdict": (_ev_r or {}).get("verdict"),
+                            },
+                        )
+                        save_persisted_data()
+                        st.session_state["_roulette_recipe_save_flash"] = (
+                            f"Saved **{final_name}** "
+                            f"(season: {season.get('label', '?')}). "
+                            "See Layer tab â Saved layer recipes."
+                        )
+                    st.rerun()
+
 
     with st.expander("Free combos from filters", expanded=False):
         lc1, lc2 = st.columns(2)
@@ -7010,175 +7213,6 @@ with tab_roulette:
                     st.rerun()
 
 # ===== SOTD =====
-
-
-    st.markdown("---")
-    st.subheader("Layer check")
-    st.caption(
-        "Pick two or more bottles. We score the combo from categories and notes "
-        "so you can see if it is a good layer."
-    )
-    # Clear multiselect BEFORE the widget is created (Streamlit forbids writing
-    # to a widget key after that widget has been instantiated).
-    if st.session_state.pop("_clear_roulette_layer_pick", False):
-        st.session_state["roulette_layer_pick"] = []
-        st.session_state.pop("last_layer_check", None)
-
-    all_names_layer = sorted(
-        f.get("name") for f in st.session_state.get("fragrances_db") or [] if f.get("name")
-    )
-    layer_pick = st.multiselect(
-        "Bottles to layer",
-        all_names_layer,
-        key="roulette_layer_pick",
-        placeholder="Choose 2+ fragrances...",
-    )
-    lc1, lc2 = st.columns(2)
-    with lc1:
-        run_layer = st.button(
-            "Check layer", type="primary", key="roulette_layer_check", use_container_width=True
-        )
-    with lc2:
-        if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
-            st.session_state["_clear_roulette_layer_pick"] = True
-            st.rerun()
-
-    if run_layer:
-        if len(layer_pick) < 2:
-            st.warning("Pick at least two bottles.")
-        else:
-            result = evaluate_layer_recipe(list(layer_pick))
-            # Fresh random poetic name from notes each time you check
-            result["suggested_name"] = suggest_recipe_name_from_notes(
-                list(layer_pick), randomize=True
-            )
-            st.session_state["last_layer_check"] = result
-            st.session_state["_seed_roulette_recipe_name"] = True
-
-    _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
-    if _rl_save_flash:
-        st.success(_rl_save_flash)
-
-    ev = st.session_state.get("last_layer_check")
-    if ev:
-        label = ev.get("label") or "?"
-        st.markdown("### " + str(label))
-        st.write(ev.get("verdict") or "")
-        st.caption(
-            "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
-            + str(ev.get("suggested_name") or "")
-            + "* â use **Reroll name from notes** for another"
-        )
-        season = ev.get("season") or {}
-        if season.get("detail"):
-            st.info(season.get("detail"))
-        app = ev.get("application") or {}
-        steps = app.get("steps") or []
-        if steps:
-            st.markdown("#### How to wear this layer")
-            st.caption(
-                "Order is heaviest to lightest. Apply in this order on skin."
-            )
-            for s in steps:
-                st.markdown(
-                    f"**{s.get('order')}. {s.get('name')}** (*{s.get('brand')}*)  \n"
-                    f"Role: **{s.get('role')}** Â· Suggested sprays: **{s.get('sprays')}**  \n"
-                    f"{s.get('where')}  \n"
-                    f"Families: {s.get('cats') or '-'} Â· Weight score: {s.get('weight')}"
-                )
-            st.markdown("**Tips**")
-            for t in app.get("tips") or []:
-                st.caption("- " + t)
-            if app.get("order_names"):
-                st.success(
-                    "Spray order: " + " â ".join(app.get("order_names") or [])
-                )
-        for pair in ev.get("pairs") or []:
-            line = (
-                "**" + str(pair.get("a")) + "** + **" + str(pair.get("b"))
-                + "** (pair score " + str(pair.get("score")) + ")"
-            )
-            st.markdown(line)
-            st.caption(str(pair.get("cats") or ""))
-            for r in pair.get("reasons") or []:
-                st.caption("- " + str(r))
-        with st.expander("Notes side by side", expanded=False):
-            for fr in ev.get("frags") or []:
-                st.markdown(
-                    "**" + str(fr.get("name")) + "** (*" + str(fr.get("brand")) + "*)"
-                )
-                st.caption(str(fr.get("notes") or "(no notes)"))
-
-        names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
-        suggested = (ev.get("suggested_name") or "").strip()
-        # Seed name once when a new layer check appears (avoid value= + key conflict)
-        if st.session_state.pop("_seed_roulette_recipe_name", False) or (
-            "roulette_layer_recipe_name" not in st.session_state and suggested
-        ):
-            st.session_state["roulette_layer_recipe_name"] = suggested
-        # Reroll before the text input so the new name is applied this run
-        if st.session_state.pop("_reroll_layer_name", False) and names:
-            new_nm = suggest_recipe_name_from_notes(names, randomize=True)
-            st.session_state["roulette_layer_recipe_name"] = new_nm
-            if isinstance(st.session_state.get("last_layer_check"), dict):
-                st.session_state["last_layer_check"]["suggested_name"] = new_nm
-            suggested = new_nm
-        save_name = st.text_input(
-            "Save as recipe name",
-            key="roulette_layer_recipe_name",
-            placeholder=suggested or "e.g. Coconut vanilla night",
-        )
-        if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
-            st.session_state["_reroll_layer_name"] = True
-            st.rerun()
-        rb1, rb2 = st.columns(2)
-        with rb1:
-            if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
-                if names:
-                    send_to_sotd(names, notes=suggested or "Layer check")
-                    st.rerun()
-        with rb2:
-            if st.button("Save recipe", type="primary", key="roulette_layer_save_recipe"):
-                if len(names) < 2:
-                    st.warning("Need at least two bottles to save a recipe.")
-                else:
-                    final_name = (save_name or "").strip() or suggested or "Untitled layer"
-                    # Avoid exact duplicates (same name + same bottle set)
-                    existing = st.session_state.get("layer_recipes") or []
-                    bottles_key = tuple(sorted(names))
-                    already = any(
-                        (r.get("name") or "").strip().lower() == final_name.lower()
-                        and tuple(sorted(r.get("bottles") or [])) == bottles_key
-                        for r in existing
-                    )
-                    if already:
-                        st.session_state["_roulette_recipe_save_flash"] = (
-                            f"Recipe **{final_name}** already saved."
-                        )
-                    else:
-                        _ev_r = st.session_state.get("last_layer_check") or evaluate_layer_recipe(list(names))
-                        st.session_state.setdefault("layer_recipes", []).insert(
-                            0,
-                            {
-                                "name": final_name,
-                                "bottles": list(names),
-                                "season_label": season.get("label", ""),
-                                "season_detail": season.get("detail", ""),
-                                "application": (_ev_r or {}).get("application") or {},
-                                "score": (_ev_r or {}).get("score"),
-                                "label": (_ev_r or {}).get("label"),
-                                "verdict": (_ev_r or {}).get("verdict"),
-                            },
-                        )
-                        save_persisted_data()
-                        st.session_state["_roulette_recipe_save_flash"] = (
-                            f"Saved **{final_name}** "
-                            f"(season: {season.get('label', '?')}). "
-                            "See Layer tab â Saved layer recipes."
-                        )
-                    st.rerun()
-
-
 with tab_sotd:
     st.subheader("Scent of the Day")
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
