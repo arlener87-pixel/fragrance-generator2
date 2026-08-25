@@ -81,6 +81,11 @@ def save_persisted_data(force: bool = False):
             "rising": st.session_state.get("chart_rising"),
             "venus": st.session_state.get("chart_venus"),
             "full": st.session_state.get("birth_calc_full"),
+            "his_sun": st.session_state.get("chart_his_sun"),
+            "his_moon": st.session_state.get("chart_his_moon"),
+            "his_rising": st.session_state.get("chart_his_rising"),
+            "his_venus": st.session_state.get("chart_his_venus"),
+            "his_full": st.session_state.get("birth_calc_his_full"),
         },
         "wishlist": st.session_state.get("wishlist", []),
         "vault_log": st.session_state.get("vault_log", []),
@@ -168,6 +173,11 @@ def vault_fingerprint() -> str:
             "rising": st.session_state.get("chart_rising"),
             "venus": st.session_state.get("chart_venus"),
             "full": st.session_state.get("birth_calc_full"),
+            "his_sun": st.session_state.get("chart_his_sun"),
+            "his_moon": st.session_state.get("chart_his_moon"),
+            "his_rising": st.session_state.get("chart_his_rising"),
+            "his_venus": st.session_state.get("chart_his_venus"),
+            "his_full": st.session_state.get("birth_calc_his_full"),
         },
         "last_export_date": st.session_state.get("last_export_date"),
     }
@@ -919,6 +929,16 @@ if "chart_rising" not in st.session_state and _chart.get("rising"):
     st.session_state["chart_rising"] = _chart["rising"]
 if "chart_venus" not in st.session_state and _chart.get("venus"):
     st.session_state["chart_venus"] = _chart["venus"]
+if "chart_his_sun" not in st.session_state and _chart.get("his_sun"):
+    st.session_state["chart_his_sun"] = _chart["his_sun"]
+if "chart_his_moon" not in st.session_state and _chart.get("his_moon"):
+    st.session_state["chart_his_moon"] = _chart["his_moon"]
+if "chart_his_rising" not in st.session_state and _chart.get("his_rising"):
+    st.session_state["chart_his_rising"] = _chart["his_rising"]
+if "chart_his_venus" not in st.session_state and _chart.get("his_venus"):
+    st.session_state["chart_his_venus"] = _chart["his_venus"]
+if "birth_calc_his_full" not in st.session_state and _chart.get("his_full"):
+    st.session_state["birth_calc_his_full"] = _chart["his_full"]
 
 
 # Session states for clearing inputs explicitly
@@ -1695,6 +1715,174 @@ def get_day_fragrances(
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [f for _, f in scored[:top_n]]
+
+
+
+def bottles_for_sign(sign: str, top_n: int = 5) -> list:
+    """Rank vault bottles for a zodiac sign scent profile."""
+    prof = SIGN_SCENT_PROFILE.get(sign) or {}
+    prefer_cats = set(prof.get("categories") or [])
+    prefer_notes = [k.lower() for k in (prof.get("notes_keywords") or [])]
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+            continue
+        cats = set(f.get("category") or [])
+        notes = (f.get("notes") or "").lower()
+        score = 1 + 4 * len(cats & prefer_cats)
+        score += sum(3 for kw in prefer_notes if kw in notes)
+        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
+            score += 5
+        scored.append((score, f))
+    scored.sort(key=lambda x: -x[0])
+    return [f for _, f in scored[:top_n]]
+
+
+def bottles_for_element(element: str, top_n: int = 5) -> list:
+    element = (element or "").title()
+    elem_map = {
+        "Fire": ["Spicy", "Oriental", "Citrus", "Woody"],
+        "Earth": ["Gourmand", "Woody", "Sweet", "Musky", "Vanilla"],
+        "Air": ["Fresh", "Floral", "Powdery", "Citrus", "Aromatic"],
+        "Water": ["Floral", "Aquatic", "Sweet", "Musky", "Oriental"],
+    }
+    prefer = set(elem_map.get(element, []))
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        cats = set(f.get("category") or [])
+        score = 1 + 5 * len(cats & prefer)
+        scored.append((score, f))
+    scored.sort(key=lambda x: -x[0])
+    return [f for _, f in scored[:top_n]]
+
+
+def moon_phase_name(d=None) -> str:
+    """Approximate moon phase name for a date (Pacific today if None)."""
+    from datetime import date
+    d = d or pacific_today()
+    # simple known new moon reference approx cycle 29.53 days
+    # ref: 2000-01-06 was near new moon
+    ref = date(2000, 1, 6)
+    age = (d - ref).days % 29.53058867
+    if age < 1.85:
+        return "New Moon"
+    if age < 7.38:
+        return "Waxing Crescent"
+    if age < 9.23:
+        return "First Quarter"
+    if age < 14.77:
+        return "Waxing Gibbous"
+    if age < 16.61:
+        return "Full Moon"
+    if age < 22.15:
+        return "Waning Gibbous"
+    if age < 23.99:
+        return "Last Quarter"
+    return "Waning Crescent"
+
+
+def moon_phase_scent_profile(phase: str) -> dict:
+    phase = phase or ""
+    if "New" in phase:
+        return {
+            "blurb": "Soft reset - skin scents, clean musk, quiet florals.",
+            "categories": ["Musky", "Fresh", "Floral", "Powdery"],
+        }
+    if "Full" in phase:
+        return {
+            "blurb": "High volume - projection, spice, oud, date-night intensity.",
+            "categories": ["Oriental", "Spicy", "Oud", "Gourmand", "Leather"],
+        }
+    if "Waxing" in phase:
+        return {
+            "blurb": "Building energy - fruity, sweet, bright florals.",
+            "categories": ["Fruity", "Sweet", "Floral", "Gourmand"],
+        }
+    if "Waning" in phase or "Last" in phase:
+        return {
+            "blurb": "Release - woody, green, incense, less sugar.",
+            "categories": ["Woody", "Green", "Smoky", "Aromatic", "Fresh"],
+        }
+    return {
+        "blurb": "Balanced middle path.",
+        "categories": ["Floral", "Woody", "Musky"],
+    }
+
+
+def bottles_for_moon_phase(phase: str = None, top_n: int = 5) -> list:
+    phase = phase or moon_phase_name()
+    prof = moon_phase_scent_profile(phase)
+    prefer = set(prof.get("categories") or [])
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        cats = set(f.get("category") or [])
+        score = 1 + 5 * len(cats & prefer)
+        scored.append((score, f))
+    scored.sort(key=lambda x: -x[0])
+    return [f for _, f in scored[:top_n]]
+
+
+def chart_elements(sun, moon, rising, venus=None) -> dict:
+    from collections import Counter
+    c = Counter()
+    for sign in (sun, moon, rising, venus):
+        if not sign:
+            continue
+        el = (SIGN_SCENT_PROFILE.get(sign) or {}).get("element")
+        if el:
+            c[el] += 1
+    return dict(c)
+
+
+def compatibility_blurb(her: dict, him: dict) -> str:
+    """Fun scent-compatibility text from two charts."""
+    bits = []
+    hs, hm, hr, hv = her.get("sun"), her.get("moon"), her.get("rising"), her.get("venus")
+    xs, xm, xr, xv = him.get("sun"), him.get("moon"), him.get("rising"), him.get("venus")
+    if hs and xs:
+        he = (SIGN_SCENT_PROFILE.get(hs) or {}).get("element")
+        xe = (SIGN_SCENT_PROFILE.get(xs) or {}).get("element")
+        if he and xe:
+            if he == xe:
+                bits.append(f"Same firepower element ({he}) on the Suns - layer shared families.")
+            else:
+                bits.append(f"Sun elements {he} + {xe} - contrast layers (his strength, your softness or reverse).")
+    if hm and xm:
+        bits.append(f"Moon {hm} meets Moon {xm} - comfort scents should overlap at least one family.")
+    if hv and xv:
+        bits.append(f"Venus {hv} + Venus {xv} - date-night blend lives here.")
+    if hr and xr:
+        bits.append(f"Rising {hr} / {xr} - first-impression scents when you walk in together.")
+    if not bits:
+        bits.append("Set both charts to unlock a fuller match read.")
+    return " ".join(bits)
+
+
+def compatibility_bottles(her: dict, him: dict, top_n: int = 4) -> list:
+    """Bottles that bridge both charts."""
+    signs = [her.get("sun"), her.get("venus"), him.get("sun"), him.get("venus"),
+             her.get("moon"), him.get("moon")]
+    prefer = set()
+    for s in signs:
+        if s:
+            prefer |= set((SIGN_SCENT_PROFILE.get(s) or {}).get("categories") or [])
+    scored = []
+    for f in st.session_state.get("fragrances_db") or []:
+        cats = set(f.get("category") or [])
+        score = 1 + 3 * len(cats & prefer)
+        scored.append((score, f))
+    scored.sort(key=lambda x: -x[0])
+    picks = []
+    seen = set()
+    for sc, f in scored:
+        b = (f.get("brand") or "").lower()
+        if b in seen:
+            continue
+        picks.append(f)
+        seen.add(b)
+        if len(picks) >= top_n:
+            break
+    return picks
 
 
 def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
@@ -7204,6 +7392,16 @@ with tab_horoscope:
             st.session_state["chart_rising"] = pending_chart["rising"]
         if pending_chart.get("venus") and pending_chart["venus"] in signs:
             st.session_state["chart_venus"] = pending_chart["venus"]
+        if pending_chart.get("his_sun") and pending_chart["his_sun"] in signs:
+            st.session_state["chart_his_sun"] = pending_chart["his_sun"]
+        if pending_chart.get("his_moon") and pending_chart["his_moon"] in signs:
+            st.session_state["chart_his_moon"] = pending_chart["his_moon"]
+        if pending_chart.get("his_rising") and pending_chart["his_rising"] in signs:
+            st.session_state["chart_his_rising"] = pending_chart["his_rising"]
+        if pending_chart.get("his_venus") and pending_chart["his_venus"] in signs:
+            st.session_state["chart_his_venus"] = pending_chart["his_venus"]
+        if pending_chart.get("his_full"):
+            st.session_state["birth_calc_his_full"] = pending_chart["his_full"]
 
     if st.session_state.pop("_apply_birth_chart", False):
         calc = st.session_state.get("birth_calc_full") or {}
@@ -7216,6 +7414,19 @@ with tab_horoscope:
         if calc.get("venus") and calc["venus"] in signs:
             st.session_state["chart_venus"] = calc["venus"]
         st.session_state["_chart_apply_flash"] = True
+
+    if st.session_state.pop("_apply_birth_chart_his", False):
+        calc = st.session_state.get("birth_calc_full") or {}
+        if calc.get("sun") and calc["sun"] in signs:
+            st.session_state["chart_his_sun"] = calc["sun"]
+        if calc.get("moon") and calc["moon"] in signs:
+            st.session_state["chart_his_moon"] = calc["moon"]
+        if calc.get("rising") and calc["rising"] in signs:
+            st.session_state["chart_his_rising"] = calc["rising"]
+        if calc.get("venus") and calc["venus"] in signs:
+            st.session_state["chart_his_venus"] = calc["venus"]
+        st.session_state["birth_calc_his_full"] = calc
+        st.session_state["_chart_apply_flash_his"] = True
 
     # Seed session defaults once so selectboxes don't fight index= vs key=
     if "chart_sun" not in st.session_state:
@@ -7316,6 +7527,12 @@ with tab_horoscope:
                 st.session_state["_clear_birth_calc"] = True
                 st.rerun()
         with bc3:
+            apply_target = st.radio(
+                "Apply calculated chart to",
+                ["Me (her)", "Him"],
+                horizontal=True,
+                key="birth_calc_apply_target",
+            )
             apply_btn = st.button(
                 "Apply to chart", key="birth_calc_apply", use_container_width=True
             )
@@ -7416,10 +7633,132 @@ with tab_horoscope:
 
         if apply_btn:
             if st.session_state.get("birth_calc_full"):
-                st.session_state["_apply_birth_chart"] = True
+                target = st.session_state.get("birth_calc_apply_target") or "Me (her)"
+                if target.startswith("Him"):
+                    st.session_state["_apply_birth_chart_his"] = True
+                else:
+                    st.session_state["_apply_birth_chart"] = True
                 st.rerun()
             else:
                 st.warning("Calculate a chart first.")
+
+
+    st.markdown("#### His chart")
+    st.caption("Your husband's signs - for compatibility layers and shared picks. Save chart stores both.")
+    if "chart_his_sun" not in st.session_state:
+        st.session_state["chart_his_sun"] = signs[0]
+    if "chart_his_moon" not in st.session_state:
+        st.session_state["chart_his_moon"] = signs[0]
+    if "chart_his_rising" not in st.session_state:
+        st.session_state["chart_his_rising"] = signs[0]
+    if "chart_his_venus" not in st.session_state:
+        st.session_state["chart_his_venus"] = signs[0]
+
+    hh1, hh2, hh3, hh4 = st.columns(4)
+    with hh1:
+        his_sun = st.selectbox("His Sun", signs, key="chart_his_sun")
+    with hh2:
+        his_moon = st.selectbox("His Moon", signs, key="chart_his_moon")
+    with hh3:
+        his_rise = st.selectbox("His Rising", signs, key="chart_his_rising")
+    with hh4:
+        his_venus = st.selectbox("His Venus", signs, key="chart_his_venus")
+
+    if st.session_state.pop("_chart_apply_flash_his", False):
+        st.success("Calculator signs applied to his chart. Save chart to keep them.")
+
+    his_sun_p = SIGN_SCENT_PROFILE.get(his_sun, {})
+    st.caption(
+        f"His Sun {his_sun} ({his_sun_p.get('element', '?')} - {his_sun_p.get('vibe', '')}) | "
+        f"Moon {his_moon} | Rising {his_rise} | Venus {his_venus}"
+    )
+
+    st.markdown("#### Compatibility (you + him)")
+    her_c = {"sun": sun_s, "moon": moon_s, "rising": rise_s, "venus": venus_s}
+    him_c = {"sun": his_sun, "moon": his_moon, "rising": his_rise, "venus": his_venus}
+    st.write(compatibility_blurb(her_c, him_c))
+    st.caption("Shared layer / date-night ideas from both charts:")
+    for i, f in enumerate(compatibility_bottles(her_c, him_c, top_n=4), 1):
+        st.markdown(
+            f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+            + ", ".join((f.get("category") or [])[:3])
+        )
+
+    st.markdown("#### Chart tools")
+    tool = st.radio(
+        "Tool",
+        ["Sign matches", "Element wardrobe", "Moon phase", "Placement of the day"],
+        horizontal=True,
+        key="chart_tool_mode",
+    )
+    if tool == "Sign matches":
+        which = st.selectbox(
+            "Whose placement",
+            [
+                f"My Sun ({sun_s})",
+                f"My Moon ({moon_s})",
+                f"My Rising ({rise_s})",
+                f"My Venus ({venus_s})",
+                f"His Sun ({his_sun})",
+                f"His Moon ({his_moon})",
+                f"His Venus ({his_venus})",
+            ],
+            key="chart_tool_sign_which",
+        )
+        sign = which.split("(")[-1].rstrip(")")
+        st.caption((SIGN_SCENT_PROFILE.get(sign) or {}).get("vibe", ""))
+        for i, f in enumerate(bottles_for_sign(sign, top_n=5), 1):
+            st.markdown(
+                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                + ", ".join((f.get("category") or [])[:3])
+            )
+    elif tool == "Element wardrobe":
+        els = chart_elements(sun_s, moon_s, rise_s, venus_s)
+        st.caption("Your chart element mix: " + (", ".join(f"{k} x{v}" for k, v in els.items()) or "set signs"))
+        pick_el = st.selectbox(
+            "Element",
+            ["Fire", "Earth", "Air", "Water"],
+            key="chart_tool_element",
+        )
+        for i, f in enumerate(bottles_for_element(pick_el, top_n=5), 1):
+            st.markdown(
+                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                + ", ".join((f.get("category") or [])[:3])
+            )
+    elif tool == "Moon phase":
+        phase = moon_phase_name()
+        prof = moon_phase_scent_profile(phase)
+        st.write(f"**{phase}** - {prof.get('blurb')}")
+        for i, f in enumerate(bottles_for_moon_phase(phase, top_n=5), 1):
+            st.markdown(
+                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                + ", ".join((f.get("category") or [])[:3])
+            )
+    else:
+        # Placement of the day - use day ruler planet mapped loosely to chart point
+        import datetime as _dt
+        day_name = pacific_today().strftime("%A")
+        day_prof = DAY_RULER.get(day_name, {})
+        planet = day_prof.get("planet", "Moon")
+        focus_map = {
+            "Moon": ("My Moon", moon_s),
+            "Venus": ("My Venus", venus_s),
+            "Mars": ("My Sun", sun_s),
+            "Mercury": ("My Rising", rise_s),
+            "Sun": ("My Sun", sun_s),
+            "Jupiter": ("My Sun", sun_s),
+            "Saturn": ("My Rising", rise_s),
+        }
+        label, focus_sign = focus_map.get(planet, ("My Moon", moon_s))
+        st.write(
+            f"**{day_name}** ruled by **{planet}** - leaning on {label} (**{focus_sign}**). "
+            f"{day_prof.get('vibe', '')}"
+        )
+        for i, f in enumerate(bottles_for_sign(focus_sign, top_n=5), 1):
+            st.markdown(
+                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                + ", ".join((f.get("category") or [])[:3])
+            )
 
     st.markdown("#### Chart scent picks")
     st.caption(
