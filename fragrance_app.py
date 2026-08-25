@@ -2385,6 +2385,92 @@ def layer_application_guide(frags: list) -> dict:
     }
 
 
+
+def explain_layer_combo(frags: list) -> str:
+    """Simple plain-language why this layer works (or does not)."""
+    if not frags or len(frags) < 2:
+        return "Pick at least two bottles to explain the combo."
+    names = [f.get("name") or "?" for f in frags]
+    all_cats = []
+    for f in frags:
+        all_cats.extend(f.get("category") or [])
+    cat_set = set(all_cats)
+    bits = []
+
+    # Weight story
+    ranked = sorted(frags, key=fragrance_weight_score, reverse=True)
+    heavy = ranked[0]
+    light = ranked[-1]
+    if heavy.get("name") != light.get("name"):
+        bits.append(
+            f"**{heavy.get('name')}** reads heavier (base), and **{light.get('name')}** "
+            f"reads lighter (top) - so the stack has a clear bottom and a bright edge."
+        )
+
+    # Family story
+    gourmand = cat_set & {"Gourmand", "Sweet", "Vanilla", "Creamy"}
+    fresh = cat_set & {"Fresh", "Citrus", "Aquatic", "Green"}
+    floral = cat_set & {"Floral", "Powdery"}
+    dark = cat_set & {"Oriental", "Oud", "Smoky", "Leather", "Woody"}
+    fruity = cat_set & {"Fruity"}
+
+    if gourmand and fresh:
+        bits.append(
+            "Sweet/gourmand warmth meets a fresh lift - the fresh side keeps the dessert side from feeling too thick."
+        )
+    elif gourmand and floral:
+        bits.append(
+            "Gourmand creaminess with floral lift - soft, skin-close, and a little pretty on top."
+        )
+    elif gourmand and dark:
+        bits.append(
+            "Dessert notes over woods/oud/smoke - cozy base with a darker spine so it does not stay candy-only."
+        )
+    elif floral and dark:
+        bits.append(
+            "Florals over deeper woods or oriental notes - romantic on top, grounded underneath."
+        )
+    elif fruity and dark:
+        bits.append(
+            "Juicy fruit against darker woods or oriental - playful opening, serious dry-down."
+        )
+    elif fruity and gourmand:
+        bits.append(
+            "Fruit and gourmand stack like a dessert plate - easy, sweet, and crowd-friendly."
+        )
+    elif len(cat_set & {"Woody", "Oriental", "Oud", "Smoky"}) >= 2:
+        bits.append(
+            "Deep woody/oriental families together - rich and evening-leaning; keep sprays low."
+        )
+    elif len(cat_set) >= 2:
+        bits.append(
+            "Shared or neighboring families ("
+            + ", ".join(sorted(cat_set)[:5])
+            + ") so the bottles speak a similar language on skin."
+        )
+
+    # Note bridges from first pair
+    if len(frags) >= 2:
+        reasons = layer_note_reasons(frags[0], frags[1])
+        note_bits = [r for r in (reasons or []) if r.lower().startswith("shared") or "synergy" in r.lower()]
+        if note_bits:
+            bits.append(note_bits[0].replace("â¦", "...").replace("Â", ""))
+
+    # Simple rule of thumb
+    if len(frags) == 2:
+        bits.append(
+            f"Together: **{names[0]}** + **{names[1]}** - use the heavier one as the skin base, then the lighter one on pulse points."
+        )
+    else:
+        bits.append(
+            "With three or more, keep the loudest bottle to 1-2 sprays so nothing drowns the rest."
+        )
+
+    if not bits:
+        return "These bottles share enough structure to try on skin - test before a full wear."
+    return " ".join(bits)
+
+
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer recipe and build a short verdict."""
     name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
@@ -2403,6 +2489,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
             "season": season_info,
             "suggested_name": suggested_name,
             "application": {},
+            "why": "Pick at least two bottles to explain the combo.",
         }
     pairs = []
     scores = []
@@ -2433,6 +2520,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     if any(s <= -50 for s in scores):
         label, verdict = "Avoid", "Includes a DEL bottle or a very weak pair."
     guide = layer_application_guide(frags)
+    why = explain_layer_combo(frags)
     return {
         "score": round(avg, 1),
         "verdict": verdict,
@@ -2443,6 +2531,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         "season": season_info,
         "suggested_name": suggested_name,
         "application": guide,
+        "why": why,
     }
 
 
@@ -6707,6 +6796,7 @@ with tab_layer:
                                         "score": ev.get("score"),
                                         "label": ev.get("label"),
                                         "verdict": ev.get("verdict"),
+                                        "why": ev.get("why") or "",
                                     },
                                 )
                                 save_persisted_data()
@@ -6770,6 +6860,8 @@ with tab_layer:
         label = ev.get("label") or "?"
         st.markdown("### " + str(label))
         st.write(ev.get("verdict") or "")
+        if ev.get("why"):
+            st.info("**Why this layer:** " + str(ev.get("why")))
         st.caption(
             "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
             + str(ev.get("suggested_name") or "")
@@ -6874,6 +6966,7 @@ with tab_layer:
                                 "score": (_ev_r or {}).get("score"),
                                 "label": (_ev_r or {}).get("label"),
                                 "verdict": (_ev_r or {}).get("verdict"),
+                                "why": (_ev_r or {}).get("why") or "",
                             },
                         )
                         save_persisted_data()
@@ -7003,6 +7096,7 @@ with tab_layer:
                         "score": (_ev_save or {}).get("score"),
                         "label": (_ev_save or {}).get("label"),
                         "verdict": (_ev_save or {}).get("verdict"),
+                        "why": (_ev_save or {}).get("why") or "",
                     },
                 )
                 save_persisted_data()
@@ -7022,6 +7116,9 @@ with tab_layer:
             st.markdown(f"**{recipe.get('name', 'Recipe')}**")
             st.caption(" + ".join(bottles))
             ev = evaluate_layer_recipe(bottles)
+            why = recipe.get("why") or ev.get("why")
+            if why:
+                st.info("**Why this layer:** " + str(why))
             season = ev.get("season") or {}
             saved_season = recipe.get("season_label") or season.get("label")
             if saved_season:
