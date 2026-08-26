@@ -2134,10 +2134,11 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
 
 
 def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True) -> str:
-    """Build a short poetic recipe name from shared notes and categories.
+    """Build a short recipe name from real notes/categories on the bottles.
 
-    When randomize=True (default), picks templates and note words at random so
-    Layer check / Save recipe can offer fresh names on each check or reroll.
+    Prefers notes that appear on more than one bottle, then strong single-bottle
+    notes. When randomize=True, shuffles words and templates so each check/reroll
+    can produce a different name that still matches the juice.
     """
     name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
     frags = [name_map[n] for n in bottle_names if n in name_map]
@@ -2147,22 +2148,14 @@ def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True
     stop = {
         "top", "heart", "base", "and", "with", "notes", "the", "from", "leaning",
         "style", "absolute", "extract", "oil", "of", "a", "an", "for", "into",
-        "accord", "absolute", "bean", "beans", "wood", "woods", "note", "notes",
+        "accord", "bean", "beans", "wood", "woods", "note", "notes", "blend",
+        "composition", "fragrance", "perfume", "edp", "edt", "extrait",
         "sweet", "creamy", "warm", "dark", "light", "rich", "soft", "fresh",
+        "opening", "drydown", "dry", "down", "middle", "hint", "hints", "touch",
+        "touches", "whiff", "trace", "traces", "like", "very", "slightly",
     }
-    tokens = []
-    for f in frags:
-        tokens.extend(re.findall(r"[A-Za-z]{3,}", f.get("notes") or ""))
-        tokens.extend(f.get("category") or [])
-    cleaned = []
-    seen = set()
-    for t in tokens:
-        tl = t.lower()
-        if tl in stop or tl in seen or len(tl) < 3:
-            continue
-        seen.add(tl)
-        cleaned.append(t.title())
 
+    # Known note words we prefer (must actually appear in notes/cats)
     preferred = [
         "Vanilla", "Coconut", "Rose", "Oud", "Amber", "Musk", "Coffee", "Caramel",
         "Jasmine", "Sandalwood", "Cherry", "Cocoa", "Tobacco", "Leather", "Iris",
@@ -2170,72 +2163,131 @@ def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True
         "Praline", "Saffron", "Patchouli", "Bergamot", "Lavender", "Cedar",
         "Almond", "Strawberry", "Raspberry", "Pineapple", "Mango", "Violet",
         "Incense", "Benzoin", "Cashmere", "Orchid", "Tuberose", "Cardamom",
+        "Mandarin", "Orange", "Lemon", "Grapefruit", "Pear", "Apple", "Fig",
+        "Chocolate", "Caramel", "Sugar", "Cream", "Milk", "Tonka", "Benzoin",
+        "Myrrh", "Frankincense", "Vetiver", "Oakmoss", "Geranium", "Ylang",
+        "Gardenia", "Peony", "Lilac", "Magnolia", "Neroli", "Orange Blossom",
+        "Blackcurrant", "Plum", "Date", "Praline", "Hazelnut", "Chestnut",
+        "Cinnamon", "Clove", "Nutmeg", "Pepper", "Ginger", "Saffron",
+        "Leather", "Suede", "Incense", "Smoke", "Tobacco", "Rum", "Whiskey",
     ]
-    # Match preferred words that appear in notes/categories (substring-friendly)
+
+    # Count note tokens across bottles
+    from collections import Counter
+    per_bottle = []
+    global_counts = Counter()
+    for f in frags:
+        raw = (f.get("notes") or "") + " " + " ".join(f.get("category") or [])
+        tokens = re.findall(r"[A-Za-z][A-Za-z\-]{2,}", raw)
+        bottle_set = set()
+        for t in tokens:
+            tl = t.lower().replace("-", " ")
+            if tl in stop or len(tl) < 3:
+                continue
+            bottle_set.add(tl)
+        per_bottle.append(bottle_set)
+        for t in bottle_set:
+            global_counts[t] += 1
+
+    # Shared notes (in 2+ bottles) rank highest
+    shared = [t for t, c in global_counts.items() if c >= 2]
+    # Map preferred list to what actually appears
+    def title_note(n: str) -> str:
+        for p in preferred:
+            if p.lower() == n or p.lower().replace(" ", "") == n.replace(" ", ""):
+                return p
+        return n.title()
+
+    ranked = []
+    # 1) preferred words that are shared
+    for p in preferred:
+        pl = p.lower()
+        if any(pl == s or pl in s or s in pl for s in shared):
+            ranked.append(p)
+    # 2) other shared tokens
+    for s in shared:
+        tn = title_note(s)
+        if tn not in ranked and s not in stop:
+            ranked.append(tn)
+    # 3) preferred words that appear on at least one bottle
+    for p in preferred:
+        pl = p.lower()
+        if p in ranked:
+            continue
+        if any(pl == t or pl in t or t in pl for t in global_counts):
+            ranked.append(p)
+    # 4) remaining frequent tokens
+    for t, c in global_counts.most_common(12):
+        tn = title_note(t)
+        if tn not in ranked and t not in stop:
+            ranked.append(tn)
+
+    # Dedupe case-insensitive
+    seen = set()
     picks = []
-    for w in preferred:
-        wl = w.lower()
-        if any(wl in c.lower() or c.lower() in wl for c in cleaned):
-            picks.append(w)
-    if not picks:
-        picks = cleaned[:8]
+    for p in ranked:
+        k = p.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        picks.append(p)
+
     if not picks:
         short = [n.split()[0] for n in bottle_names[:2] if n]
         if len(short) >= 2:
             return f"{short[0]} x {short[1]}"
         return bottle_names[0] if bottle_names else "Untitled layer"
 
-    # Deduplicate while preserving order
-    seen_p = set()
-    uniq = []
-    for p in picks:
-        k = p.lower()
-        if k not in seen_p:
-            seen_p.add(k)
-            uniq.append(p)
-    picks = uniq
-
-    templates = [
+    templates_two = [
         "{a} {b} night",
-        "{a} & {b} veil",
+        "{a} & {b}",
         "{a} {b} haze",
-        "Midnight {a}",
-        "{a} soft glow",
         "{a} x {b}",
-        "{a} {b} ritual",
-        "Candlelit {a}",
-        "{a} drift",
-        "{a} {b} spell",
-        "Quiet {a}",
-        "{a} velvet",
+        "{a} {b} veil",
         "{a} {b} dusk",
-        "Sanctuary {a}",
+        "{a} {b} glow",
+        "{a} {b} ritual",
+        "Soft {a} {b}",
         "{a} {b} fog",
-        "{a} sugar",
         "{a} {b} ember",
+        "Quiet {a} {b}",
+        "{a} over {b}",
+        "{a} with {b}",
+    ]
+    templates_one = [
+        "Midnight {a}",
+        "{a} veil",
+        "{a} drift",
+        "Candlelit {a}",
+        "{a} haze",
+        "Quiet {a}",
         "Gilded {a}",
+        "{a} glow",
+        "Sanctuary {a}",
+        "{a} dusk",
+        "Soft {a}",
+        "{a} ritual",
     ]
 
-    if randomize and len(picks) >= 1:
-        a = random.choice(picks)
-        rest = [p for p in picks if p.lower() != a.lower()]
-        b = random.choice(rest) if rest else None
-        # Prefer two-word templates when we have a second note
-        if b:
-            two_word = [t for t in templates if "{b}" in t]
-            one_word = [t for t in templates if "{b}" not in t]
-            pool_t = two_word + one_word
-            tmpl = random.choice(pool_t)
-            return tmpl.format(a=a, b=b if "{b}" in tmpl else a)
-        tmpl = random.choice([t for t in templates if "{b}" not in t])
+    if randomize:
+        random.shuffle(picks)
+        # Bias toward shared/first half of ranked list when possible
+        pool = picks[: max(4, min(8, len(picks)))]
+        a = random.choice(pool)
+        rest = [p for p in pool if p.lower() != a.lower()]
+        if rest and random.random() < 0.75:
+            b = random.choice(rest)
+            tmpl = random.choice(templates_two)
+            return tmpl.format(a=a, b=b)
+        tmpl = random.choice(templates_one)
         return tmpl.format(a=a)
 
-    # Deterministic fallback (stable name for the same bottles)
     a = picks[0]
     b = picks[1] if len(picks) > 1 else None
     if b:
         return f"{a} {b} night"
     return f"{a} veil"
+
 
 
 def season_for_layer_recipe(frags: list) -> dict:
