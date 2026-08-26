@@ -7071,10 +7071,10 @@ with tab_roulette:
             st.markdown(
                 """
                 <div class="bat-container">
-                    <span class="floating-bat bat1">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat2">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat3">Ã°ÂÂ¦Â</span>
-                    <span class="floating-bat bat4">Ã°ÂÂ¦Â</span>
+                    <span class="floating-bat bat1">*</span>
+                    <span class="floating-bat bat2">*</span>
+                    <span class="floating-bat bat3">*</span>
+                    <span class="floating-bat bat4">*</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
