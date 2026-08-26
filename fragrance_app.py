@@ -216,7 +216,7 @@ def autosave_if_changed(force: bool = False) -> bool:
 # ==========================================
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="Ã°ÂÂÂ",
+    page_icon="SDG",
     layout="centered",
     initial_sidebar_state="expanded",
 )
@@ -704,7 +704,7 @@ if "fragrances_db" not in st.session_state:
         {"name": "Cotton Candy Delicacy", "brand": "Armaf", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top Notes: Raspberry, Pink Pepper, and CocoaHeart (Middle) Notes: Jasmine and RoseBase Notes: Vanilla, Benzoin Resinoid, and Cedarwood", "category": ["Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Cream Velvet", "brand": "Khadlaj", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Butter / Heart - Tonka, Honey, Jasmine / Base - Vanilla, Musk, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Creme of Clouds", "brand": "Fragrance World", "gender": "Unisex", "season": "Fall, Winter, spring", "notes": "Top Notes: Coconut milk, Creamy milk, Burnt sugarHeart (Middle) Notes: Whipped cream, Vanilla, ChocolateBase Notes: Vanilla, White musk, Burnt sugar", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
-        {"name": "CrÃ¨me Caramel", "brand": "Mamlakat Al Oud", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Vanilla Flower / Heart - Dulce de Leche, Cotton Candy, Frangipani, White Flowers / Base - Vanilla Pod, Tonka Bean, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "CrÃÂ¨me Caramel", "brand": "Mamlakat Al Oud", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Vanilla Flower / Heart - Dulce de Leche, Cotton Candy, Frangipani, White Flowers / Base - Vanilla Pod, Tonka Bean, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Cup Cake", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Citrus, Amber / Heart - Vanilla Cake / Base - Vanilla, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Dalal", "brand": "Lattafa", "gender": "Female", "season": "Spring", "notes": "Top - Apple (Golden Delicious), Mandarin / Heart - Jasmine, Ylang-Ylang, Orange Flower / Base - Vanilla, Musk, Oakmoss", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Dulzura", "brand": "Paris Corner", "gender": "Female", "season": "Fall-Winter", "notes": "Top - Black pepper, buttermilk / Heart - Cake, vanilla, cream / Base - Amber, musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
@@ -794,7 +794,7 @@ if "fragrances_db" not in st.session_state:
         {"name": "Pecan Butter Cookie", "brand": "Arabiyat Sugar", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Top - Pecan, coconut milk, butter / Heart - Hazelnut, almond, roasted nuts / Base - Hazelnut, vanilla, ambergris", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Petra", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Notes: Plum, RumHeart (Middle) Notes: Tuberose, CoconutBase Notes: Praline, Musk, Vanilla", "category": ["Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Pink Velvet", "brand": "Maison Alhambra", "gender": "Female", "season": "Spring-Fall", "notes": "Top Notes: Bulgarian Rose and May RoseMiddle/Heart Notes: Turkish Rose and SaffronBase Notes: Patchouli, Tonka Bean, and Vanilla", "category": ["Floral", "Sweet", "Powdery"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
-        {"name": "PiÃ±a Colada Musk Collection Body Spray", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "PiÃÂ±a Colada Musk Collection Body Spray", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Prive Rose", "brand": "Ameerat Al Arab", "gender": "Female", "season": "Fall, Spring", "notes": "Top - Rose / Heart - Floral, Sweet / Base - Musk, Vanilla", "category": ["Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Qaed Al Fursan (Original)", "brand": "Lattafa", "gender": "Unisex (leans masculine)", "season": "Versatile", "notes": "Top - Pineapple, Saffron / Heart - Balsam Fir, Jasmine / Base - Cedar, Amber, Agarwood (Oud)", "category": ["Fruity", "Woody", "Oud"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Qaed Al Fursan Unlimited", "brand": "Lattafa", "gender": "Male/Unisex", "season": "Spring, Fall", "notes": "Top - Coconut, Pineapple, Citruses / Heart - Ylang-Ylang, Frangipani, Jasmine / Base - Vanilla, Musk, Sandalwood, Sweet Notes", "category": ["Fruity", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
@@ -2380,6 +2380,10 @@ def recipes_for_band(band: str, gender: str = "Any", limit: int = 5) -> list:
                 matched = True
         if not matched:
             continue
+        # Prefer explicit recipe gender tag when set
+        rg = (recipe.get("gender") or "Any")
+        if gender and gender != "Any" and rg not in ("Any", "", gender):
+            continue
         # optional gender: all bottles should roughly match
         if gender and gender != "Any":
             name_map = {f.get("name"): f for f in st.session_state.get("fragrances_db") or []}
@@ -2439,7 +2443,7 @@ def fragrance_weight_score(f: dict) -> int:
     # body spray / mist often lighter
     if any(x in name for x in ("body spray", "mist", "cologne", "hair")):
         score -= 15
-    if any(x in name for x in ("intense", "elixir", "extrait", "concentre", "concentrÃ©")):
+    if any(x in name for x in ("intense", "elixir", "extrait", "concentre", "concentrÃÂ©")):
         score += 10
     return score
 
@@ -5648,7 +5652,7 @@ with st.sidebar:
     _saved = st.session_state.get("last_saved_at")
     n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved} Â| **{n_now}** bottles")
+        st.caption(f"Vault last saved: {_saved} ÃÂ| **{n_now}** bottles")
     else:
         st.caption(
             f"Vault: **{n_now}** bottles (seed or session). "
@@ -6576,6 +6580,7 @@ with tab_layer:
                                         "label": ev.get("label"),
                                         "verdict": ev.get("verdict"),
                                         "why": ev.get("why") or "",
+                                        "gender": st.session_state.get("layer_partner_gender") or "Any",
                                     },
                                 )
                                 save_persisted_data()
@@ -6755,6 +6760,12 @@ with tab_layer:
             key="roulette_layer_recipe_name",
             placeholder=suggested or "e.g. Coconut vanilla night",
         )
+        recipe_gender = st.selectbox(
+            "Gender preference for this recipe",
+            ["Any", "Female", "Male", "Unisex"],
+            key="roulette_layer_recipe_gender",
+            help="Used when filtering recipes by season/temp.",
+        )
         if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
             st.session_state["_reroll_layer_name"] = True
             st.rerun()
@@ -6797,6 +6808,7 @@ with tab_layer:
                                 "label": (_ev_r or {}).get("label"),
                                 "verdict": (_ev_r or {}).get("verdict"),
                                 "why": (_ev_r or {}).get("why") or "",
+                                "gender": st.session_state.get("roulette_layer_recipe_gender", "Any"),
                             },
                         )
                         save_persisted_data()
@@ -6942,21 +6954,39 @@ with tab_layer:
         if _rsf:
             st.success(_rsf)
 
-        recipe_band_filter = st.selectbox(
-            "Show recipes for season / temp",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="recipe_band_filter",
-        )
+        rf1, rf2 = st.columns(2)
+        with rf1:
+            recipe_band_filter = st.selectbox(
+                "Show recipes for season / temp",
+                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+                key="recipe_band_filter",
+            )
+        with rf2:
+            recipe_gender_filter = st.selectbox(
+                "Recipe gender",
+                ["Any", "Female", "Male", "Unisex"],
+                key="recipe_gender_filter",
+            )
         recipes_view = st.session_state.get("layer_recipes") or []
         if recipe_band_filter != "Any":
-            recipes_view = recipes_for_band(recipe_band_filter, gender="Any", limit=50)
-            st.caption(f"{len(recipes_view)} recipe(s) for {recipe_band_filter}")
+            recipes_view = recipes_for_band(
+                recipe_band_filter,
+                gender=recipe_gender_filter,
+                limit=50,
+            )
+        elif recipe_gender_filter != "Any":
+            recipes_view = [
+                r for r in recipes_view
+                if (r.get("gender") or "Any") in ("Any", recipe_gender_filter)
+            ]
+        st.caption(f"{len(recipes_view)} recipe(s) shown")
         for ri, recipe in enumerate(recipes_view):
             bottles = list(recipe.get("bottles") or [])
             st.markdown(f"**{recipe.get('name', 'Recipe')}**")
             st.caption(
                 " + ".join(bottles)
                 + (f" | Best: {recipe.get('season_label')}" if recipe.get("season_label") else "")
+                + (f" | Gender: {recipe.get('gender')}" if recipe.get("gender") else "")
             )
             ev = evaluate_layer_recipe(bottles)
             why = recipe.get("why") or ev.get("why")
