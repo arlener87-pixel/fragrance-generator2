@@ -3222,11 +3222,31 @@ def halloween_countdown_text() -> str:
 
 
 
+
+TAROT_CARDS = [
+    {"name": "The Moon", "mood": "Soft", "blurb": "Fog, intuition, silver musk."},
+    {"name": "The Tower", "mood": "Fierce", "blurb": "Smoke, spice, something breaks open."},
+    {"name": "The Empress", "mood": "Date night", "blurb": "Rose, honey, full bloom."},
+    {"name": "The Hermit", "mood": "Lazy / stay home", "blurb": "Candlelight, cream, quiet skin."},
+    {"name": "Death", "mood": "Fierce", "blurb": "Oud, incense, transformation."},
+    {"name": "The Star", "mood": "Soft", "blurb": "Clean light, soft florals, hope."},
+    {"name": "The Devil", "mood": "Date night", "blurb": "Caramel, leather, temptation."},
+    {"name": "Wheel of Fortune", "mood": "Main character", "blurb": "Whatever turns - wear it loud."},
+    {"name": "The High Priestess", "mood": "Rainy day", "blurb": "Powder, iris, secret notes."},
+    {"name": "The Magician", "mood": "Focus / work", "blurb": "Sharp citrus, green focus."},
+    {"name": "The Lovers", "mood": "Date night", "blurb": "Shared air, sweet and deep."},
+    {"name": "Judgement", "mood": "Main character", "blurb": "Amber wake-up call."},
+]
+
+
 def draw_tarot_card(salt: int = 0) -> dict:
     import hashlib
+    cards = TAROT_CARDS or [
+        {"name": "The Star", "mood": "Soft", "blurb": "A quiet glow."}
+    ]
     today = pacific_today().isoformat()
     seed = int(hashlib.md5(f"tarot-{today}-{salt}".encode()).hexdigest()[:8], 16)
-    return TAROT_CARDS[seed % len(TAROT_CARDS)]
+    return cards[seed % len(cards)]
 
 
 def score_for_mood(f: dict, mood: str) -> int:
