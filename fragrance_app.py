@@ -8648,7 +8648,7 @@ with tab_collection:
         st.write(fam_bits)
 
     # Collection browser filters
-        filter_col, sort_col, flag_col, shelf_col = st.columns(4)
+    filter_col, sort_col, flag_col, shelf_col = st.columns(4)
     with filter_col:
         browse_gender = st.selectbox(
             "Filter by gender",
