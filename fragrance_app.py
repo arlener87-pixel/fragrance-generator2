@@ -2706,6 +2706,7 @@ EMOJI = {
     "sparkles": "&#10024;",
     "fire": "&#128293;",
     "heart": "&#128151;",
+    "alien": "&#128125;",
 }
 
 # Halloween mood -> emoji key
@@ -8162,7 +8163,11 @@ with tab_play:
         st.markdown(
             '<div style="border:1px solid #3a2040;border-radius:10px;padding:0.75rem 1rem;'
             'background:linear-gradient(135deg,#100818,#1a1020);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">Tarot draw</div>'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">'
+            + emoji_html("alien", "sparkles")
+            + " Tarot draw "
+            + emoji_html("sparkles", "alien")
+            + "</div>"
             '<div style="color:#a890b8;font-size:0.85rem;">One card. One mood. Three bottles from your vault.</div>'
             '</div>',
             unsafe_allow_html=True,
@@ -8195,7 +8200,14 @@ with tab_play:
         last_t = st.session_state.get("last_tarot")
         if last_t:
             card = last_t.get("card") or {}
-            st.markdown(f"### {card.get('name', 'Card')}")
+            st.markdown(
+                emoji_html("alien", "sparkles")
+                + " <strong style='font-size:1.25rem;color:#c9a0ff;'>"
+                + str(card.get("name", "Card"))
+                + "</strong> "
+                + emoji_html("sparkles"),
+                unsafe_allow_html=True,
+            )
             st.caption(card.get("blurb") or "")
             st.write(f"Mood lean: **{card.get('mood')}**")
             for i, f in enumerate(last_t.get("picks") or []):
