@@ -3185,85 +3185,6 @@ def halloween_countdown_text() -> str:
     return f"{delta} day(s) until Halloween."
 
 
-def suggest_layer_partners(base_name: str, top_n: int = 3) -> list:
-    """Suggest vault bottles that layer well with base_name."""
-    db = st.session_state.get("fragrances_db") or []
-    base = next((f for f in db if f.get("name") == base_name), None)
-    if not base:
-        return []
-    base_cats = set(base.get("category") or [])
-    base_notes = (base.get("notes") or "").lower()
-    scored = []
-    for f in db:
-        if f.get("name") == base_name:
-            continue
-        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
-            continue
-        cats = set(f.get("category") or [])
-        notes = (f.get("notes") or "").lower()
-        score = 0
-        # complementary families
-        if base_cats & {"Gourmand", "Sweet", "Vanilla", "Creamy"}:
-            if cats & {"Fresh", "Floral", "Woody", "Spicy", "Musky"}:
-                score += 12
-            if cats & {"Gourmand", "Sweet"}:
-                score += 4  # same family can still work
-        if base_cats & {"Fresh", "Citrus", "Aquatic"}:
-            if cats & {"Gourmand", "Woody", "Musky", "Floral"}:
-                score += 12
-        if base_cats & {"Oriental", "Oud", "Smoky", "Leather"}:
-            if cats & {"Floral", "Sweet", "Vanilla", "Fresh"}:
-                score += 10
-            if cats & {"Oriental", "Woody"}:
-                score += 6
-        if base_cats & {"Floral"}:
-            if cats & {"Musky", "Woody", "Gourmand", "Fresh"}:
-                score += 10
-        shared = len(base_cats & cats)
-        score += shared * 3
-        # note keyword bridges
-        bridges = [
-            ("vanilla", "musk"), ("vanilla", "rose"), ("coffee", "vanilla"),
-            ("oud", "rose"), ("oud", "vanilla"), ("citrus", "musk"),
-            ("caramel", "salt"), ("leather", "vanilla"), ("incense", "rose"),
-        ]
-        for a, b in bridges:
-            if (a in base_notes and b in notes) or (b in base_notes and a in notes):
-                score += 8
-        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
-            score += 5
-        score += _stable_tiebreak((f.get("name") or "") + base_name) % 5
-        if score > 0:
-            scored.append((score, f))
-    scored.sort(key=lambda x: -x[0])
-    picks = []
-    seen_brands = set()
-    for sc, f in scored:
-        b = (f.get("brand") or "").lower()
-        if b in seen_brands and len(scored) > top_n:
-            continue
-        picks.append(f)
-        seen_brands.add(b)
-        if len(picks) >= top_n:
-            break
-    return picks
-
-
-TAROT_CARDS = [
-    {"name": "The Moon", "mood": "Soft", "blurb": "Fog, intuition, silver musk."},
-    {"name": "The Tower", "mood": "Fierce", "blurb": "Smoke, spice, something breaks open."},
-    {"name": "The Empress", "mood": "Date night", "blurb": "Rose, honey, full bloom."},
-    {"name": "The Hermit", "mood": "Lazy / stay home", "blurb": "Candlelight, cream, quiet skin."},
-    {"name": "Death", "mood": "Fierce", "blurb": "Oud, incense, transformation."},
-    {"name": "The Star", "mood": "Soft", "blurb": "Clean light, soft florals, hope."},
-    {"name": "The Devil", "mood": "Date night", "blurb": "Caramel, leather, temptation."},
-    {"name": "Wheel of Fortune", "mood": "Main character", "blurb": "Whatever turns - wear it loud."},
-    {"name": "The High Priestess", "mood": "Rainy day", "blurb": "Powder, iris, secret notes."},
-    {"name": "The Magician", "mood": "Focus / work", "blurb": "Sharp citrus, green focus."},
-    {"name": "The Lovers", "mood": "Date night", "blurb": "Shared air, sweet and deep."},
-    {"name": "Judgement", "mood": "Main character", "blurb": "Amber wake-up call."},
-]
-
 
 def draw_tarot_card(salt: int = 0) -> dict:
     import hashlib
@@ -3499,27 +3420,6 @@ def least_worn(top_n: int = 5) -> list:
     items.sort(key=lambda x: (x[0], x[1]["name"].lower()))
     return items[:top_n]
 
-
-def sotd_streak() -> int:
-    """Consecutive days with a log ending at the most recent log (Pacific)."""
-    hist = st.session_state.get("sotd_history") or []
-    if not hist:
-        return 0
-    days = sorted({e.get("date") for e in hist if e.get("date")}, reverse=True)
-    if not days:
-        return 0
-    streak = 1
-    for i in range(len(days) - 1):
-        try:
-            d0 = datetime.date.fromisoformat(days[i])
-            d1 = datetime.date.fromisoformat(days[i + 1])
-        except ValueError:
-            break
-        if (d0 - d1).days == 1:
-            streak += 1
-        else:
-            break
-    return streak
 
 
 def compute_badges() -> list:
@@ -5768,7 +5668,7 @@ with st.sidebar:
                 st.rerun()
         _live_err = st.session_state.pop("_live_temp_error", None)
         if _live_err:
-            st.warning(f"Live temp unavailable: {_live_err}. Using slider / monthly norm.")
+            st.warning(f"Live temp unavailable: {str(_live_err)[:120]}. Using slider / monthly norm.")
         if temp_search_clicked:
             picks = get_top_fragrances(
                 temp_search_gender,
@@ -6195,7 +6095,7 @@ with st.sidebar:
             )
             new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
             new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
-            new_price = st.text_input("Price (optional)", placeholder="e.g. 35")
+            # price UI removed
             new_cats = st.multiselect(
                 "Categories",
                 [
@@ -6267,283 +6167,19 @@ with st.sidebar:
                                 if str(new_size or "").strip().replace(".", "", 1).isdigit()
                                 else None
                             ),
-                            "price": (
-                                float(new_price)
-                                if str(new_price or "").strip().replace(".", "", 1).isdigit()
-                                else None
-                            ),
+                            "price": None,
                         }
                         st.session_state["fragrances_db"].append(new_frag)
                         try:
-                            log_vault_action("added", new_frag["name"], new_frag["brand"])
+                            log_vault_action("added", new_frag["name"], new_frag.get("brand") or "")
                         except Exception:
                             pass
-                        st.session_state["last_added_frag"] = new_frag
                         save_persisted_data()
-                        st.session_state["_add_flash"] = f"Added **{new_frag['name']}**."
+                        st.success(f"Added **{new_frag['name']}** to the vault.")
                         st.rerun()
-                else:
-                    st.error("Name and brand are required.")
 
-        # ----- Quick multi-add (name + brand only; edit details later) -----
-        with st.expander("Add multiple (name + brand only)", expanded=False):
-            st.caption(
-                "Paste one bottle per line. Fill in notes, gender, season, and categories later "
-                "in **Vault  ->  Edit** or **Collection  ->  Needs fix / Short notes**."
-            )
-            st.markdown(
-                "Formats accepted:\n"
-                "- `Name | Brand`\n"
-                "- `Name, Brand`\n"
-                "- `Name` (uses default brand below)\n"
-                "- `Brand - Name`"
-            )
-            if st.session_state.pop("_clear_bulk_add", False):
-                st.session_state["bulk_add_text"] = ""
-                st.session_state["bulk_add_default_brand"] = ""
-            bulk_text = st.text_area(
-                "Bottles",
-                height=160,
-                key="bulk_add_text",
-                placeholder=(
-                    "Khamrah | Lattafa\n"
-                    "Asad | Lattafa\n"
-                    "Hawas Ice, Rasasi\n"
-                    "My new decant"
-                ),
-            )
-            b1, b2, b3 = st.columns(3)
-            with b1:
-                bulk_brand = st.text_input(
-                    "Default brand (optional)",
-                    key="bulk_add_default_brand",
-                    placeholder="Lattafa",
-                )
-            with b2:
-                bulk_gender = st.selectbox(
-                    "Default gender",
-                    ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
-                    key="bulk_add_gender",
-                )
-            with b3:
-                bulk_season = st.text_input(
-                    "Default season",
-                    value="Versatile",
-                    key="bulk_add_season",
-                )
-            skip_dups = st.checkbox(
-                "Skip duplicates (recommended)",
-                value=True,
-                key="bulk_add_skip_dups",
-            )
-            bb1, bb2 = st.columns(2)
-            with bb1:
-                do_bulk = st.button(
-                    "Add all to vault",
-                    type="primary",
-                    key="bulk_add_btn",
-                    use_container_width=True,
-                )
-            with bb2:
-                if st.button("Clear list", key="bulk_add_clear", use_container_width=True):
-                    st.session_state["_clear_bulk_add"] = True
-                    st.rerun()
 
-            if do_bulk:
-                result = bulk_add_fragrances(
-                    bulk_text or "",
-                    default_brand=bulk_brand or "",
-                    default_gender=bulk_gender,
-                    default_season=bulk_season or "Versatile",
-                    skip_duplicates=skip_dups,
-                )
-                n_add = len(result.get("added") or [])
-                n_skip = len(result.get("skipped") or [])
-                if n_add:
-                    names = ", ".join(f.get("name") for f in result["added"][:8])
-                    more = f" (+{n_add - 8} more)" if n_add > 8 else ""
-                    st.session_state["_bulk_add_flash"] = (
-                        f"Added **{n_add}** bottle(s): {names}{more}. "
-                        f"Edit details anytime in Vault."
-                    )
-                    st.session_state["_clear_bulk_add"] = True
-                    st.rerun()
-                elif n_skip and not n_add:
-                    st.warning(
-                        f"Nothing new added  -  {n_skip} already in vault or invalid."
-                    )
-                else:
-                    st.warning("Paste at least one line with a fragrance name.")
-
-            _bf = st.session_state.pop("_bulk_add_flash", None)
-            if _bf:
-                st.success(_bf)
-            # Show last skip report if present in same run without reroute
-            if st.session_state.get("_bulk_skip_report"):
-                pass
-
-        # Receipt for last added bottle
-        last_added = st.session_state.get("last_added_frag")
-        if last_added:
-            st.markdown("#### Just added")
-            st.success(
-                f"**{last_added.get('name')}** by *{last_added.get('brand')}* | "
-                f"{last_added.get('gender')} | {', '.join(last_added.get('category') or [])}"
-            )
-            st.caption(f"Notes: {last_added.get('notes', '')}")
-            try:
-                pdf_bytes = build_fragrance_sheet_pdf(
-                    last_added, title=f"Added - {last_added.get('name', 'bottle')}"
-                )
-                st.download_button(
-                    "Download PDF sheet for this bottle",
-                    data=pdf_bytes,
-                    file_name=f"added_{last_added.get('name', 'bottle').replace(' ', '_')}.pdf",
-                    mime="application/pdf",
-                    key="last_added_pdf",
-                )
-            except Exception as ex:
-                st.caption(f"PDF unavailable: {ex}")
-            if st.button("Dismiss", key="dismiss_last_added"):
-                st.session_state.pop("last_added_frag", None)
-                st.rerun()
-
-    st.markdown("---")
-    st.markdown("### Today")
-    # October / Halloween mode + SOTD streak
-    oc1, oc2 = st.columns(2)
-    with oc1:
-        force_oct = st.checkbox(
-            "Halloween mode",
-            value=bool(st.session_state.get("force_october_mode")) or is_october_mode(),
-            key="force_october_mode",
-            help="Highlights Halloween Play and fall vibes. Auto-on in October.",
-        )
-        if is_october_mode() or force_oct:
-            st.caption(halloween_countdown_text())
-    with oc2:
-        streak = sotd_streak()
-        if streak > 0:
-            st.metric("SOTD streak", f"{streak} day(s)")
-        else:
-            st.caption("SOTD streak: log today to start")
-
-    # Daily challenge
-    if "challenge_salt" not in st.session_state:
-        st.session_state["challenge_salt"] = 0
-    # Weather band for today (affects suggestions)
-    weather_band = st.selectbox(
-        "Weather today",
-        ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-        key="today_weather_band",
-    )
-    challenge = draw_challenge()
-    st.caption("Daily challenge - new each day, or reroll anytime")
-    st.info(challenge)
-    if "challenge_suggest_salt" not in st.session_state:
-        st.session_state["challenge_suggest_salt"] = 0
-    # 3 wear suggestions for this challenge (+ weather when set)
-    suggestions = suggest_for_challenge(
-        challenge,
-        top_n=3,
-        salt=int(st.session_state.get("challenge_suggest_salt", 0))
-            + int(st.session_state.get("challenge_salt", 0)),
-    )
-    if weather_band and weather_band != "Any":
-        # Re-rank / filter suggestions toward season match
-        def _season_fit(f):
-            s = (f.get("season") or "").lower()
-            band = weather_band.lower()
-            score = 0
-            if "hot" in band or "summer" in band:
-                if any(x in s for x in ["summer", "spring", "hot", "warm"]):
-                    score += 2
-                if any(x in s for x in ["winter", "fall", "cold"]):
-                    score -= 1
-            elif "cold" in band or "winter" in band:
-                if any(x in s for x in ["winter", "fall", "cold", "cool"]):
-                    score += 2
-                if "summer" in s and "winter" not in s:
-                    score -= 1
-            elif "cool" in band or "autumn" in band:
-                if any(x in s for x in ["fall", "autumn", "cool", "spring", "versatile"]):
-                    score += 2
-            elif "warm" in band or "mild" in band:
-                if any(x in s for x in ["spring", "fall", "versatile", "mild", "warm"]):
-                    score += 2
-            return score
-        # Pull a wider pool then re-rank
-        _salt = int(st.session_state.get("challenge_suggest_salt", 0)) + int(
-            st.session_state.get("challenge_salt", 0)
-        )
-        wider = suggest_for_challenge(challenge, top_n=15, salt=_salt)
-        wider_sorted = sorted(
-            wider, key=lambda f: (-_season_fit(f), f.get("name") or "")
-        )
-        # rotate within weather-ranked list too
-        if len(wider_sorted) > 3:
-            rot = (_salt * 3) % len(wider_sorted)
-            suggestions = [wider_sorted[(rot + i) % len(wider_sorted)] for i in range(3)]
-        else:
-            suggestions = wider_sorted[:3]
-    if suggestions:
-        st.session_state["_challenge_last_picks"] = [f.get("name") for f in suggestions]
-        st.caption("Suggested for today" + (f" ({weather_band})" if weather_band != "Any" else ""))
-        for i, f in enumerate(suggestions, 1):
-            cats = ", ".join((f.get("category") or [])[:3])
-            st.markdown(
-                f"**{i}. {f.get('name')}** - *{f.get('brand')}*"
-                + (f" | {cats}" if cats else "")
-            )
-    ch1, ch2, ch3 = st.columns(3)
-    with ch1:
-        if st.button("New challenge", key="challenge_reroll_btn", use_container_width=True):
-            st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
-            st.session_state["challenge_suggest_salt"] = 0
-            st.rerun()
-    with ch2:
-        if st.button("Redraw picks", key="challenge_redraw_picks", use_container_width=True):
-            st.session_state["challenge_suggest_salt"] = int(
-                st.session_state.get("challenge_suggest_salt", 0)
-            ) + 1
-            st.rerun()
-    with ch3:
-        if st.button("Mark done", key="challenge_done_btn", use_container_width=True):
-            st.session_state["play_stats"]["challenges_done"] = (
-                st.session_state["play_stats"].get("challenges_done", 0) + 1
-            )
-            save_persisted_data()
-            st.session_state["challenge_salt"] = int(st.session_state.get("challenge_salt", 0)) + 1
-            st.success("Challenge noted - next one ready.")
-            st.rerun()
-
-    # Weekly recipe
-    weekly = get_weekly_recipe()
-    if weekly:
-        st.caption(f"Recipe of the week ({weekly.get('week', '')})")
-        bottles = weekly.get("bottles") or []
-        st.write(f"**{weekly.get('name', 'Layer')}**")
-        if bottles:
-            st.caption(" + ".join(bottles))
-        if weekly.get("reason"):
-            st.caption(weekly["reason"])
-        if st.button("Use weekly recipe in SOTD", key="weekly_use_btn", use_container_width=True):
-            st.session_state["sotd_prefill"] = list(bottles)
-            st.rerun()
-
-    # Backup reminder
-    st.markdown("---")
-    last_export = st.session_state.get("last_export_date")
-    if not last_export:
-        st.caption("Sanctuary tip: export your vault from the Vault tab.")
-    else:
-        try:
-            days = (pacific_today() - datetime.date.fromisoformat(last_export)).days
-            if days >= 30:
-                st.warning(f"Last export was {days} days ago  -  consider backing up.")
-        except ValueError:
-            pass
-
+    # (Add fragrance form / expander end above)
 
 # ---------- MAIN TABS ----------
 tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_play, tab_collection, tab_vault = st.tabs(
@@ -6552,164 +6188,23 @@ tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_play, tab_co
 
 # ===== DISCOVER =====
 with tab_discover:
-    st.markdown(
-        "Filter from the sidebar, search by name or note, then generate picks and layering ideas."
-    )
-    _ready = st.session_state.pop("_sotd_ready_flash", None)
-    if _ready:
-        st.success(_ready)
+    st.caption("Search, temp picks, and generated recommendations from the sidebar.")
 
-    # Results from dedicated Temp search (sidebar)
-    last_temp = st.session_state.get("last_temp_search")
-    if last_temp is not None:
-        picks = last_temp.get("picks") or []
-        st.subheader("Temp search results")
-        st.caption(
-            f"{int(last_temp.get('temp_f', 0))} F -> {last_temp.get('band', '')} | "
-            f"Gender: {last_temp.get('gender', 'Any')}"
-        )
-        if not picks:
-            st.warning("No bottles matched this temperature + gender. Try Any gender or nudge the slider.")
-        else:
-            for i, f in enumerate(picks, 1):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Notes: {f['notes']}")
-                b1, b2, b3, _ = st.columns([1, 1, 1, 3])
-                with b1:
-                    if st.button("YAY", key=f"temp_fav_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "fav"
-                        save_persisted_data()
-                        st.rerun()
-                with b2:
-                    if st.button("DEL", key=f"temp_dislike_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "dislike"
-                        save_persisted_data()
-                        st.rerun()
-                with b3:
-                    if st.button("Wear", key=f"temp_wear_{f['name']}_{i}"):
-                        send_to_sotd([f["name"]])
-                        st.rerun()
-                st.markdown("---")
-        # Saved recipes that fit this temp band
-        band = last_temp.get("band") or ""
-        gender = last_temp.get("gender") or "Any"
-        matched_recipes = recipes_for_band(band, gender=gender, limit=5)
-        st.markdown("#### Layer recipes for this temp")
-        if not matched_recipes:
-            st.caption(
-                "No saved recipes tagged for this band yet. "
-                "Save a Layer check recipe and it will show up when the season matches."
-            )
-        else:
-            for ri, recipe in enumerate(matched_recipes):
-                bottles = recipe.get("bottles") or []
-                st.markdown(f"**{recipe.get('name', 'Recipe')}**")
-                st.caption(
-                    " + ".join(bottles)
-                    + (f" | {recipe.get('season_label')}" if recipe.get("season_label") else "")
-                )
-                if recipe.get("why"):
-                    st.caption(recipe.get("why")[:200])
-                rc1, rc2 = st.columns(2)
-                with rc1:
-                    if st.button("Wear layer", key=f"temp_recipe_wear_{ri}"):
-                        if bottles:
-                            send_to_sotd(list(bottles), notes=recipe.get("name") or "Layer recipe")
-                            st.rerun()
-                with rc2:
-                    if st.button("Open how to wear", key=f"temp_recipe_how_{ri}"):
-                        st.session_state["roulette_layer_pick"] = list(bottles)
-                        st.session_state["last_layer_check"] = evaluate_layer_recipe(list(bottles))
-                        st.info("Loaded in Layer check - open the Layer tab for full guidance.")
-        if st.button("Clear temp results", key="clear_temp_results"):
-            st.session_state.pop("last_temp_search", None)
-            st.rerun()
-
-    # Name / brand search (ranked: YAY  ->  most worn  ->  complete notes)
-    if search_query:
-        st.subheader(f'Search | "{search_query}"')
-        qn = _search_normalize(search_query)
-        exact_hits = [
-            f
-            for f in (st.session_state.get("fragrances_db") or [])
-            if _search_normalize(f.get("name")) == qn
-        ]
-        matching = search_fragrances_by_name_brand(search_query)
-        if not matching:
-            st.warning("No fragrances matched that name or brand.")
-            tokens = [t for t in qn.split() if len(t) >= 3]
-            suggestions = []
-            for f in st.session_state.get("fragrances_db") or []:
-                blob = _search_normalize(f"{f.get('name', '')} {f.get('brand', '')}")
-                if tokens and any(t in blob for t in tokens):
-                    suggestions.append(f"{f.get('name')} ({f.get('brand')})")
-            if suggestions:
-                st.caption("Close matches in your vault:")
-                for s in suggestions[:8]:
-                    st.caption(f"- {s}")
-            else:
-                st.caption(
-                    "Tip: try the full bottle name for an exact match, or one brand word."
-                )
-        else:
-            if exact_hits:
-                st.caption(
-                    f"**Exact name match**  -  {len(matching)} bottle(s). "
-                    "Similar names are hidden when an exact name exists."
-                )
-            else:
-                st.caption(
-                    f"{len(matching)} match(es)  -  no exact name; showing closest "
-                    "name/brand hits (prefix and whole-word tokens)."
-                )
-            for f in matching:
-                render_fragrance_card(
-                    f, key_prefix=f"search_{_search_normalize(search_query)[:24]}"
-                )
-
-    # Note search (inclusive token match across all vault notes)
-    if note_query:
-        st.subheader(f'Notes | "{note_query}"')
-        matching_notes = search_fragrances_by_notes(note_query)
-        if not matching_notes:
-            st.warning("No fragrances matched that note keyword.")
-            qn = _search_normalize(note_query)
-            tokens = [t for t in qn.split() if len(t) >= 3]
-            suggestions = []
-            for f in st.session_state.get("fragrances_db") or []:
-                blob = _search_normalize(
-                    f"{f.get('notes', '')} {' '.join(f.get('category') or [])}"
-                )
-                if tokens and any(t in blob for t in tokens):
-                    suggestions.append(f"{f.get('name')} ({f.get('brand')})")
-            if suggestions:
-                st.caption("Close note matches in your vault:")
-                for s in suggestions[:8]:
-                    st.caption(f"- {s}")
-            else:
-                st.caption(
-                    f"Searched notes on all **{len(st.session_state.get('fragrances_db') or [])}** "
-                    "bottles. Try one word (e.g. vanilla, rose, coffee)."
-                )
-        else:
-            st.caption(
-                f"{len(matching_notes)} match(es) - notes/category token match, "
-                "ranked by relevance, favorites, wears"
-            )
-            for f in matching_notes:
-                render_fragrance_card(
-                    f, key_prefix=f"note_{_search_normalize(note_query)[:24]}"
-                )
-
-    # Recommendations (persist so Love/Trash does not wipe the list)
+    # --- Generate recommendations ---
     if generate_clicked or regenerate_clicked:
+        gender = st.session_state.get("filter_gender", "Any")
+        weather = st.session_state.get("filter_weather", "Any")
+        cats = st.session_state.get("filter_categories") or []
+        category = cats if cats else "Any"
+        occasion = st.session_state.get("filter_occasion", "Any")
+        num_recs = st.session_state.get("filter_num_recs", 3)
+        favorites_only = bool(st.session_state.get("filter_favorites_only", False))
         prev = st.session_state.get("last_recs") or {}
-        prev_names = []
-        if regenerate_clicked and prev.get("selected"):
-            prev_names = [f.get("name") for f in prev["selected"] if f.get("name")]
+        prev_names = [
+            f.get("name")
+            for f in (prev.get("selected") or [])
+            if isinstance(f, dict) and f.get("name")
+        ]
         selected = get_top_fragrances(
             gender,
             weather,
@@ -6721,7 +6216,6 @@ with tab_discover:
             shuffle=bool(regenerate_clicked),
             exclude_names=prev_names if regenerate_clicked else None,
         )
-        # If exclude emptied the pool, shuffle without exclude
         if regenerate_clicked and not selected:
             selected = get_top_fragrances(
                 gender,
@@ -6746,6 +6240,86 @@ with tab_discover:
             },
         }
 
+    # --- Name / brand search ---
+    if search_query:
+        st.subheader(f'Search | "{search_query}"')
+        qn = _search_normalize(search_query) if "_search_normalize" in dir() else search_query.lower().strip()
+        hits = []
+        for f in st.session_state.get("fragrances_db") or []:
+            blob = f"{f.get('name','')} {f.get('brand','')}".lower()
+            if search_query.lower() in blob or (qn and qn in blob.replace(" ", "")):
+                hits.append(f)
+        if not hits:
+            st.warning("No name/brand matches.")
+        else:
+            for i, f in enumerate(hits[:30], 1):
+                st.markdown(
+                    f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                    f"{f.get('gender')} | {', '.join((f.get('category') or [])[:4])}"
+                )
+                st.caption(str(f.get("notes") or "")[:160])
+
+    # --- Note keyword search ---
+    if note_query:
+        st.subheader(f'Notes | "{note_query}"')
+        nq = note_query.lower().strip()
+        hits = [
+            f
+            for f in (st.session_state.get("fragrances_db") or [])
+            if nq in (f.get("notes") or "").lower()
+            or nq in " ".join(f.get("category") or []).lower()
+        ]
+        if not hits:
+            st.warning("No note matches.")
+        else:
+            for i, f in enumerate(hits[:30], 1):
+                st.markdown(
+                    f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
+                    + ", ".join((f.get("category") or [])[:4])
+                )
+                st.caption(str(f.get("notes") or "")[:160])
+
+    # --- Temp search results ---
+    last_temp = st.session_state.get("last_temp_search")
+    if last_temp is not None:
+        picks = last_temp.get("picks") or []
+        st.subheader("Temp search results")
+        st.caption(
+            f"{int(last_temp.get('temp_f', 0))} F -> {last_temp.get('band', '')} | "
+            f"Gender: {last_temp.get('gender', 'Any')}"
+        )
+        if not picks:
+            st.warning("No bottles matched this temperature + gender.")
+        else:
+            for i, f in enumerate(picks, 1):
+                st.success(f"**#{i} - {f.get('name')}** by *{f.get('brand')}*")
+                st.caption(
+                    f"{f.get('gender')} | {f.get('season')} | "
+                    + ", ".join(f.get("category") or [])
+                )
+                if st.button("Wear", key=f"temp_wear_{f.get('name')}_{i}"):
+                    send_to_sotd([f.get("name")])
+                    st.rerun()
+        band = last_temp.get("band") or ""
+        gender_t = last_temp.get("gender") or "Any"
+        try:
+            matched_recipes = recipes_for_band(band, gender=gender_t, limit=5)
+        except Exception:
+            matched_recipes = []
+        if matched_recipes:
+            st.markdown("#### Layer recipes for this temp")
+            for ri, recipe in enumerate(matched_recipes):
+                bottles = recipe.get("bottles") or []
+                st.markdown(f"**{recipe.get('name', 'Recipe')}**")
+                st.caption(" + ".join(bottles))
+                if st.button("Wear layer", key=f"temp_recipe_wear_{ri}"):
+                    send_to_sotd(list(bottles), notes=recipe.get("name") or "Layer recipe")
+                    st.rerun()
+        if st.button("Clear temp results", key="clear_temp_results"):
+            st.session_state.pop("last_temp_search", None)
+            st.rerun()
+
+    # --- Generated recs ---
     last_recs = st.session_state.get("last_recs")
     if last_recs is not None:
         selected = last_recs.get("selected") or []
@@ -6766,8 +6340,7 @@ with tab_discover:
             )
         if not selected:
             st.warning(
-                "Nothing matched these filters (or everything is disliked / "
-                "not favorited). Try **Any** on some filters or turn off Favorites only."
+                "Nothing matched these filters. Try **Any** on some filters or turn off YAY only."
             )
         else:
             names_all = [f.get("name") for f in selected if f.get("name")]
@@ -6803,14 +6376,11 @@ with tab_discover:
                         st.rerun()
                 st.markdown("---")
 
-
-
-    if not search_query and not note_query and last_recs is None:
+    if not search_query and not note_query and last_recs is None and last_temp is None:
         st.info(
-            "Use the sidebar to search, filter, or **Generate recommendations**. "
+            "Use the sidebar to search, filter, or **Generate** recommendations. "
             "Roulette, SOTD, and vault tools live in the other tabs."
         )
-
 
 
 # ===== LAYER =====
@@ -9771,27 +9341,6 @@ with tab_vault:
     
     
     
-    with st.expander("Works with (layer partners)", expanded=False):
-        st.caption("Pick a bottle - get 3 partners from your vault that layer well with it.")
-        names = sorted(
-            (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
-        )
-        names = [n for n in names if n]
-        base = st.selectbox("Base bottle", ["- select -"] + names, key="layer_partner_base")
-        if base and base != "- select -":
-            partners = suggest_layer_partners(base, top_n=3)
-            if not partners:
-                st.info("No strong partners found - try another base.")
-            else:
-                for i, f in enumerate(partners, 1):
-                    st.markdown(
-                        f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
-                        + ", ".join((f.get("category") or [])[:3])
-                    )
-                    if st.button("Wear both today", key=f"layer_both_{i}"):
-                        st.session_state["sotd_prefill"] = [base, f.get("name")]
-                        st.rerun()
-
     with st.expander("Scent family helper", expanded=False):
         st.caption(
             "Paste notes (or pick a bottle) to get suggested scent families. "
