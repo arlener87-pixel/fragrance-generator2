@@ -674,8 +674,8 @@ if "fragrances_db" not in st.session_state:
     if _persisted.get("fragrances_db"):
         st.session_state["fragrances_db"] = list(_persisted["fragrances_db"])
     else:
-        # === CLEANED SEED (177 bottles) â matches organized vault ===
-        # Built-in sanctuary collection (seed only â export JSON after you edit)
+        # === CLEANED SEED (177 bottles)  -  matches organized vault ===
+        # Built-in sanctuary collection (seed only  -  export JSON after you edit)
         st.session_state["fragrances_db"] = [
         {"name": "8th Wonder", "brand": "French Avenue", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Cardamom, Pink Pepper, Candy Apple / Heart - Liquor, Dates, Boozy notes, Davana, Osmanthus / Base - Myrrh, Benzoin, Styrax, Amber Xtreme, Labdanum, Patchouli", "category": ["Oriental", "Spicy", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Ajwad", "brand": "Lattafa", "gender": "Unisex", "season": "Versatile (cooler preferred)", "notes": "Fruity-woody-oriental (pineapple/rose/oud-leaning)", "category": ["Oriental", "Woody", "Fruity"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
@@ -912,7 +912,7 @@ try:
 except Exception:
     pass
 
-# Snapshot vault after all loads â any later mutation this run triggers autosave
+# Snapshot vault after all loads  -  any later mutation this run triggers autosave
 try:
     st.session_state["_vault_fp_run_start"] = vault_fingerprint()
 except Exception:
@@ -1181,7 +1181,7 @@ def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
                 return out
             return {
                 "ok": False,
-                "detail": "HTTP 429 Too Many Requests â wait a few minutes, or use the slider",
+                "detail": "HTTP 429 Too Many Requests  -  wait a few minutes, or use the slider",
             }
         return {"ok": False, "detail": f"HTTP Error {ex.code}: {ex.reason}"}
     except Exception as ex:
@@ -2109,7 +2109,7 @@ def layer_note_reasons(f1: dict, f2: dict) -> list:
         b = sorted(n2 & family)
         if a and b:
             reasons.append(
-                f"Synergy ({', '.join(list(family)[:3])}ÂÂ¦): "
+                f"Synergy ({', '.join(list(family)[:3])}): "
                 f"{f1.get('name')} has {', '.join(a[:3])}; "
                 f"{f2.get('name')} has {', '.join(b[:3])}"
             )
@@ -2523,7 +2523,7 @@ def explain_layer_combo(frags: list) -> str:
         reasons = layer_note_reasons(frags[0], frags[1])
         note_bits = [r for r in (reasons or []) if r.lower().startswith("shared") or "synergy" in r.lower()]
         if note_bits:
-            bits.append(note_bits[0].replace("â¦", "...").replace("Â", ""))
+            bits.append(note_bits[0].replace("...", "...").replace("", ""))
 
     # Simple rule of thumb
     if len(frags) == 2:
@@ -3344,7 +3344,7 @@ def bulk_add_fragrances(
             "brand": brand,
             "gender": default_gender or "Unisex",
             "season": default_season or "Versatile",
-            "notes": "Not specified â edit later",
+            "notes": "Not specified  -  edit later",
             "category": ["Gourmand"],
             "dupe_of": "",
             "shelf_status": "Own",
@@ -3809,9 +3809,9 @@ def fragrance_search_score(f: dict, query: str) -> int:
     """
     Name/brand relevance score. Higher = better. 0 = no match.
 
-    Priority (high â low):
-      exact name â exact brand â name starts with query / query starts with name
-      â full phrase inside name â token matches on name/brand words
+    Priority (high  ->  low):
+      exact name  ->  exact brand  ->  name starts with query / query starts with name
+       ->  full phrase inside name  ->  token matches on name/brand words
     Loose substring-inside-word matching is avoided so "Yara" does not
     pull every bottle that merely shares letters with another word.
     """
@@ -3867,7 +3867,7 @@ def fragrance_search_score(f: dict, query: str) -> int:
             hit = True
             score += 25
         else:
-            # Prefix match on a whole word (e.g. "ecl" â "eclaire")
+            # Prefix match on a whole word (e.g. "ecl"  ->  "eclaire")
             for w in all_words:
                 if len(w) >= 3 and len(t) >= 3 and (w.startswith(t) or t.startswith(w)):
                     hit = True
@@ -4106,12 +4106,12 @@ def get_weekly_recipe():
 CHALLENGE_DECK = [
     "Wear a bottle you haven't reached for in 2+ weeks.",
     "Layer two scents you've never combined before.",
-    "No gourmands today â go dry, green, woody or citrus.",
+    "No gourmands today  -  go dry, green, woody or citrus.",
     "Pick something with coffee, chocolate or caramel.",
     "Horror night: only smoky, incense, leather or dark woody.",
-    "One spray only â see if it still projects on you.",
+    "One spray only  -  see if it still projects on you.",
     "Wear your softest, skin-scent style bottle all day.",
-    "Match the weather outside right now (hot â fresh, cold â cozy).",
+    "Match the weather outside right now (hot  ->  fresh, cold  ->  cozy).",
     "Blind grab: close your eyes and pick from the shelf.",
     "Date-night intensity on a regular Tuesday.",
     "Only Female or Female-leaning bottles today.",
@@ -4123,17 +4123,17 @@ CHALLENGE_DECK = [
     "Gothic fog only: incense, amber, rose, or oud.",
     "High-desert heat check: lightest, airiest bottle you own.",
     "Movie night: pick a scent that matches a horror film.",
-    "Office-safe only â nothing loud or sweet.",
+    "Office-safe only  -  nothing loud or sweet.",
     "Revisit a bottle you once thought was 'meh'.",
     "Three words only in your SOTD notes today.",
     "Wear the opposite of whatever you wore yesterday.",
     "Powdery or iris-forward must appear in the mix.",
-    "No Lattafa today â force the rest of the vault.",
+    "No Lattafa today  -  force the rest of the vault.",
     "Pick a body spray or lighter concentration if you have one.",
     "Coffee + desk day: soft, creamy, or skin-scent only.",
-    "Fruity opening + clean dry-down â no heavy ambers.",
+    "Fruity opening + clean dry-down  -  no heavy ambers.",
     "Leather or cedar has to show up somewhere.",
-    "Skip your usual top 5 â deep-shelf only.",
+    "Skip your usual top 5  -  deep-shelf only.",
 ]
 
 
@@ -4659,7 +4659,7 @@ def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
     return build_simple_pdf(title, lines)
 
 
-# Popular clone / inspired-by map (name lowercase â original). Not exhaustive.
+# Popular clone / inspired-by map (name lowercase  ->  original). Not exhaustive.
 KNOWN_DUPE_OF = {
     "asad": "Dior Sauvage Elixir",
     "lattafa asad": "Dior Sauvage Elixir",
@@ -5583,10 +5583,10 @@ with st.sidebar:
         and _exp != "never"
         and _n_bot >= 5
     ):
-        # Nudge export â Cloud can wipe the data file on redeploy
+        # Nudge export  -  Cloud can wipe the data file on redeploy
         st.info(
             "Cloud can erase the on-server data file when the app redeploys. "
-            "After edits or adds, open **Vault â Backup & restore â Export vault as JSON** "
+            "After edits or adds, open **Vault  ->  Backup & restore  ->  Export vault as JSON** "
             "and keep a copy on your phone. Use **Restore** after a wipe."
         )
 
@@ -5848,7 +5848,7 @@ with st.sidebar:
 
     with st.expander("Add fragrance", expanded=False):
         # Notes helper (outside form so links work without submitting)
-        # Prefill from Collection â Short notes / Needs fix "Lookup" buttons
+        # Prefill from Collection  ->  Short notes / Needs fix "Lookup" buttons
         _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
         if isinstance(_pending_lu, dict):
             if _pending_lu.get("name"):
@@ -6237,7 +6237,7 @@ with st.sidebar:
         with st.expander("Add multiple (name + brand only)", expanded=False):
             st.caption(
                 "Paste one bottle per line. Fill in notes, gender, season, and categories later "
-                "in **Vault â Edit** or **Collection â Needs fix / Short notes**."
+                "in **Vault  ->  Edit** or **Collection  ->  Needs fix / Short notes**."
             )
             st.markdown(
                 "Formats accepted:\n"
@@ -6318,7 +6318,7 @@ with st.sidebar:
                     st.rerun()
                 elif n_skip and not n_add:
                     st.warning(
-                        f"Nothing new added â {n_skip} already in vault or invalid."
+                        f"Nothing new added  -  {n_skip} already in vault or invalid."
                     )
                 else:
                     st.warning("Paste at least one line with a fragrance name.")
@@ -6576,7 +6576,7 @@ with tab_discover:
             st.session_state.pop("last_temp_search", None)
             st.rerun()
 
-    # Name / brand search (ranked: YAY â most worn â complete notes)
+    # Name / brand search (ranked: YAY  ->  most worn  ->  complete notes)
     if search_query:
         st.subheader(f'Search | "{search_query}"')
         qn = _search_normalize(search_query)
@@ -6605,12 +6605,12 @@ with tab_discover:
         else:
             if exact_hits:
                 st.caption(
-                    f"**Exact name match** â {len(matching)} bottle(s). "
+                    f"**Exact name match**  -  {len(matching)} bottle(s). "
                     "Similar names are hidden when an exact name exists."
                 )
             else:
                 st.caption(
-                    f"{len(matching)} match(es) â no exact name; showing closest "
+                    f"{len(matching)} match(es)  -  no exact name; showing closest "
                     "name/brand hits (prefix and whole-word tokens)."
                 )
             for f in matching:
@@ -6921,6 +6921,54 @@ with tab_layer:
         st.session_state["roulette_layer_pick"] = []
         st.session_state.pop("last_layer_check", None)
 
+    # When results exist, show a summary at the TOP so you do not have to hunt for it
+    _ev_top = st.session_state.get("last_layer_check")
+    if _ev_top:
+        _app_top = _ev_top.get("application") or {}
+        _order = _app_top.get("order_names") or [
+            fr.get("name") for fr in (_ev_top.get("frags") or []) if fr.get("name")
+        ]
+        st.success(
+            "**Last result: "
+            + str(_ev_top.get("label") or "?")
+            + "** (score "
+            + str(_ev_top.get("score", ""))
+            + ")  |  "
+            + (" -> ".join(_order) if _order else "see details below")
+        )
+        if _ev_top.get("why"):
+            st.caption(str(_ev_top.get("why"))[:280])
+        st.caption("Full guidance, pair notes, and Save recipe are below the picker.")
+        # Soft scroll toward results block on mobile/desktop when just checked
+        if st.session_state.pop("_scroll_to_layer_result", False) or st.session_state.pop(
+            "_open_layer_check", False
+        ):
+            try:
+                import streamlit.components.v1 as _components
+                _components.html(
+                    """
+                    <div id="sdg-layer-result-anchor"></div>
+                    <script>
+                    (function() {
+                      try {
+                        const doc = window.parent.document;
+                        const nodes = doc.querySelectorAll('div, p, span');
+                        for (const n of nodes) {
+                          const t = (n.innerText || n.textContent || '');
+                          if (t.indexOf('Last result:') >= 0 || t.indexOf('How to wear this layer') >= 0) {
+                            n.scrollIntoView({behavior: 'smooth', block: 'start'});
+                            break;
+                          }
+                        }
+                      } catch (e) {}
+                    })();
+                    </script>
+                    """,
+                    height=0,
+                )
+            except Exception:
+                pass
+
     all_names_layer = sorted(
         f.get("name") for f in st.session_state.get("fragrances_db") or [] if f.get("name")
     )
@@ -6951,6 +6999,8 @@ with tab_layer:
             )
             st.session_state["last_layer_check"] = result
             st.session_state["_seed_roulette_recipe_name"] = True
+            st.session_state["_scroll_to_layer_result"] = True
+            st.rerun()
 
     _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
     if _rl_save_flash:
@@ -6966,7 +7016,7 @@ with tab_layer:
         st.caption(
             "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
             + str(ev.get("suggested_name") or "")
-            + "* â use **Reroll name from notes** for another"
+            + "*  -  use **Reroll name from notes** for another"
         )
         season = ev.get("season") or {}
         if season.get("detail"):
@@ -6981,16 +7031,16 @@ with tab_layer:
             for s in steps:
                 st.markdown(
                     f"**{s.get('order')}. {s.get('name')}** (*{s.get('brand')}*)  \n"
-                    f"Role: **{s.get('role')}** Â· Suggested sprays: **{s.get('sprays')}**  \n"
+                    f"Role: **{s.get('role')}** | Suggested sprays: **{s.get('sprays')}**  \n"
                     f"{s.get('where')}  \n"
-                    f"Families: {s.get('cats') or '-'} Â· Weight score: {s.get('weight')}"
+                    f"Families: {s.get('cats') or '-'} | Weight score: {s.get('weight')}"
                 )
             st.markdown("**Tips**")
             for t in app.get("tips") or []:
                 st.caption("- " + t)
             if app.get("order_names"):
                 st.success(
-                    "Spray order: " + " â ".join(app.get("order_names") or [])
+                    "Spray order: " + "  ->  ".join(app.get("order_names") or [])
                 )
         for pair in ev.get("pairs") or []:
             line = (
@@ -6999,7 +7049,7 @@ with tab_layer:
             )
             st.markdown(line)
             st.caption(str(pair.get("cats") or ""))
-            for r in pair.get("reasons") or []:
+            for r in (pair.get("reasons") or [])[:4]:
                 st.caption("- " + str(r))
         with st.expander("Notes side by side", expanded=False):
             for fr in ev.get("frags") or []:
@@ -7075,7 +7125,7 @@ with tab_layer:
                         st.session_state["_roulette_recipe_save_flash"] = (
                             f"Saved **{final_name}** "
                             f"(season: {season.get('label', '?')}). "
-                            "See Layer tab â Saved layer recipes."
+                            "See Layer tab  ->  Saved layer recipes."
                         )
                     st.rerun()
 
@@ -7250,7 +7300,7 @@ with tab_layer:
                     for s in steps:
                         st.markdown(
                             f"**{s.get('order')}. {s.get('name')}** - "
-                            f"{s.get('role')} Â· **{s.get('sprays')}** spray(s)  \n"
+                            f"{s.get('role')} | **{s.get('sprays')}** spray(s)  \n"
                             f"{s.get('where')}"
                         )
                     if app.get("order_names"):
@@ -9340,7 +9390,7 @@ with tab_vault:
         st.caption(f"Last saved: {st.session_state['last_saved_at']} (Pacific)")
     st.caption(
         "Edits auto-save to the data file on this server. "
-        "**Streamlit Cloud can wipe that file on redeploy** â export JSON after big changes."
+        "**Streamlit Cloud can wipe that file on redeploy**  -  export JSON after big changes."
     )
     if st.button("Save vault now", key="vault_force_save_btn"):
         ok = save_persisted_data(force=True)
@@ -9736,11 +9786,11 @@ with tab_vault:
             st.caption(f"{len(results)} match(es)")
             for f in results[:40]:
                 st.markdown(
-                    f"**{f.get('name')}** â *{f.get('brand')}* Â· "
+                    f"**{f.get('name')}**  -  *{f.get('brand')}* | "
                     + ", ".join(f.get("category") or [])
                 )
             if len(results) > 40:
-                st.caption(f"â¦and {len(results)-40} more")
+                st.caption(f"...and {len(results)-40} more")
         elif mode == "Check a bottle":  # Check a bottle
             names = sorted(f.get("name") or "" for f in (st.session_state.get("fragrances_db") or []))
             bottle = st.selectbox("Bottle", ["- select -"] + names, key="family_check_bottle")
@@ -10025,7 +10075,7 @@ with tab_vault:
                     if "last_export_date" in imported_data:
                         st.session_state["last_export_date"] = imported_data["last_export_date"]
                     if "chart" in imported_data and isinstance(imported_data["chart"], dict):
-                        # Defer chart_* keys â Stars widgets already ran this script cycle
+                        # Defer chart_* keys  -  Stars widgets already ran this script cycle
                         st.session_state["_pending_chart_restore"] = imported_data["chart"]
                     if "wishlist" in imported_data:
                         st.session_state["wishlist"] = imported_data["wishlist"]
@@ -10034,7 +10084,7 @@ with tab_vault:
                     n_bot = len(st.session_state.get("fragrances_db") or [])
                     save_persisted_data(force=True)
                     st.session_state["_restore_flash"] = (
-                        f"Vault restored â **{n_bot}** bottles loaded. "
+                        f"Vault restored  -  **{n_bot}** bottles loaded. "
                         "Export JSON again and keep a copy off Cloud."
                     )
                     st.rerun()
@@ -10053,7 +10103,7 @@ with tab_vault:
 try:
     _auto_ok = autosave_if_changed(force=False)
     if _auto_ok and st.session_state.get("_autosaved_at"):
-        # Quiet status in sidebar area via session flag for next widgets â already saved
+        # Quiet status in sidebar area via session flag for next widgets  -  already saved
         pass
 except Exception as _auto_ex:
     try:
