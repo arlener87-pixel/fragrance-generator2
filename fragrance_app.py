@@ -2694,6 +2694,41 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 
 
 
+
+# HTML entities only - keeps the .py file ASCII-safe; browsers still render emojis
+EMOJI = {
+    "bat": "&#129415;",
+    "pumpkin": "&#127875;",
+    "ghost": "&#128123;",
+    "candy": "&#127852;",
+    "moon": "&#127769;",
+    "skull": "&#128128;",
+    "sparkles": "&#10024;",
+    "fire": "&#128293;",
+    "heart": "&#128151;",
+}
+
+# Halloween mood -> emoji key
+HALLOWEEN_EMOJI = {
+    "Pumpkin patch": "pumpkin",
+    "Candy bowl": "candy",
+    "Haunted house": "ghost",
+    "Witching hour": "moon",
+    "Autumn fog": "ghost",
+    "Vampire soiree": "skull",
+}
+
+
+def emoji_html(*keys: str) -> str:
+    """Return HTML entity string for one or more emoji keys."""
+    out = []
+    for k in keys:
+        if k in EMOJI:
+            out.append(EMOJI[k])
+        elif k in HALLOWEEN_EMOJI:
+            out.append(EMOJI.get(HALLOWEEN_EMOJI[k], ""))
+    return " ".join(x for x in out if x)
+
 HALLOWEEN_PROFILES = {
     "Pumpkin patch": {
         "categories": ["Gourmand", "Sweet", "Spicy", "Woody"],
@@ -8032,7 +8067,11 @@ with tab_play:
         st.markdown(
             '<div style="border:1px solid #3a2040;border-radius:10px;padding:0.75rem 1rem;'
             'background:linear-gradient(135deg,#120810,#1a0e18);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">Halloween</div>'
+            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">'
+            + emoji_html("pumpkin", "ghost", "bat")
+            + " Halloween "
+            + emoji_html("bat", "ghost", "pumpkin")
+            + "</div>"
             '<div style="color:#a890b8;font-size:0.85rem;">'
             "Seasonal vibes from your vault - filter with Gender + Season above, then draw.</div>"
             '</div>',
@@ -8044,7 +8083,11 @@ with tab_play:
             key="play_halloween_mode",
         )
         hp = HALLOWEEN_PROFILES[hall_mode]
-        st.caption(hp.get("blurb", ""))
+        mood_emoji = emoji_html(HALLOWEEN_EMOJI.get(hall_mode, "ghost"))
+        st.markdown(
+            mood_emoji + " **" + hall_mode + "** - " + (hp.get("blurb") or ""),
+            unsafe_allow_html=True,
+        )
         st.caption("Lean: " + ", ".join(hp.get("categories") or []))
         if "halloween_salt" not in st.session_state:
             st.session_state["halloween_salt"] = 0
@@ -8086,9 +8129,16 @@ with tab_play:
             st.rerun()
         last_h = st.session_state.get("last_halloween")
         if last_h:
-            st.caption(
-                f"Drawn for: {last_h.get('mode')} | "
-                f"{last_h.get('gender')} | {last_h.get('season')}"
+            _he = emoji_html(HALLOWEEN_EMOJI.get(last_h.get("mode") or "", "pumpkin"))
+            st.markdown(
+                _he
+                + " Drawn for: **"
+                + str(last_h.get("mode"))
+                + "** | "
+                + str(last_h.get("gender"))
+                + " | "
+                + str(last_h.get("season")),
+                unsafe_allow_html=True,
             )
             picks = last_h.get("picks") or []
             if not picks:
