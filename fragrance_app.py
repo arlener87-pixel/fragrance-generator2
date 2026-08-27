@@ -2512,17 +2512,18 @@ def layer_application_guide(frags: list) -> dict:
 
 
 def explain_layer_combo(frags: list) -> str:
-    """Simple plain-language why this layer works (or does not)."""
+    """Richer plain-language opinion on why this layer works (or struggles)."""
     if not frags or len(frags) < 2:
         return "Pick at least two bottles to explain the combo."
     names = [f.get("name") or "?" for f in frags]
     all_cats = []
+    all_notes = []
     for f in frags:
         all_cats.extend(f.get("category") or [])
+        all_notes.append((f.get("notes") or "").lower())
     cat_set = set(all_cats)
     bits = []
 
-    # Weight story
     ranked = sorted(frags, key=fragrance_weight_score, reverse=True)
     heavy = ranked[0]
     light = ranked[-1]
@@ -2532,16 +2533,17 @@ def explain_layer_combo(frags: list) -> str:
             f"reads lighter (top) - so the stack has a clear bottom and a bright edge."
         )
 
-    # Family story
     gourmand = cat_set & {"Gourmand", "Sweet", "Vanilla", "Creamy"}
     fresh = cat_set & {"Fresh", "Citrus", "Aquatic", "Green"}
     floral = cat_set & {"Floral", "Powdery"}
     dark = cat_set & {"Oriental", "Oud", "Smoky", "Leather", "Woody"}
     fruity = cat_set & {"Fruity"}
+    spicy = cat_set & {"Spicy", "Aromatic"}
 
     if gourmand and fresh:
         bits.append(
-            "Sweet/gourmand warmth meets a fresh lift - the fresh side keeps the dessert side from feeling too thick."
+            "Sweet/gourmand warmth meets a fresh lift - the fresh side keeps the dessert "
+            "side from feeling too thick on skin."
         )
     elif gourmand and floral:
         bits.append(
@@ -2563,6 +2565,10 @@ def explain_layer_combo(frags: list) -> str:
         bits.append(
             "Fruit and gourmand stack like a dessert plate - easy, sweet, and crowd-friendly."
         )
+    elif spicy and gourmand:
+        bits.append(
+            "Spice wakes up the sweet notes - warmer projection, more evening energy."
+        )
     elif len(cat_set & {"Woody", "Oriental", "Oud", "Smoky"}) >= 2:
         bits.append(
             "Deep woody/oriental families together - rich and evening-leaning; keep sprays low."
@@ -2570,30 +2576,130 @@ def explain_layer_combo(frags: list) -> str:
     elif len(cat_set) >= 2:
         bits.append(
             "Shared or neighboring families ("
-            + ", ".join(sorted(cat_set)[:5])
+            + ", ".join(sorted(cat_set)[:6])
             + ") so the bottles speak a similar language on skin."
         )
 
-    # Note bridges from first pair
+    # Shared notes detail
     if len(frags) >= 2:
         reasons = layer_note_reasons(frags[0], frags[1])
-        note_bits = [r for r in (reasons or []) if r.lower().startswith("shared") or "synergy" in r.lower()]
-        if note_bits:
-            bits.append(note_bits[0].replace("...", "...").replace("", ""))
+        shared_line = next(
+            (r for r in (reasons or []) if str(r).lower().startswith("shared")),
+            None,
+        )
+        if shared_line:
+            bits.append(str(shared_line) + ".")
+        syn = [r for r in (reasons or []) if "synergy" in str(r).lower()]
+        if syn:
+            bits.append(str(syn[0]) + ".")
 
-    # Simple rule of thumb
+    # Occasion / vibe opinion
+    if dark and not fresh:
+        bits.append(
+            "This reads more date-night / cool weather than office heat - great for evenings."
+        )
+    elif fresh and not dark:
+        bits.append(
+            "This leans daytime and warmer weather - lighter trail, easier in close spaces."
+        )
+    elif gourmand and not fresh:
+        bits.append(
+            "Expect a cozy, edible aura - perfect for home, movies, or cooler nights."
+        )
+
     if len(frags) == 2:
         bits.append(
-            f"Together: **{names[0]}** + **{names[1]}** - use the heavier one as the skin base, then the lighter one on pulse points."
+            f"Together: **{names[0]}** + **{names[1]}** - use the heavier one as the skin base, "
+            f"then the lighter one on pulse points so both show."
         )
     else:
         bits.append(
             "With three or more, keep the loudest bottle to 1-2 sprays so nothing drowns the rest."
         )
 
-    if not bits:
-        return "These bottles share enough structure to try on skin - test before a full wear."
+    bits.append(
+        "Worth a skin test before a full outing - heat and your chemistry will finish the story."
+    )
     return " ".join(bits)
+
+
+def recipe_gender_from_frags(frags: list) -> str:
+    """Infer recipe gender from bottle genders (majority). Unisex if mixed or empty."""
+    if not frags:
+        return "Any"
+    counts = {"Female": 0, "Male": 0, "Unisex": 0}
+    for f in frags:
+        g = (f.get("gender") or "").strip().lower()
+        if "female" in g or "women" in g or "feminine" in g:
+            if "lean" in g:
+                counts["Female"] += 1
+            else:
+                counts["Female"] += 2
+        elif "male" in g or "men" in g or "masculine" in g:
+            if "lean" in g:
+                counts["Male"] += 1
+            else:
+                counts["Male"] += 2
+        elif "unisex" in g or not g:
+            counts["Unisex"] += 1
+        else:
+            counts["Unisex"] += 1
+    # Majority
+    top = max(counts.items(), key=lambda x: x[1])
+    if top[1] <= 0:
+        return "Any"
+    # If Female and Male both strong, call Unisex
+    if counts["Female"] > 0 and counts["Male"] > 0 and abs(counts["Female"] - counts["Male"]) <= 1:
+        return "Unisex"
+    if top[0] == "Unisex" and (counts["Female"] or counts["Male"]):
+        # unisex bottles + one gendered -> that gender if clear
+        if counts["Female"] > counts["Male"]:
+            return "Female"
+        if counts["Male"] > counts["Female"]:
+            return "Male"
+    return top[0]
+
+
+def format_recipe_share_text(recipe: dict = None, ev: dict = None, bottles: list = None) -> str:
+    """Plain-text block for copy/paste sharing (texts, notes, IG caption)."""
+    recipe = recipe or {}
+    ev = ev or {}
+    names = bottles or recipe.get("bottles") or []
+    if not names and ev.get("frags"):
+        names = [f.get("name") for f in ev["frags"] if f.get("name")]
+    title = recipe.get("name") or ev.get("suggested_name") or "Untitled layer"
+    gender = recipe.get("gender") or "Any"
+    season = recipe.get("season_label") or (ev.get("season") or {}).get("label") or ""
+    why = recipe.get("why") or ev.get("why") or ""
+    # strip markdown bold for plain share
+    why_plain = why.replace("**", "")
+    app = recipe.get("application") or ev.get("application") or {}
+    order = app.get("order_names") or list(names)
+    lines = [
+        f"Layer recipe: {title}",
+        f"Bottles: {' + '.join(names)}",
+    ]
+    if gender and gender != "Any":
+        lines.append(f"Gender lean: {gender}")
+    if season:
+        lines.append(f"Best season/temp: {season}")
+    if order:
+        lines.append(f"Spray order (heavy -> light): {' -> '.join(order)}")
+    steps = app.get("steps") or []
+    if steps:
+        lines.append("How to wear:")
+        for s in steps:
+            lines.append(
+                f"  {s.get('order')}. {s.get('name')} - {s.get('role')} - "
+                f"{s.get('sprays')} spray(s) - {s.get('where')}"
+            )
+    if why_plain:
+        lines.append("")
+        lines.append("Why it works:")
+        lines.append(why_plain)
+    lines.append("")
+    lines.append("From ScentedDeadGirl vault")
+    return "\n".join(lines)
 
 
 def evaluate_layer_recipe(bottle_names: list) -> dict:
@@ -6580,7 +6686,7 @@ with tab_layer:
                                         "label": ev.get("label"),
                                         "verdict": ev.get("verdict"),
                                         "why": ev.get("why") or "",
-                                        "gender": st.session_state.get("layer_partner_gender") or "Any",
+                                        "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
                                     },
                                 )
                                 save_persisted_data()
@@ -6734,6 +6840,27 @@ with tab_layer:
             st.caption(str(pair.get("cats") or ""))
             for r in (pair.get("reasons") or [])[:4]:
                 st.caption("- " + str(r))
+        share_txt = format_recipe_share_text(
+            recipe={
+                "name": ev.get("suggested_name"),
+                "bottles": [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")],
+                "gender": st.session_state.get("roulette_layer_recipe_gender")
+                or recipe_gender_from_frags(ev.get("frags") or []),
+                "season_label": (ev.get("season") or {}).get("label"),
+                "why": ev.get("why"),
+                "application": ev.get("application"),
+            },
+            ev=ev,
+        )
+        with st.expander("Copy recipe to share", expanded=False):
+            st.caption("Select all, copy, and paste into a text or note.")
+            st.text_area(
+                "Share text",
+                value=share_txt,
+                height=220,
+                key="layer_check_share_text",
+            )
+
         with st.expander("Notes side by side", expanded=False):
             for fr in ev.get("frags") or []:
                 st.markdown(
@@ -6760,12 +6887,18 @@ with tab_layer:
             key="roulette_layer_recipe_name",
             placeholder=suggested or "e.g. Coconut vanilla night",
         )
+        # Auto gender from bottles; allow override
+        _auto_g = recipe_gender_from_frags(ev.get("frags") or [])
         recipe_gender = st.selectbox(
-            "Gender preference for this recipe",
+            "Gender for this recipe (auto from bottles)",
             ["Any", "Female", "Male", "Unisex"],
+            index=["Any", "Female", "Male", "Unisex"].index(_auto_g)
+            if _auto_g in ("Any", "Female", "Male", "Unisex")
+            else 0,
             key="roulette_layer_recipe_gender",
-            help="Used when filtering recipes by season/temp.",
+            help="Detected from the bottles' genders. Change if you want a different lean.",
         )
+        st.caption(f"Auto-detected from notes/bottles: **{_auto_g}**")
         if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
             st.session_state["_reroll_layer_name"] = True
             st.rerun()
@@ -7015,6 +7148,13 @@ with tab_layer:
                         st.caption("Order: " + " -> ".join(app.get("order_names") or []))
                     for t in app.get("tips") or []:
                         st.caption("- " + t)
+            with st.expander("Copy to share", expanded=False):
+                st.text_area(
+                    "Share text",
+                    value=format_recipe_share_text(recipe=recipe, ev=ev, bottles=bottles),
+                    height=200,
+                    key=f"recipe_share_{ri}",
+                )
             # Verdict banner
             if ev["label"] in ("Strong layer", "Good layer"):
                 st.success(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
