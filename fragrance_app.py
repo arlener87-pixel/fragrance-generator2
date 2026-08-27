@@ -4704,6 +4704,14 @@ def build_simple_pdf(title: str, lines: list) -> bytes:
 
 
 SHELF_STATUSES = ["Own", "Decant", "Traveling", "Finished", "Wishlist-bound"]
+CONCENTRATION_OPTIONS = [
+    "EDP",
+    "EDT",
+    "Extrait / intense",
+    "Concentrated oil",
+    "Body spray / mist",
+    "Other",
+]
 
 
 def log_vault_action(action: str, name: str, detail: str = "") -> None:
@@ -4764,6 +4772,7 @@ def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
         f"Season: {frag.get('season', '?')}",
         f"Categories: {', '.join(frag.get('category') or [])}",
         f"Shelf: {frag.get('shelf_status') or 'Own'}",
+        f"Format: {frag.get('concentration') or 'EDP'}",
     ]
     if frag.get("size_ml"):
         lines.append(f"Size: {frag.get('size_ml')} ml")
@@ -6260,6 +6269,13 @@ with st.sidebar:
                 key="add_notes_field",
             )
             new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
+            new_concentration = st.selectbox(
+                "Format / concentration",
+                CONCENTRATION_OPTIONS,
+                index=0,
+                key="add_concentration",
+                help="Concentrated oil, EDP, EDT, body spray, etc.",
+            )
             new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
             # price UI removed
             new_cats = st.multiselect(
@@ -6328,6 +6344,7 @@ with st.sidebar:
                             "category": new_cats if new_cats else ["Gourmand"],
                             "dupe_of": "",
                             "shelf_status": new_shelf,
+                            "concentration": new_concentration,
                             "size_ml": (
                                 float(new_size)
                                 if str(new_size or "").strip().replace(".", "", 1).isdigit()
@@ -8843,6 +8860,11 @@ with tab_collection:
             ["Any"] + SHELF_STATUSES,
             key="browse_shelf",
         )
+    browse_concentration = st.selectbox(
+        "Format / concentration",
+        ["Any"] + CONCENTRATION_OPTIONS,
+        key="browse_concentration",
+    )
 
     db = list(st.session_state["fragrances_db"])
 
@@ -8870,6 +8892,11 @@ with tab_collection:
         db = [f for f in db if is_incomplete_notes(f)]
     if browse_shelf != "Any":
         db = [f for f in db if (f.get("shelf_status") or "Own") == browse_shelf]
+    if browse_concentration != "Any":
+        db = [
+            f for f in db
+            if (f.get("concentration") or "") == browse_concentration
+        ]
 
     if browse_sort == "Name (A-Z)":
         db.sort(key=lambda x: x["name"].lower())
@@ -9788,12 +9815,18 @@ with tab_vault:
             (f.get("name") or "") for f in (st.session_state.get("fragrances_db") or [])
         )
         picks = st.multiselect("Bottles", all_names, key="batch_edit_picks")
-        be1, be2, be3 = st.columns(3)
+        be1, be2, be3, be4 = st.columns(4)
         with be1:
             be_gender = st.selectbox(
                 "Set gender",
                 ["- no change -", "Female", "Male", "Unisex", "Female-leaning", "Male-leaning"],
                 key="batch_edit_gender",
+            )
+        with be4:
+            be_conc = st.selectbox(
+                "Set format",
+                ["- no change -"] + CONCENTRATION_OPTIONS,
+                key="batch_edit_concentration",
             )
         with be2:
             be_season = st.selectbox(
@@ -9837,6 +9870,8 @@ with tab_vault:
                         if be_cat not in cats:
                             cats.append(be_cat)
                         st.session_state["fragrances_db"][i]["category"] = cats
+                    if be_conc != "- no change -":
+                        st.session_state["fragrances_db"][i]["concentration"] = be_conc
                     changed += 1
                 if changed:
                     log_vault_action("edited", f"{changed} bottles", "batch-edit")
