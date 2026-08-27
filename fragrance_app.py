@@ -3633,11 +3633,12 @@ def suggest_partners_for(
     gender: str = "Any",
     include_unisex: bool = True,
     exclude_dislikes: bool = True,
+    season: str = "Any",
 ) -> list:
     """Best layering partners for a single selected fragrance.
 
     Returns list of (frag, reason, score). When gender is Male/Female, pure
-    Unisex can be included via include_unisex. Dislikes skipped by default.
+    Unisex can be included via include_unisex. Season filters with matches_weather.
     """
     if not base:
         return []
@@ -3664,6 +3665,12 @@ def suggest_partners_for(
                 ok = matches_gender(f, gender)
             if not ok:
                 continue
+        if season and season != "Any":
+            try:
+                if not matches_weather(f, season):
+                    continue
+            except Exception:
+                pass
         s = layer_score(base, f)
         if s <= -50:
             continue
@@ -6573,6 +6580,7 @@ with tab_layer:
 
     if st.session_state.pop("_clear_layer", False):
         st.session_state["layer_partner_gender"] = "Any"
+        st.session_state["layer_partner_season"] = "Any"
         st.session_state["layer_base_select"] = "- select a bottle -"
         st.session_state["layer_gender"] = "Any"
         st.session_state["layer_season"] = "Any"
@@ -6596,6 +6604,19 @@ with tab_layer:
             if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
                 st.session_state["_clear_layer"] = True
                 st.rerun()
+
+        layer_partner_season = st.selectbox(
+            "Season / temp for partners",
+            [
+                "Any",
+                "Hot / Summer",
+                "Warm / Mild",
+                "Cool / Autumn",
+                "Cold / Winter",
+            ],
+            key="layer_partner_season",
+            help="Only suggest partners that fit this weather band (versatile bottles still can appear).",
+        )
 
         include_unisex = True
         if layer_partner_gender in ("Male", "Female"):
@@ -6644,6 +6665,7 @@ with tab_layer:
                     num=int(show_n),
                     gender=layer_partner_gender,
                     include_unisex=include_unisex,
+                    season=layer_partner_season,
                 )
                 if not partners:
                     st.warning(
@@ -6658,7 +6680,8 @@ with tab_layer:
                     )
                     st.markdown(
                         f"**Top {len(partners)} partners for {base_choice}** "
-                        f"(gender: {layer_partner_gender}{uni_note})"
+                        f"(gender: {layer_partner_gender}{uni_note}"
+                        f" | season: {layer_partner_season})"
                     )
                     for pi, item in enumerate(partners, 1):
                         if len(item) >= 3:
@@ -6775,9 +6798,32 @@ with tab_layer:
             except Exception:
                 pass
 
-    all_names_layer = sorted(
-        f.get("name") for f in st.session_state.get("fragrances_db") or [] if f.get("name")
+    layer_check_season = st.selectbox(
+        "Season filter for layer pick list",
+        [
+            "Any",
+            "Hot / Summer",
+            "Warm / Mild",
+            "Cool / Autumn",
+            "Cold / Winter",
+        ],
+        key="layer_check_season",
+        help="Narrow which bottles appear in the picker for this season.",
     )
+    all_names_layer = []
+    for f in st.session_state.get("fragrances_db") or []:
+        n = f.get("name")
+        if not n:
+            continue
+        if layer_check_season != "Any":
+            try:
+                if not matches_weather(f, layer_check_season):
+                    continue
+            except Exception:
+                pass
+        all_names_layer.append(n)
+    all_names_layer = sorted(all_names_layer)
+    st.caption(f"{len(all_names_layer)} bottle(s) in picker for this season filter")
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
