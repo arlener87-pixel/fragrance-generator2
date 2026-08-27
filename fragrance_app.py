@@ -1431,6 +1431,7 @@ def get_top_fragrances(
     temp_f=None,
     shuffle: bool = False,
     exclude_names: list = None,
+    concentration: str = "Any",
 ) -> list:
     # If a real temperature is provided, derive the weather band when set to Any
     effective_weather = weather
@@ -1446,6 +1447,20 @@ def get_top_fragrances(
             continue
         if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
             continue
+        if concentration and concentration != "Any":
+            fc = (f.get("concentration") or "").strip()
+            if concentration == "Concentrated oil":
+                if "oil" not in fc.lower():
+                    continue
+            elif concentration == "Spray only":
+                if "oil" in fc.lower():
+                    continue
+            elif fc != concentration:
+                # allow empty as EDP default when filtering EDP
+                if concentration == "EDP" and not fc:
+                    pass
+                else:
+                    continue
         if (
             matches_gender(f, gender)
             and matches_weather(f, effective_weather)
@@ -5878,6 +5893,8 @@ with st.sidebar:
         st.session_state["filter_occasion"] = "Any"
         st.session_state["filter_num_recs"] = 3
         st.session_state["filter_favorites_only"] = False
+        st.session_state["filter_oils_only"] = False
+        st.session_state["filter_prefer_oils"] = False
         st.session_state.pop("last_recs", None)
         # legacy single-category key
         st.session_state.pop("filter_category", None)
@@ -5965,6 +5982,18 @@ with st.sidebar:
                 value=False,
                 key="filter_favorites_only",
             )
+        oils_only = st.checkbox(
+            "Concentrated oils only",
+            value=False,
+            key="filter_oils_only",
+            help="Recommend perfume oils from your vault (set Format on each bottle).",
+        )
+        prefer_oils = st.checkbox(
+            "Prefer oils in ranking",
+            value=False,
+            key="filter_prefer_oils",
+            help="Boost concentrated oils in the list without hiding sprays.",
+        )
 
         generate_clicked = st.button(
             "Generate", type="primary", use_container_width=True, key="gen_recs_btn"
@@ -6389,6 +6418,9 @@ with tab_discover:
         occasion = st.session_state.get("filter_occasion", "Any")
         num_recs = st.session_state.get("filter_num_recs", 3)
         favorites_only = bool(st.session_state.get("filter_favorites_only", False))
+        oils_only = bool(st.session_state.get("filter_oils_only", False))
+        prefer_oils = bool(st.session_state.get("filter_prefer_oils", False))
+        conc_filter = "Concentrated oil" if oils_only else "Any"
         prev = st.session_state.get("last_recs") or {}
         prev_names = [
             f.get("name")
@@ -6405,7 +6437,16 @@ with tab_discover:
             temp_f=None,
             shuffle=bool(regenerate_clicked),
             exclude_names=prev_names if regenerate_clicked else None,
+            concentration=conc_filter,
         )
+        if prefer_oils and selected and not oils_only:
+            # Re-rank: oils first while keeping relative order
+            selected = sorted(
+                selected,
+                key=lambda f: (
+                    0 if "oil" in (f.get("concentration") or "").lower() else 1,
+                ),
+            )
         if regenerate_clicked and not selected:
             selected = get_top_fragrances(
                 gender,
@@ -6416,7 +6457,15 @@ with tab_discover:
                 favorites_only=favorites_only,
                 temp_f=None,
                 shuffle=True,
+                concentration=conc_filter,
             )
+            if prefer_oils and selected and not oils_only:
+                selected = sorted(
+                    selected,
+                    key=lambda f: (
+                        0 if "oil" in (f.get("concentration") or "").lower() else 1,
+                    ),
+                )
         st.session_state["last_recs"] = {
             "selected": selected,
             "num": num_recs,
@@ -6426,6 +6475,8 @@ with tab_discover:
                 "category": category,
                 "occasion": occasion,
                 "favorites_only": favorites_only,
+                "oils_only": oils_only,
+                "prefer_oils": prefer_oils,
                 "shuffled": bool(regenerate_clicked),
             },
         }
@@ -6526,6 +6577,8 @@ with tab_discover:
                 f"{meta.get('gender')} | {meta.get('weather')} | "
                 f"{cat_txt} | {meta.get('occasion')}"
                 + (" | YAY only" if meta.get("favorites_only") else "")
+                + (" | oils only" if meta.get("oils_only") else "")
+                + (" | prefer oils" if meta.get("prefer_oils") else "")
                 + (" | refreshed" if meta.get("shuffled") else "")
             )
         if not selected:
@@ -6534,22 +6587,42 @@ with tab_discover:
             )
         else:
             names_all = [f.get("name") for f in selected if f.get("name")]
-            if len(names_all) >= 2:
-                if st.button(
-                    "Wear all as layer on SOTD",
-                    key="rec_wear_all_layer",
-                    type="primary",
-                ):
-                    send_to_sotd(names_all)
-                    st.rerun()
+            ba1, ba2 = st.columns(2)
+            with ba1:
+                if len(names_all) >= 2:
+                    if st.button(
+                        "Wear all as layer on SOTD",
+                        key="rec_wear_all_layer",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        send_to_sotd(names_all)
+                        st.rerun()
+            with ba2:
+                if len(names_all) >= 2:
+                    if st.button(
+                        "Send all to Layer check",
+                        key="rec_send_all_layer",
+                        use_container_width=True,
+                    ):
+                        st.session_state["roulette_layer_pick"] = list(names_all)
+                        st.session_state["last_layer_check"] = evaluate_layer_recipe(
+                            list(names_all)
+                        )
+                        st.session_state["_seed_roulette_recipe_name"] = True
+                        st.session_state["_open_layer_check"] = True
+                        st.success("Loaded in Layer check - open the Layer tab.")
+                        st.rerun()
             for i, f in enumerate(selected, 1):
                 current_reaction = st.session_state["user_reactions"].get(f["name"])
                 badge = " YAY" if current_reaction == "fav" else ""
+                conc = f.get("concentration") or ""
+                conc_bit = f" | {conc}" if conc else ""
                 st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
+                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}{conc_bit}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
-                c1, c2, c3 = st.columns([1, 1, 2])
+                c1, c2, c3, c4 = st.columns(4)
                 with c1:
                     if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
@@ -6561,8 +6634,26 @@ with tab_discover:
                         save_persisted_data()
                         st.rerun()
                 with c3:
-                    if st.button("Wear today", key=f"rec_wear_{f['name']}_{i}"):
+                    if st.button("Wear", key=f"rec_wear_{f['name']}_{i}"):
                         send_to_sotd([f["name"]])
+                        st.rerun()
+                with c4:
+                    if st.button("Layer", key=f"rec_layer_{f['name']}_{i}"):
+                        # Add this bottle into layer pick (keep existing if any)
+                        cur = list(st.session_state.get("roulette_layer_pick") or [])
+                        if f["name"] not in cur:
+                            cur.append(f["name"])
+                        st.session_state["roulette_layer_pick"] = cur
+                        if len(cur) >= 2:
+                            st.session_state["last_layer_check"] = evaluate_layer_recipe(
+                                list(cur)
+                            )
+                            st.session_state["_seed_roulette_recipe_name"] = True
+                        st.session_state["_open_layer_check"] = True
+                        st.success(
+                            f"Added **{f['name']}** to Layer check "
+                            f"({len(cur)} bottle(s)). Open Layer tab."
+                        )
                         st.rerun()
                 st.markdown("---")
 
