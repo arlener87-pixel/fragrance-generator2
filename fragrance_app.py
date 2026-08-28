@@ -6622,7 +6622,7 @@ with tab_discover:
                 st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}{conc_bit}")
                 st.write(f"**Category:** {', '.join(f['category'])}")
                 st.caption(f"Notes: {f['notes']}")
-                c1, c2, c3, c4 = st.columns(4)
+                c1, c2, c3 = st.columns(3)
                 with c1:
                     if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
                         st.session_state["user_reactions"][f["name"]] = "fav"
@@ -6634,27 +6634,121 @@ with tab_discover:
                         save_persisted_data()
                         st.rerun()
                 with c3:
-                    if st.button("Wear", key=f"rec_wear_{f['name']}_{i}"):
+                    if st.button("Wear solo", key=f"rec_wear_{f['name']}_{i}"):
                         send_to_sotd([f["name"]])
                         st.rerun()
-                with c4:
-                    if st.button("Layer", key=f"rec_layer_{f['name']}_{i}"):
-                        # Add this bottle into layer pick (keep existing if any)
-                        cur = list(st.session_state.get("roulette_layer_pick") or [])
-                        if f["name"] not in cur:
-                            cur.append(f["name"])
-                        st.session_state["roulette_layer_pick"] = cur
-                        if len(cur) >= 2:
-                            st.session_state["last_layer_check"] = evaluate_layer_recipe(
-                                list(cur)
-                            )
-                            st.session_state["_seed_roulette_recipe_name"] = True
-                        st.session_state["_open_layer_check"] = True
-                        st.success(
-                            f"Added **{f['name']}** to Layer check "
-                            f"({len(cur)} bottle(s)). Open Layer tab."
+
+                # Individual layer options -> Layering Studio (Base + partners)
+                with st.expander(
+                    f"Layer matches for {f.get('name')}",
+                    expanded=False,
+                ):
+                    st.caption(
+                        "Search partners for this bottle in Layering Studio. "
+                        "Each match is for this scent alone."
+                    )
+                    if st.button(
+                        "Open in Layering Studio as base",
+                        type="primary",
+                        key=f"rec_studio_base_{i}",
+                        use_container_width=True,
+                    ):
+                        st.session_state["layer_base_select"] = f["name"]
+                        # Align partner filters with Recommend
+                        _g = (meta.get("gender") if meta else None) or st.session_state.get(
+                            "filter_gender", "Any"
+                        )
+                        _w = (meta.get("weather") if meta else None) or st.session_state.get(
+                            "filter_weather", "Any"
+                        )
+                        if _g and _g != "Any":
+                            st.session_state["layer_partner_gender"] = _g
+                        if _w and _w != "Any":
+                            st.session_state["layer_partner_season"] = _w
+                        st.session_state["_layer_studio_flash"] = (
+                            f"**{f['name']}** is set as the base in Layering Studio. "
+                            "Open the **Layer** tab to search matches."
                         )
                         st.rerun()
+
+                    _g = (meta.get("gender") if meta else None) or st.session_state.get(
+                        "filter_gender", "Any"
+                    )
+                    _w = (meta.get("weather") if meta else None) or st.session_state.get(
+                        "filter_weather", "Any"
+                    )
+                    partners = suggest_partners_for(
+                        f,
+                        num=5,
+                        gender=_g if _g != "Any" else "Any",
+                        include_unisex=True,
+                        season=_w if _w != "Any" else "Any",
+                    )
+                    if not partners:
+                        st.info(
+                            "No strong partners with current filters. "
+                            "Open Layering Studio and set season/gender to Any."
+                        )
+                    else:
+                        st.markdown("**Top matches** (tap to load in Studio or wear)")
+                        for pi, item in enumerate(partners, 1):
+                            if len(item) >= 3:
+                                pf, reason, score = item[0], item[1], item[2]
+                            else:
+                                pf, reason = item[0], item[1]
+                                score = None
+                            st.markdown(
+                                f"**{pi}. {pf.get('name')}** (*{pf.get('brand')}*)"
+                                + (f" | score {score}" if score is not None else "")
+                            )
+                            st.caption(
+                                ", ".join((pf.get("category") or [])[:4])
+                                + " - "
+                                + str(reason)[:140]
+                            )
+                            p1, p2, p3 = st.columns(3)
+                            with p1:
+                                if st.button(
+                                    "Studio",
+                                    key=f"rec_studio_pair_{i}_{pi}",
+                                    help="Set recommend as base; partner is listed in Studio",
+                                ):
+                                    st.session_state["layer_base_select"] = f["name"]
+                                    if _g and _g != "Any":
+                                        st.session_state["layer_partner_gender"] = _g
+                                    if _w and _w != "Any":
+                                        st.session_state["layer_partner_season"] = _w
+                                    st.session_state["_layer_studio_flash"] = (
+                                        f"Base **{f['name']}** - look for "
+                                        f"**{pf['name']}** in partners on the Layer tab."
+                                    )
+                                    st.rerun()
+                            with p2:
+                                if st.button(
+                                    "Check pair",
+                                    key=f"rec_pair_check_{i}_{pi}",
+                                ):
+                                    pair = [f["name"], pf["name"]]
+                                    st.session_state["roulette_layer_pick"] = pair
+                                    st.session_state["last_layer_check"] = (
+                                        evaluate_layer_recipe(pair)
+                                    )
+                                    st.session_state["_seed_roulette_recipe_name"] = True
+                                    st.session_state["_open_layer_check"] = True
+                                    st.success(
+                                        f"**{f['name']}** + **{pf['name']}** in Layer check."
+                                    )
+                                    st.rerun()
+                            with p3:
+                                if st.button(
+                                    "Wear pair",
+                                    key=f"rec_pair_sotd_{i}_{pi}",
+                                ):
+                                    send_to_sotd(
+                                        [f["name"], pf["name"]],
+                                        notes=f"Layer: {f['name']} + {pf['name']}",
+                                    )
+                                    st.rerun()
                 st.markdown("---")
 
     if not search_query and not note_query and last_recs is None and last_temp is None:
@@ -6668,6 +6762,9 @@ with tab_discover:
 with tab_layer:
     st.subheader("Layering Studio")
     st.caption("Partners for a base bottle, free combos, or saved recipes.")
+    _studio_flash = st.session_state.pop("_layer_studio_flash", None)
+    if _studio_flash:
+        st.success(_studio_flash)
 
     if st.session_state.pop("_clear_layer", False):
         st.session_state["layer_partner_gender"] = "Any"
