@@ -704,7 +704,7 @@ if "fragrances_db" not in st.session_state:
         {"name": "Cotton Candy Delicacy", "brand": "Armaf", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top Notes: Raspberry, Pink Pepper, and CocoaHeart (Middle) Notes: Jasmine and RoseBase Notes: Vanilla, Benzoin Resinoid, and Cedarwood", "category": ["Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Cream Velvet", "brand": "Khadlaj", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Butter / Heart - Tonka, Honey, Jasmine / Base - Vanilla, Musk, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Creme of Clouds", "brand": "Fragrance World", "gender": "Unisex", "season": "Fall, Winter, spring", "notes": "Top Notes: Coconut milk, Creamy milk, Burnt sugarHeart (Middle) Notes: Whipped cream, Vanilla, ChocolateBase Notes: Vanilla, White musk, Burnt sugar", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
-        {"name": "CrÃÂ¨me Caramel", "brand": "Mamlakat Al Oud", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Vanilla Flower / Heart - Dulce de Leche, Cotton Candy, Frangipani, White Flowers / Base - Vanilla Pod, Tonka Bean, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Creme Caramel", "brand": "Mamlakat Al Oud", "gender": "Unisex (leans feminine)", "season": "Fall, Winter", "notes": "Top - Caramel, Vanilla Flower / Heart - Dulce de Leche, Cotton Candy, Frangipani, White Flowers / Base - Vanilla Pod, Tonka Bean, Musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Cup Cake", "brand": "Al Rehab", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top - Citrus, Amber / Heart - Vanilla Cake / Base - Vanilla, Amber", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Dalal", "brand": "Lattafa", "gender": "Female", "season": "Spring", "notes": "Top - Apple (Golden Delicious), Mandarin / Heart - Jasmine, Ylang-Ylang, Orange Flower / Base - Vanilla, Musk, Oakmoss", "category": ["Floral", "Fruity", "Fresh"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Dulzura", "brand": "Paris Corner", "gender": "Female", "season": "Fall-Winter", "notes": "Top - Black pepper, buttermilk / Heart - Cake, vanilla, cream / Base - Amber, musk", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
@@ -794,7 +794,7 @@ if "fragrances_db" not in st.session_state:
         {"name": "Pecan Butter Cookie", "brand": "Arabiyat Sugar", "gender": "Unisex/Female", "season": "Fall-Winter", "notes": "Top - Pecan, coconut milk, butter / Heart - Hazelnut, almond, roasted nuts / Base - Hazelnut, vanilla, ambergris", "category": ["Gourmand", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Petra", "brand": "Lattafa", "gender": "Unisex", "season": "Fall, Winter", "notes": "Top Notes: Plum, RumHeart (Middle) Notes: Tuberose, CoconutBase Notes: Praline, Musk, Vanilla", "category": ["Gourmand", "Fruity", "Floral"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Pink Velvet", "brand": "Maison Alhambra", "gender": "Female", "season": "Spring-Fall", "notes": "Top Notes: Bulgarian Rose and May RoseMiddle/Heart Notes: Turkish Rose and SaffronBase Notes: Patchouli, Tonka Bean, and Vanilla", "category": ["Floral", "Sweet", "Powdery"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
-        {"name": "PiÃÂ±a Colada Musk Collection Body Spray", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
+        {"name": "Pina Colada Musk Collection Body Spray", "brand": "Gulf Orchid", "gender": "Unisex", "season": "Spring, Summer", "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk", "category": ["Fruity", "Fresh", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Prive Rose", "brand": "Ameerat Al Arab", "gender": "Female", "season": "Fall, Spring", "notes": "Top - Rose / Heart - Floral, Sweet / Base - Musk, Vanilla", "category": ["Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Qaed Al Fursan (Original)", "brand": "Lattafa", "gender": "Unisex (leans masculine)", "season": "Versatile", "notes": "Top - Pineapple, Saffron / Heart - Balsam Fir, Jasmine / Base - Cedar, Amber, Agarwood (Oud)", "category": ["Fruity", "Woody", "Oud"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
         {"name": "Qaed Al Fursan Unlimited", "brand": "Lattafa", "gender": "Male/Unisex", "season": "Spring, Fall", "notes": "Top - Coconut, Pineapple, Citruses / Heart - Ylang-Ylang, Frangipani, Jasmine / Base - Vanilla, Musk, Sandalwood, Sweet Notes", "category": ["Fruity", "Floral", "Sweet"], "dupe_of": "", "shelf_status": "Own", "size_ml": None, "price": None},
@@ -2458,7 +2458,7 @@ def fragrance_weight_score(f: dict) -> int:
     # body spray / mist often lighter
     if any(x in name for x in ("body spray", "mist", "cologne", "hair")):
         score -= 15
-    if any(x in name for x in ("intense", "elixir", "extrait", "concentre", "concentrÃÂ©")):
+    if any(x in name for x in ("intense", "elixir", "extrait", "concentre", "concentre")):
         score += 10
     return score
 
@@ -5789,7 +5789,7 @@ with st.sidebar:
     _saved = st.session_state.get("last_saved_at")
     n_now = len(st.session_state.get("fragrances_db") or [])
     if _saved:
-        st.caption(f"Vault last saved: {_saved} ÃÂ| **{n_now}** bottles")
+        st.caption(f"Vault last saved: {_saved} | **{n_now}**** bottles")
     else:
         st.caption(
             f"Vault: **{n_now}** bottles (seed or session). "
@@ -5865,7 +5865,7 @@ with st.sidebar:
                 st.rerun()
         _live_err = st.session_state.pop("_live_temp_error", None)
         if _live_err:
-            st.warning(f"Live temp unavailable: {str(_live_err)[:120]}. Using slider / monthly norm.")
+            st.warning(f"Live temp unavailable (rate limit or network). Using slider / monthly norm.")
         if temp_search_clicked:
             picks = get_top_fragrances(
                 temp_search_gender,
@@ -6601,7 +6601,7 @@ with tab_discover:
             with ba2:
                 if len(names_all) >= 2:
                     if st.button(
-                        "Send all to Layer check",
+                        "Send all to Layer check (score combo)",
                         key="rec_send_all_layer",
                         use_container_width=True,
                     ):
@@ -10149,6 +10149,12 @@ with tab_vault:
                 "moon": st.session_state.get("chart_moon"),
                 "rising": st.session_state.get("chart_rising"),
                 "venus": st.session_state.get("chart_venus"),
+                "full": st.session_state.get("birth_calc_full"),
+                "his_sun": st.session_state.get("chart_his_sun"),
+                "his_moon": st.session_state.get("chart_his_moon"),
+                "his_rising": st.session_state.get("chart_his_rising"),
+                "his_venus": st.session_state.get("chart_his_venus"),
+                "his_full": st.session_state.get("birth_calc_his_full"),
             },
             "wishlist": st.session_state.get("wishlist", []),
             "vault_log": st.session_state.get("vault_log", []),
