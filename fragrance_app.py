@@ -92,6 +92,23 @@ def save_persisted_data(force: bool = False):
         "bottle_count": session_n,
     }
 
+    # Guard: never wipe non-empty disk wishlist/recipes with empty session copies
+    if not force:
+        try:
+            on_disk_pre = load_persisted_data()
+            disk_wl = on_disk_pre.get("wishlist") or []
+            sess_wl = data.get("wishlist") or []
+            if len(disk_wl) > 0 and len(sess_wl) == 0:
+                data["wishlist"] = disk_wl
+                st.session_state["wishlist"] = list(disk_wl)
+            disk_lr = on_disk_pre.get("layer_recipes") or []
+            sess_lr = data.get("layer_recipes") or []
+            if len(disk_lr) > 0 and len(sess_lr) == 0:
+                data["layer_recipes"] = disk_lr
+                st.session_state["layer_recipes"] = list(disk_lr)
+        except Exception:
+            pass
+
     # Guard: never clobber a bigger saved vault with a thinner session
     if not force and session_n > 0:
         on_disk = load_persisted_data()
@@ -869,7 +886,13 @@ if "sotd_history" not in st.session_state:
     st.session_state["sotd_history"] = _persisted.get("sotd_history", [])
 
 if "layer_recipes" not in st.session_state:
-    st.session_state["layer_recipes"] = _persisted.get("layer_recipes", [])
+    st.session_state["layer_recipes"] = list(_persisted.get("layer_recipes") or [])
+else:
+    # Recover if session wiped recipes but disk still has them
+    _disk_lr = list(_persisted.get("layer_recipes") or [])
+    _sess_lr = st.session_state.get("layer_recipes") or []
+    if len(_disk_lr) > len(_sess_lr):
+        st.session_state["layer_recipes"] = _disk_lr
 
 if "wishlist" not in st.session_state:
     # list of {name, brand, notes, checked}
@@ -7046,11 +7069,39 @@ with tab_layer:
                 )
                 partners = suggest_partners_for(
                     base_f,
-                    num=int(show_n),
+                    num=max(int(show_n) * 3, 12),
                     gender=layer_partner_gender,
                     include_unisex=include_unisex,
                     season=layer_partner_season,
                 )
+                # Safety net: drop any partner that still fails gender/season
+                _strict = []
+                for item in partners:
+                    pf = item[0]
+                    if layer_partner_gender and layer_partner_gender != "Any":
+                        fg = normalize_gender(pf.get("gender", ""))
+                        if layer_partner_gender == "Female":
+                            ok = fg in ("Female", "Female-leaning") or (
+                                include_unisex and fg == "Unisex"
+                            )
+                        elif layer_partner_gender == "Male":
+                            ok = fg in ("Male", "Male-leaning") or (
+                                include_unisex and fg == "Unisex"
+                            )
+                        elif layer_partner_gender == "Unisex":
+                            ok = fg == "Unisex"
+                        else:
+                            ok = True
+                        if not ok:
+                            continue
+                    if layer_partner_season and layer_partner_season != "Any":
+                        try:
+                            if not matches_weather(pf, layer_partner_season):
+                                continue
+                        except Exception:
+                            pass
+                    _strict.append(item)
+                partners = _strict[: int(show_n)]
                 if not partners:
                     st.warning(
                         "No partners matched this gender filter. "
@@ -7113,7 +7164,9 @@ with tab_layer:
                                         "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
                                     },
                                 )
-                                save_persisted_data()
+                                mark_vault_dirty()
+                                save_persisted_data(force=False)
+                                st.session_state["_vault_fp"] = vault_fingerprint()
                                 st.success(f"Saved recipe: {final_name}")
                         with b3:
                             if st.button("SOTD", key=f"layer_base_use_{pi}"):
@@ -7391,7 +7444,9 @@ with tab_layer:
                                 "gender": st.session_state.get("roulette_layer_recipe_gender", "Any"),
                             },
                         )
-                        save_persisted_data()
+                        mark_vault_dirty()
+                        save_persisted_data(force=False)
+                        st.session_state["_vault_fp"] = vault_fingerprint()
                         st.session_state["_roulette_recipe_save_flash"] = (
                             f"Saved **{final_name}** "
                             f"(season: {season.get('label', '?')}). "
