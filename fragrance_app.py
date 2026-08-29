@@ -2528,16 +2528,143 @@ def layer_application_guide(frags: list) -> dict:
 
 
 
+def _extract_note_phrases(notes: str) -> dict:
+    """Pull rough top / heart / base phrases from free-text notes."""
+    text = notes or ""
+    low = text.lower()
+    out = {"top": [], "heart": [], "base": [], "all": []}
+    # Common section markers
+    import re as _re
+    patterns = [
+        ("top", r"(?:top(?:\s+notes?)?|opening)\s*[:\-]\s*([^.\n]+)"),
+        ("heart", r"(?:heart|middle|mid(?:dle)?(?:\s+notes?)?)\s*[:\-]\s*([^.\n]+)"),
+        ("base", r"(?:base(?:\s+notes?)?|dry[\-\s]?down)\s*[:\-]\s*([^.\n]+)"),
+    ]
+    for key, pat in patterns:
+        m = _re.search(pat, text, flags=_re.I)
+        if m:
+            chunk = m.group(1).strip()
+            # stop at next section word if run-on
+            chunk = _re.split(
+                r"(?:Top|Heart|Middle|Base|Dry)\s",
+                chunk,
+                maxsplit=1,
+            )[0].strip(" ,;")
+            parts = [p.strip() for p in _re.split(r"[,;/]| and ", chunk) if p.strip()]
+            out[key] = parts[:6]
+    # Fallback tokens from whole notes
+    tokens = []
+    for t in _re.split(r"[,;/]|\s+and\s+", text):
+        t = t.strip()
+        if len(t) > 2 and not t.lower().startswith(("top", "heart", "middle", "base", "notes")):
+            tokens.append(t)
+    out["all"] = tokens[:12]
+    return out
+
+
+def describe_layer_scent(frags: list) -> str:
+    """What you are likely to smell after layering - from combined notes."""
+    if not frags:
+        return ""
+    tops, hearts, bases, loose = [], [], [], []
+    for f in frags:
+        parsed = _extract_note_phrases(f.get("notes") or "")
+        tops.extend(parsed["top"])
+        hearts.extend(parsed["heart"])
+        bases.extend(parsed["base"])
+        loose.extend(parsed["all"])
+        # also pull from category for vibe words
+        for c in f.get("category") or []:
+            loose.append(c)
+
+    def _uniq(seq, limit=5):
+        seen = set()
+        out = []
+        for x in seq:
+            k = x.lower().strip()
+            if not k or k in seen or len(k) < 2:
+                continue
+            # skip section labels
+            if k in ("top", "heart", "middle", "base", "notes", "note"):
+                continue
+            seen.add(k)
+            out.append(x.strip())
+            if len(out) >= limit:
+                break
+        return out
+
+    tops_u = _uniq(tops, 4)
+    hearts_u = _uniq(hearts, 4)
+    bases_u = _uniq(bases, 4)
+
+    # Keyword buckets from all note text
+    blob = " ".join((f.get("notes") or "") for f in frags).lower()
+    opening_kw = [
+        k for k in [
+            "citrus", "bergamot", "orange", "lemon", "grapefruit", "raspberry",
+            "strawberry", "apple", "pear", "peach", "plum", "pineapple", "mango",
+            "mint", "green", "ozone", "aquatic",
+        ] if k in blob
+    ]
+    heart_kw = [
+        k for k in [
+            "rose", "jasmine", "orange blossom", "lavender", "iris", "peony",
+            "orchid", "ylang", "cinnamon", "saffron", "cardamom", "coffee",
+            "chocolate", "pistachio", "coconut",
+        ] if k in blob
+    ]
+    base_kw = [
+        k for k in [
+            "vanilla", "caramel", "tonka", "amber", "musk", "oud", "sandalwood",
+            "cedar", "patchouli", "incense", "leather", "tobacco", "praline",
+            "sugar", "cream", "benzoin", "labdanum",
+        ] if k in blob
+    ]
+
+    if not tops_u and opening_kw:
+        tops_u = opening_kw[:4]
+    if not hearts_u and heart_kw:
+        hearts_u = heart_kw[:4]
+    if not bases_u and base_kw:
+        bases_u = base_kw[:4]
+
+    if not tops_u and not hearts_u and not bases_u:
+        # last resort from loose phrases
+        loose_u = _uniq(loose, 6)
+        if not loose_u:
+            return "On skin the blend will follow the shared DNA of both bottles - give it 20 minutes to settle."
+        return (
+            "What you might smell: a mix of "
+            + ", ".join(loose_u)
+            + " as the layer settles on skin."
+        )
+
+    parts = ["What you might smell after layering:"]
+    if tops_u:
+        parts.append("first hit - " + ", ".join(tops_u))
+    if hearts_u:
+        parts.append("as it settles - " + ", ".join(hearts_u))
+    if bases_u:
+        parts.append("dry-down - " + ", ".join(bases_u))
+    # One line vibe
+    if any(k in blob for k in ("vanilla", "caramel", "sugar", "praline", "tonka")):
+        parts.append("overall edible-sweet warmth with whatever bright notes ride on top")
+    elif any(k in blob for k in ("oud", "incense", "leather", "smoke")):
+        parts.append("overall deeper, denser trail once the top softens")
+    elif any(k in blob for k in ("citrus", "bergamot", "aquatic", "green")):
+        parts.append("overall fresher open that should stay lighter in the trail")
+
+    return ". ".join(parts) + "."
+
+
 def explain_layer_combo(frags: list) -> str:
     """Richer plain-language opinion on why this layer works (or struggles)."""
     if not frags or len(frags) < 2:
         return "Pick at least two bottles to explain the combo."
     names = [f.get("name") or "?" for f in frags]
     all_cats = []
-    all_notes = []
     for f in frags:
         all_cats.extend(f.get("category") or [])
-        all_notes.append((f.get("notes") or "").lower())
     cat_set = set(all_cats)
     bits = []
 
@@ -2597,7 +2724,6 @@ def explain_layer_combo(frags: list) -> str:
             + ") so the bottles speak a similar language on skin."
         )
 
-    # Shared notes detail
     if len(frags) >= 2:
         reasons = layer_note_reasons(frags[0], frags[1])
         shared_line = next(
@@ -2610,7 +2736,11 @@ def explain_layer_combo(frags: list) -> str:
         if syn:
             bits.append(str(syn[0]) + ".")
 
-    # Occasion / vibe opinion
+    # NEW: what you smell after layering
+    scent_story = describe_layer_scent(frags)
+    if scent_story:
+        bits.append(scent_story)
+
     if dark and not fresh:
         bits.append(
             "This reads more date-night / cool weather than office heat - great for evenings."
@@ -2638,6 +2768,7 @@ def explain_layer_combo(frags: list) -> str:
         "Worth a skin test before a full outing - heat and your chemistry will finish the story."
     )
     return " ".join(bits)
+
 
 
 def recipe_gender_from_frags(frags: list) -> str:
