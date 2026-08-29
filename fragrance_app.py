@@ -2132,6 +2132,26 @@ def layer_score(f1: dict, f2: dict) -> int:
         if (n1 & fam_a and n2 & fam_b) or (n2 & fam_a and n1 & fam_b):
             score += pen
 
+    # Weight balance: reward clear heavy + light (better layering stack)
+    w1 = fragrance_weight_score(f1)
+    w2 = fragrance_weight_score(f2)
+    gap = abs(w1 - w2)
+    if gap >= 25:
+        score += 12  # clear base vs top
+    elif gap >= 15:
+        score += 8
+    elif gap >= 8:
+        score += 4
+    else:
+        score -= 6  # two similar weights can muddle / fight for space
+
+    # Soft penalty when both are very heavy
+    if w1 >= 80 and w2 >= 80:
+        score -= 10
+    # Soft penalty when both are very light (nothing anchors)
+    if w1 <= 40 and w2 <= 40:
+        score -= 6
+
     # Stable-ish variation from names
     score += _stable_tiebreak(f1["name"] + f2["name"]) % 5 + 1
     return score
@@ -2548,6 +2568,28 @@ def fragrance_weight_score(f: dict) -> int:
     return score
 
 
+def order_frags_heavy_to_light(frags: list) -> list:
+    """Sort fragrances heaviest first (apply as base first)."""
+    return sorted(
+        frags,
+        key=lambda f: (fragrance_weight_score(f), f.get("name") or ""),
+        reverse=True,
+    )
+
+
+def order_names_heavy_to_light(bottle_names: list) -> list:
+    """Reorder bottle name list heavy -> light using vault data."""
+    name_map = {f.get("name"): f for f in st.session_state.get("fragrances_db") or []}
+    frags = [name_map[n] for n in bottle_names if n in name_map]
+    ranked = order_frags_heavy_to_light(frags)
+    ordered = [f.get("name") for f in ranked if f.get("name")]
+    # keep any unknown names at end
+    for n in bottle_names:
+        if n not in ordered:
+            ordered.append(n)
+    return ordered
+
+
 def layer_application_guide(frags: list) -> dict:
     """Order, sprays, placement for a multi-bottle layer."""
     if not frags:
@@ -2935,6 +2977,8 @@ def format_recipe_share_text(recipe: dict = None, ev: dict = None, bottles: list
 
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer recipe and build a short verdict."""
+    # Always evaluate in heavy -> light order for accurate base/top guidance
+    bottle_names = order_names_heavy_to_light(list(bottle_names or []))
     name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
     frags = [name_map[n] for n in bottle_names if n in name_map]
     missing = [n for n in bottle_names if n not in name_map]
@@ -3908,10 +3952,26 @@ def suggest_partners_for(
         s = layer_score(base, f)
         if s <= -50:
             continue
-        reason = (
-            f"Pairs {', '.join(base.get('category', []))} from {base['name']} with "
-            f"{', '.join(f.get('category', []))} from {f['name']}."
-        )
+        wb = fragrance_weight_score(base)
+        wp = fragrance_weight_score(f)
+        if wb >= wp + 8:
+            order = (
+                f"Order: **{base.get('name')}** first (heavier base, weight {wb}), "
+                f"then **{f.get('name')}** on top (lighter, weight {wp})."
+            )
+        elif wp >= wb + 8:
+            order = (
+                f"Order: **{f.get('name')}** first (heavier base, weight {wp}), "
+                f"then **{base.get('name')}** on top (lighter, weight {wb})."
+            )
+        else:
+            order = (
+                f"Similar weight ({wb} vs {wp}) - use fewer sprays of the denser one; "
+                f"skin-test order."
+            )
+        cats_b = ", ".join((base.get("category") or [])[:3]) or "â"
+        cats_p = ", ".join((f.get("category") or [])[:3]) or "â"
+        reason = f"{order} Families: {cats_b} + {cats_p}."
         candidates.append((s, f, reason))
     candidates.sort(key=lambda x: x[0], reverse=True)
     return [(f, reason, s) for s, f, reason in candidates[:num]]
@@ -7151,8 +7211,25 @@ with tab_layer:
                             pf, reason = item[0], item[1]
                             score = None
                         score_bit = f"  |  score {score}" if score is not None else ""
+                        _wb = fragrance_weight_score(base_f)
+                        _wp = fragrance_weight_score(pf)
+                        if _wb >= _wp + 8:
+                            _role = (
+                                f"Spray order: **{base_choice}** first (heavier {_wb}), "
+                                f"then **{pf['name']}** (lighter {_wp})"
+                            )
+                        elif _wp >= _wb + 8:
+                            _role = (
+                                f"Spray order: **{pf['name']}** first (heavier {_wp}), "
+                                f"then **{base_choice}** (lighter {_wb})"
+                            )
+                        else:
+                            _role = (
+                                f"Similar weight ({_wb} vs {_wp}) - fewer sprays, skin-test order"
+                            )
                         st.info(
                             f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
+                            f"{_role}\n\n"
                             f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}{score_bit}\n\n"
                             f"*{reason}*"
                         )
@@ -7171,7 +7248,7 @@ with tab_layer:
                                 st.rerun()
                         with b2:
                             if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
-                                names = [base_choice, pf["name"]]
+                                names = order_names_heavy_to_light([base_choice, pf["name"]])
                                 ev = evaluate_layer_recipe(names)
                                 final_name = (ev.get("suggested_name") or f"{base_choice} x {pf['name']}")
                                 st.session_state.setdefault("layer_recipes", []).insert(
