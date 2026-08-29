@@ -5940,6 +5940,32 @@ with st.sidebar:
     if _se:
         st.error(f"Save failed: {_se}")
 
+    _logged_sb = st.session_state.get("_sotd_logged_flash")
+    if _logged_sb:
+        st.success(_logged_sb)
+
+    with st.expander("Quick SOTD (any tab)", expanded=False):
+        st.caption("Log what you are wearing right now - saves immediately.")
+        _q_names = sorted(
+            f.get("name")
+            for f in (st.session_state.get("fragrances_db") or [])
+            if f.get("name")
+        )
+        q_pick = st.multiselect(
+            "Bottle(s)",
+            _q_names,
+            key="sidebar_sotd_pick",
+            placeholder="Pick 1 or more...",
+        )
+        q_notes = st.text_input("Note (optional)", key="sidebar_sotd_notes")
+        if st.button("Log to SOTD now", type="primary", key="sidebar_sotd_log"):
+            if not q_pick:
+                st.warning("Pick at least one bottle.")
+            else:
+                log_sotd_immediate(q_pick, notes=q_notes or "")
+                st.session_state["sidebar_sotd_pick"] = []
+                st.rerun()
+
     _n_bot = len(st.session_state.get("fragrances_db") or [])
     _last = st.session_state.get("last_saved_at") or st.session_state.get("_autosaved_at") or "never"
     _exp = st.session_state.get("last_export_date") or "never"
@@ -8050,7 +8076,12 @@ with tab_sotd:
                 except Exception as ex:
                     st.warning(f"Photo skipped: {ex}")
             st.session_state["sotd_history"].insert(0, entry)
-            save_persisted_data()
+            mark_vault_dirty()
+            save_persisted_data(force=False)
+            try:
+                st.session_state["_vault_fp"] = vault_fingerprint()
+            except Exception:
+                pass
             st.session_state["_clear_sotd_form"] = True
             st.session_state["_sotd_flash"] = (
                 f"Logged layering: **{scent_display}**"
