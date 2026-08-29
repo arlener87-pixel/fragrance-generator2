@@ -116,6 +116,8 @@ def save_persisted_data(force: bool = False):
                 "Save blocked: session vault is empty but disk has bottles."
             )
             st.session_state["fragrances_db"] = on_disk.get("fragrances_db") or []
+            if on_disk.get("wishlist"):
+                st.session_state["wishlist"] = on_disk.get("wishlist") or []
             return False
 
     payload = json.dumps(data, indent=2, ensure_ascii=False)
@@ -3646,14 +3648,14 @@ def suggest_partners_for(
     base: dict,
     num: int = 12,
     gender: str = "Any",
-    include_unisex: bool = True,
+    include_unisex: bool = False,
     exclude_dislikes: bool = True,
     season: str = "Any",
 ) -> list:
     """Best layering partners for a single selected fragrance.
 
-    Returns list of (frag, reason, score). When gender is Male/Female, pure
-    Unisex can be included via include_unisex. Season filters with matches_weather.
+    Gender is strict by default (Female = female only; no pure Unisex unless
+    include_unisex=True). Season filters with matches_weather.
     """
     if not base:
         return []
@@ -3667,6 +3669,7 @@ def suggest_partners_for(
         if gender and gender != "Any":
             fg = normalize_gender(f.get("gender", ""))
             if gender == "Female":
+                # Strict: Female + Female-leaning only (no pure Unisex unless opted in)
                 ok = fg in ("Female", "Female-leaning") or (
                     include_unisex and fg == "Unisex"
                 )
@@ -3675,7 +3678,9 @@ def suggest_partners_for(
                     include_unisex and fg == "Unisex"
                 )
             elif gender == "Unisex":
-                ok = fg in ("Unisex", "Male-leaning", "Female-leaning")
+                ok = fg == "Unisex" or (
+                    include_unisex and fg in ("Male-leaning", "Female-leaning")
+                )
             else:
                 ok = matches_gender(f, gender)
             if not ok:
@@ -6681,7 +6686,7 @@ with tab_discover:
                         f,
                         num=5,
                         gender=_g if _g != "Any" else "Any",
-                        include_unisex=True,
+                        include_unisex=False,
                         season=_w if _w != "Any" else "Any",
                     )
                     if not partners:
@@ -6810,9 +6815,9 @@ with tab_layer:
         if layer_partner_gender in ("Male", "Female"):
             include_unisex = st.checkbox(
                 "Include Unisex in partners",
-                value=True,
-                key="layer_include_unisex",
-                help="When on, pure Unisex bottles can appear as partners alongside the gender filter.",
+                value=False,
+                key="layer_include_unisex_v2",
+                help="Off by default. Turn on only if you want pure Unisex bottles with Female/Male.",
             )
 
         # Base list: FULL vault so every bottle is selectable
