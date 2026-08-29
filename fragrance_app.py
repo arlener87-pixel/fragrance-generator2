@@ -7196,7 +7196,7 @@ with tab_layer:
                                 st.success(f"Saved recipe: {final_name}")
                         with b3:
                             if st.button("SOTD", key=f"layer_base_use_{pi}"):
-                                st.session_state["sotd_prefill"] = [base_choice, pf["name"]]
+                                log_sotd_immediate([base_choice, pf["name"]], notes="Layer studio")
                                 st.rerun()
 
 
@@ -7537,7 +7537,7 @@ with tab_layer:
                         f"*{reason}*"
                     )
                     if st.button("Use in SOTD", key=f"layer_use_{i}"):
-                        st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
+                        log_sotd_immediate([f1["name"], f2["name"]], notes="Layer")
                         st.rerun()
                 st.caption("Tip: spray the richer scent first, then the lighter one.")
             if st.button("Clear combo results", key="layer_clear_results"):
@@ -7705,7 +7705,7 @@ with tab_layer:
             rb1, rb2 = st.columns(2)
             with rb1:
                 if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
-                    st.session_state["sotd_prefill"] = bottles
+                    log_sotd_immediate(bottles, notes="Saved recipe")
                     st.rerun()
             with rb2:
                 if st.button("Delete", key=f"recipe_del_{ri}_{recipe.get('name','')}"):
@@ -7847,7 +7847,7 @@ with tab_roulette:
                     f"Filters | {meta.get('gender', '-')} | {meta.get('season', '-')} | "
                     f"pool {meta.get('pool_size', '?')}"
                 )
-            rc1, rc2, _ = st.columns([1, 1, 2])
+            rc1, rc2, rc3 = st.columns(3)
             with rc1:
                 if st.button("YAY", key=f"roulette_fav_{chosen['name']}"):
                     st.session_state["user_reactions"][chosen["name"]] = "fav"
@@ -7857,6 +7857,14 @@ with tab_roulette:
                 if st.button("DEL", key=f"roulette_dislike_{chosen['name']}"):
                     st.session_state["user_reactions"][chosen["name"]] = "dislike"
                     save_persisted_data()
+                    st.rerun()
+            with rc3:
+                if st.button(
+                    "Log to SOTD",
+                    key=f"roulette_sotd_{chosen['name']}",
+                    type="primary",
+                ):
+                    log_sotd_immediate([chosen["name"]], notes="Roulette")
                     st.rerun()
 
 # ===== SOTD =====
@@ -7944,9 +7952,9 @@ with tab_sotd:
                     f"{', '.join(f.get('category') or [])}"
                 )
                 if st.button("Use tonight", key=f"horror_use_{i}"):
-                    st.session_state["sotd_prefill"] = [f["name"]]
-                    st.session_state["sotd_notes_input"] = last_h.get(
-                        "vibe", "Horror night"
+                    log_sotd_immediate(
+                        [f["name"]],
+                        notes=str((last_h or {}).get("vibe") or "Horror night"),
                     )
                     st.rerun()
 
@@ -8042,9 +8050,9 @@ with tab_sotd:
                     "Use this pair",
                     key=f"use_combo_{i}_{f1['name']}_{f2['name']}",
                 ):
-                    st.session_state["sotd_prefill"] = [f1["name"], f2["name"]]
-                    st.session_state["sotd_notes_input"] = (
-                        f"Layer: {f1['name']} + {f2['name']}"
+                    log_sotd_immediate(
+                        [f1["name"], f2["name"]],
+                        notes=f"Layer: {f1['name']} + {f2['name']}",
                     )
                     st.rerun()
                 st.markdown("---")
@@ -8166,35 +8174,96 @@ with tab_sotd:
             st.caption(f"PDF unavailable: {ex}")
 
     with st.expander("Journal history", expanded=False):
-            for i, entry in enumerate(st.session_state["sotd_history"]):
-                layer_badge = " | layering" if entry.get("is_layering") else ""
-                notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
-                hcol, xcol = st.columns([6, 1])
-                with hcol:
-                    perf_bits = []
-                    if entry.get("sillage"):
-                        perf_bits.append(f"sil {entry['sillage']}/5")
-                    if entry.get("longevity"):
-                        perf_bits.append(f"lon {entry['longevity']}/5")
-                    perf_txt = f"  -  {', '.join(perf_bits)}" if perf_bits else ""
-                    his_txt = f"  -  his: {entry['his_scent']}" if entry.get("his_scent") else ""
-                    st.write(
-                        f"**{entry['date']}:** *{entry['scent']}*{layer_badge}{his_txt}{perf_txt}{notes_text}"
-                    )
-                    if entry.get("photo"):
-                        try:
-                            st.image(entry["photo"], width=180)
-                        except Exception:
-                            pass
-                with xcol:
-                    if st.button("DEL", key=f"del_sotd_{i}_{entry['date']}", help="Remove entry"):
+        st.caption("Edit a log if the wrong bottle or date was saved. Changes autosave.")
+        all_names_sotd = sorted(
+            f.get("name")
+            for f in (st.session_state.get("fragrances_db") or [])
+            if f.get("name")
+        )
+        hist = list(st.session_state.get("sotd_history") or [])
+        if not hist:
+            st.caption("No SOTD entries yet.")
+        for i, entry in enumerate(hist):
+            layer_badge = " | layering" if entry.get("is_layering") else ""
+            notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
+            st.write(
+                f"**{entry.get('date')}:** *{entry.get('scent')}*{layer_badge}{notes_text}"
+            )
+            with st.expander(f"Edit entry {i+1} - {entry.get('date', '?')}", expanded=False):
+                cur_scents = entry.get("scents") or []
+                if not cur_scents and entry.get("scent"):
+                    cur_scents = [
+                        p.strip()
+                        for p in str(entry.get("scent")).split(" + ")
+                        if p.strip()
+                    ]
+                # keep names not in vault so they are not lost
+                name_opts = list(dict.fromkeys(list(all_names_sotd) + list(cur_scents)))
+                new_scents = st.multiselect(
+                    "Bottles",
+                    name_opts,
+                    default=[n for n in cur_scents if n in name_opts],
+                    key=f"edit_sotd_scents_{i}_{entry.get('date')}",
+                )
+                try:
+                    from datetime import date as _date
+                    _d0 = entry.get("date") or pacific_today().isoformat()
+                    if isinstance(_d0, str):
+                        _parts = [int(x) for x in _d0[:10].split("-")]
+                        _default_d = _date(_parts[0], _parts[1], _parts[2])
+                    else:
+                        _default_d = pacific_today()
+                except Exception:
+                    _default_d = pacific_today()
+                new_date = st.date_input(
+                    "Date",
+                    value=_default_d,
+                    key=f"edit_sotd_date_{i}_{entry.get('date')}",
+                )
+                new_notes = st.text_area(
+                    "Notes",
+                    value=entry.get("notes") or "",
+                    key=f"edit_sotd_notes_{i}_{entry.get('date')}",
+                )
+                e1, e2 = st.columns(2)
+                with e1:
+                    if st.button("Save changes", type="primary", key=f"edit_sotd_save_{i}"):
+                        if not new_scents:
+                            st.warning("Keep at least one bottle.")
+                        else:
+                            when_s = (
+                                new_date.isoformat()
+                                if hasattr(new_date, "isoformat")
+                                else str(new_date)
+                            )
+                            display = " + ".join(new_scents)
+                            st.session_state["sotd_history"][i] = {
+                                **entry,
+                                "date": when_s,
+                                "scents": list(new_scents),
+                                "scent": display,
+                                "notes": (new_notes or "").strip(),
+                                "is_layering": len(new_scents) > 1,
+                            }
+                            mark_vault_dirty()
+                            save_persisted_data(force=False)
+                            try:
+                                st.session_state["_vault_fp"] = vault_fingerprint()
+                            except Exception:
+                                pass
+                            st.success(f"Updated: **{display}** on {when_s}")
+                            st.rerun()
+                with e2:
+                    if st.button("Delete entry", key=f"del_sotd_{i}_{entry.get('date')}"):
                         st.session_state["sotd_history"].pop(i)
-                        save_persisted_data()
+                        mark_vault_dirty()
+                        save_persisted_data(force=False)
                         st.rerun()
-            if st.button("Clear entire journal", key="clear_sotd_all"):
-                st.session_state["sotd_history"] = []
-                save_persisted_data()
-                st.rerun()
+        if hist and st.button("Clear entire journal", key="clear_sotd_all"):
+            st.session_state["sotd_history"] = []
+            mark_vault_dirty()
+            save_persisted_data(force=False)
+            st.rerun()
 
 
 # ===== STARS / HOROSCOPE =====
@@ -8782,8 +8851,8 @@ with tab_play:
                         f'</div>',
                         unsafe_allow_html=True,
                     )
-                    if st.button("Wear today", key=f"mood_wear_{i}"):
-                        st.session_state["sotd_prefill"] = [f["name"]]
+                    if st.button("Log to SOTD", key=f"mood_wear_{i}"):
+                        log_sotd_immediate([f["name"]], notes="Play mood")
                         st.rerun()
 
 
@@ -8877,8 +8946,8 @@ with tab_play:
                     f"**{i+1}. {f.get('name')}**{badge} - *{f.get('brand')}* | "
                     + ", ".join((f.get("category") or [])[:4])
                 )
-                if st.button("Wear today", key=f"hall_wear_{i}_{f.get('name','')}"):
-                    st.session_state["sotd_prefill"] = [f.get("name")]
+                if st.button("Log to SOTD", key=f"hall_wear_{i}_{f.get('name','')}"):
+                    log_sotd_immediate([f.get("name")], notes="Halloween play")
                     st.rerun()
 
 
@@ -8938,8 +9007,8 @@ with tab_play:
                     f"**{i+1}. {f.get('name')}** - *{f.get('brand')}* | "
                     + ", ".join((f.get("category") or [])[:3])
                 )
-                if st.button("Wear today", key=f"tarot_wear_{i}"):
-                    st.session_state["sotd_prefill"] = [f.get("name")]
+                if st.button("Log to SOTD", key=f"tarot_wear_{i}"):
+                    log_sotd_immediate([f.get("name")], notes="Tarot play")
                     st.rerun()
 
     elif play_mode == "Blind bottle":
@@ -9040,8 +9109,8 @@ with tab_play:
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            if st.button("Wear today", key="blind_wear"):
-                st.session_state["sotd_prefill"] = [mystery["name"]]
+            if st.button("Log to SOTD", key="blind_wear"):
+                log_sotd_immediate([mystery["name"]], notes="Blind bottle")
                 st.rerun()
 
     elif play_mode == "Family roulette":
@@ -9104,8 +9173,8 @@ with tab_play:
                             f'</div>',
                             unsafe_allow_html=True,
                         )
-                        if st.button("Wear today", key=f"fam_wear_{i}"):
-                            st.session_state["sotd_prefill"] = [f["name"]]
+                        if st.button("Log to SOTD", key=f"fam_wear_{i}"):
+                            log_sotd_immediate([f["name"]], notes="Family play")
                             st.rerun()
 
 # ===== COLLECTION =====
