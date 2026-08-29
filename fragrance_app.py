@@ -2255,40 +2255,100 @@ def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True
             return f"{short[0]} x {short[1]}"
         return bottle_names[0] if bottle_names else "Untitled layer"
 
-    templates_two = [
-        "{a} {b} night",
-        "{a} & {b}",
-        "{a} {b} haze",
-        "{a} x {b}",
+    # Gender-aware templates (still filled with real note words)
+    try:
+        g = recipe_gender_from_frags(frags)
+    except Exception:
+        g = "Any"
+
+    templates_female_two = [
         "{a} {b} veil",
-        "{a} {b} dusk",
-        "{a} {b} glow",
-        "{a} {b} ritual",
         "Soft {a} {b}",
-        "{a} {b} fog",
-        "{a} {b} ember",
+        "{a} {b} glow",
+        "{a} {b} silk",
+        "{a} {b} bloom",
+        "{a} & {b} dusk",
         "Quiet {a} {b}",
+        "{a} {b} haze",
         "{a} over {b}",
-        "{a} with {b}",
+        "{a} {b} whisper",
+        "Gilded {a} {b}",
+        "{a} {b} night",
     ]
-    templates_one = [
-        "Midnight {a}",
+    templates_female_one = [
+        "Soft {a}",
         "{a} veil",
-        "{a} drift",
         "Candlelit {a}",
-        "{a} haze",
+        "{a} bloom",
         "Quiet {a}",
+        "{a} silk",
         "Gilded {a}",
         "{a} glow",
         "Sanctuary {a}",
         "{a} dusk",
-        "Soft {a}",
-        "{a} ritual",
     ]
+    templates_male_two = [
+        "{a} {b} grit",
+        "{a} x {b}",
+        "{a} {b} smoke",
+        "{a} {b} oak",
+        "{a} & {b}",
+        "{a} over {b}",
+        "{a} {b} resin",
+        "{a} {b} night",
+        "{a} {b} ember",
+        "{a} {b} steel",
+        "{a} {b} trail",
+        "{a} {b} forge",
+    ]
+    templates_male_one = [
+        "{a} smoke",
+        "{a} grit",
+        "Midnight {a}",
+        "{a} oak",
+        "{a} resin",
+        "{a} trail",
+        "{a} ember",
+        "Black {a}",
+        "{a} steel",
+        "{a} night",
+    ]
+    templates_uni_two = [
+        "{a} {b} balance",
+        "{a} x {b}",
+        "{a} & {b}",
+        "{a} {b} shared",
+        "{a} over {b}",
+        "{a} {b} air",
+        "{a} {b} pulse",
+        "{a} {b} layer",
+        "{a} {b} blend",
+        "{a} with {b}",
+        "{a} {b} code",
+        "{a} {b} signal",
+    ]
+    templates_uni_one = [
+        "{a} balance",
+        "{a} signal",
+        "{a} pulse",
+        "Shared {a}",
+        "{a} layer",
+        "{a} air",
+        "{a} code",
+        "Open {a}",
+        "{a} blend",
+        "{a} line",
+    ]
+
+    if g == "Male":
+        templates_two, templates_one = templates_male_two, templates_male_one
+    elif g == "Female":
+        templates_two, templates_one = templates_female_two, templates_female_one
+    else:
+        templates_two, templates_one = templates_uni_two, templates_uni_one
 
     if randomize:
         random.shuffle(picks)
-        # Bias toward shared/first half of ranked list when possible
         pool = picks[: max(4, min(8, len(picks)))]
         a = random.choice(pool)
         rest = [p for p in pool if p.lower() != a.lower()]
@@ -2302,8 +2362,8 @@ def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True
     a = picks[0]
     b = picks[1] if len(picks) > 1 else None
     if b:
-        return f"{a} {b} night"
-    return f"{a} veil"
+        return templates_two[0].format(a=a, b=b)
+    return templates_one[0].format(a=a)
 
 
 
