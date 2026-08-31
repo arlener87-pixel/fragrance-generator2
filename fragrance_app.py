@@ -4046,12 +4046,58 @@ def suggest_his_match(her_frags: list, num: int = 4) -> list:
     return [(f, reason) for _, f, reason in candidates[:num]]
 
 
-def send_to_sotd(names, notes: str = "") -> None:
-    """Prefill SOTD form with bottle name(s) and optional notes."""
+def log_sotd_immediate(names, notes: str = "", when=None) -> bool:
+    """Write bottles to SOTD history now and persist (any tab can call this)."""
     if isinstance(names, str):
         names = [names]
     names = [n for n in names if n]
     if not names:
+        return False
+    if when is None:
+        when = pacific_today()
+    if hasattr(when, "isoformat"):
+        when_s = when.isoformat()
+    else:
+        when_s = str(when)
+    scent_display = " + ".join(names)
+    is_layering = len(names) > 1
+    entry = {
+        "date": when_s,
+        "scents": list(names),
+        "scent": scent_display,
+        "notes": (notes or "").strip()
+        or ("Layered combo" if is_layering else ""),
+        "is_layering": is_layering,
+    }
+    st.session_state.setdefault("sotd_history", []).insert(0, entry)
+    try:
+        mark_vault_dirty()
+    except Exception:
+        pass
+    save_persisted_data(force=False)
+    try:
+        st.session_state["_vault_fp"] = vault_fingerprint()
+    except Exception:
+        pass
+    st.session_state["_sotd_logged_flash"] = (
+        f"Logged to SOTD: **{scent_display}** ({when_s})"
+    )
+    return True
+
+
+def send_to_sotd(names, notes: str = "", log_now: bool = True) -> None:
+    """Log to SOTD immediately (default) or only prefill the SOTD form.
+
+    log_now=True (default): writes history + autosave from any tab.
+    log_now=False: only prefills SOTD tab for a manual Log.
+    """
+    if isinstance(names, str):
+        names = [names]
+    names = [n for n in names if n]
+    if not names:
+        return
+    if log_now:
+        log_sotd_immediate(names, notes=notes)
         return
     st.session_state["sotd_prefill"] = list(names)
     if notes:
@@ -4079,10 +4125,10 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
     bits = []
     if f.get("shelf_status"):
         bits.append(str(f["shelf_status"]))
+    if f.get("concentration"):
+        bits.append(str(f["concentration"]))
     if f.get("size_ml"):
         bits.append(f"{f['size_ml']} ml")
-    if f.get("price"):
-        bits.append(f"${f['price']}")
     if bits:
         st.caption(" | ".join(bits))
 
@@ -4099,7 +4145,7 @@ def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
                 save_persisted_data()
                 st.rerun()
         with col3:
-            if st.button("Wear", key=f"{key_prefix}_wear_{f['name']}"):
+            if st.button("Log SOTD", key=f"{key_prefix}_wear_{f['name']}"):
                 send_to_sotd([f["name"]])
                 st.rerun()
     st.markdown("---")
@@ -7111,12 +7157,12 @@ with tab_layer:
             help="Only suggest partners that fit this weather band (versatile bottles still can appear).",
         )
 
-        include_unisex = True
+        include_unisex = False
         if layer_partner_gender in ("Male", "Female"):
             include_unisex = st.checkbox(
                 "Include Unisex in partners",
                 value=False,
-                key="layer_include_unisex_v2",
+                key="layer_include_unisex_v3",
                 help="Off by default. Turn on only if you want pure Unisex bottles with Female/Male.",
             )
 
@@ -8788,7 +8834,7 @@ with tab_horoscope:
                         st.rerun()
                 with b3:
                     if st.button("Wear", key=f"chart_wear_{f['name']}_{i}"):
-                        st.session_state["sotd_prefill"] = [f["name"]]
+                        log_sotd_immediate([f["name"]], notes="Stars pick")
                         st.rerun()
                 st.markdown("---")
 
