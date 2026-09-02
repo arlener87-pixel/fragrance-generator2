@@ -7323,6 +7323,130 @@ with tab_layer:
                                 st.rerun()
 
 
+    # --- Multi-bottle stacks (3+) ---
+    with st.expander("Multi-bottle stacks (3 bottles)", expanded=False):
+        st.caption(
+            "Suggest full layers with more than one partner - ordered heavy to light."
+        )
+        stack_base_opts = ["- select a bottle -"] + sorted(
+            f["name"]
+            for f in st.session_state.get("fragrances_db") or []
+            if f.get("name")
+        )
+        stack_base = st.selectbox(
+            "Base for multi-bottle stack",
+            stack_base_opts,
+            key="multi_stack_base",
+        )
+        ms1, ms2 = st.columns(2)
+        with ms1:
+            stack_gender = st.selectbox(
+                "Gender",
+                ["Any", "Female", "Male", "Unisex"],
+                key="multi_stack_gender",
+            )
+        with ms2:
+            stack_season = st.selectbox(
+                "Season",
+                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
+                key="multi_stack_season",
+            )
+        stack_unisex = False
+        if stack_gender in ("Male", "Female"):
+            stack_unisex = st.checkbox(
+                "Include Unisex",
+                value=False,
+                key="multi_stack_unisex",
+            )
+        n_stacks = st.slider("How many stacks to show", 2, 6, 3, key="multi_stack_count")
+        if stack_base != "- select a bottle -":
+            base_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
+            base_s = base_map.get(stack_base)
+            if base_s and st.button("Suggest multi-bottle layers", type="primary", key="multi_stack_go"):
+                stacks = suggest_multi_layers(
+                    base_s,
+                    size=3,
+                    num_stacks=int(n_stacks),
+                    gender=stack_gender,
+                    include_unisex=stack_unisex,
+                    season=stack_season,
+                )
+                st.session_state["last_multi_stacks"] = {
+                    "base": stack_base,
+                    "stacks": stacks,
+                    "gender": stack_gender,
+                    "season": stack_season,
+                }
+                st.rerun()
+            last_ms = st.session_state.get("last_multi_stacks")
+            if last_ms and last_ms.get("base") == stack_base:
+                stacks = last_ms.get("stacks") or []
+                if not stacks:
+                    st.info("No multi-bottle stacks found - try Any season/gender.")
+                else:
+                    st.markdown(
+                        f"**{len(stacks)} stacks for {stack_base}** "
+                        f"({last_ms.get('gender')} | {last_ms.get('season')})"
+                    )
+                    for si, st_item in enumerate(stacks, 1):
+                        names = st_item.get("names") or []
+                        st.markdown(
+                            f"**Stack {si}** (score {st_item.get('score', '?')}): "
+                            + " + ".join(names)
+                        )
+                        st.caption(st_item.get("reason") or "")
+                        st.caption("Spray order (heavy -> light): " + " -> ".join(names))
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            if st.button("Layer check", key=f"multi_check_{si}"):
+                                st.session_state["roulette_layer_pick"] = list(names)
+                                st.session_state["last_layer_check"] = evaluate_layer_recipe(
+                                    list(names)
+                                )
+                                st.session_state["_seed_roulette_recipe_name"] = True
+                                st.success("Loaded in Layer check below.")
+                                st.rerun()
+                        with c2:
+                            if st.button("Log SOTD", key=f"multi_sotd_{si}"):
+                                log_sotd_immediate(list(names), notes="Multi-layer stack")
+                                st.rerun()
+                        with c3:
+                            if st.button("Save recipe", key=f"multi_save_{si}"):
+                                ev = evaluate_layer_recipe(list(names))
+                                final_name = (
+                                    ev.get("suggested_name")
+                                    or " + ".join(names)
+                                )
+                                st.session_state.setdefault("layer_recipes", []).insert(
+                                    0,
+                                    {
+                                        "name": final_name,
+                                        "bottles": list(names),
+                                        "season_label": (ev.get("season") or {}).get(
+                                            "label", ""
+                                        ),
+                                        "season_detail": (ev.get("season") or {}).get(
+                                            "detail", ""
+                                        ),
+                                        "bands": list(
+                                            (ev.get("season") or {}).get("bands") or []
+                                        ),
+                                        "application": ev.get("application") or {},
+                                        "score": ev.get("score"),
+                                        "label": ev.get("label"),
+                                        "verdict": ev.get("verdict"),
+                                        "why": ev.get("why") or "",
+                                        "gender": recipe_gender_from_frags(
+                                            ev.get("frags") or []
+                                        )
+                                        or "Any",
+                                    },
+                                )
+                                mark_vault_dirty()
+                                save_persisted_data(force=False)
+                                st.success(f"Saved **{final_name}**")
+                                st.rerun()
+
     # --- Layer check (moved into Layer tab) ---
     st.markdown("---")
     st.subheader("Layer check")
