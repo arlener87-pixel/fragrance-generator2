@@ -1446,6 +1446,145 @@ def score_fragrance(
     return score
 
 
+
+def _recent_shown(bucket: str, limit: int = 24) -> set:
+    """Names recently shown in a UI bucket (play / recommend / layer)."""
+    key = f"_recent_shown_{bucket}"
+    lst = st.session_state.get(key) or []
+    return set(lst[:limit])
+
+
+def _remember_shown(bucket: str, names: list, limit: int = 40) -> None:
+    key = f"_recent_shown_{bucket}"
+    prev = list(st.session_state.get(key) or [])
+    for n in reversed(list(names or [])):
+        if not n:
+            continue
+        if n in prev:
+            prev.remove(n)
+        prev.insert(0, n)
+    st.session_state[key] = prev[:limit]
+
+
+def _diversify_scored(
+    scored: list,
+    top_n: int,
+    recent: set = None,
+    strength: float = 12.0,
+) -> list:
+    """Pick top_n from (score, frag) list with brand diversity and recent penalty."""
+    if not scored:
+        return []
+    recent = recent or set()
+    # scored items may be (score, f) or already just f - normalize
+    items = []
+    for row in scored:
+        if isinstance(row, tuple) and len(row) >= 2:
+            items.append((float(row[0]), row[1]))
+        else:
+            items.append((0.0, row))
+    picks = []
+    used_brands = set()
+    used_names = set()
+    pool = list(items)
+    while len(picks) < top_n and pool:
+        best_i = None
+        best_adj = None
+        for i, (s, f) in enumerate(pool):
+            name = f.get("name") or ""
+            brand = (f.get("brand") or "").strip().lower()
+            adj = s
+            if name in recent:
+                adj -= strength
+            if brand and brand in used_brands:
+                adj -= strength * 0.75
+            # light random jitter so ties and near-ties rotate
+            adj += random.random() * 4.0
+            if best_adj is None or adj > best_adj:
+                best_adj = adj
+                best_i = i
+        if best_i is None:
+            break
+        s, f = pool.pop(best_i)
+        name = f.get("name") or ""
+        if name in used_names:
+            continue
+        used_names.add(name)
+        brand = (f.get("brand") or "").strip().lower()
+        if brand:
+            used_brands.add(brand)
+        picks.append(f)
+    return picks
+
+
+def suggest_seasons_from_notes(notes: str, categories: list = None) -> list:
+    """Suggest season tags from notes + categories."""
+    text = (notes or "").lower()
+    cats = set(categories or [])
+    scores = {
+        "Spring": 0,
+        "Summer": 0,
+        "Fall": 0,
+        "Winter": 0,
+    }
+    # category signals
+    for c in cats:
+        cl = c.lower()
+        if cl in ("fresh", "citrus", "aquatic", "green", "fruity"):
+            scores["Spring"] += 2
+            scores["Summer"] += 3
+        if cl in ("floral", "powdery", "musky"):
+            scores["Spring"] += 2
+            scores["Summer"] += 1
+        if cl in ("gourmand", "sweet", "vanilla", "creamy", "spicy"):
+            scores["Fall"] += 2
+            scores["Winter"] += 2
+        if cl in ("oriental", "oud", "smoky", "leather", "woody", "amber"):
+            scores["Fall"] += 2
+            scores["Winter"] += 3
+    # note keywords
+    hot = ["citrus", "bergamot", "lemon", "grapefruit", "aquatic", "ozone", "coconut",
+           "pineapple", "mango", "mint", "green tea", "neroli"]
+    warm = ["rose", "jasmine", "peony", "pear", "apple", "peach", "freesia"]
+    cool = ["cinnamon", "apple", "pear", "cedar", "violet", "iris", "spice"]
+    cold = ["vanilla", "amber", "oud", "incense", "leather", "tobacco", "tonka",
+            "caramel", "chocolate", "coffee", "benzoin", "myrrh", "patchouli"]
+    for k in hot:
+        if k in text:
+            scores["Summer"] += 2
+            scores["Spring"] += 1
+    for k in warm:
+        if k in text:
+            scores["Spring"] += 2
+            scores["Summer"] += 1
+    for k in cool:
+        if k in text:
+            scores["Fall"] += 2
+    for k in cold:
+        if k in text:
+            scores["Winter"] += 2
+            scores["Fall"] += 1
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    if not ranked or ranked[0][1] <= 0:
+        return ["Versatile"]
+    top = ranked[0][1]
+    chosen = [s for s, v in ranked if v >= max(1, top - 1) and v > 0]
+    # map to common vault labels
+    if set(chosen) >= {"Summer", "Spring"} and len(chosen) == 2:
+        return ["Spring, Summer"]
+    if set(chosen) >= {"Fall", "Winter"} and len(chosen) == 2:
+        return ["Fall, Winter"]
+    if chosen == ["Summer"]:
+        return ["Summer"]
+    if chosen == ["Winter"]:
+        return ["Winter"]
+    if chosen == ["Spring"]:
+        return ["Spring"]
+    if chosen == ["Fall"]:
+        return ["Fall"]
+    return [", ".join(chosen[:2])]
+
+
 def get_top_fragrances(
     gender: str,
     weather: str,
@@ -1501,20 +1640,33 @@ def get_top_fragrances(
     if not scored:
         return []
 
-    if shuffle:
-        # Draw from a wider top pool so refresh feels different but still on-brief
-        pool_size = min(len(scored), max(top_n * 4, top_n + 8))
-        pool = scored[:pool_size]
-        # Weighted-ish: shuffle within pool, keep a bit of score bias via stable salt
-        random.shuffle(pool)
-        # re-sort lightly with random jitter so order changes
-        jittered = [
-            (s + random.random() * 6.0, f) for s, f in pool
-        ]
-        jittered.sort(key=lambda x: x[0], reverse=True)
-        return [f for _, f in jittered[:top_n]]
+    # Always pull from a wider pool + brand/recent diversity (not the same top 3)
+    recent = _recent_shown("recommend")
+    # Soft-exclude recent SOTD wears
+    try:
+        for entry in (st.session_state.get("sotd_history") or [])[:8]:
+            for n in entry.get("scents") or []:
+                recent.add(n)
+            if entry.get("scent") and not entry.get("scents"):
+                for part in str(entry["scent"]).split(" + "):
+                    recent.add(part.strip())
+    except Exception:
+        pass
 
-    return [f for score, f in scored[:top_n]]
+    pool_size = min(len(scored), max(top_n * 5, top_n + 12))
+    pool = scored[:pool_size]
+    if shuffle:
+        random.shuffle(pool)
+        pool = [(s + random.random() * 8.0, f) for s, f in pool]
+        pool.sort(key=lambda x: x[0], reverse=True)
+    else:
+        # Light jitter even on first Generate so ranking is not frozen
+        pool = [(s + random.random() * 3.5, f) for s, f in pool]
+        pool.sort(key=lambda x: x[0], reverse=True)
+
+    picks = _diversify_scored(pool, top_n, recent=recent, strength=14.0)
+    _remember_shown("recommend", [f.get("name") for f in picks])
+    return picks
 
 
 
@@ -3807,17 +3959,18 @@ def get_mood_picks(mood: str, top_n: int = 3, pool: list = None, salt: int = 0) 
         if s > 0:
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    ranked = [f for _, f in scored]
-    if not ranked:
+    if not scored:
         return []
-    # Keep a wider pool of good matches, then rotate by salt
-    window = ranked[: max(top_n * 4, 12)]
-    if len(window) <= top_n:
-        return window
-    start = (salt * top_n) % len(window)
-    picks = []
-    for i in range(top_n):
-        picks.append(window[(start + i) % len(window)])
+    recent = _recent_shown("play")
+    # Wider pool + salt rotation + recent/brand diversity
+    pool_size = min(len(scored), max(top_n * 6, 18))
+    pool = scored[:pool_size]
+    # Rotate window start by salt
+    if len(pool) > top_n:
+        start = (int(salt) * top_n + int(salt)) % len(pool)
+        pool = pool[start:] + pool[:start]
+    picks = _diversify_scored(pool, top_n, recent=recent, strength=16.0)
+    _remember_shown("play", [f.get("name") for f in picks])
     return picks
 
 
@@ -3974,7 +4127,24 @@ def suggest_partners_for(
         reason = f"{order} Families: {cats_b} + {cats_p}."
         candidates.append((s, f, reason))
     candidates.sort(key=lambda x: x[0], reverse=True)
-    return [(f, reason, s) for s, f, reason in candidates[:num]]
+    recent = _recent_shown("layer")
+    # Wider pool + brand diversity + jitter so partners rotate
+    pool_size = min(len(candidates), max(num * 4, num + 10))
+    pool = candidates[:pool_size]
+    pool = [(s + random.random() * 5.0, f, reason) for s, f, reason in pool]
+    pool.sort(key=lambda x: x[0], reverse=True)
+    scored_for_div = [(s, f) for s, f, reason in pool]
+    diversified = _diversify_scored(scored_for_div, num, recent=recent, strength=12.0)
+    name_to_reason = {f.get("name"): (f, reason, s) for s, f, reason in pool}
+    out = []
+    for f in diversified:
+        row = name_to_reason.get(f.get("name"))
+        if row:
+            out.append((row[0], row[1], row[2]))
+        else:
+            out.append((f, "", 0))
+    _remember_shown("layer", [f.get("name") for f, _, _ in out])
+    return out
 
 
 
@@ -3995,13 +4165,15 @@ def suggest_multi_layers(
         return []
     partners = suggest_partners_for(
         base,
-        num=max(24, num_stacks * 6),
+        num=max(28, num_stacks * 8),
         gender=gender,
         include_unisex=include_unisex,
         season=season,
     )
     if not partners:
         return []
+    # Shuffle partner order so stacks are not always the same combos
+    random.shuffle(partners)
 
     stacks = []
     used_sets = set()
@@ -6173,6 +6345,17 @@ with st.sidebar:
                 st.session_state["sidebar_sotd_pick"] = []
                 st.rerun()
 
+    with st.expander("Variety / reshuffle", expanded=False):
+        st.caption(
+            "If the same bottles keep showing, clear memory so Recommend, Layer, and Play pick fresh ones."
+        )
+        if st.button("Clear recent suggestion memory", key="clear_recent_shown"):
+            for k in list(st.session_state.keys()):
+                if str(k).startswith("_recent_shown_"):
+                    st.session_state.pop(k, None)
+            st.success("Suggestion memory cleared.")
+            st.rerun()
+
     _n_bot = len(st.session_state.get("fragrances_db") or [])
     _last = st.session_state.get("last_saved_at") or st.session_state.get("_autosaved_at") or "never"
     _exp = st.session_state.get("last_export_date") or "never"
@@ -6887,8 +7070,8 @@ with tab_discover:
             num_recs,
             favorites_only=favorites_only,
             temp_f=None,
-            shuffle=bool(regenerate_clicked),
-            exclude_names=prev_names if regenerate_clicked else None,
+            shuffle=True,
+            exclude_names=prev_names if regenerate_clicked else list(_recent_shown("recommend"))[:12],
             concentration=conc_filter,
         )
         if prefer_oils and selected and not oils_only:
@@ -10812,6 +10995,125 @@ with tab_vault:
 
 
     
+    with st.expander("Season helper", expanded=False):
+        st.caption(
+            "Suggest season tags from notes and categories. "
+            "Fix bottles that are missing or vague on season."
+        )
+        sh_mode = st.radio(
+            "Season tool",
+            ["Check one bottle", "Scan vault for weak seasons", "Apply suggestions"],
+            key="season_helper_mode",
+            horizontal=True,
+        )
+        if sh_mode == "Check one bottle":
+            names = sorted(
+                f.get("name") or ""
+                for f in (st.session_state.get("fragrances_db") or [])
+            )
+            bottle = st.selectbox(
+                "Bottle",
+                ["- select -"] + names,
+                key="season_check_bottle",
+            )
+            if bottle and bottle != "- select -":
+                frag = next(
+                    (
+                        f
+                        for f in st.session_state["fragrances_db"]
+                        if f.get("name") == bottle
+                    ),
+                    None,
+                )
+                if frag:
+                    st.write(
+                        "Current season: **"
+                        + (frag.get("season") or "none")
+                        + "**"
+                    )
+                    suggested = suggest_seasons_from_notes(
+                        frag.get("notes") or "",
+                        frag.get("category") or [],
+                    )
+                    st.write(
+                        "Suggested: **"
+                        + " | ".join(suggested)
+                        + "**"
+                    )
+                    if st.button("Apply suggested season", key="season_apply_one"):
+                        for i, f in enumerate(st.session_state["fragrances_db"]):
+                            if f.get("name") == bottle:
+                                st.session_state["fragrances_db"][i]["season"] = (
+                                    suggested[0] if suggested else f.get("season")
+                                )
+                                break
+                        log_vault_action("edited", bottle, "season-helper")
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success(
+                            "Updated **"
+                            + bottle
+                            + "** -> "
+                            + (suggested[0] if suggested else "")
+                        )
+                        st.rerun()
+        else:
+            # scan weak seasons
+            weak = []
+            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                s = (f.get("season") or "").strip()
+                low = s.lower()
+                if (
+                    not s
+                    or low in ("versatile", "any", "n/a", "na")
+                    or len(s) < 3
+                ):
+                    sug = suggest_seasons_from_notes(
+                        f.get("notes") or "",
+                        f.get("category") or [],
+                    )
+                    weak.append(
+                        {
+                            "idx": i,
+                            "name": f.get("name"),
+                            "brand": f.get("brand"),
+                            "current": s or "none",
+                            "suggested": sug[0] if sug else "Versatile",
+                        }
+                    )
+            st.write(
+                f"**{len(weak)}** bottle(s) with missing or vague season tags."
+            )
+            show_n = min(30, len(weak)) if weak else 0
+            for item in weak[:show_n]:
+                st.markdown(
+                    f"**{item['name']}** (*{item['brand']}*)  \n"
+                    f"Now: {item['current']} -> Suggested: **{item['suggested']}**"
+                )
+            if len(weak) > show_n:
+                st.caption(f"...and {len(weak) - show_n} more")
+            if sh_mode == "Apply suggestions" and weak:
+                if st.button(
+                    "Apply all suggested seasons",
+                    type="primary",
+                    key="season_apply_all",
+                ):
+                    fixed = 0
+                    for item in weak:
+                        i = item["idx"]
+                        st.session_state["fragrances_db"][i]["season"] = item[
+                            "suggested"
+                        ]
+                        fixed += 1
+                    if fixed:
+                        log_vault_action(
+                            "edited", f"{fixed} bottles", "season-helper-bulk"
+                        )
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success(f"Updated season on {fixed} bottle(s).")
+                        st.rerun()
+
     with st.expander("Brand stats", expanded=False):
         stats = brand_stats()
         st.caption(f"{len(stats)} brands in vault")
