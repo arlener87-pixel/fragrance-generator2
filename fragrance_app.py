@@ -7540,28 +7540,43 @@ with tab_layer:
                         else:
                             pf, reason = item[0], item[1]
                             score = None
-                        score_bit = f"  |  score {score}" if score is not None else ""
+                        # Simple match label instead of long float scores
+                        if score is not None:
+                            sc = int(round(float(score)))
+                            if sc >= 100:
+                                match_lbl = "Match: Excellent"
+                            elif sc >= 70:
+                                match_lbl = "Match: Strong"
+                            elif sc >= 40:
+                                match_lbl = "Match: Good"
+                            else:
+                                match_lbl = "Match: Okay"
+                        else:
+                            match_lbl = ""
                         _wb = fragrance_weight_score(base_f)
                         _wp = fragrance_weight_score(pf)
                         if _wb >= _wp + 8:
                             _role = (
-                                f"Spray order: **{base_choice}** first (heavier {_wb}), "
-                                f"then **{pf['name']}** (lighter {_wp})"
+                                f"Spray: **{base_choice}** first (base), "
+                                f"then **{pf['name']}** (top)"
                             )
                         elif _wp >= _wb + 8:
                             _role = (
-                                f"Spray order: **{pf['name']}** first (heavier {_wp}), "
-                                f"then **{base_choice}** (lighter {_wb})"
+                                f"Spray: **{pf['name']}** first (base), "
+                                f"then **{base_choice}** (top)"
                             )
                         else:
-                            _role = (
-                                f"Similar weight ({_wb} vs {_wp}) - fewer sprays, skin-test order"
-                            )
+                            _role = "Similar weight - light sprays, skin-test order"
+                        # Short family line only (skip duplicate order text in reason)
+                        cats_p = ", ".join((pf.get("category") or [])[:4])
+                        cats_b = ", ".join((base_f.get("category") or [])[:3])
+                        family_line = f"Families: {cats_b} + {cats_p}"
                         st.info(
                             f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
+                            f"{match_lbl}\n\n"
                             f"{_role}\n\n"
-                            f"{pf.get('gender', '')} | {', '.join(pf.get('category', []))}{score_bit}\n\n"
-                            f"*{reason}*"
+                            f"{pf.get('gender', '')} | {cats_p}\n\n"
+                            f"{family_line}"
                         )
                         b1, b2, b3 = st.columns(3)
                         with b1:
@@ -7674,8 +7689,23 @@ with tab_layer:
                     )
                     for si, st_item in enumerate(stacks, 1):
                         names = st_item.get("names") or []
+                        _sc = st_item.get("score")
+                        try:
+                            _sc_i = int(round(float(_sc)))
+                        except Exception:
+                            _sc_i = None
+                        if _sc_i is not None and _sc_i >= 100:
+                            _ml = "Excellent"
+                        elif _sc_i is not None and _sc_i >= 70:
+                            _ml = "Strong"
+                        elif _sc_i is not None and _sc_i >= 40:
+                            _ml = "Good"
+                        else:
+                            _ml = "Okay" if _sc_i is not None else ""
                         st.markdown(
-                            f"**Stack {si}** (score {st_item.get('score', '?')}): "
+                            f"**Stack {si}**"
+                            + (f" - {_ml}" if _ml else "")
+                            + ": "
                             + " + ".join(names)
                         )
                         st.caption(st_item.get("reason") or "")
@@ -7751,12 +7781,17 @@ with tab_layer:
         _order = _app_top.get("order_names") or [
             fr.get("name") for fr in (_ev_top.get("frags") or []) if fr.get("name")
         ]
+        _sc_raw = _ev_top.get("score")
+        try:
+            _sc_i = int(round(float(_sc_raw)))
+        except Exception:
+            _sc_i = None
         st.success(
             "**Last result: "
             + str(_ev_top.get("label") or "?")
-            + "** (score "
-            + str(_ev_top.get("score", ""))
-            + ")  |  "
+            + "**"
+            + (f" ({_sc_i}/100 style points)" if _sc_i is not None else "")
+            + "  |  "
             + (" -> ".join(_order) if _order else "see details below")
         )
         if _ev_top.get("why"):
