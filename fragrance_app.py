@@ -3977,6 +3977,107 @@ def suggest_partners_for(
     return [(f, reason, s) for s, f, reason in candidates[:num]]
 
 
+
+def suggest_multi_layers(
+    base: dict,
+    size: int = 3,
+    num_stacks: int = 4,
+    gender: str = "Any",
+    include_unisex: bool = False,
+    season: str = "Any",
+) -> list:
+    """Build multi-bottle layer stacks ranked by combined score.
+
+    Returns list of dicts: {names, score, reason}.
+    size=3 means three bottles total (base + 2 partners).
+    """
+    if not base or size < 2:
+        return []
+    partners = suggest_partners_for(
+        base,
+        num=max(24, num_stacks * 6),
+        gender=gender,
+        include_unisex=include_unisex,
+        season=season,
+    )
+    if not partners:
+        return []
+
+    stacks = []
+    used_sets = set()
+
+    if size == 2:
+        for item in partners[:num_stacks]:
+            pf = item[0]
+            s = item[2] if len(item) > 2 else 0
+            reason = item[1] if len(item) > 1 else ""
+            names = order_names_heavy_to_light([base["name"], pf["name"]])
+            key = tuple(names)
+            if key in used_sets:
+                continue
+            used_sets.add(key)
+            stacks.append({"names": names, "score": s, "reason": reason})
+        return stacks[:num_stacks]
+
+    for i, item1 in enumerate(partners):
+        p1 = item1[0]
+        r1 = item1[1] if len(item1) > 1 else ""
+        s1 = item1[2] if len(item1) > 2 else 0
+        for j, item2 in enumerate(partners):
+            if j <= i:
+                continue
+            p2 = item2[0]
+            s2 = item2[2] if len(item2) > 2 else 0
+            if p1["name"] == p2["name"]:
+                continue
+            cross = layer_score(p1, p2)
+            if cross <= -30:
+                continue
+            names = order_names_heavy_to_light(
+                [base["name"], p1["name"], p2["name"]]
+            )
+            key = tuple(names)
+            if key in used_sets:
+                continue
+            used_sets.add(key)
+            total = s1 + s2 + max(0, cross // 2)
+            ws = [
+                fragrance_weight_score(base),
+                fragrance_weight_score(p1),
+                fragrance_weight_score(p2),
+            ]
+            spread = max(ws) - min(ws)
+            if spread >= 20:
+                total += 8
+            elif spread < 8:
+                total -= 5
+            reason = (
+                "3-way stack. Spray heavy to light: "
+                + " -> ".join(names)
+                + "."
+            )
+            stacks.append({"names": names, "score": total, "reason": reason})
+            if len(stacks) >= num_stacks * 5:
+                break
+        if len(stacks) >= num_stacks * 5:
+            break
+
+    stacks.sort(key=lambda x: x["score"], reverse=True)
+    final = []
+    seen_partners = set()
+    for st in stacks:
+        others = [n for n in st["names"] if n != base.get("name")]
+        overlap = sum(1 for n in others if n in seen_partners)
+        if overlap >= 2 and len(final) >= 2:
+            continue
+        for n in others:
+            seen_partners.add(n)
+        final.append(st)
+        if len(final) >= num_stacks:
+            break
+    return final
+
+
 def suggest_his_match(her_frags: list, num: int = 4) -> list:
     """Male / male-leaning bottles that complement her selected scent(s)."""
     if not her_frags:
