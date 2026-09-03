@@ -3156,9 +3156,17 @@ def resolve_frag_by_name(name: str):
 
 
 def evaluate_layer_recipe(bottle_names: list) -> dict:
-    """Score a multi-bottle layer recipe and build a short verdict."""
-    selected_names = [n for n in list(bottle_names or []) if n]
-    # Resolve each selected name in the user's order first
+    """Score a multi-bottle layer. selected_names = what user picked; spray_order = wear order."""
+    selected_names = [str(n).strip() for n in list(bottle_names or []) if n and str(n).strip()]
+    # de-dupe preserving order
+    seen = set()
+    deduped = []
+    for n in selected_names:
+        if n not in seen:
+            seen.add(n)
+            deduped.append(n)
+    selected_names = deduped
+
     frags_selected = []
     missing = []
     for n in selected_names:
@@ -3167,63 +3175,84 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
             frags_selected.append(f)
         else:
             missing.append(n)
-    # Spray order = heavy -> light (copy, do not lose selection order)
+
     frags = order_frags_heavy_to_light(list(frags_selected)) if frags_selected else []
-    bottle_names = [f.get("name") for f in frags if f.get("name")]
-    season_info = season_for_layer_recipe(frags)
-    suggested_name = suggest_recipe_name_from_notes(bottle_names)
+    spray_order = [f.get("name") for f in frags if f.get("name")]
+    season_info = season_for_layer_recipe(frags) if frags else {}
+    suggested_name = (
+        suggest_recipe_name_from_notes(spray_order or selected_names)
+        if (spray_order or selected_names)
+        else ""
+    )
+
+    empty = {
+        "score": 0,
+        "score_raw": 0,
+        "selected_names": selected_names,
+        "spray_order": spray_order,
+        "verdict": "Need at least two bottles still in the vault.",
+        "label": "Incomplete",
+        "pairs": [],
+        "frags": frags,
+        "missing": missing,
+        "season": season_info or {},
+        "suggested_name": suggested_name,
+        "application": {},
+        "why": "Pick at least two bottles still in your vault.",
+        "checked_line": " + ".join(selected_names) if selected_names else "",
+    }
     if len(frags) < 2:
-        return {
-            "score": 0,
-            "verdict": "Need at least two bottles still in the vault.",
-            "label": "Incomplete",
-            "pairs": [],
-            "frags": frags,
-            "selected_names": selected_names,
-            "spray_order": [f.get("name") for f in frags if f.get("name")],
-            "missing": missing,
-            "season": season_info,
-            "suggested_name": suggested_name,
-            "application": {},
-            "why": "Pick at least two bottles to explain the combo.",
-        }
+        return empty
+
     pairs = []
     scores = []
     for i in range(len(frags)):
         for j in range(i + 1, len(frags)):
             s = layer_score(frags[i], frags[j])
             scores.append(s)
-            c1 = ", ".join(frags[i].get("category") or [])
-            c2 = ", ".join(frags[j].get("category") or [])
             pairs.append(
                 {
-                    "a": frags[i]["name"],
-                    "b": frags[j]["name"],
-                    "score": s,
-                    "cats": f"{c1} + {c2}",
+                    "a": frags[i].get("name"),
+                    "b": frags[j].get("name"),
+                    "score": int(round(s)),
+                    "cats": ", ".join((frags[i].get("category") or [])[:3])
+                    + " + "
+                    + ", ".join((frags[j].get("category") or [])[:3]),
                     "reasons": layer_note_reasons(frags[i], frags[j]),
                 }
             )
     avg = sum(scores) / max(1, len(scores))
-    if avg >= 25:
-        label, verdict = "Strong layer", "Categories support each other - worth wearing together."
-    elif avg >= 12:
-        label, verdict = "Good layer", "Solid pairing - a little contrast or overlap works."
-    elif avg >= 5:
-        label, verdict = "Mixed", "Wearable, but may compete. Try less sprays of the louder one."
-    else:
-        label, verdict = "Risky", "Families may clash. Test on skin before a full wear."
     if any(s <= -50 for s in scores):
-        label, verdict = "Avoid", "Includes a DEL bottle or a very weak pair."
+        label, verdict = "Risky", "One pair looks weak - test on skin first."
+    elif avg >= 40:
+        label, verdict = "Strong layer", "Categories support each other - worth wearing together."
+    elif avg >= 20:
+        label, verdict = "Good layer", "Solid pairing - a little contrast works."
+    elif avg >= 8:
+        label, verdict = "Mixed", "Wearable, but may compete - fewer sprays of the louder one."
+    else:
+        label, verdict = "Risky", "Families may clash - skin test before a full wear."
+
+    display_score = int(max(0, min(100, round(avg * 0.55))))
     guide = layer_application_guide(frags)
     why = explain_layer_combo(frags)
-    # Map raw avg (often 40-180) into a clearer 0-100 style score
-    display_score = int(max(0, min(100, round(avg * 0.55))))
+    # Brand tags for clarity
+    checked_bits = []
+    for n in selected_names:
+        f = resolve_frag_by_name(n)
+        if f:
+            checked_bits.append(
+                f"{f.get('name')} ({f.get('brand') or '?'})"
+            )
+        else:
+            checked_bits.append(n + " (not in vault)")
+
     return {
         "score": display_score,
         "score_raw": round(avg, 1),
         "selected_names": selected_names,
-        "spray_order": [f.get("name") for f in frags if f.get("name")],
+        "spray_order": spray_order,
+        "checked_line": " + ".join(checked_bits),
         "verdict": verdict,
         "label": label,
         "pairs": pairs,
@@ -3234,6 +3263,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         "application": guide,
         "why": why,
     }
+
 
 
 def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
@@ -7650,11 +7680,16 @@ with tab_layer:
                         b1, b2, b3 = st.columns(3)
                         with b1:
                             if st.button("Layer check", key=f"layer_base_check_{pi}"):
-                                _pair = [base_name, pf.get("name")]
+                                _pair = [
+                                    str(base_name).strip(),
+                                    str(pf.get("name") or "").strip(),
+                                ]
+                                _pair = [n for n in _pair if n]
                                 st.session_state["roulette_layer_pick"] = list(_pair)
                                 _ev = evaluate_layer_recipe(list(_pair))
-                                _ev["selected_names"] = list(_pair)
                                 st.session_state["last_layer_check"] = _ev
+                                st.session_state["_scroll_to_layer_result"] = True
+                                st.session_state["_open_layer_check"] = True
                                 st.session_state["_seed_roulette_recipe_name"] = True
                                 st.session_state["_open_layer_check"] = True
                                 st.rerun()
@@ -7862,32 +7897,31 @@ with tab_layer:
 
     # When results exist, show a summary at the TOP so you do not have to hunt for it
     _ev_top = st.session_state.get("last_layer_check")
-    if _ev_top:
-        _app_top = _ev_top.get("application") or {}
-        _selected = _ev_top.get("selected_names") or [
-            fr.get("name") for fr in (_ev_top.get("frags") or []) if fr.get("name")
-        ]
-        _spray = _ev_top.get("spray_order") or (_app_top.get("order_names") or _selected)
-        _sc_raw = _ev_top.get("score")
+    if _ev_top and (_ev_top.get("selected_names") or _ev_top.get("frags")):
+        _selected = _ev_top.get("selected_names") or []
+        _spray = _ev_top.get("spray_order") or []
+        _checked = _ev_top.get("checked_line") or (" + ".join(_selected))
+        _sc = _ev_top.get("score")
         try:
-            _sc_i = int(round(float(_sc_raw)))
+            _sc_i = int(round(float(_sc)))
         except Exception:
             _sc_i = None
         st.success(
-            "**Last result: "
-            + str(_ev_top.get("label") or "?")
+            "**"
+            + str(_ev_top.get("label") or "Layer result")
             + "**"
-            + (f" ({_sc_i}/100)" if _sc_i is not None else "")
+            + (f" Â· {_sc_i}/100" if _sc_i is not None else "")
             + "\n\n"
-            + "**Bottles checked:** "
-            + (" + ".join(_selected) if _selected else "?")
+            + "**You checked:** "
+            + _checked
             + "\n\n"
             + "**Spray order:** "
-            + (" -> ".join(_spray) if _spray else "see below")
+            + (" â ".join(_spray) if _spray else "â")
         )
         if _ev_top.get("why"):
-            st.caption(str(_ev_top.get("why"))[:280])
-        st.caption("Full guidance, pair notes, and Save recipe are below the picker.")
+            st.caption(str(_ev_top.get("why"))[:320])
+        st.caption("Full guidance and Save recipe are below the picker.")
+
         # Soft scroll toward results block on mobile/desktop when just checked
         if st.session_state.pop("_scroll_to_layer_result", False) or st.session_state.pop(
             "_open_layer_check", False
@@ -7985,11 +8019,14 @@ with tab_layer:
         label = ev.get("label") or "?"
         st.markdown("### " + str(label))
         st.write(ev.get("verdict") or "")
-        _sel = ev.get("selected_names") or [
-            fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")
-        ]
-        if _sel:
-            st.markdown("**Bottles checked:** " + " + ".join(_sel))
+        _line = ev.get("checked_line") or (
+            " + ".join(ev.get("selected_names") or [])
+        )
+        if _line:
+            st.markdown("**You checked:** " + _line)
+        _spray = ev.get("spray_order") or []
+        if _spray:
+            st.caption("Spray order: " + " â ".join(_spray))
         if ev.get("why"):
             st.info("**Why this layer:** " + str(ev.get("why")))
         try:
