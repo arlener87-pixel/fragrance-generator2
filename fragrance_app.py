@@ -7726,8 +7726,8 @@ with tab_layer:
                                     str(pf.get("name") or "").strip(),
                                 ]
                                 _pair = [n for n in _pair if n]
-                                st.session_state["_locked_layer_pair"] = list(_pair)
-                                st.session_state["roulette_layer_pick"] = list(_pair)
+                                # One-shot: applied before multiselect on next run only
+                                st.session_state["_pending_layer_pick"] = list(_pair)
                                 _ev = evaluate_layer_recipe(list(_pair))
                                 st.session_state["last_layer_check"] = _ev
                                 st.session_state["_scroll_to_layer_result"] = True
@@ -7876,8 +7876,7 @@ with tab_layer:
                         c1, c2, c3 = st.columns(3)
                         with c1:
                             if st.button("Layer check", key=f"multi_check_{si}"):
-                                st.session_state["_locked_layer_pair"] = list(names)
-                                st.session_state["roulette_layer_pick"] = list(names)
+                                st.session_state["_pending_layer_pick"] = list(names)
                                 st.session_state["last_layer_check"] = evaluate_layer_recipe(
                                     list(names)
                                 )
@@ -7938,6 +7937,7 @@ with tab_layer:
         st.session_state["roulette_layer_pick"] = []
         st.session_state.pop("last_layer_check", None)
         st.session_state.pop("_locked_layer_pair", None)
+        st.session_state.pop("_pending_layer_pick", None)
 
     # When results exist, show a summary at the TOP so you do not have to hunt for it
     _ev_top = st.session_state.get("last_layer_check")
@@ -8007,12 +8007,15 @@ with tab_layer:
         key="layer_check_season",
         help="Narrow which bottles appear in the picker. Your current picks always stay visible.",
     )
-    # Always keep any already-selected / locked bottles in the options list.
-    # Otherwise Streamlit drops them when the season filter does not include them
-    # and Layer check ends up with the wrong pair.
-    locked = list(st.session_state.get("_locked_layer_pair") or [])
+    # One-shot load from Base+partners (before building options + widget)
+    _pending = st.session_state.pop("_pending_layer_pick", None)
+    if _pending and isinstance(_pending, (list, tuple)) and len(_pending) >= 2:
+        st.session_state["roulette_layer_pick"] = [
+            str(n).strip() for n in _pending if n and str(n).strip()
+        ]
+
     current_pick = list(st.session_state.get("roulette_layer_pick") or [])
-    must_keep = set([n for n in (locked + current_pick) if n])
+    must_keep = set(n for n in current_pick if n)
 
     all_names_layer = []
     for f in st.session_state.get("fragrances_db") or []:
@@ -8029,32 +8032,18 @@ with tab_layer:
             except Exception:
                 pass
         all_names_layer.append(n)
-    # unique preserve sort but keep must_keep first
     all_names_layer = sorted(set(all_names_layer))
-    for n in must_keep:
+    for n in sorted(must_keep):
         if n not in all_names_layer:
             all_names_layer.insert(0, n)
-    st.caption(
-        f"{len(all_names_layer)} bottle(s) in picker"
-        + (f" (keeping {len(must_keep)} selected)" if must_keep else "")
-    )
-    # Apply locked pair before the widget is created
-    locked = list(st.session_state.get("_locked_layer_pair") or [])
-    if locked and len(locked) >= 2:
-        # Ensure options include locked names
-        for n in locked:
-            if n not in all_names_layer:
-                all_names_layer.insert(0, n)
-        st.session_state["roulette_layer_pick"] = list(locked)
 
+    st.caption(f"{len(all_names_layer)} bottle(s) in picker")
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
         key="roulette_layer_pick",
         placeholder="Choose 2+ fragrances...",
     )
-    # Locked pair from Base+partners is applied BEFORE the multiselect (below),
-    # never after - Streamlit forbids writing a widget key after it is created.
     lc1, lc2 = st.columns(2)
     with lc1:
         run_layer = st.button(
@@ -8064,21 +8053,16 @@ with tab_layer:
         if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
             st.session_state["_clear_roulette_layer_pick"] = True
             st.session_state.pop("_locked_layer_pair", None)
+            st.session_state.pop("_pending_layer_pick", None)
             st.rerun()
 
     if run_layer:
         if len(layer_pick) < 2:
             st.warning("Pick at least two bottles.")
         else:
-            # Prefer locked pair from Base+partners if still set
-            locked_now = list(st.session_state.get("_locked_layer_pair") or [])
-            if len(locked_now) >= 2:
-                picks_now = [str(n).strip() for n in locked_now if n]
-            else:
-                picks_now = [str(n).strip() for n in list(layer_pick) if n]
+            picks_now = [str(n).strip() for n in list(layer_pick) if n]
             result = evaluate_layer_recipe(picks_now)
             result["selected_names"] = picks_now
-            # Never assign roulette_layer_pick after the multiselect exists
             # Fresh random poetic name from notes each time you check
             result["suggested_name"] = suggest_recipe_name_from_notes(
                 picks_now, randomize=True
