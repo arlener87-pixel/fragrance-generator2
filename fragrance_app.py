@@ -3296,16 +3296,16 @@ def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
 
 # HTML entities only - keeps the .py file ASCII-safe; browsers still render emojis
 EMOJI = {
-    "bat": "&#129415;",
-    "pumpkin": "&#127875;",
-    "ghost": "&#128123;",
-    "candy": "&#127852;",
-    "moon": "&#127769;",
-    "skull": "&#128128;",
-    "sparkles": "&#10024;",
-    "fire": "&#128293;",
-    "heart": "&#128151;",
-    "alien": "&#128125;",
+    "bat": "",
+    "pumpkin": "",
+    "ghost": "",
+    "candy": "",
+    "moon": "",
+    "skull": "",
+    "sparkles": "",
+    "fire": "",
+    "heart": "",
+    "alien": "",
 }
 
 # Halloween mood -> emoji key
@@ -4189,26 +4189,23 @@ def suggest_partners_for(
         reason = f"{order} Families: {cats_b} + {cats_p}."
         candidates.append((s, f, reason))
     candidates.sort(key=lambda x: (-x[0], (x[1].get("name") or "").lower()))
-    # Stable ranking by score then name - no random jitter (avoids jumpy partner list)
-    # Brand diversity without reshuffling every rerun
+    # Stable ranking - no random reshuffle
     out = []
     used_brands = set()
     used_names = set()
-    # first pass: prefer unique brands
     for s, f, reason in candidates:
         name = f.get("name") or ""
         brand = (f.get("brand") or "").strip().lower()
         if name in used_names:
             continue
-        if brand and brand in used_brands and len(out) < num:
-            continue  # skip same-brand until we need fillers
+        if brand and brand in used_brands:
+            continue
         used_names.add(name)
         if brand:
             used_brands.add(brand)
         out.append((f, reason, s))
         if len(out) >= num:
             return out
-    # second pass: fill remaining slots
     for s, f, reason in candidates:
         name = f.get("name") or ""
         if name in used_names:
@@ -7146,8 +7143,8 @@ with st.sidebar:
     # (Add fragrance form / expander end above)
 
 # ---------- MAIN TABS ----------
-tab_discover, tab_layer, tab_roulette, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Roulette", "SOTD", "Collection", "Vault"]
+tab_discover, tab_layer, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -7517,8 +7514,6 @@ with tab_layer:
         st.session_state["layer_partner_gender"] = "Any"
         st.session_state["layer_partner_season"] = "Any"
         st.session_state["layer_base_select"] = "- select a bottle -"
-        st.session_state.pop("_partner_cache", None)
-        st.session_state.pop("_partner_cache_key", None)
         st.session_state["layer_gender"] = "Any"
         st.session_state["layer_season"] = "Any"
         st.session_state["layer_favs_only"] = False
@@ -7598,8 +7593,6 @@ with tab_layer:
             st.session_state["layer_base_select"] = matched or "- select a bottle -"
         if st.session_state.get("layer_base_select") not in base_options:
             st.session_state["layer_base_select"] = "- select a bottle -"
-        st.session_state.pop("_partner_cache", None)
-        st.session_state.pop("_partner_cache_key", None)
 
         base_choice = st.selectbox(
             f"Base fragrance ({vault_n} in vault)",
@@ -8547,149 +8540,6 @@ with tab_layer:
 
 
 # ===== ROULETTE =====
-with tab_roulette:
-    st.subheader("Fragrance Roulette")
-    st.write("Let chance pick from your vault - still respecting gender and season.")
-
-    r1, r2 = st.columns(2)
-    with r1:
-        roulette_gender = st.selectbox(
-            "Gender", ["Any", "Male", "Female", "Unisex"], key="roulette_gender"
-        )
-    with r2:
-        roulette_season = st.selectbox(
-            "Season / weather",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="roulette_season",
-        )
-    roulette_mode = st.selectbox(
-        "Mode",
-        [
-            "Standard (skip recent)",
-            "YAY only",
-            "Never worn",
-            "Opposite of yesterday",
-        ],
-        key="roulette_mode",
-    )
-
-    if st.button("Spin the roulette", type="primary", key="spin_roulette_btn"):
-        recent_worn = set()
-        for entry in st.session_state.get("sotd_history", [])[:5]:
-            if entry.get("scents"):
-                recent_worn.update(entry["scents"])
-            elif entry.get("scent"):
-                for part in entry["scent"].split(" + "):
-                    recent_worn.add(part.strip())
-
-        yesterday_cats = set()
-        hist = st.session_state.get("sotd_history") or []
-        if hist:
-            last = hist[0]
-            names = last.get("scents") or []
-            if not names and last.get("scent"):
-                names = [p.strip() for p in last["scent"].split(" + ")]
-            name_map = {f["name"]: f for f in st.session_state["fragrances_db"]}
-            for n in names:
-                fr = name_map.get(n)
-                if fr:
-                    yesterday_cats.update(fr.get("category", []))
-
-        wear_counts = get_wear_counts()
-        pool = []
-        for f in st.session_state["fragrances_db"]:
-            if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-                continue
-            if not (matches_gender(f, roulette_gender) and matches_weather(f, roulette_season)):
-                continue
-            mode = roulette_mode
-            if mode == "Standard (skip recent)" and f["name"] in recent_worn:
-                continue
-            if mode == "YAY only" and st.session_state["user_reactions"].get(f["name"]) != "fav":
-                continue
-            if mode == "Never worn" and wear_counts.get(f["name"], 0) > 0:
-                continue
-            if mode == "Opposite of yesterday":
-                if not yesterday_cats:
-                    pass  # no history - allow all
-                elif set(f.get("category", [])) & yesterday_cats:
-                    continue  # skip overlapping families
-            pool.append(f)
-
-        if not pool:
-            st.warning(
-                f"No bottles match gender **{roulette_gender}** and "
-                f"season **{roulette_season}**. Loosen filters or clear some dislikes."
-            )
-            st.session_state["last_roulette"] = None
-            st.session_state["last_roulette_meta"] = None
-        else:
-            chosen = random.choice(pool)
-            st.session_state["last_roulette"] = chosen
-            st.session_state["last_roulette_meta"] = {
-                "gender": roulette_gender,
-                "season": roulette_season,
-                "pool_size": len(pool),
-            }
-
-    if st.session_state.get("last_roulette"):
-        chosen = st.session_state["last_roulette"]
-        if not any(f["name"] == chosen.get("name") for f in st.session_state["fragrances_db"]):
-            st.session_state["last_roulette"] = None
-            chosen = None
-        if chosen:
-            current_reaction = st.session_state["user_reactions"].get(chosen["name"])
-            status_badge = (
-                " YAY"
-                if current_reaction == "fav"
-                else (" NAH" if current_reaction == "dislike" else "")
-            )
-            st.markdown(
-                """
-                <div class="bat-container">
-                    <span class="floating-bat bat1">&#129415;</span>
-                    <span class="floating-bat bat2">&#129415;</span>
-                    <span class="floating-bat bat3">&#129415;</span>
-                    <span class="floating-bat bat4">&#129415;</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.success("### The roulette has spoken...")
-            st.markdown(f"## **{chosen['name']}**{status_badge}")
-            st.markdown(f"### by *{chosen['brand']}*")
-            st.write(
-                f"**Gender:** {chosen['gender']}  |  **Season:** {chosen['season']}"
-            )
-            st.write(f"**Category:** {', '.join(chosen['category'])}")
-            st.caption(f"Notes: {chosen['notes']}")
-            meta = st.session_state.get("last_roulette_meta") or {}
-            if meta:
-                st.caption(
-                    f"Filters | {meta.get('gender', '-')} | {meta.get('season', '-')} | "
-                    f"pool {meta.get('pool_size', '?')}"
-                )
-            rc1, rc2, rc3 = st.columns(3)
-            with rc1:
-                if st.button("YAY", key=f"roulette_fav_{chosen['name']}"):
-                    st.session_state["user_reactions"][chosen["name"]] = "fav"
-                    save_persisted_data()
-                    st.rerun()
-            with rc2:
-                if st.button("DEL", key=f"roulette_dislike_{chosen['name']}"):
-                    st.session_state["user_reactions"][chosen["name"]] = "dislike"
-                    save_persisted_data()
-                    st.rerun()
-            with rc3:
-                if st.button(
-                    "Log to SOTD",
-                    key=f"roulette_sotd_{chosen['name']}",
-                    type="primary",
-                ):
-                    log_sotd_immediate([chosen["name"]], notes="Roulette")
-                    st.rerun()
-
-# ===== SOTD =====
 with tab_sotd:
     st.subheader("Scent of the Day")
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
