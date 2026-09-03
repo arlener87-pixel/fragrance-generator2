@@ -7300,7 +7300,8 @@ with tab_discover:
                         key=f"rec_studio_base_{i}",
                         use_container_width=True,
                     ):
-                        st.session_state["layer_base_select"] = f["name"]
+                        _lab = f"{f.get('name')} - {(f.get('brand') or '?').strip()}"
+                        st.session_state["layer_base_select"] = _lab
                         # Align partner filters with Recommend
                         _g = (meta.get("gender") if meta else None) or st.session_state.get(
                             "filter_gender", "Any"
@@ -7360,7 +7361,8 @@ with tab_discover:
                                     key=f"rec_studio_pair_{i}_{pi}",
                                     help="Set recommend as base; partner is listed in Studio",
                                 ):
-                                    st.session_state["layer_base_select"] = f["name"]
+                                    _lab = f"{f.get('name')} - {(f.get('brand') or '?').strip()}"
+                                    st.session_state["layer_base_select"] = _lab
                                     if _g and _g != "Any":
                                         st.session_state["layer_partner_gender"] = _g
                                     if _w and _w != "Any":
@@ -7462,14 +7464,38 @@ with tab_layer:
                 help="Off by default. Turn on only if you want pure Unisex bottles with Female/Male.",
             )
 
-        # Base list: FULL vault so every bottle is selectable
+        # Base list: unique "Name - Brand" labels so the right bottle is always selected
         vault_n = len(st.session_state.get("fragrances_db") or [])
-        all_layer_names = sorted(
-            f["name"]
-            for f in st.session_state["fragrances_db"]
-            if f.get("name")
-        )
-        base_options = ["- select a bottle -"] + all_layer_names
+        label_to_frag = {}
+        base_labels = []
+        for f in sorted(
+            st.session_state.get("fragrances_db") or [],
+            key=lambda x: (
+                (x.get("name") or "").lower(),
+                (x.get("brand") or "").lower(),
+            ),
+        ):
+            name = (f.get("name") or "").strip()
+            if not name:
+                continue
+            brand = (f.get("brand") or "").strip() or "?"
+            label = f"{name} - {brand}"
+            # avoid rare exact duplicate labels
+            if label in label_to_frag:
+                label = f"{name} - {brand} [{name[:8]}]"
+            label_to_frag[label] = f
+            base_labels.append(label)
+
+        base_options = ["- select a bottle -"] + base_labels
+        # Migrate old name-only session values to a matching label
+        cur = st.session_state.get("layer_base_select")
+        if cur and cur not in base_options:
+            # try match by name prefix
+            matched = next(
+                (lab for lab in base_labels if lab.startswith(str(cur) + " -")),
+                None,
+            )
+            st.session_state["layer_base_select"] = matched or "- select a bottle -"
         if st.session_state.get("layer_base_select") not in base_options:
             st.session_state["layer_base_select"] = "- select a bottle -"
 
@@ -7480,9 +7506,9 @@ with tab_layer:
         )
 
         if base_choice != "- select a bottle -":
-            name_to_frag = {f["name"]: f for f in st.session_state["fragrances_db"]}
-            base_f = name_to_frag.get(base_choice)
+            base_f = label_to_frag.get(base_choice)
             if base_f:
+                base_name = base_f.get("name") or base_choice
                 st.caption(
                     f"{base_f['brand']} | {base_f['gender']} | {base_f['season']} | "
                     f"{', '.join(base_f.get('category', []))}"
@@ -7542,7 +7568,7 @@ with tab_layer:
                         else ""
                     )
                     st.markdown(
-                        f"**Top {len(partners)} partners for {base_choice}** "
+                        f"**Top {len(partners)} partners for {base_name}** "
                         f"(gender: {layer_partner_gender}{uni_note}"
                         f" | season: {layer_partner_season})"
                     )
@@ -7569,13 +7595,13 @@ with tab_layer:
                         _wp = fragrance_weight_score(pf)
                         if _wb >= _wp + 8:
                             _role = (
-                                f"Spray: **{base_choice}** first (base), "
+                                f"Spray: **{base_name}** first (base), "
                                 f"then **{pf['name']}** (top)"
                             )
                         elif _wp >= _wb + 8:
                             _role = (
                                 f"Spray: **{pf['name']}** first (base), "
-                                f"then **{base_choice}** (top)"
+                                f"then **{base_name}** (top)"
                             )
                         else:
                             _role = "Similar weight - light sprays, skin-test order"
@@ -7594,20 +7620,20 @@ with tab_layer:
                         with b1:
                             if st.button("Layer check", key=f"layer_base_check_{pi}"):
                                 st.session_state["roulette_layer_pick"] = [
-                                    base_choice,
+                                    base_name,
                                     pf["name"],
                                 ]
                                 st.session_state["last_layer_check"] = evaluate_layer_recipe(
-                                    [base_choice, pf["name"]]
+                                    [base_name, pf["name"]]
                                 )
                                 st.session_state["_seed_roulette_recipe_name"] = True
                                 st.session_state["_open_layer_check"] = True
                                 st.rerun()
                         with b2:
                             if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
-                                names = order_names_heavy_to_light([base_choice, pf["name"]])
+                                names = order_names_heavy_to_light([base_name, pf["name"]])
                                 ev = evaluate_layer_recipe(names)
-                                final_name = (ev.get("suggested_name") or f"{base_choice} x {pf['name']}")
+                                final_name = (ev.get("suggested_name") or f"{base_name} x {pf['name']}")
                                 st.session_state.setdefault("layer_recipes", []).insert(
                                     0,
                                     {
@@ -7630,7 +7656,7 @@ with tab_layer:
                                 st.success(f"Saved recipe: {final_name}")
                         with b3:
                             if st.button("SOTD", key=f"layer_base_use_{pi}"):
-                                log_sotd_immediate([base_choice, pf["name"]], notes="Layer studio")
+                                log_sotd_immediate([base_name, pf["name"]], notes="Layer studio")
                                 st.rerun()
 
 
@@ -7639,11 +7665,29 @@ with tab_layer:
         st.caption(
             "Suggest full layers with more than one partner - ordered heavy to light."
         )
-        stack_base_opts = ["- select a bottle -"] + sorted(
-            f["name"]
-            for f in st.session_state.get("fragrances_db") or []
-            if f.get("name")
-        )
+        ms_label_to_frag = {}
+        ms_labels = []
+        for f in sorted(
+            st.session_state.get("fragrances_db") or [],
+            key=lambda x: ((x.get("name") or "").lower(), (x.get("brand") or "").lower()),
+        ):
+            nm = (f.get("name") or "").strip()
+            if not nm:
+                continue
+            br = (f.get("brand") or "").strip() or "?"
+            lab = f"{nm} - {br}"
+            if lab in ms_label_to_frag:
+                lab = f"{nm} - {br} [{nm[:8]}]"
+            ms_label_to_frag[lab] = f
+            ms_labels.append(lab)
+        stack_base_opts = ["- select a bottle -"] + ms_labels
+        cur_ms = st.session_state.get("multi_stack_base")
+        if cur_ms and cur_ms not in stack_base_opts:
+            matched = next(
+                (lab for lab in ms_labels if lab.startswith(str(cur_ms) + " -")),
+                None,
+            )
+            st.session_state["multi_stack_base"] = matched or "- select a bottle -"
         stack_base = st.selectbox(
             "Base for multi-bottle stack",
             stack_base_opts,
@@ -7671,8 +7715,8 @@ with tab_layer:
             )
         n_stacks = st.slider("How many stacks to show", 2, 6, 3, key="multi_stack_count")
         if stack_base != "- select a bottle -":
-            base_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
-            base_s = base_map.get(stack_base)
+            base_s = ms_label_to_frag.get(stack_base)
+            stack_base_name = (base_s.get("name") if base_s else None) or stack_base
             if base_s and st.button("Suggest multi-bottle layers", type="primary", key="multi_stack_go"):
                 stacks = suggest_multi_layers(
                     base_s,
@@ -7684,6 +7728,7 @@ with tab_layer:
                 )
                 st.session_state["last_multi_stacks"] = {
                     "base": stack_base,
+                    "base_name": stack_base_name,
                     "stacks": stacks,
                     "gender": stack_gender,
                     "season": stack_season,
@@ -7696,7 +7741,7 @@ with tab_layer:
                     st.info("No multi-bottle stacks found - try Any season/gender.")
                 else:
                     st.markdown(
-                        f"**{len(stacks)} stacks for {stack_base}** "
+                        f"**{len(stacks)} stacks for {last_ms.get('base_name') or stack_base}** "
                         f"({last_ms.get('gender')} | {last_ms.get('season')})"
                     )
                     for si, st_item in enumerate(stacks, 1):
