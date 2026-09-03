@@ -4184,28 +4184,39 @@ def suggest_partners_for(
                 f"Similar weight ({wb} vs {wp}) - use fewer sprays of the denser one; "
                 f"skin-test order."
             )
-        cats_b = ", ".join((base.get("category") or [])[:3]) or "â"
-        cats_p = ", ".join((f.get("category") or [])[:3]) or "â"
+        cats_b = ", ".join((base.get("category") or [])[:3]) or "Ã¢ÂÂ"
+        cats_p = ", ".join((f.get("category") or [])[:3]) or "Ã¢ÂÂ"
         reason = f"{order} Families: {cats_b} + {cats_p}."
         candidates.append((s, f, reason))
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    recent = _recent_shown("layer")
-    # Wider pool + brand diversity + jitter so partners rotate
-    pool_size = min(len(candidates), max(num * 4, num + 10))
-    pool = candidates[:pool_size]
-    pool = [(s + random.random() * 5.0, f, reason) for s, f, reason in pool]
-    pool.sort(key=lambda x: x[0], reverse=True)
-    scored_for_div = [(s, f) for s, f, reason in pool]
-    diversified = _diversify_scored(scored_for_div, num, recent=recent, strength=12.0)
-    name_to_reason = {f.get("name"): (f, reason, s) for s, f, reason in pool}
+    candidates.sort(key=lambda x: (-x[0], (x[1].get("name") or "").lower()))
+    # Stable ranking by score then name - no random jitter (avoids jumpy partner list)
+    # Brand diversity without reshuffling every rerun
     out = []
-    for f in diversified:
-        row = name_to_reason.get(f.get("name"))
-        if row:
-            out.append((row[0], row[1], row[2]))
-        else:
-            out.append((f, "", 0))
-    _remember_shown("layer", [f.get("name") for f, _, _ in out])
+    used_brands = set()
+    used_names = set()
+    # first pass: prefer unique brands
+    for s, f, reason in candidates:
+        name = f.get("name") or ""
+        brand = (f.get("brand") or "").strip().lower()
+        if name in used_names:
+            continue
+        if brand and brand in used_brands and len(out) < num:
+            continue  # skip same-brand until we need fillers
+        used_names.add(name)
+        if brand:
+            used_brands.add(brand)
+        out.append((f, reason, s))
+        if len(out) >= num:
+            return out
+    # second pass: fill remaining slots
+    for s, f, reason in candidates:
+        name = f.get("name") or ""
+        if name in used_names:
+            continue
+        used_names.add(name)
+        out.append((f, reason, s))
+        if len(out) >= num:
+            break
     return out
 
 
@@ -7506,6 +7517,8 @@ with tab_layer:
         st.session_state["layer_partner_gender"] = "Any"
         st.session_state["layer_partner_season"] = "Any"
         st.session_state["layer_base_select"] = "- select a bottle -"
+        st.session_state.pop("_partner_cache", None)
+        st.session_state.pop("_partner_cache_key", None)
         st.session_state["layer_gender"] = "Any"
         st.session_state["layer_season"] = "Any"
         st.session_state["layer_favs_only"] = False
@@ -7585,6 +7598,8 @@ with tab_layer:
             st.session_state["layer_base_select"] = matched or "- select a bottle -"
         if st.session_state.get("layer_base_select") not in base_options:
             st.session_state["layer_base_select"] = "- select a bottle -"
+        st.session_state.pop("_partner_cache", None)
+        st.session_state.pop("_partner_cache_key", None)
 
         base_choice = st.selectbox(
             f"Base fragrance ({vault_n} in vault)",
@@ -8091,7 +8106,7 @@ with tab_layer:
             st.markdown("**You checked:** " + _line)
         _spray = ev.get("spray_order") or []
         if _spray:
-            st.caption("Spray order: " + " â ".join(_spray))
+            st.caption("Spray order: " + " Ã¢ÂÂ ".join(_spray))
         if ev.get("why"):
             st.info("**Why this layer:** " + str(ev.get("why")))
         try:
