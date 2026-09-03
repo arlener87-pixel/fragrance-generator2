@@ -2363,7 +2363,7 @@ def suggest_recipe_name_from_notes(bottle_names: list, *, randomize: bool = True
         "accord", "bean", "beans", "wood", "woods", "note", "notes", "blend",
         "composition", "fragrance", "perfume", "edp", "edt", "extrait",
         "sweet", "creamy", "warm", "dark", "light", "rich", "soft", "fresh",
-        "opening", "drydown", "dry", "down", "middle", "hint", "hints", "touch",
+        "opening", "drydown", "dry", "down", "middle", "heart", "top", "base", "hint", "hints", "touch",
         "touches", "whiff", "trace", "traces", "like", "very", "slightly",
     }
 
@@ -2935,116 +2935,128 @@ def describe_layer_scent(frags: list) -> str:
 
 
 def explain_layer_combo(frags: list) -> str:
-    """Richer plain-language opinion on why this layer works (or struggles)."""
+    """Short why-this-works + what you will smell (2-4 sentences)."""
     if not frags or len(frags) < 2:
         return "Pick at least two bottles to explain the combo."
     names = [f.get("name") or "?" for f in frags]
+    ranked = sorted(frags, key=fragrance_weight_score, reverse=True)
+    heavy, light = ranked[0], ranked[-1]
+
     all_cats = []
     for f in frags:
         all_cats.extend(f.get("category") or [])
     cat_set = set(all_cats)
-    bits = []
 
-    ranked = sorted(frags, key=fragrance_weight_score, reverse=True)
-    heavy = ranked[0]
-    light = ranked[-1]
-    if heavy.get("name") != light.get("name"):
-        bits.append(
-            f"**{heavy.get('name')}** reads heavier (base), and **{light.get('name')}** "
-            f"reads lighter (top) - so the stack has a clear bottom and a bright edge."
-        )
-
+    # One line: why they match
     gourmand = cat_set & {"Gourmand", "Sweet", "Vanilla", "Creamy"}
     fresh = cat_set & {"Fresh", "Citrus", "Aquatic", "Green"}
     floral = cat_set & {"Floral", "Powdery"}
     dark = cat_set & {"Oriental", "Oud", "Smoky", "Leather", "Woody"}
     fruity = cat_set & {"Fruity"}
-    spicy = cat_set & {"Spicy", "Aromatic"}
 
     if gourmand and fresh:
-        bits.append(
-            "Sweet/gourmand warmth meets a fresh lift - the fresh side keeps the dessert "
-            "side from feeling too thick on skin."
-        )
+        why = "Sweet warmth meets a fresh lift so the dessert side stays wearable."
     elif gourmand and floral:
-        bits.append(
-            "Gourmand creaminess with floral lift - soft, skin-close, and a little pretty on top."
-        )
+        why = "Creamy gourmand with floral lift - soft and pretty on skin."
     elif gourmand and dark:
-        bits.append(
-            "Dessert notes over woods/oud/smoke - cozy base with a darker spine so it does not stay candy-only."
-        )
+        why = "Dessert notes over deeper woods or oriental - cozy with a darker spine."
     elif floral and dark:
-        bits.append(
-            "Florals over deeper woods or oriental notes - romantic on top, grounded underneath."
-        )
-    elif fruity and dark:
-        bits.append(
-            "Juicy fruit against darker woods or oriental - playful opening, serious dry-down."
-        )
+        why = "Florals over deeper notes - romantic on top, grounded underneath."
     elif fruity and gourmand:
-        bits.append(
-            "Fruit and gourmand stack like a dessert plate - easy, sweet, and crowd-friendly."
-        )
-    elif spicy and gourmand:
-        bits.append(
-            "Spice wakes up the sweet notes - warmer projection, more evening energy."
-        )
-    elif len(cat_set & {"Woody", "Oriental", "Oud", "Smoky"}) >= 2:
-        bits.append(
-            "Deep woody/oriental families together - rich and evening-leaning; keep sprays low."
-        )
+        why = "Fruit and gourmand stack like a dessert plate - easy and sweet."
+    elif fruity and fresh:
+        why = "Juicy and bright - light, daytime-friendly layer."
+    elif dark:
+        why = "Deeper families together - rich, evening-leaning trail."
     elif len(cat_set) >= 2:
-        bits.append(
-            "Shared or neighboring families ("
-            + ", ".join(sorted(cat_set)[:6])
-            + ") so the bottles speak a similar language on skin."
-        )
-
-    if len(frags) >= 2:
-        reasons = layer_note_reasons(frags[0], frags[1])
-        shared_line = next(
-            (r for r in (reasons or []) if str(r).lower().startswith("shared")),
-            None,
-        )
-        if shared_line:
-            bits.append(str(shared_line) + ".")
-        syn = [r for r in (reasons or []) if "synergy" in str(r).lower()]
-        if syn:
-            bits.append(str(syn[0]) + ".")
-
-    # NEW: what you smell after layering
-    scent_story = describe_layer_scent(frags)
-    if scent_story:
-        bits.append(scent_story)
-
-    if dark and not fresh:
-        bits.append(
-            "This reads more date-night / cool weather than office heat - great for evenings."
-        )
-    elif fresh and not dark:
-        bits.append(
-            "This leans daytime and warmer weather - lighter trail, easier in close spaces."
-        )
-    elif gourmand and not fresh:
-        bits.append(
-            "Expect a cozy, edible aura - perfect for home, movies, or cooler nights."
-        )
-
-    if len(frags) == 2:
-        bits.append(
-            f"Together: **{names[0]}** + **{names[1]}** - use the heavier one as the skin base, "
-            f"then the lighter one on pulse points so both show."
-        )
+        why = "Shared or neighboring families so the bottles blend instead of fighting."
     else:
-        bits.append(
-            "With three or more, keep the loudest bottle to 1-2 sprays so nothing drowns the rest."
+        why = "Notes and families sit close enough to wear as one trail."
+
+    # Shared notes (short)
+    shared = ""
+    if len(frags) >= 2:
+        try:
+            reasons = layer_note_reasons(frags[0], frags[1])
+            shared_line = next(
+                (r for r in (reasons or []) if str(r).lower().startswith("shared")),
+                None,
+            )
+            if shared_line:
+                # "Shared notes: a, b, c" -> keep short
+                shared = str(shared_line).replace("Shared notes:", "Shared:").strip()
+                if len(shared) > 80:
+                    shared = shared[:77] + "..."
+        except Exception:
+            pass
+
+    # What you smell - one short line
+    smell = describe_layer_scent_short(frags)
+
+    order = ""
+    if heavy.get("name") != light.get("name"):
+        order = (
+            f"Spray **{heavy.get('name')}** first (base), then **{light.get('name')}** (top)."
         )
 
-    bits.append(
-        "Worth a skin test before a full outing - heat and your chemistry will finish the story."
-    )
-    return " ".join(bits)
+    parts = [why]
+    if shared:
+        parts.append(shared + ".")
+    if smell:
+        parts.append(smell)
+    if order:
+        parts.append(order)
+    return " ".join(parts)
+
+
+def describe_layer_scent_short(frags: list) -> str:
+    """One short line: what the layer may smell like."""
+    if not frags:
+        return ""
+    blob = " ".join((f.get("notes") or "") for f in frags).lower()
+    cats = set()
+    for f in frags:
+        cats.update(f.get("category") or [])
+
+    opening = []
+    for k in ("citrus", "bergamot", "raspberry", "strawberry", "coconut", "pineapple", "pear", "peach"):
+        if k in blob:
+            opening.append(k)
+    heart = []
+    for k in ("rose", "jasmine", "vanilla", "cinnamon", "coffee", "cocoa"):
+        if k in blob:
+            heart.append(k)
+    base = []
+    for k in ("vanilla", "caramel", "amber", "musk", "oud", "tonka", "sandalwood", "cedar"):
+        if k in blob:
+            base.append(k)
+
+    # unique preserve order
+    def uniq(seq, n=3):
+        out, seen = [], set()
+        for x in seq:
+            if x not in seen:
+                seen.add(x)
+                out.append(x)
+            if len(out) >= n:
+                break
+        return out
+
+    opening, heart, base = uniq(opening), uniq(heart), uniq(base)
+    bits = []
+    if opening:
+        bits.append("opens " + "/".join(opening))
+    if heart:
+        bits.append("heart " + "/".join(heart))
+    if base:
+        bits.append("dries down " + "/".join(base))
+    if not bits:
+        if cats & {"Gourmand", "Sweet"}:
+            return "Smells: sweet, edible warmth on skin."
+        if cats & {"Fresh", "Citrus"}:
+            return "Smells: bright and clean on skin."
+        return "Smells: a blended trail of both bottles on skin."
+    return "Smells: " + ", ".join(bits) + "."
 
 
 
@@ -7894,10 +7906,16 @@ with tab_layer:
         st.write(ev.get("verdict") or "")
         if ev.get("why"):
             st.info("**Why this layer:** " + str(ev.get("why")))
+        try:
+            _sc = int(round(float(ev.get("score") or 0)))
+        except Exception:
+            _sc = ev.get("score")
         st.caption(
-            "Score: **" + str(ev.get("score", 0)) + "**  |  Suggested name (from notes): *"
+            "Match score: **"
+            + str(_sc)
+            + "**  |  Name: *"
             + str(ev.get("suggested_name") or "")
-            + "*  -  use **Reroll name from notes** for another"
+            + "* (Reroll name for another)"
         )
         season = ev.get("season") or {}
         if season.get("detail"):
