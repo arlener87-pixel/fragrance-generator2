@@ -5796,6 +5796,43 @@ def build_wishlist_pdf(items: list) -> bytes:
     return build_simple_pdf("ScentedDeadGirl Wishlist", lines)
 
 
+def build_recipes_pdf(recipes: list) -> bytes:
+    """PDF of saved layer recipes."""
+    lines = [
+        "Scented Dead Girl - Layer recipes",
+        "Exported " + str(pacific_today().isoformat()) + " (Pacific)",
+        "",
+    ]
+    if not recipes:
+        lines.append("No saved recipes.")
+    for i, r in enumerate(recipes, 1):
+        name = r.get("name") or ("Recipe " + str(i))
+        bottles = r.get("bottles") or []
+        lines.append(str(i) + ". " + str(name))
+        if bottles:
+            lines.append("   Bottles: " + " + ".join(str(b) for b in bottles))
+        g = r.get("gender")
+        if g and g != "Any":
+            lines.append("   Gender: " + str(g))
+        season = r.get("season_label") or r.get("season_detail") or ""
+        if season:
+            lines.append("   Season: " + str(season))
+        if r.get("label"):
+            lines.append("   Match: " + str(r.get("label")))
+        if r.get("score") is not None:
+            lines.append("   Score: " + str(r.get("score")))
+        why = (r.get("why") or "").strip()
+        if why:
+            lines.append("   Why: " + why[:220])
+        app = r.get("application") or {}
+        order = app.get("order_names") or bottles
+        if order:
+            lines.append("   Spray order: " + " -> ".join(str(x) for x in order))
+        lines.append("")
+    return build_simple_pdf("ScentedDeadGirl Layer Recipes", lines)
+
+
+
 def build_sotd_week_pdf(week_key: str = None) -> bytes:
     """PDF of SOTD entries for one ISO week (default: current Pacific week)."""
     today = pacific_today()
@@ -7670,13 +7707,17 @@ with tab_layer:
                         cats_p = ", ".join((pf.get("category") or [])[:4])
                         cats_b = ", ".join((base_f.get("category") or [])[:3])
                         family_line = f"Families: {cats_b} + {cats_p}"
-                        st.info(
-                            f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
-                            f"{match_lbl}\n\n"
-                            f"{_role}\n\n"
-                            f"{pf.get('gender', '')} | {pf.get('season', '?')} | {cats_p}\n\n"
-                            f"{family_line}"
+                        _card = (
+                            "**" + str(pi) + ". " + str(pf.get("name") or "")
+                            + "** (" + str(pf.get("brand") or "") + ")"
+                            + "\n\n" + str(match_lbl)
+                            + "\n\n" + str(_role)
+                            + "\n\n" + str(pf.get("gender") or "")
+                            + " | " + str(pf.get("season") or "?")
+                            + " | " + cats_p
+                            + "\n\n" + family_line
                         )
+                        st.markdown(_card)
                         b1, b2, b3 = st.columns(3)
                         with b1:
                             if st.button("Layer check", key=f"layer_base_check_{pi}"):
@@ -7906,17 +7947,16 @@ with tab_layer:
             _sc_i = int(round(float(_sc)))
         except Exception:
             _sc_i = None
-        st.success(
+        _head = (
             "**"
             + str(_ev_top.get("label") or "Layer result")
             + "**"
-            + (f" Â· {_sc_i}/100" if _sc_i is not None else "")
-            + "\n\n"
-            + "**You checked:** "
-            + _checked
-            + "\n\n"
-            + "**Spray order:** "
-            + (" â ".join(_spray) if _spray else "â")
+            + (f" - {_sc_i}/100" if _sc_i is not None else "")
+        )
+        st.success(_head)
+        st.markdown("**You checked:** " + _checked)
+        st.markdown(
+            "**Spray order:** " + (" -> ".join(_spray) if _spray else "-")
         )
         if _ev_top.get("why"):
             st.caption(str(_ev_top.get("why"))[:320])
@@ -8348,6 +8388,20 @@ with tab_layer:
                 if (r.get("gender") or "Any") in ("Any", recipe_gender_filter)
             ]
         st.caption(f"{len(recipes_view)} recipe(s) shown")
+        _all_recipes = st.session_state.get("layer_recipes") or []
+        if _all_recipes:
+            try:
+                _pdf_bytes = build_recipes_pdf(_all_recipes)
+                st.download_button(
+                    "Download recipes PDF",
+                    data=_pdf_bytes,
+                    file_name=f"sdg_layer_recipes_{pacific_today().isoformat()}.pdf",
+                    mime="application/pdf",
+                    key="download_recipes_pdf",
+                    use_container_width=True,
+                )
+            except Exception as _pdf_ex:
+                st.caption(f"PDF unavailable: {_pdf_ex}")
         for ri, recipe in enumerate(recipes_view):
             bottles = list(recipe.get("bottles") or [])
             st.markdown(f"**{recipe.get('name', 'Recipe')}**")
