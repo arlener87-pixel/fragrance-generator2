@@ -7726,6 +7726,7 @@ with tab_layer:
                                     str(pf.get("name") or "").strip(),
                                 ]
                                 _pair = [n for n in _pair if n]
+                                st.session_state["_locked_layer_pair"] = list(_pair)
                                 st.session_state["roulette_layer_pick"] = list(_pair)
                                 _ev = evaluate_layer_recipe(list(_pair))
                                 st.session_state["last_layer_check"] = _ev
@@ -7875,6 +7876,7 @@ with tab_layer:
                         c1, c2, c3 = st.columns(3)
                         with c1:
                             if st.button("Layer check", key=f"multi_check_{si}"):
+                                st.session_state["_locked_layer_pair"] = list(names)
                                 st.session_state["roulette_layer_pick"] = list(names)
                                 st.session_state["last_layer_check"] = evaluate_layer_recipe(
                                     list(names)
@@ -7935,6 +7937,7 @@ with tab_layer:
     if st.session_state.pop("_clear_roulette_layer_pick", False):
         st.session_state["roulette_layer_pick"] = []
         st.session_state.pop("last_layer_check", None)
+        st.session_state.pop("_locked_layer_pair", None)
 
     # When results exist, show a summary at the TOP so you do not have to hunt for it
     _ev_top = st.session_state.get("last_layer_check")
@@ -8002,12 +8005,22 @@ with tab_layer:
             "Cold / Winter",
         ],
         key="layer_check_season",
-        help="Narrow which bottles appear in the picker for this season.",
+        help="Narrow which bottles appear in the picker. Your current picks always stay visible.",
     )
+    # Always keep any already-selected / locked bottles in the options list.
+    # Otherwise Streamlit drops them when the season filter does not include them
+    # and Layer check ends up with the wrong pair.
+    locked = list(st.session_state.get("_locked_layer_pair") or [])
+    current_pick = list(st.session_state.get("roulette_layer_pick") or [])
+    must_keep = set([n for n in (locked + current_pick) if n])
+
     all_names_layer = []
     for f in st.session_state.get("fragrances_db") or []:
         n = f.get("name")
         if not n:
+            continue
+        if n in must_keep:
+            all_names_layer.append(n)
             continue
         if layer_check_season != "Any":
             try:
@@ -8016,14 +8029,28 @@ with tab_layer:
             except Exception:
                 pass
         all_names_layer.append(n)
-    all_names_layer = sorted(all_names_layer)
-    st.caption(f"{len(all_names_layer)} bottle(s) in picker for this season filter")
+    # unique preserve sort but keep must_keep first
+    all_names_layer = sorted(set(all_names_layer))
+    for n in must_keep:
+        if n not in all_names_layer:
+            all_names_layer.insert(0, n)
+    st.caption(
+        f"{len(all_names_layer)} bottle(s) in picker"
+        + (f" (keeping {len(must_keep)} selected)" if must_keep else "")
+    )
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
         key="roulette_layer_pick",
         placeholder="Choose 2+ fragrances...",
     )
+    # If a locked pair was set from Base+partners, force it into the picker value
+    if locked and len(locked) >= 2:
+        if list(layer_pick) != list(locked):
+            # Only re-apply if something stripped the selection
+            if set(locked).issubset(set(all_names_layer)):
+                st.session_state["roulette_layer_pick"] = list(locked)
+                layer_pick = list(locked)
     lc1, lc2 = st.columns(2)
     with lc1:
         run_layer = st.button(
@@ -8032,15 +8059,22 @@ with tab_layer:
     with lc2:
         if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
             st.session_state["_clear_roulette_layer_pick"] = True
+            st.session_state.pop("_locked_layer_pair", None)
             st.rerun()
 
     if run_layer:
         if len(layer_pick) < 2:
             st.warning("Pick at least two bottles.")
         else:
-            picks_now = [str(n).strip() for n in list(layer_pick) if n]
+            # Prefer locked pair from Base+partners if still set and valid
+            locked_now = list(st.session_state.get("_locked_layer_pair") or [])
+            if len(locked_now) >= 2:
+                picks_now = [str(n).strip() for n in locked_now if n]
+            else:
+                picks_now = [str(n).strip() for n in list(layer_pick) if n]
             result = evaluate_layer_recipe(picks_now)
             result["selected_names"] = picks_now
+            st.session_state["roulette_layer_pick"] = list(picks_now)
             # Fresh random poetic name from notes each time you check
             result["suggested_name"] = suggest_recipe_name_from_notes(
                 picks_now, randomize=True
