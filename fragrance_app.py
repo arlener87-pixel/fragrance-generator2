@@ -3066,35 +3066,24 @@ def recipe_gender_from_frags(frags: list) -> str:
         return "Any"
     counts = {"Female": 0, "Male": 0, "Unisex": 0}
     for f in frags:
-        g = (f.get("gender") or "").strip().lower()
-        if "female" in g or "women" in g or "feminine" in g:
-            if "lean" in g:
-                counts["Female"] += 1
-            else:
-                counts["Female"] += 2
-        elif "male" in g or "men" in g or "masculine" in g:
-            if "lean" in g:
-                counts["Male"] += 1
-            else:
-                counts["Male"] += 2
-        elif "unisex" in g or not g:
-            counts["Unisex"] += 1
+        g = normalize_gender(f.get("gender") or "")
+        if g in ("Female", "Female-leaning"):
+            counts["Female"] += 2 if g == "Female" else 1
+        elif g in ("Male", "Male-leaning"):
+            counts["Male"] += 2 if g == "Male" else 1
         else:
             counts["Unisex"] += 1
-    # Majority
-    top = max(counts.items(), key=lambda x: x[1])
-    if top[1] <= 0:
-        return "Any"
-    # If Female and Male both strong, call Unisex
-    if counts["Female"] > 0 and counts["Male"] > 0 and abs(counts["Female"] - counts["Male"]) <= 1:
+    # pure unisex bottles only
+    if counts["Female"] == 0 and counts["Male"] == 0:
+        return "Unisex" if counts["Unisex"] else "Any"
+    if counts["Female"] > counts["Male"] and counts["Female"] >= counts["Unisex"]:
+        return "Female"
+    if counts["Male"] > counts["Female"] and counts["Male"] >= counts["Unisex"]:
+        return "Male"
+    if counts["Female"] == counts["Male"] and counts["Female"] > 0:
         return "Unisex"
-    if top[0] == "Unisex" and (counts["Female"] or counts["Male"]):
-        # unisex bottles + one gendered -> that gender if clear
-        if counts["Female"] > counts["Male"]:
-            return "Female"
-        if counts["Male"] > counts["Female"]:
-            return "Male"
-    return top[0]
+    return "Unisex"
+
 
 
 def format_recipe_share_text(recipe: dict = None, ev: dict = None, bottles: list = None) -> str:
@@ -7146,8 +7135,8 @@ with st.sidebar:
     # (Add fragrance form / expander end above)
 
 # ---------- MAIN TABS ----------
-tab_discover, tab_layer, tab_roulette, tab_sotd, tab_horoscope, tab_play, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Roulette", "SOTD", "Stars", "Play", "Collection", "Vault"]
+tab_discover, tab_layer, tab_roulette, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Roulette", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -7730,6 +7719,12 @@ with tab_layer:
                                 st.session_state["_pending_layer_pick"] = list(_pair)
                                 _ev = evaluate_layer_recipe(list(_pair))
                                 st.session_state["last_layer_check"] = _ev
+                                # Seed recipe gender for this pair
+                                _ag = recipe_gender_from_frags(_ev.get("frags") or [])
+                                st.session_state["roulette_layer_recipe_gender"] = (
+                                    _ag if _ag in ("Any", "Female", "Male", "Unisex") else "Any"
+                                )
+                                st.session_state["_recipe_gender_fp"] = tuple(_pair)
                                 st.session_state["_scroll_to_layer_result"] = True
                                 st.session_state["_open_layer_check"] = True
                                 st.session_state["_seed_roulette_recipe_name"] = True
@@ -7753,7 +7748,9 @@ with tab_layer:
                                         "label": ev.get("label"),
                                         "verdict": ev.get("verdict"),
                                         "why": ev.get("why") or "",
-                                        "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
+                                        "gender": st.session_state.get("roulette_layer_recipe_gender")
+                                        or recipe_gender_from_frags(ev.get("frags") or [])
+                                        or "Any",
                                     },
                                 )
                                 mark_vault_dirty()
@@ -7938,6 +7935,7 @@ with tab_layer:
         st.session_state.pop("last_layer_check", None)
         st.session_state.pop("_locked_layer_pair", None)
         st.session_state.pop("_pending_layer_pick", None)
+        st.session_state.pop("_recipe_gender_fp", None)
 
     # When results exist, show a summary at the TOP so you do not have to hunt for it
     _ev_top = st.session_state.get("last_layer_check")
@@ -8054,6 +8052,7 @@ with tab_layer:
             st.session_state["_clear_roulette_layer_pick"] = True
             st.session_state.pop("_locked_layer_pair", None)
             st.session_state.pop("_pending_layer_pick", None)
+            st.session_state.pop("_recipe_gender_fp", None)
             st.rerun()
 
     if run_layer:
@@ -8063,11 +8062,15 @@ with tab_layer:
             picks_now = [str(n).strip() for n in list(layer_pick) if n]
             result = evaluate_layer_recipe(picks_now)
             result["selected_names"] = picks_now
-            # Fresh random poetic name from notes each time you check
             result["suggested_name"] = suggest_recipe_name_from_notes(
                 picks_now, randomize=True
             )
             st.session_state["last_layer_check"] = result
+            _ag = recipe_gender_from_frags(result.get("frags") or [])
+            st.session_state["roulette_layer_recipe_gender"] = (
+                _ag if _ag in ("Any", "Female", "Male", "Unisex") else "Any"
+            )
+            st.session_state["_recipe_gender_fp"] = tuple(picks_now)
             st.session_state["_seed_roulette_recipe_name"] = True
             st.session_state["_scroll_to_layer_result"] = True
             st.rerun()
@@ -8182,18 +8185,39 @@ with tab_layer:
             key="roulette_layer_recipe_name",
             placeholder=suggested or "e.g. Coconut vanilla night",
         )
-        # Auto gender from bottles; allow override
+        # Auto gender from bottles; seed selectbox when layer result is new
         _auto_g = recipe_gender_from_frags(ev.get("frags") or [])
+        _opts_g = ["Any", "Female", "Male", "Unisex"]
+        # Fingerprint this layer so we re-seed gender when the pair changes
+        _sel_fp = tuple(ev.get("selected_names") or [
+            fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")
+        ])
+        _prev_fp = st.session_state.get("_recipe_gender_fp")
+        if _sel_fp and _sel_fp != _prev_fp:
+            st.session_state["roulette_layer_recipe_gender"] = (
+                _auto_g if _auto_g in _opts_g else "Any"
+            )
+            st.session_state["_recipe_gender_fp"] = _sel_fp
+        elif st.session_state.get("roulette_layer_recipe_gender") not in _opts_g:
+            st.session_state["roulette_layer_recipe_gender"] = (
+                _auto_g if _auto_g in _opts_g else "Any"
+            )
         recipe_gender = st.selectbox(
             "Gender for this recipe (auto from bottles)",
-            ["Any", "Female", "Male", "Unisex"],
-            index=["Any", "Female", "Male", "Unisex"].index(_auto_g)
-            if _auto_g in ("Any", "Female", "Male", "Unisex")
-            else 0,
+            _opts_g,
             key="roulette_layer_recipe_gender",
-            help="Detected from the bottles' genders. Change if you want a different lean.",
+            help="Auto-fills from the bottles when you check a new pair. Change only if you want a different lean.",
         )
-        st.caption(f"Auto-detected from notes/bottles: **{_auto_g}**")
+        st.caption(
+            "Auto-detected: **"
+            + str(_auto_g)
+            + "**"
+            + (
+                " (using your override: **" + str(recipe_gender) + "**)"
+                if recipe_gender != _auto_g
+                else " - will save as this"
+            )
+        )
         if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
             st.session_state["_reroll_layer_name"] = True
             st.rerun()
@@ -9050,917 +9074,6 @@ with tab_sotd:
 
 
 # ===== STARS / HOROSCOPE =====
-with tab_horoscope:
-    st.subheader("Stars & scent")
-    st.caption("Your birth chart signs - saved with the vault.")
-
-    st.markdown("#### Your chart")
-    st.caption(
-        f"Default sanctuary chart - born {DEFAULT_CHART['birth_date']} "
-        f"{DEFAULT_CHART['birth_time']} - {DEFAULT_CHART['birth_place']}. "
-        "Adjust signs below anytime; Save chart stores them."
-    )
-
-    signs = list(SIGN_SCENT_PROFILE.keys())
-
-    # Must apply calculator / backup-restore results BEFORE chart selectboxes are created
-    pending_chart = st.session_state.pop("_pending_chart_restore", None)
-    if isinstance(pending_chart, dict):
-        if pending_chart.get("sun") and pending_chart["sun"] in signs:
-            st.session_state["chart_sun"] = pending_chart["sun"]
-        if pending_chart.get("moon") and pending_chart["moon"] in signs:
-            st.session_state["chart_moon"] = pending_chart["moon"]
-        if pending_chart.get("rising") and pending_chart["rising"] in signs:
-            st.session_state["chart_rising"] = pending_chart["rising"]
-        if pending_chart.get("venus") and pending_chart["venus"] in signs:
-            st.session_state["chart_venus"] = pending_chart["venus"]
-        if pending_chart.get("his_sun") and pending_chart["his_sun"] in signs:
-            st.session_state["chart_his_sun"] = pending_chart["his_sun"]
-        if pending_chart.get("his_moon") and pending_chart["his_moon"] in signs:
-            st.session_state["chart_his_moon"] = pending_chart["his_moon"]
-        if pending_chart.get("his_rising") and pending_chart["his_rising"] in signs:
-            st.session_state["chart_his_rising"] = pending_chart["his_rising"]
-        if pending_chart.get("his_venus") and pending_chart["his_venus"] in signs:
-            st.session_state["chart_his_venus"] = pending_chart["his_venus"]
-        if pending_chart.get("his_full"):
-            st.session_state["birth_calc_his_full"] = pending_chart["his_full"]
-
-    if st.session_state.pop("_apply_birth_chart", False):
-        calc = st.session_state.get("birth_calc_full") or {}
-        if calc.get("sun") and calc["sun"] in signs:
-            st.session_state["chart_sun"] = calc["sun"]
-        if calc.get("moon") and calc["moon"] in signs:
-            st.session_state["chart_moon"] = calc["moon"]
-        if calc.get("rising") and calc["rising"] in signs:
-            st.session_state["chart_rising"] = calc["rising"]
-        if calc.get("venus") and calc["venus"] in signs:
-            st.session_state["chart_venus"] = calc["venus"]
-        st.session_state["_chart_apply_flash"] = True
-
-    if st.session_state.pop("_apply_birth_chart_his", False):
-        calc = st.session_state.get("birth_calc_full") or {}
-        if calc.get("sun") and calc["sun"] in signs:
-            st.session_state["chart_his_sun"] = calc["sun"]
-        if calc.get("moon") and calc["moon"] in signs:
-            st.session_state["chart_his_moon"] = calc["moon"]
-        if calc.get("rising") and calc["rising"] in signs:
-            st.session_state["chart_his_rising"] = calc["rising"]
-        if calc.get("venus") and calc["venus"] in signs:
-            st.session_state["chart_his_venus"] = calc["venus"]
-        st.session_state["birth_calc_his_full"] = calc
-        st.session_state["_chart_apply_flash_his"] = True
-
-    # Seed session defaults once so selectboxes don't fight index= vs key=
-    if "chart_sun" not in st.session_state:
-        st.session_state["chart_sun"] = DEFAULT_CHART["sun"]
-    if "chart_moon" not in st.session_state:
-        st.session_state["chart_moon"] = DEFAULT_CHART["moon"]
-    if "chart_rising" not in st.session_state:
-        st.session_state["chart_rising"] = DEFAULT_CHART["rising"]
-    if "chart_venus" not in st.session_state:
-        st.session_state["chart_venus"] = DEFAULT_CHART.get("venus", DEFAULT_CHART["sun"])
-
-    hc1, hc2, hc3, hc4 = st.columns(4)
-    with hc1:
-        sun_s = st.selectbox("Sun", signs, key="chart_sun")
-    with hc2:
-        moon_s = st.selectbox("Moon", signs, key="chart_moon")
-    with hc3:
-        rise_s = st.selectbox("Rising", signs, key="chart_rising")
-    with hc4:
-        venus_s = st.selectbox("Venus", signs, key="chart_venus")
-
-    # Live chart vibe summary
-    sun_p = SIGN_SCENT_PROFILE.get(sun_s, {})
-    moon_p = SIGN_SCENT_PROFILE.get(moon_s, {})
-    rise_p = SIGN_SCENT_PROFILE.get(rise_s, {})
-    ven_p = SIGN_SCENT_PROFILE.get(venus_s, {})
-    st.caption(
-        f"Sun {sun_s} ({sun_p.get('element', '?')} - {sun_p.get('vibe', '')}) | "
-        f"Moon {moon_s} ({moon_p.get('element', '?')} - {moon_p.get('vibe', '')}) | "
-        f"Rising {rise_s} ({rise_p.get('element', '?')} - {rise_p.get('vibe', '')}) | "
-        f"Venus {venus_s} ({ven_p.get('vibe', '')})"
-    )
-
-    if st.session_state.pop("_chart_apply_flash", False):
-        st.success("Calculator signs applied to your chart. Save chart to keep them.")
-
-    if st.button("Save chart", key="chart_save_btn"):
-        save_persisted_data()
-        st.success("Chart saved.")
-        st.rerun()
-
-    with st.expander("Birth chart calculator", expanded=False):
-        st.caption(
-            "Enter birth date, time, and place for Sun, Moon, Rising, and Venus. "
-            "Uses a built-in tropical calculator (no extra install required)."
-        )
-        if st.session_state.pop("_clear_birth_calc", False):
-            for k, v in [
-                ("birth_calc_year", 1990),
-                ("birth_calc_month", 1),
-                ("birth_calc_day", 1),
-                ("birth_calc_hour12", 12),
-                ("birth_calc_minute", 0),
-                ("birth_calc_ampm", "PM"),
-                ("birth_calc_city", "Victorville"),
-                ("birth_calc_country", "United States"),
-                ("birth_calc_nation", "US"),
-            ]:
-                st.session_state[k] = v
-            st.session_state.pop("birth_calc_full", None)
-            st.session_state.pop("birth_geo", None)
-
-        r1, r2, r3 = st.columns(3)
-        with r1:
-            b_year = st.number_input("Year", 1920, 2030, 1990, key="birth_calc_year")
-        with r2:
-            b_month = st.number_input("Month", 1, 12, 1, key="birth_calc_month")
-        with r3:
-            b_day = st.number_input("Day", 1, 31, 1, key="birth_calc_day")
-        r4, r5, r6ampm = st.columns(3)
-        with r4:
-            b_hour12 = st.number_input("Hour", 1, 12, 12, key="birth_calc_hour12")
-        with r5:
-            b_minute = st.number_input("Minute", 0, 59, 0, key="birth_calc_minute")
-        with r6ampm:
-            b_ampm = st.selectbox("AM / PM", ["AM", "PM"], key="birth_calc_ampm")
-        r6, r7 = st.columns(2)
-        with r6:
-            b_city = st.text_input("Birth city", key="birth_calc_city", placeholder="Victorville")
-        with r7:
-            b_country = st.text_input(
-                "Country", key="birth_calc_country", placeholder="United States"
-            )
-        b_nation = st.text_input(
-            "Country code (for chart engine)",
-            key="birth_calc_nation",
-            placeholder="US",
-            help="Two-letter code when possible, e.g. US, GB, MX.",
-        )
-
-        bc1, bc2, bc3 = st.columns(3)
-        with bc1:
-            do_calc = st.button(
-                "Calculate chart", type="primary", key="birth_calc_btn", use_container_width=True
-            )
-        with bc2:
-            if st.button("Clear", key="birth_calc_clear", use_container_width=True):
-                st.session_state["_clear_birth_calc"] = True
-                st.rerun()
-        with bc3:
-            apply_target = st.radio(
-                "Apply calculated chart to",
-                ["Me (her)", "Him"],
-                horizontal=True,
-                key="birth_calc_apply_target",
-            )
-            apply_btn = st.button(
-                "Apply to chart", key="birth_calc_apply", use_container_width=True
-            )
-
-        if do_calc:
-            import calendar
-
-            max_d = calendar.monthrange(int(b_year), int(b_month))[1]
-            day_use = min(int(b_day), max_d)
-            geo = geocode_birth_place(b_city or "Victorville", b_country or "United States")
-            st.session_state["birth_geo"] = geo
-            lat = geo.get("lat") if geo.get("ok") else None
-            lon = geo.get("lon") if geo.get("ok") else None
-            tz = geo.get("tz_str") if geo.get("ok") else None
-            # Convert 12-hour + AM/PM to 24-hour for the engine
-            h12 = int(b_hour12) % 12
-            if b_ampm == "PM":
-                h24 = h12 + 12
-            else:
-                h24 = h12  # 12 AM -> 0
-            calc = calculate_full_chart(
-                int(b_year),
-                int(b_month),
-                day_use,
-                h24,
-                int(b_minute),
-                b_city or "Unknown",
-                (b_nation or "US").strip() or "US",
-                lat=lat,
-                lon=lon,
-                tz_str=tz,
-            )
-            if geo.get("ok"):
-                calc["place_label"] = geo.get("label") or calc.get("place_label")
-                calc["geo_detail"] = f"{geo.get('lat'):.3f}, {geo.get('lon'):.3f} | {geo.get('tz_str')}"
-            else:
-                calc["geo_detail"] = geo.get("detail", "Place lookup failed")
-            st.session_state["birth_calc_full"] = calc
-
-        calc = st.session_state.get("birth_calc_full")
-        if calc:
-            st.markdown(
-                f"**Place:** {calc.get('place_label', '?')}  \n"
-                f"**Engine:** {calc.get('engine', '?')}  \n"
-                f"{calc.get('geo_detail', '')}"
-            )
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric("Sun", calc.get("sun") or "-")
-            s2.metric("Moon", calc.get("moon") or "-")
-            s3.metric("Rising", calc.get("rising") or "-")
-            s4.metric("Venus", calc.get("venus") or "-")
-
-            planets = calc.get("planets") or {}
-            if planets:
-                st.markdown("**Planets & points**")
-                order = [
-                    "Sun", "Moon", "Mercury", "Venus", "Mars",
-                    "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto",
-                    "Lilith", "Ascendant", "MC",
-                ]
-                rows = []
-                for name in order:
-                    p = planets.get(name)
-                    if not p:
-                        continue
-                    rows.append(
-                        f"**{name}** {p.get('sign', '?')} "
-                        f"({p.get('deg_in_sign', '?')} deg)"
-                    )
-                # show in two columns of text
-                mid = (len(rows) + 1) // 2
-                c_a, c_b = st.columns(2)
-                with c_a:
-                    for line in rows[:mid]:
-                        st.markdown(line)
-                with c_b:
-                    for line in rows[mid:]:
-                        st.markdown(line)
-
-            houses = calc.get("houses") or {}
-            if houses:
-                st.markdown("**12 houses (equal system)**")
-                st.caption("House 1 cusp = Rising. Each house is 30 degrees.")
-                hcols = st.columns(4)
-                for n in range(1, 13):
-                    h = houses.get(n) or houses.get(str(n)) or {}
-                    with hcols[(n - 1) % 4]:
-                        st.markdown(
-                            f"**H{n}** {h.get('sign', '-')}"
-                        )
-
-            if calc.get("detail"):
-                st.caption(calc["detail"])
-            st.caption(
-                "Fragrance picks still use Sun, Moon, Rising, and Venus. "
-                "Full chart is for reference and Save/Apply of those four."
-            )
-
-        if apply_btn:
-            if st.session_state.get("birth_calc_full"):
-                target = st.session_state.get("birth_calc_apply_target") or "Me (her)"
-                if target.startswith("Him"):
-                    st.session_state["_apply_birth_chart_his"] = True
-                else:
-                    st.session_state["_apply_birth_chart"] = True
-                st.rerun()
-            else:
-                st.warning("Calculate a chart first.")
-
-
-    st.markdown("#### His chart")
-    st.caption("Your husband's signs - for compatibility layers and shared picks. Save chart stores both.")
-    if "chart_his_sun" not in st.session_state:
-        st.session_state["chart_his_sun"] = signs[0]
-    if "chart_his_moon" not in st.session_state:
-        st.session_state["chart_his_moon"] = signs[0]
-    if "chart_his_rising" not in st.session_state:
-        st.session_state["chart_his_rising"] = signs[0]
-    if "chart_his_venus" not in st.session_state:
-        st.session_state["chart_his_venus"] = signs[0]
-
-    hh1, hh2, hh3, hh4 = st.columns(4)
-    with hh1:
-        his_sun = st.selectbox("His Sun", signs, key="chart_his_sun")
-    with hh2:
-        his_moon = st.selectbox("His Moon", signs, key="chart_his_moon")
-    with hh3:
-        his_rise = st.selectbox("His Rising", signs, key="chart_his_rising")
-    with hh4:
-        his_venus = st.selectbox("His Venus", signs, key="chart_his_venus")
-
-    if st.session_state.pop("_chart_apply_flash_his", False):
-        st.success("Calculator signs applied to his chart. Save chart to keep them.")
-
-    his_sun_p = SIGN_SCENT_PROFILE.get(his_sun, {})
-    st.caption(
-        f"His Sun {his_sun} ({his_sun_p.get('element', '?')} - {his_sun_p.get('vibe', '')}) | "
-        f"Moon {his_moon} | Rising {his_rise} | Venus {his_venus}"
-    )
-
-    st.markdown("#### Compatibility (you + him)")
-    her_c = {"sun": sun_s, "moon": moon_s, "rising": rise_s, "venus": venus_s}
-    him_c = {"sun": his_sun, "moon": his_moon, "rising": his_rise, "venus": his_venus}
-    st.write(compatibility_blurb(her_c, him_c))
-    st.caption("Shared layer / date-night ideas from both charts:")
-    for i, f in enumerate(compatibility_bottles(her_c, him_c, top_n=4), 1):
-        st.markdown(
-            f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
-            + ", ".join((f.get("category") or [])[:3])
-        )
-
-    st.markdown("#### Chart tools")
-    tool = st.radio(
-        "Tool",
-        ["Sign matches", "Element wardrobe", "Moon phase", "Placement of the day"],
-        horizontal=True,
-        key="chart_tool_mode",
-    )
-    if tool == "Sign matches":
-        which = st.selectbox(
-            "Whose placement",
-            [
-                f"My Sun ({sun_s})",
-                f"My Moon ({moon_s})",
-                f"My Rising ({rise_s})",
-                f"My Venus ({venus_s})",
-                f"His Sun ({his_sun})",
-                f"His Moon ({his_moon})",
-                f"His Venus ({his_venus})",
-            ],
-            key="chart_tool_sign_which",
-        )
-        sign = which.split("(")[-1].rstrip(")")
-        st.caption((SIGN_SCENT_PROFILE.get(sign) or {}).get("vibe", ""))
-        for i, f in enumerate(bottles_for_sign(sign, top_n=5), 1):
-            st.markdown(
-                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
-                + ", ".join((f.get("category") or [])[:3])
-            )
-    elif tool == "Element wardrobe":
-        els = chart_elements(sun_s, moon_s, rise_s, venus_s)
-        st.caption("Your chart element mix: " + (", ".join(f"{k} x{v}" for k, v in els.items()) or "set signs"))
-        pick_el = st.selectbox(
-            "Element",
-            ["Fire", "Earth", "Air", "Water"],
-            key="chart_tool_element",
-        )
-        for i, f in enumerate(bottles_for_element(pick_el, top_n=5), 1):
-            st.markdown(
-                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
-                + ", ".join((f.get("category") or [])[:3])
-            )
-    elif tool == "Moon phase":
-        phase = moon_phase_name()
-        prof = moon_phase_scent_profile(phase)
-        st.write(f"**{phase}** - {prof.get('blurb')}")
-        for i, f in enumerate(bottles_for_moon_phase(phase, top_n=5), 1):
-            st.markdown(
-                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
-                + ", ".join((f.get("category") or [])[:3])
-            )
-    else:
-        # Placement of the day - use day ruler planet mapped loosely to chart point
-        import datetime as _dt
-        day_name = pacific_today().strftime("%A")
-        day_prof = DAY_RULER.get(day_name, {})
-        planet = day_prof.get("planet", "Moon")
-        focus_map = {
-            "Moon": ("My Moon", moon_s),
-            "Venus": ("My Venus", venus_s),
-            "Mars": ("My Sun", sun_s),
-            "Mercury": ("My Rising", rise_s),
-            "Sun": ("My Sun", sun_s),
-            "Jupiter": ("My Sun", sun_s),
-            "Saturn": ("My Rising", rise_s),
-        }
-        label, focus_sign = focus_map.get(planet, ("My Moon", moon_s))
-        st.write(
-            f"**{day_name}** ruled by **{planet}** - leaning on {label} (**{focus_sign}**). "
-            f"{day_prof.get('vibe', '')}"
-        )
-        for i, f in enumerate(bottles_for_sign(focus_sign, top_n=5), 1):
-            st.markdown(
-                f"**{i}. {f.get('name')}** - *{f.get('brand')}* | "
-                + ", ".join((f.get("category") or [])[:3])
-            )
-
-    st.markdown("#### Chart scent picks")
-    st.caption(
-        "Female / Unisex bottles ranked for your Sun, Moon, Rising, and Venus. "
-        "Uses today's planetary day quietly in the background (no weekday picker)."
-    )
-    chart_n = st.radio("How many", [3, 5, 8], index=1, horizontal=True, key="chart_n_picks")
-    if st.button("Draw chart scents", type="primary", key="chart_draw_btn"):
-        save_persisted_data()
-        today_name = pacific_today().strftime("%A")
-        picks = get_day_fragrances(
-            today_name, sun_s, moon_s, rise_s, top_n=chart_n, venus=venus_s
-        )
-        st.session_state["last_chart_picks"] = {
-            "picks": picks,
-            "sun": sun_s,
-            "moon": moon_s,
-            "rising": rise_s,
-            "venus": venus_s,
-            "day": today_name,
-        }
-        st.rerun()
-
-    last_cp = st.session_state.get("last_chart_picks")
-    if last_cp is not None:
-        st.caption(
-            f"Sun {last_cp.get('sun')} | Moon {last_cp.get('moon')} | "
-            f"Rising {last_cp.get('rising')} | Venus {last_cp.get('venus')} | "
-            f"{last_cp.get('day', '')}"
-        )
-        picks = last_cp.get("picks") or []
-        if not picks:
-            st.warning("No matching Female / Unisex bottles for this chart right now.")
-        else:
-            for i, f in enumerate(picks, 1):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Notes: {f['notes']}")
-                b1, b2, b3, _ = st.columns([1, 1, 1, 3])
-                with b1:
-                    if st.button("YAY", key=f"chart_fav_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "fav"
-                        save_persisted_data()
-                        st.rerun()
-                with b2:
-                    if st.button("DEL", key=f"chart_dislike_{f['name']}_{i}"):
-                        st.session_state["user_reactions"][f["name"]] = "dislike"
-                        save_persisted_data()
-                        st.rerun()
-                with b3:
-                    if st.button("Wear", key=f"chart_wear_{f['name']}_{i}"):
-                        log_sotd_immediate([f["name"]], notes="Stars pick")
-                        st.rerun()
-                st.markdown("---")
-
-
-# ===== PLAY =====
-with tab_play:
-    st.subheader("Play")
-    st.caption("Three games only - Mood, Blind bottle, Family roulette.")
-
-    # Reset invalid play_mode from older builds
-    _allowed_play = ["Mood board", "Blind bottle", "Family roulette", "Halloween", "Tarot"]
-    if st.session_state.get("play_mode") not in _allowed_play:
-        st.session_state["play_mode"] = "Mood board"
-
-    play_mode = st.radio(
-        "Game",
-        _allowed_play,
-        horizontal=True,
-        key="play_mode",
-    )
-
-    # Shared gender + season filters for all Play games
-    if st.session_state.pop("_clear_play_filters", False):
-        st.session_state["play_gender"] = "Any"
-        st.session_state["play_season"] = "Any"
-    pf1, pf2, pf3 = st.columns([2, 2, 1])
-    with pf1:
-        play_gender = st.selectbox(
-            "Gender",
-            ["Any", "Male", "Female", "Unisex"],
-            key="play_gender",
-        )
-    with pf2:
-        play_season = st.selectbox(
-            "Season / weather",
-            ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-            key="play_season",
-        )
-    with pf3:
-        st.write("")
-        st.write("")
-        if st.button("Clear", key="play_filter_clear"):
-            st.session_state["_clear_play_filters"] = True
-            st.rerun()
-
-    play_pool = filter_play_pool(play_gender, play_season)
-    st.caption(f"Play pool: **{len(play_pool)}** bottle(s) after filters")
-
-    name_map = {f["name"]: f for f in play_pool}
-    # Guess list can still show full vault so hard-mode blind is fair? use filtered
-    all_names = sorted(name_map.keys())
-
-    MOOD_VISUAL = {
-        "Cozy": ("#3d2a1a", "Warm amber glow"),
-        "Seductive": ("#2a1520", "Deep rose & shadow"),
-        "Fresh": ("#152530", "Cool air & light"),
-        "Power": ("#1a2030", "Steel & spice"),
-        "Soft": ("#222030", "Powder & quiet"),
-        "Gourmand": ("#2a2218", "Sugar & cocoa"),
-    }
-
-    FAMILY_COLOR = {
-        "Gourmand": "#4a3020",
-        "Sweet": "#4a2840",
-        "Floral": "#3a2040",
-        "Woody": "#2a3018",
-        "Oriental": "#302018",
-        "Fresh": "#183040",
-        "Fruity": "#402030",
-        "Spicy": "#402018",
-        "Citrus": "#303818",
-        "Aromatic": "#203028",
-        "Leather": "#281818",
-        "Oud": "#201810",
-        "Boozy": "#302010",
-        "Smoky": "#181818",
-        "Powdery": "#282838",
-    }
-
-    if play_mode == "Mood board":
-        st.markdown(
-            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#12101a,#0b101a);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Mood board</div>'
-            '<div style="color:#8a9bb8;font-size:0.85rem;">Pick a feeling - three bottles that match the vibe.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        mood = st.selectbox("Mood", list(MOOD_PROFILES.keys()), key="play_mood")
-        bg, vibe = MOOD_VISUAL.get(mood, ("#101826", MOOD_PROFILES[mood].get("vibe", "")))
-        st.markdown(
-            f'<div style="border-radius:8px;padding:0.65rem 0.9rem;margin:0.35rem 0 0.75rem 0;'
-            f'background:{bg};border:1px solid #2a3a58;">'
-            f'<strong style="color:#c8d2e4;">{mood}</strong> '
-            f'<span style="color:#8a9bb8;">- {vibe}</span><br>'
-            f'<span style="color:#a0b4d0;font-size:0.85rem;">Lean: {", ".join(MOOD_PROFILES[mood]["categories"])}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        # salt lets you redraw different options for the same mood
-        if "mood_salt" not in st.session_state:
-            st.session_state["mood_salt"] = 0
-        md1, md2 = st.columns(2)
-        with md1:
-            draw_clicked = st.button("Draw mood scents", type="primary", key="mood_draw", use_container_width=True)
-        with md2:
-            redraw_clicked = st.button("Redraw options", key="mood_redraw", use_container_width=True)
-        if draw_clicked or redraw_clicked:
-            if redraw_clicked:
-                st.session_state["mood_salt"] = int(st.session_state.get("mood_salt", 0)) + 1
-            elif draw_clicked:
-                # fresh draw starts at current salt (or 0 if mood changed)
-                if st.session_state.get("last_mood", {}).get("mood") != mood:
-                    st.session_state["mood_salt"] = 0
-            salt = int(st.session_state.get("mood_salt", 0))
-            picks = get_mood_picks(mood, top_n=3, pool=play_pool, salt=salt)
-            st.session_state["last_mood"] = {"mood": mood, "picks": picks, "salt": salt}
-            st.session_state["play_stats"]["moods_drawn"] = (
-                st.session_state["play_stats"].get("moods_drawn", 0) + 1
-            )
-            save_persisted_data()
-            st.rerun()
-        last_mood = st.session_state.get("last_mood")
-        if last_mood:
-            st.caption(f"Drawn for: {last_mood.get('mood')}")
-            cols = st.columns(min(3, max(1, len(last_mood.get("picks") or []))))
-            for i, f in enumerate(last_mood.get("picks") or []):
-                badge = " YAY" if st.session_state["user_reactions"].get(f["name"]) == "fav" else ""
-                with cols[i % len(cols)]:
-                    st.markdown(
-                        f'<div style="border:1px solid #1e2a42;border-radius:8px;padding:0.7rem;'
-                        f'background:#0b101a;min-height:120px;">'
-                        f'<div style="color:#7eb0ff;font-weight:600;">#{i+1} {f["name"]}{badge}</div>'
-                        f'<div style="color:#8a9bb8;font-size:0.8rem;">{f["brand"]}</div>'
-                        f'<div style="color:#c8d2e4;font-size:0.82rem;margin-top:0.35rem;">'
-                        f'{", ".join(f.get("category", []))}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                    if st.button("Log to SOTD", key=f"mood_wear_{i}"):
-                        log_sotd_immediate([f["name"]], notes="Play mood")
-                        st.rerun()
-
-
-    elif play_mode == "Halloween":
-        st.markdown(
-            '<div style="border:1px solid #3a2040;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#120810,#1a0e18);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">'
-            + emoji_html("pumpkin", "ghost", "bat")
-            + " Halloween "
-            + emoji_html("bat", "ghost", "pumpkin")
-            + "</div>"
-            '<div style="color:#a890b8;font-size:0.85rem;">'
-            "Seasonal vibes from your vault - filter with Gender + Season above, then draw.</div>"
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        hall_mode = st.selectbox(
-            "Halloween mood",
-            list(HALLOWEEN_PROFILES.keys()),
-            key="play_halloween_mode",
-        )
-        hp = HALLOWEEN_PROFILES[hall_mode]
-        mood_emoji = emoji_html(HALLOWEEN_EMOJI.get(hall_mode, "ghost"))
-        st.markdown(
-            mood_emoji + " **" + hall_mode + "** - " + (hp.get("blurb") or ""),
-            unsafe_allow_html=True,
-        )
-        st.caption("Lean: " + ", ".join(hp.get("categories") or []))
-        if "halloween_salt" not in st.session_state:
-            st.session_state["halloween_salt"] = 0
-        h1, h2 = st.columns(2)
-        with h1:
-            h_draw = st.button(
-                "Draw Halloween scents",
-                type="primary",
-                key="halloween_draw",
-                use_container_width=True,
-            )
-        with h2:
-            h_redraw = st.button(
-                "Redraw",
-                key="halloween_redraw",
-                use_container_width=True,
-            )
-        if h_draw or h_redraw:
-            if h_redraw:
-                st.session_state["halloween_salt"] = int(
-                    st.session_state.get("halloween_salt", 0)
-                ) + 1
-            elif h_draw and st.session_state.get("last_halloween", {}).get("mode") != hall_mode:
-                st.session_state["halloween_salt"] = 0
-            salt = int(st.session_state.get("halloween_salt", 0))
-            picks = get_halloween_picks(
-                hall_mode,
-                top_n=5,
-                gender=play_gender,
-                season_band=play_season,
-                salt=salt,
-            )
-            st.session_state["last_halloween"] = {
-                "mode": hall_mode,
-                "picks": picks,
-                "gender": play_gender,
-                "season": play_season,
-            }
-            st.rerun()
-        last_h = st.session_state.get("last_halloween")
-        if last_h:
-            _he = emoji_html(HALLOWEEN_EMOJI.get(last_h.get("mode") or "", "pumpkin"))
-            st.markdown(
-                _he
-                + " Drawn for: **"
-                + str(last_h.get("mode"))
-                + "** | "
-                + str(last_h.get("gender"))
-                + " | "
-                + str(last_h.get("season")),
-                unsafe_allow_html=True,
-            )
-            picks = last_h.get("picks") or []
-            if not picks:
-                st.info("No matches in your vault for that filter combo - try Any gender/season.")
-            for i, f in enumerate(picks):
-                badge = (
-                    " YAY"
-                    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav"
-                    else ""
-                )
-                st.markdown(
-                    f"**{i+1}. {f.get('name')}**{badge} - *{f.get('brand')}* | "
-                    + ", ".join((f.get("category") or [])[:4])
-                )
-                if st.button("Log to SOTD", key=f"hall_wear_{i}_{f.get('name','')}"):
-                    log_sotd_immediate([f.get("name")], notes="Halloween play")
-                    st.rerun()
-
-
-    elif play_mode == "Tarot":
-        st.markdown(
-            '<div style="border:1px solid #3a2040;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#100818,#1a1020);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#c9a0ff;font-size:1.05rem;">'
-            + emoji_html("alien", "sparkles")
-            + " Tarot draw "
-            + emoji_html("sparkles", "alien")
-            + "</div>"
-            '<div style="color:#a890b8;font-size:0.85rem;">One card. One mood. Three bottles from your vault.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        if "tarot_salt" not in st.session_state:
-            st.session_state["tarot_salt"] = 0
-        t1, t2 = st.columns(2)
-        with t1:
-            t_draw = st.button("Draw a card", type="primary", key="tarot_draw", use_container_width=True)
-        with t2:
-            t_redraw = st.button("Redraw card", key="tarot_redraw", use_container_width=True)
-        if t_draw or t_redraw:
-            if t_redraw:
-                st.session_state["tarot_salt"] = int(st.session_state.get("tarot_salt", 0)) + 1
-            card = draw_tarot_card(salt=int(st.session_state.get("tarot_salt", 0)))
-            mood_name = card.get("mood") or "Soft"
-            # map Lazy / stay home if present
-            if mood_name not in MOOD_PROFILES and mood_name == "Lazy / stay home":
-                pass
-            picks = []
-            if mood_name in MOOD_PROFILES:
-                picks = get_mood_picks(
-                    mood_name,
-                    top_n=3,
-                    pool=play_pool,
-                    salt=int(st.session_state.get("tarot_salt", 0)),
-                )
-            st.session_state["last_tarot"] = {"card": card, "picks": picks}
-            st.rerun()
-        last_t = st.session_state.get("last_tarot")
-        if last_t:
-            card = last_t.get("card") or {}
-            st.markdown(
-                emoji_html("alien", "sparkles")
-                + " <strong style='font-size:1.25rem;color:#c9a0ff;'>"
-                + str(card.get("name", "Card"))
-                + "</strong> "
-                + emoji_html("sparkles"),
-                unsafe_allow_html=True,
-            )
-            st.caption(card.get("blurb") or "")
-            st.write(f"Mood lean: **{card.get('mood')}**")
-            for i, f in enumerate(last_t.get("picks") or []):
-                st.markdown(
-                    f"**{i+1}. {f.get('name')}** - *{f.get('brand')}* | "
-                    + ", ".join((f.get("category") or [])[:3])
-                )
-                if st.button("Log to SOTD", key=f"tarot_wear_{i}"):
-                    log_sotd_immediate([f.get("name")], notes="Tarot play")
-                    st.rerun()
-
-    elif play_mode == "Blind bottle":
-        st.markdown(
-            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#0e1018,#12101c);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Blind bottle</div>'
-            '<div style="color:#8a9bb8;font-size:0.85rem;">Mystery card - notes only. Guess, then reveal.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        blind_diff = st.selectbox(
-            "Difficulty",
-            [
-                "Normal (full notes)",
-                "Hard (top notes only)",
-                "Expert (base notes only)",
-                "Scrambled keywords",
-            ],
-            key="blind_diff",
-        )
-        if st.button("Draw a mystery bottle", type="primary", key="blind_draw"):
-            pool = list(play_pool)
-            if pool:
-                chosen = random.choice(pool)
-                st.session_state["blind_bottle"] = chosen
-                st.session_state["blind_revealed"] = False
-                st.session_state["play_stats"]["blind_played"] = (
-                    st.session_state["play_stats"].get("blind_played", 0) + 1
-                )
-                save_persisted_data()
-        mystery = st.session_state.get("blind_bottle")
-        if mystery and not st.session_state.get("blind_revealed"):
-            notes_full = mystery.get("notes", "")
-            diff = st.session_state.get("blind_diff", "Normal (full notes)")
-            if "Hard" in diff:
-                if "Heart" in notes_full:
-                    shown = (
-                        notes_full.split("Heart")[0]
-                        .replace("Top -", "")
-                        .replace("Top:", "")
-                        .strip(" /")
-                    )
-                else:
-                    shown = notes_full[: max(20, len(notes_full) // 3)]
-                shown = f"Top-ish: {shown}"
-            elif "Expert" in diff:
-                if "Base" in notes_full:
-                    shown = notes_full.split("Base")[-1].strip(" -:")
-                else:
-                    shown = notes_full[-max(20, len(notes_full) // 3) :]
-                shown = f"Base-ish: {shown}"
-            elif "Scrambled" in diff:
-                tokens = re.findall(r"[A-Za-z]{3,}", notes_full)
-                random.shuffle(tokens)
-                shown = ", ".join(tokens[:12])
-            else:
-                shown = notes_full
-            st.markdown(
-                f'<div style="border:1px dashed #3a5a8a;border-radius:12px;padding:1rem;'
-                f'background:#080c14;text-align:center;margin:0.5rem 0;">'
-                f'<div style="font-size:2rem;letter-spacing:0.2em;color:#4a7ac8;">?</div>'
-                f'<div style="color:#c8d2e4;margin-top:0.5rem;"><strong>Clue</strong></div>'
-                f'<div style="color:#a0b4d0;font-size:0.9rem;margin-top:0.35rem;">{shown}</div>'
-                f'<div style="color:#8a9bb8;font-size:0.8rem;margin-top:0.5rem;">'
-                f'{mystery.get("season", "")} | {", ".join(mystery.get("category") or [])}'
-                f'</div></div>',
-                unsafe_allow_html=True,
-            )
-            guess = st.selectbox(
-                "Your guess",
-                ["- pick -"] + all_names,
-                key="blind_guess_select",
-            )
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Check guess", key="blind_check"):
-                    if guess == mystery["name"]:
-                        st.session_state["play_stats"]["blind_correct"] = (
-                            st.session_state["play_stats"].get("blind_correct", 0) + 1
-                        )
-                        save_persisted_data()
-                        st.session_state["blind_revealed"] = True
-                        st.success("Correct.")
-                    elif guess != "- pick -":
-                        st.warning("Not that one.")
-            with c2:
-                if st.button("Reveal", key="blind_reveal"):
-                    st.session_state["blind_revealed"] = True
-                    st.rerun()
-        if mystery and st.session_state.get("blind_revealed"):
-            st.markdown(
-                f'<div style="border:1px solid #3a5a8a;border-radius:12px;padding:1rem;'
-                f'background:#0c1420;margin:0.5rem 0;">'
-                f'<div style="color:#7eb0ff;font-size:1.1rem;font-weight:600;">{mystery["name"]}</div>'
-                f'<div style="color:#8a9bb8;">{mystery.get("brand", "")}</div>'
-                f'<div style="color:#c8d2e4;font-size:0.88rem;margin-top:0.4rem;">{mystery.get("notes", "")}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button("Log to SOTD", key="blind_wear"):
-                log_sotd_immediate([mystery["name"]], notes="Blind bottle")
-                st.rerun()
-
-    elif play_mode == "Family roulette":
-        st.markdown(
-            '<div style="border:1px solid #1e2a42;border-radius:10px;padding:0.75rem 1rem;'
-            'background:linear-gradient(135deg,#141018,#0b101a);margin-bottom:0.5rem;">'
-            '<div style="font-family:Cinzel,Georgia,serif;color:#7eb0ff;font-size:1.05rem;">Family roulette</div>'
-            '<div style="color:#8a9bb8;font-size:0.85rem;">Spin a category - three bottles land on the board.</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        families = sorted(
-            {
-                c
-                for f in play_pool
-                for c in (f.get("category") or [])
-            }
-        )
-        if st.button("Spin family", type="primary", key="fam_spin"):
-            if families:
-                fam = random.choice(families)
-                pool = [
-                    f
-                    for f in play_pool
-                    if fam in (f.get("category") or [])
-                ]
-                random.shuffle(pool)
-                st.session_state["last_family_spin"] = {
-                    "family": fam,
-                    "picks": pool[:3],
-                }
-            else:
-                st.warning("No families in the filtered play pool.")
-        last_fs = st.session_state.get("last_family_spin")
-        if last_fs:
-            fam = last_fs.get("family") or "?"
-            color = FAMILY_COLOR.get(fam, "#1a2030")
-            st.markdown(
-                f'<div style="text-align:center;margin:0.6rem 0;">'
-                f'<div style="display:inline-block;padding:0.55rem 1.25rem;border-radius:999px;'
-                f'background:{color};border:1px solid #3a5a8a;color:#e8f0ff;'
-                f'font-family:Cinzel,Georgia,serif;font-size:1.05rem;">{fam}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            picks = last_fs.get("picks") or []
-            if not picks:
-                st.warning("No bottles in that family right now.")
-            else:
-                cols = st.columns(min(3, len(picks)))
-                for i, f in enumerate(picks):
-                    with cols[i]:
-                        st.markdown(
-                            f'<div style="border:1px solid #1e2a42;border-radius:8px;padding:0.7rem;'
-                            f'background:#0b101a;min-height:110px;">'
-                            f'<div style="color:#7eb0ff;font-weight:600;">{f["name"]}</div>'
-                            f'<div style="color:#8a9bb8;font-size:0.8rem;">{f.get("brand", "")}</div>'
-                            f'<div style="color:#a0b4d0;font-size:0.78rem;margin-top:0.3rem;">'
-                            f'{", ".join(f.get("category") or [])}</div>'
-                            f'</div>',
-                            unsafe_allow_html=True,
-                        )
-                        if st.button("Log to SOTD", key=f"fam_wear_{i}"):
-                            log_sotd_immediate([f["name"]], notes="Family play")
-                            st.rerun()
-
-# ===== COLLECTION =====
 with tab_collection:
     st.subheader("Collection browser")
 
@@ -10000,13 +9113,6 @@ with tab_collection:
     g2.metric("Unisex", unisex_count)
     g3.metric("Men / M-leaning", male_count)
 
-    val = collection_value_summary(st.session_state["fragrances_db"])
-    if val["priced"] or val["sized"] or val["by_shelf"]:
-        v1, v2, v3 = st.columns(3)
-        v1.metric("Logged ml", f"{val['total_ml']:.0f}" if val["sized"] else "-")
-        v2.metric("Logged value", f"${val['total_price']:.0f}" if val["priced"] else "-")
-        shelf_bits = ", ".join(f"{k}: {n}" for k, n in sorted(val["by_shelf"].items()))
-        v3.caption(f"Shelf: {shelf_bits}" if shelf_bits else "")
 
 
     badges = compute_badges()
@@ -11366,14 +10472,7 @@ with tab_vault:
                         st.success(f"Updated season on {fixed} bottle(s).")
                         st.rerun()
 
-    with st.expander("Brand stats", expanded=False):
-        stats = brand_stats()
-        st.caption(f"{len(stats)} brands in vault")
-        for brand, n in stats[:25]:
-            st.write(f"**{brand}** - {n} bottle(s)")
-        if len(stats) > 25:
-            st.caption(f"...and {len(stats)-25} more brands")
-
+    
     with st.expander("Batch edit", expanded=False):
         st.caption("Apply gender, season, or a category to several bottles at once.")
         all_names = sorted(
