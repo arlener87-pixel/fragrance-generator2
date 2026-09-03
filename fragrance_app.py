@@ -8038,19 +8038,23 @@ with tab_layer:
         f"{len(all_names_layer)} bottle(s) in picker"
         + (f" (keeping {len(must_keep)} selected)" if must_keep else "")
     )
+    # Apply locked pair before the widget is created
+    locked = list(st.session_state.get("_locked_layer_pair") or [])
+    if locked and len(locked) >= 2:
+        # Ensure options include locked names
+        for n in locked:
+            if n not in all_names_layer:
+                all_names_layer.insert(0, n)
+        st.session_state["roulette_layer_pick"] = list(locked)
+
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
         key="roulette_layer_pick",
         placeholder="Choose 2+ fragrances...",
     )
-    # If a locked pair was set from Base+partners, force it into the picker value
-    if locked and len(locked) >= 2:
-        if list(layer_pick) != list(locked):
-            # Only re-apply if something stripped the selection
-            if set(locked).issubset(set(all_names_layer)):
-                st.session_state["roulette_layer_pick"] = list(locked)
-                layer_pick = list(locked)
+    # Locked pair from Base+partners is applied BEFORE the multiselect (below),
+    # never after - Streamlit forbids writing a widget key after it is created.
     lc1, lc2 = st.columns(2)
     with lc1:
         run_layer = st.button(
@@ -8066,7 +8070,7 @@ with tab_layer:
         if len(layer_pick) < 2:
             st.warning("Pick at least two bottles.")
         else:
-            # Prefer locked pair from Base+partners if still set and valid
+            # Prefer locked pair from Base+partners if still set
             locked_now = list(st.session_state.get("_locked_layer_pair") or [])
             if len(locked_now) >= 2:
                 picks_now = [str(n).strip() for n in locked_now if n]
@@ -8074,7 +8078,7 @@ with tab_layer:
                 picks_now = [str(n).strip() for n in list(layer_pick) if n]
             result = evaluate_layer_recipe(picks_now)
             result["selected_names"] = picks_now
-            st.session_state["roulette_layer_pick"] = list(picks_now)
+            # Never assign roulette_layer_pick after the multiselect exists
             # Fresh random poetic name from notes each time you check
             result["suggested_name"] = suggest_recipe_name_from_notes(
                 picks_now, randomize=True
