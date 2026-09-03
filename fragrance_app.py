@@ -3157,16 +3157,19 @@ def resolve_frag_by_name(name: str):
 
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer recipe and build a short verdict."""
-    # Always evaluate in heavy -> light order for accurate base/top guidance
-    bottle_names = order_names_heavy_to_light(list(bottle_names or []))
-    frags = []
+    selected_names = [n for n in list(bottle_names or []) if n]
+    # Resolve each selected name in the user's order first
+    frags_selected = []
     missing = []
-    for n in bottle_names:
+    for n in selected_names:
         f = resolve_frag_by_name(n)
         if f:
-            frags.append(f)
+            frags_selected.append(f)
         else:
             missing.append(n)
+    # Spray order = heavy -> light (copy, do not lose selection order)
+    frags = order_frags_heavy_to_light(list(frags_selected)) if frags_selected else []
+    bottle_names = [f.get("name") for f in frags if f.get("name")]
     season_info = season_for_layer_recipe(frags)
     suggested_name = suggest_recipe_name_from_notes(bottle_names)
     if len(frags) < 2:
@@ -3176,6 +3179,8 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
             "label": "Incomplete",
             "pairs": [],
             "frags": frags,
+            "selected_names": selected_names,
+            "spray_order": [f.get("name") for f in frags if f.get("name")],
             "missing": missing,
             "season": season_info,
             "suggested_name": suggested_name,
@@ -3217,6 +3222,8 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     return {
         "score": display_score,
         "score_raw": round(avg, 1),
+        "selected_names": selected_names,
+        "spray_order": [f.get("name") for f in frags if f.get("name")],
         "verdict": verdict,
         "label": label,
         "pairs": pairs,
@@ -7643,13 +7650,11 @@ with tab_layer:
                         b1, b2, b3 = st.columns(3)
                         with b1:
                             if st.button("Layer check", key=f"layer_base_check_{pi}"):
-                                st.session_state["roulette_layer_pick"] = [
-                                    base_name,
-                                    pf["name"],
-                                ]
-                                st.session_state["last_layer_check"] = evaluate_layer_recipe(
-                                    [base_name, pf["name"]]
-                                )
+                                _pair = [base_name, pf.get("name")]
+                                st.session_state["roulette_layer_pick"] = list(_pair)
+                                _ev = evaluate_layer_recipe(list(_pair))
+                                _ev["selected_names"] = list(_pair)
+                                st.session_state["last_layer_check"] = _ev
                                 st.session_state["_seed_roulette_recipe_name"] = True
                                 st.session_state["_open_layer_check"] = True
                                 st.rerun()
@@ -7859,9 +7864,10 @@ with tab_layer:
     _ev_top = st.session_state.get("last_layer_check")
     if _ev_top:
         _app_top = _ev_top.get("application") or {}
-        _order = _app_top.get("order_names") or [
+        _selected = _ev_top.get("selected_names") or [
             fr.get("name") for fr in (_ev_top.get("frags") or []) if fr.get("name")
         ]
+        _spray = _ev_top.get("spray_order") or (_app_top.get("order_names") or _selected)
         _sc_raw = _ev_top.get("score")
         try:
             _sc_i = int(round(float(_sc_raw)))
@@ -7872,8 +7878,12 @@ with tab_layer:
             + str(_ev_top.get("label") or "?")
             + "**"
             + (f" ({_sc_i}/100)" if _sc_i is not None else "")
-            + "  |  "
-            + (" -> ".join(_order) if _order else "see details below")
+            + "\n\n"
+            + "**Bottles checked:** "
+            + (" + ".join(_selected) if _selected else "?")
+            + "\n\n"
+            + "**Spray order:** "
+            + (" -> ".join(_spray) if _spray else "see below")
         )
         if _ev_top.get("why"):
             st.caption(str(_ev_top.get("why"))[:280])
@@ -7954,10 +7964,12 @@ with tab_layer:
         if len(layer_pick) < 2:
             st.warning("Pick at least two bottles.")
         else:
-            result = evaluate_layer_recipe(list(layer_pick))
+            picks_now = [str(n).strip() for n in list(layer_pick) if n]
+            result = evaluate_layer_recipe(picks_now)
+            result["selected_names"] = picks_now
             # Fresh random poetic name from notes each time you check
             result["suggested_name"] = suggest_recipe_name_from_notes(
-                list(layer_pick), randomize=True
+                picks_now, randomize=True
             )
             st.session_state["last_layer_check"] = result
             st.session_state["_seed_roulette_recipe_name"] = True
@@ -7973,6 +7985,11 @@ with tab_layer:
         label = ev.get("label") or "?"
         st.markdown("### " + str(label))
         st.write(ev.get("verdict") or "")
+        _sel = ev.get("selected_names") or [
+            fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")
+        ]
+        if _sel:
+            st.markdown("**Bottles checked:** " + " + ".join(_sel))
         if ev.get("why"):
             st.info("**Why this layer:** " + str(ev.get("why")))
         try:
