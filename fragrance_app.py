@@ -3139,13 +3139,34 @@ def format_recipe_share_text(recipe: dict = None, ev: dict = None, bottles: list
     return "\n".join(lines)
 
 
+
+def resolve_frag_by_name(name: str):
+    """Resolve a bottle name to one vault entry (exact name match)."""
+    if not name:
+        return None
+    for f in st.session_state.get("fragrances_db") or []:
+        if f.get("name") == name:
+            return f
+    # soft match strip
+    n = name.strip().lower()
+    for f in st.session_state.get("fragrances_db") or []:
+        if (f.get("name") or "").strip().lower() == n:
+            return f
+    return None
+
+
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer recipe and build a short verdict."""
     # Always evaluate in heavy -> light order for accurate base/top guidance
     bottle_names = order_names_heavy_to_light(list(bottle_names or []))
-    name_map = {f["name"]: f for f in st.session_state.get("fragrances_db") or []}
-    frags = [name_map[n] for n in bottle_names if n in name_map]
-    missing = [n for n in bottle_names if n not in name_map]
+    frags = []
+    missing = []
+    for n in bottle_names:
+        f = resolve_frag_by_name(n)
+        if f:
+            frags.append(f)
+        else:
+            missing.append(n)
     season_info = season_for_layer_recipe(frags)
     suggested_name = suggest_recipe_name_from_notes(bottle_names)
     if len(frags) < 2:
@@ -3191,8 +3212,11 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         label, verdict = "Avoid", "Includes a DEL bottle or a very weak pair."
     guide = layer_application_guide(frags)
     why = explain_layer_combo(frags)
+    # Map raw avg (often 40-180) into a clearer 0-100 style score
+    display_score = int(max(0, min(100, round(avg * 0.55))))
     return {
-        "score": round(avg, 1),
+        "score": display_score,
+        "score_raw": round(avg, 1),
         "verdict": verdict,
         "label": label,
         "pairs": pairs,
@@ -7613,7 +7637,7 @@ with tab_layer:
                             f"**{pi}. {pf['name']}** ({pf['brand']})\n\n"
                             f"{match_lbl}\n\n"
                             f"{_role}\n\n"
-                            f"{pf.get('gender', '')} | {cats_p}\n\n"
+                            f"{pf.get('gender', '')} | {pf.get('season', '?')} | {cats_p}\n\n"
                             f"{family_line}"
                         )
                         b1, b2, b3 = st.columns(3)
@@ -7847,7 +7871,7 @@ with tab_layer:
             "**Last result: "
             + str(_ev_top.get("label") or "?")
             + "**"
-            + (f" ({_sc_i}/100 style points)" if _sc_i is not None else "")
+            + (f" ({_sc_i}/100)" if _sc_i is not None else "")
             + "  |  "
             + (" -> ".join(_order) if _order else "see details below")
         )
