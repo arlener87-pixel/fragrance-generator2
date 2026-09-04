@@ -7199,6 +7199,7 @@ with tab_discover:
             "meta": {
                 "gender": gender,
                 "weather": weather,
+                "temp_f": rec_temp_f,
                 "category": category,
                 "occasion": occasion,
                 "favorites_only": favorites_only,
@@ -7294,6 +7295,13 @@ with tab_discover:
         num_show = last_recs.get("num", 3)
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
+        if meta.get("temp_f") is not None:
+            st.caption(
+                f"Based on **{float(meta['temp_f']):.0f} F** â **{meta.get('weather', '?')}**"
+                + (f" | Gender: {meta.get('gender')}" if meta.get("gender") else "")
+            )
+        elif meta.get("weather") and meta.get("weather") != "Any":
+            st.caption(f"Season: **{meta.get('weather')}**")
         if meta:
             cat_meta = meta.get("category")
             if isinstance(cat_meta, (list, tuple)):
