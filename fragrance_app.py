@@ -1526,7 +1526,7 @@ def get_top_fragrances(
     occasion: str,
     top_n: int,
     favorites_only: bool = False,
-    temp_f=None,
+    temp_f=rec_temp_f,
     shuffle: bool = False,
     exclude_names: list = None,
     concentration: str = "Any",
@@ -7087,6 +7087,27 @@ with tab_discover:
         oils_only = bool(st.session_state.get("filter_oils_only", False))
         prefer_oils = bool(st.session_state.get("filter_prefer_oils", False))
         conc_filter = "Concentrated oil" if oils_only else "Any"
+        # Season from outdoor temp (slider / live) unless user forced a weather band
+        rec_temp_f = None
+        use_temp = bool(st.session_state.get("filter_use_temp", True))
+        if use_temp and (not weather or weather == "Any"):
+            try:
+                if st.session_state.get("temp_search_f") is not None:
+                    rec_temp_f = float(st.session_state.get("temp_search_f"))
+            except Exception:
+                rec_temp_f = None
+            if rec_temp_f is None:
+                meta_live = st.session_state.get("live_temp_meta") or {}
+                if meta_live.get("ok") and meta_live.get("temp_f") is not None:
+                    try:
+                        rec_temp_f = float(meta_live.get("temp_f"))
+                    except Exception:
+                        pass
+            if rec_temp_f is not None:
+                try:
+                    weather = temp_f_to_band(rec_temp_f)
+                except Exception:
+                    pass
         prev = st.session_state.get("last_recs") or {}
         prev_names = [
             f.get("name")
@@ -7100,7 +7121,7 @@ with tab_discover:
             occasion,
             num_recs,
             favorites_only=favorites_only,
-            temp_f=None,
+            temp_f=rec_temp_f,
             shuffle=True,
             exclude_names=prev_names if regenerate_clicked else list(_recent_shown("recommend"))[:12],
             concentration=conc_filter,
