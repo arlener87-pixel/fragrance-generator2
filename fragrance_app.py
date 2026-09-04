@@ -240,6 +240,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+CAT_OPTIONS = [
+    "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
+    "Fruity", "Spicy", "Citrus", "Musky", "Vanilla", "Creamy",
+    "Smoky", "Oud", "Leather", "Powdery", "Aquatic", "Green",
+    "Amber", "Boozy", "Chypre", "Aromatic", "Fougere", "Animalic",
+]
+
+
 # Custom Gothic Styling - polished, professional, mobile-friendly
 st.markdown(
     """
@@ -6483,134 +6491,130 @@ with st.sidebar:
     if "temp_search_gender" not in st.session_state:
         st.session_state["temp_search_gender"] = "Any"
 
-    with st.expander("Recommend (live temp)", expanded=True):
+    with st.expander("Recommend", expanded=True):
         st.caption(
-            "Victorville, CA High Desert - recommendations follow outdoor temp. "
+            "Same filters as before - season comes from outdoor temp (Victorville). "
             "Tap **Use live temp**, then **Generate**."
         )
-        # --- Live / slider temp ---
+        # Apply live temp to slider before widgets
         if st.session_state.pop("_apply_live_temp", False):
             live = st.session_state.get("live_temp_meta") or {}
             if live.get("ok") and live.get("temp_f") is not None:
-                st.session_state["temp_search_f"] = int(live["temp_f"])
+                st.session_state["temp_search_f"] = int(round(float(live["temp_f"])))
+        if st.session_state.pop("_reset_temp_search", False):
+            try:
+                st.session_state["temp_search_f"] = int(ca_default)
+            except Exception:
+                st.session_state["temp_search_f"] = 85
+            st.session_state.pop("live_temp_meta", None)
         if "temp_search_f" not in st.session_state:
             try:
                 st.session_state["temp_search_f"] = int(ca_default)
             except Exception:
                 st.session_state["temp_search_f"] = 85
 
-        rec_gender = st.selectbox(
-            "Gender",
-            ["Any", "Female", "Male", "Unisex"],
-            key="filter_gender",
-        )
-        # keep temp_search_gender in sync for any legacy temp search results
-        st.session_state["temp_search_gender"] = rec_gender
-
-        temp_search_f = st.slider(
-            "Temperature (F)",
-            min_value=30,
-            max_value=115,
-            key="temp_search_f",
-        )
-        band = temp_f_to_band(float(temp_search_f))
-        live_meta = st.session_state.get("live_temp_meta") or {}
-        live_note = ""
-        if live_meta.get("ok"):
-            live_note = (
-                f" | Live: {live_meta.get('temp_f')} F"
-                f" ({live_meta.get('source', 'weather')}"
-                f"{', ' + str(live_meta.get('observed')) if live_meta.get('observed') else ''})"
+        r1, r2 = st.columns(2)
+        with r1:
+            gender = st.selectbox(
+                "Gender",
+                ["Any", "Male", "Female", "Unisex"],
+                key="filter_gender",
             )
-        st.caption(
-            f"**{int(temp_search_f)} F** â **{temp_band_label(float(temp_search_f))}** | "
-            f"Monthly norm: {ca_default} F{live_note}"
-        )
+        with r2:
+            num_recs = st.radio(
+                "How many",
+                [1, 3, 5],
+                index=1,
+                horizontal=True,
+                key="filter_num_recs",
+            )
 
-        b1, b2, b3 = st.columns(3)
-        with b1:
-            if st.button("Use live temp", type="primary", use_container_width=True, key="temp_live_btn"):
+        # Temperature = season (replaces Season dropdown)
+        st.markdown("**Temperature (drives season)**")
+        t1, t2 = st.columns([2, 1])
+        with t1:
+            temp_search_f = st.slider(
+                "Outdoor temp (F)",
+                min_value=30,
+                max_value=115,
+                key="temp_search_f",
+            )
+        with t2:
+            st.write("")
+            st.write("")
+            if st.button("Use live temp", use_container_width=True, key="temp_live_btn"):
                 result = fetch_live_temp_f()
                 st.session_state["live_temp_meta"] = result
                 if result.get("ok"):
                     st.session_state["_apply_live_temp"] = True
                     st.rerun()
                 else:
-                    st.session_state["_live_temp_error"] = result.get("detail", "Lookup failed")
+                    st.session_state["_live_temp_error"] = result.get("detail", "failed")
                     st.rerun()
-        with b2:
-            if st.button("Reset temp", use_container_width=True, key="temp_search_reset"):
-                st.session_state["_reset_temp_search"] = True
-                st.session_state.pop("last_temp_search", None)
-                st.rerun()
-        with b3:
-            st.write("")  # spacer
 
+        band = temp_f_to_band(float(temp_search_f))
+        live_meta = st.session_state.get("live_temp_meta") or {}
+        live_bit = ""
+        if live_meta.get("ok"):
+            live_bit = f" | Live reading: {live_meta.get('temp_f')} F"
+        st.caption(
+            f"{int(temp_search_f)} F â **{temp_band_label(float(temp_search_f))}**"
+            f" | Monthly norm ~{ca_default} F{live_bit}"
+        )
         _live_err = st.session_state.pop("_live_temp_error", None)
         if _live_err:
-            st.warning("Live temp unavailable - using slider / monthly norm.")
+            st.warning("Live temp unavailable - using the slider value.")
 
-        # Optional filters
-        with st.expander("More filters (optional)", expanded=False):
-            categories = st.multiselect(
-                "Categories",
-                CAT_OPTIONS,
-                key="filter_categories",
-                placeholder="Any family if empty",
-            )
-            occasion = st.selectbox(
-                "Occasion",
-                [
-                    "Any",
-                    "Daily / Casual",
-                    "Work / Office",
-                    "Date / Evening",
-                    "Formal / Event",
-                    "Outdoor / Sporty",
-                ],
-                key="filter_occasion",
-            )
-            weather_override = st.selectbox(
-                "Season override (skip temp)",
-                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-                key="filter_weather",
-                help="Leave Any to use the temperature above.",
-            )
-            favorites_only = st.checkbox("YAY only", value=False, key="filter_favorites_only")
-            oils_only = st.checkbox("Concentrated oils only", value=False, key="filter_oils_only")
-            prefer_oils = st.checkbox("Prefer oils in ranking", value=False, key="filter_prefer_oils")
+        # Force recommend path to use this temp
+        st.session_state["filter_use_temp"] = True
+        st.session_state["filter_weather"] = "Any"
+        st.session_state["temp_search_gender"] = gender
 
-        num_recs = st.radio(
-            "How many picks",
-            [1, 3, 5],
-            index=1,
-            horizontal=True,
-            key="filter_num_recs",
+        categories = st.multiselect(
+            "Categories (pick several)",
+            CAT_OPTIONS,
+            key="filter_categories",
+            placeholder="Any family if empty",
+            help="Leave empty for any category.",
+        )
+        occasion = st.selectbox(
+            "Occasion",
+            [
+                "Any",
+                "Daily / Casual",
+                "Work / Office",
+                "Date / Evening",
+                "Formal / Event",
+                "Outdoor / Sporty",
+            ],
+            key="filter_occasion",
+        )
+        r3, r4 = st.columns(2)
+        with r3:
+            favorites_only = st.checkbox(
+                "YAY only", value=False, key="filter_favorites_only"
+            )
+        with r4:
+            oils_only = st.checkbox(
+                "Concentrated oils only", value=False, key="filter_oils_only"
+            )
+        prefer_oils = st.checkbox(
+            "Prefer oils in ranking", value=False, key="filter_prefer_oils"
         )
 
-        # Always drive season from temp unless override set
-        st.session_state["filter_use_temp"] = True
-
-        g1, g2 = st.columns(2)
-        with g1:
-            generate_clicked = st.button(
-                "Generate from temp",
-                type="primary",
-                use_container_width=True,
-                key="gen_recs_btn",
-            )
-        with g2:
-            regenerate_clicked = st.button(
-                "Refresh picks",
-                use_container_width=True,
-                key="regen_recs_btn",
-            )
-        if st.button("Clear filters", use_container_width=True, key="clear_filters_btn"):
+        generate_clicked = st.button(
+            "Generate", type="primary", use_container_width=True, key="gen_recs_btn"
+        )
+        regenerate_clicked = st.button(
+            "Refresh picks",
+            use_container_width=True,
+            key="regen_recs_btn",
+            help="Same filters, different bottles.",
+        )
+        if st.button("Clear", use_container_width=True, key="clear_filters_btn"):
             st.session_state["_clear_filters"] = True
             st.rerun()
 
-        # One-tap: live temp + generate path via Search by temp legacy key
-        # (temp_search_clicked removed - Generate uses temp_search_f)
 
 with st.expander("Add fragrance", expanded=False):
         # Notes helper (outside form so links work without submitting)
