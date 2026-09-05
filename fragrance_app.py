@@ -1627,7 +1627,7 @@ def get_top_fragrances(
 
     exclude = set(exclude_names or [])
     scored = []
-    for f in st.session_state["fragrances_db"]:
+    for f in (st.session_state.get("fragrances_db") or []):
         if f.get("name") in exclude:
             continue
         if st.session_state["user_reactions"].get(f["name"]) == "dislike":
@@ -7406,6 +7406,10 @@ with tab_discover:
             for f in (prev.get("selected") or [])
             if isinstance(f, dict) and f.get("name")
         ]
+        try:
+            exclude = prev_names if regenerate_clicked else list(_recent_shown("recommend"))[:12]
+        except Exception:
+            exclude = prev_names if regenerate_clicked else []
         selected = get_top_fragrances(
             gender,
             weather,
@@ -7415,9 +7419,26 @@ with tab_discover:
             favorites_only=favorites_only,
             temp_f=rec_temp_f,
             shuffle=True,
-            exclude_names=prev_names if regenerate_clicked else list(_recent_shown("recommend"))[:12],
+            exclude_names=exclude,
             concentration=conc_filter,
         )
+        # Widen filters if nothing matched (common when traveling / strict season)
+        if not selected:
+            selected = get_top_fragrances(
+                gender,
+                "Any",
+                category,
+                "Any",
+                num_recs,
+                favorites_only=False,
+                temp_f=None,
+                shuffle=True,
+                exclude_names=exclude,
+                concentration="Any",
+            )
+            st.session_state["_recs_widened"] = True
+        else:
+            st.session_state["_recs_widened"] = False
         if prefer_oils and selected and not oils_only:
             # Re-rank: oils first while keeping relative order
             selected = sorted(
@@ -7547,6 +7568,10 @@ with tab_discover:
         num_show = last_recs.get("num", 3)
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
+        if st.session_state.get("_recs_widened"):
+            st.info(
+                "Few bottles matched that temp/season strictly — showing best overall picks for your gender/filters."
+            )
         if meta.get("temp_f") is not None:
             st.caption(
                 f"Based on **{float(meta['temp_f']):.0f} F** -> **{meta.get('weather', '?')}**"
