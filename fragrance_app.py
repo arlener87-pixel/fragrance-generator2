@@ -849,6 +849,10 @@ with tab_layer:
                         st.rerun()
 
     st.markdown("### Layer check")
+    # Apply pending / clear BEFORE the multiselect widget (Streamlit rule)
+    if st.session_state.pop("_clear_layer_pick", False):
+        st.session_state["layer_pick"] = []
+        st.session_state.pop("last_layer_check", None)
     if st.session_state.get("_pending_layer"):
         st.session_state["layer_pick"] = list(st.session_state.pop("_pending_layer"))
     current = list(st.session_state.get("layer_pick") or [])
@@ -859,8 +863,7 @@ with tab_layer:
         run = st.button("Check layer", type="primary", use_container_width=True, key="check_layer")
     with c2:
         if st.button("Clear picks", use_container_width=True, key="clear_layer"):
-            st.session_state["layer_pick"] = []
-            st.session_state.pop("last_layer_check", None)
+            st.session_state["_clear_layer_pick"] = True
             st.rerun()
     if run:
         if len(layer_pick) < 2:
