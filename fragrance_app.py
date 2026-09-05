@@ -1027,21 +1027,85 @@ def default_ca_temp_f(day=None) -> int:
 # Victorville, CA coordinates (High Desert)
 CA_LAT = 34.5362
 CA_LON = -117.2912
+CA_LOCATION_LABEL = "Victorville, CA"
+
+# Common travel presets (label -> lat, lon)
+LOCATION_PRESETS = {
+    "Victorville, CA": (34.5362, -117.2912),
+    "Los Angeles, CA": (34.0522, -118.2437),
+    "Las Vegas, NV": (36.1699, -115.1398),
+    "Phoenix, AZ": (33.4484, -112.0740),
+    "New York, NY": (40.7128, -74.0060),
+    "Chicago, IL": (41.8781, -87.6298),
+    "Miami, FL": (25.7617, -80.1918),
+    "Seattle, WA": (47.6062, -122.3321),
+    "Denver, CO": (39.7392, -104.9903),
+    "Dallas, TX": (32.7767, -96.7970),
+    "London, UK": (51.5074, -0.1278),
+    "Paris, France": (48.8566, 2.3522),
+    "Dubai, UAE": (25.2048, 55.2708),
+    "Riyadh, Saudi Arabia": (24.7136, 46.6753),
+    "Mexico City, MX": (19.4326, -99.1332),
+}
 
 
-def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
+def geocode_city(query: str) -> dict:
+    """Look up lat/lon for a city name via Open-Meteo Geocoding (no API key)."""
+    import json as _json
+    import urllib.parse
+    import urllib.request
+    q = (query or "").strip()
+    if not q:
+        return {"ok": False, "detail": "Enter a city name"}
+    try:
+        url = (
+            "https://geocoding-api.open-meteo.com/v1/search?"
+            + urllib.parse.urlencode({"name": q, "count": 5, "language": "en", "format": "json"})
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            payload = _json.loads(resp.read().decode("utf-8"))
+        results = payload.get("results") or []
+        if not results:
+            return {"ok": False, "detail": f"No match for '{q}'"}
+        # Prefer exact-ish first result
+        best = results[0]
+        label_parts = [best.get("name") or q]
+        if best.get("admin1"):
+            label_parts.append(str(best["admin1"]))
+        if best.get("country_code"):
+            label_parts.append(str(best["country_code"]))
+        return {
+            "ok": True,
+            "lat": float(best["latitude"]),
+            "lon": float(best["longitude"]),
+            "label": ", ".join(label_parts),
+            "timezone": best.get("timezone") or "auto",
+        }
+    except Exception as e:
+        return {"ok": False, "detail": str(e)}
+
+
+def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None) -> dict:
     """
     Current outdoor temperature via Open-Meteo (no API key).
-    Returns {ok, temp_f, source, detail} or ok=False on failure.
-    Caches a successful reading for 20 minutes to avoid HTTP 429 rate limits.
+    Works for any lat/lon — home or travel.
+    Caches successful readings for 20 minutes per location.
     """
     import json as _json
     import time as _time
     import urllib.error
     import urllib.request
 
-    # Reuse a recent successful reading (cuts 429s from repeated taps / reruns)
-    cache = st.session_state.get("_live_temp_cache") or {}
+    if lat is None:
+        lat = float(st.session_state.get("wx_lat") or CA_LAT)
+    if lon is None:
+        lon = float(st.session_state.get("wx_lon") or CA_LON)
+    label = label or st.session_state.get("wx_label") or CA_LOCATION_LABEL
+
+    cache_key = f"{round(float(lat), 3)},{round(float(lon), 3)}"
+    cache_all = st.session_state.get("_live_temp_cache_map") or {}
+    cache = cache_all.get(cache_key) or {}
     age = _time.time() - float(cache.get("ts") or 0)
     if cache.get("ok") and age < 20 * 60:
         out = dict(cache)
@@ -1053,7 +1117,7 @@ def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
         f"?latitude={lat}&longitude={lon}"
         "&current=temperature_2m"
         "&temperature_unit=fahrenheit"
-        "&timezone=America%2FLos_Angeles"
+        "&timezone=auto"
     )
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
@@ -1064,31 +1128,27 @@ def fetch_live_temp_f(lat: float = CA_LAT, lon: float = CA_LON) -> dict:
         if temp is None:
             return {"ok": False, "detail": "No temperature in response"}
         temp_f = int(round(float(temp)))
-        # clamp to slider range
         temp_f = max(30, min(115, temp_f))
-        result = {
+        out = {
             "ok": True,
             "temp_f": temp_f,
             "source": "Open-Meteo",
-            "detail": f"Victorville area ({lat:.2f}, {lon:.2f})",
-            "observed": cur.get("time"),
+            "observed": str(cur.get("time") or ""),
+            "label": label,
+            "lat": lat,
+            "lon": lon,
             "ts": _time.time(),
+            "detail": f"{label}: {temp_f} F",
         }
-        st.session_state["_live_temp_cache"] = result
-        return result
-    except urllib.error.HTTPError as ex:
-        if ex.code == 429:
-            if cache.get("ok") and cache.get("temp_f") is not None:
-                out = dict(cache)
-                out["detail"] = "Rate-limited; using last live reading"
-                return out
-            return {
-                "ok": False,
-                "detail": "HTTP 429 Too Many Requests  -  wait a few minutes, or use the slider",
-            }
-        return {"ok": False, "detail": f"HTTP Error {ex.code}: {ex.reason}"}
-    except Exception as ex:
-        return {"ok": False, "detail": str(ex)}
+        cache_all[cache_key] = dict(out)
+        st.session_state["_live_temp_cache_map"] = cache_all
+        # also keep legacy single cache for older callers
+        st.session_state["_live_temp_cache"] = dict(out)
+        return out
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "detail": f"HTTP {e.code}"}
+    except Exception as e:
+        return {"ok": False, "detail": str(e)}
 
 
 
@@ -6541,9 +6601,14 @@ with st.sidebar:
     regenerate_clicked = False
     with st.expander("Recommend", expanded=True):
         st.caption(
-            "Same filters as before - season comes from outdoor temp (Victorville). "
-            "Tap **Use live temp**, then **Generate**."
+            "Season comes from outdoor temp for **any city**. "
+            "Set location, tap **Use live temp**, then **Generate**."
         )
+        # Default weather location
+        if "wx_label" not in st.session_state:
+            st.session_state["wx_label"] = CA_LOCATION_LABEL
+            st.session_state["wx_lat"] = CA_LAT
+            st.session_state["wx_lon"] = CA_LON
         # Apply live temp to slider before widgets
         if st.session_state.pop("_apply_live_temp", False):
             live = st.session_state.get("live_temp_meta") or {}
@@ -6577,6 +6642,49 @@ with st.sidebar:
                 key="filter_num_recs",
             )
 
+        # Location for live outdoor temp (home or travel)
+        st.markdown("**Where are you?**")
+        preset_labels = list(LOCATION_PRESETS.keys()) + ["Other city..."]
+        cur_label = st.session_state.get("wx_label") or CA_LOCATION_LABEL
+        try:
+            pidx = preset_labels.index(cur_label) if cur_label in preset_labels else len(preset_labels) - 1
+        except Exception:
+            pidx = 0
+        loc_choice = st.selectbox(
+            "Location preset",
+            preset_labels,
+            index=min(pidx, len(preset_labels) - 1),
+            key="wx_preset",
+            help="Pick a city or Other to type any place.",
+        )
+        if loc_choice != "Other city...":
+            lat, lon = LOCATION_PRESETS[loc_choice]
+            st.session_state["wx_lat"] = lat
+            st.session_state["wx_lon"] = lon
+            st.session_state["wx_label"] = loc_choice
+        else:
+            custom = st.text_input(
+                "City name",
+                value="" if cur_label in LOCATION_PRESETS else cur_label,
+                key="wx_custom_city",
+                placeholder="e.g. Barcelona, Tokyo, Houston...",
+            )
+            if st.button("Look up city", key="wx_geocode_btn"):
+                geo = geocode_city(custom)
+                if geo.get("ok"):
+                    st.session_state["wx_lat"] = geo["lat"]
+                    st.session_state["wx_lon"] = geo["lon"]
+                    st.session_state["wx_label"] = geo["label"]
+                    st.success(f"Set to **{geo['label']}**")
+                    st.rerun()
+                else:
+                    st.warning(geo.get("detail") or "City not found")
+        st.caption(
+            "Using: **"
+            + str(st.session_state.get("wx_label") or CA_LOCATION_LABEL)
+            + "**"
+        )
+
         # Temperature = season (replaces Season dropdown)
         st.markdown("**Temperature (drives season)**")
         t1, t2 = st.columns([2, 1])
@@ -6591,7 +6699,11 @@ with st.sidebar:
             st.write("")
             st.write("")
             if st.button("Use live temp", use_container_width=True, key="temp_live_btn"):
-                result = fetch_live_temp_f()
+                result = fetch_live_temp_f(
+                    lat=float(st.session_state.get("wx_lat") or CA_LAT),
+                    lon=float(st.session_state.get("wx_lon") or CA_LON),
+                    label=st.session_state.get("wx_label") or CA_LOCATION_LABEL,
+                )
                 st.session_state["live_temp_meta"] = result
                 if result.get("ok"):
                     st.session_state["_apply_live_temp"] = True
@@ -6604,10 +6716,11 @@ with st.sidebar:
         live_meta = st.session_state.get("live_temp_meta") or {}
         live_bit = ""
         if live_meta.get("ok"):
-            live_bit = f" | Live reading: {live_meta.get('temp_f')} F"
+            live_bit = f" | Live: {live_meta.get('temp_f')} F" if live_meta.get("ok") else ""
+        loc_bit = str(st.session_state.get("wx_label") or CA_LOCATION_LABEL)
         st.caption(
-            f"{int(temp_search_f)} F -> **{temp_band_label(float(temp_search_f))}**"
-            f" | Monthly norm ~{ca_default} F{live_bit}"
+            f"**{loc_bit}** | {int(temp_search_f)} F -> **{temp_band_label(float(temp_search_f))}**"
+            f" | Home norm ~{ca_default} F{live_bit}"
         )
         _live_err = st.session_state.pop("_live_temp_error", None)
         if _live_err:
