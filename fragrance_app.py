@@ -6520,7 +6520,24 @@ with st.sidebar:
     if "temp_search_gender" not in st.session_state:
         st.session_state["temp_search_gender"] = "Any"
 
-    with st.expander("Recommend", expanded=True):
+    # Clear recommendation filters + results (must run before widgets)
+    if st.session_state.pop("_clear_filters", False):
+        for k, v in {
+            "filter_gender": "Any",
+            "filter_weather": "Any",
+            "filter_categories": [],
+            "filter_occasion": "Any",
+            "filter_num_recs": 3,
+            "filter_favorites_only": False,
+            "filter_oils_only": False,
+            "filter_prefer_oils": False,
+            "filter_use_temp": True,
+        }.items():
+            st.session_state[k] = v
+        st.session_state.pop("last_recs", None)
+        st.session_state.pop("last_temp_search", None)
+
+with st.expander("Recommend", expanded=True):
         st.caption(
             "Same filters as before - season comes from outdoor temp (Victorville). "
             "Tap **Use live temp**, then **Generate**."
@@ -7047,7 +7064,7 @@ with tab_discover:
 
     # --- Top 5 by calendar season + gender ---
     with st.expander("Top 5 by season", expanded=True):
-        st.caption("Choose gender and season, then show or refresh your top 5.")
+        st.caption("Choose gender and season, search by name, then show / refresh / clear.")
         seasons = [
             ("Spring", "spring"),
             ("Summer", "summer"),
@@ -7056,6 +7073,13 @@ with tab_discover:
         ]
         season_labels = [s[0] for s in seasons]
         season_key_map = {s[0]: s[1] for s in seasons}
+
+        # Clear top-5 results (before widgets that depend on results)
+        if st.session_state.pop("_clear_top_season", False):
+            st.session_state.pop("_top_season_results", None)
+            st.session_state.pop("_top_season_gender_used", None)
+            st.session_state.pop("_top_season_pick_used", None)
+            st.session_state["top_season_search"] = ""
 
         gcol, scol = st.columns(2)
         with gcol:
@@ -7071,7 +7095,13 @@ with tab_discover:
                 key="top_season_pick",
             )
 
-        b1, b2 = st.columns(2)
+        ts_search = st.text_input(
+            "Search in top 5 results",
+            key="top_season_search",
+            placeholder="Filter by name or brand...",
+        )
+
+        b1, b2, b3 = st.columns(3)
         with b1:
             show_top = st.button(
                 "Show top 5",
@@ -7081,11 +7111,15 @@ with tab_discover:
             )
         with b2:
             refresh_top = st.button(
-                "Refresh top 5",
+                "Refresh",
                 use_container_width=True,
                 key="top_season_refresh",
                 help="New mix for the same gender + season.",
             )
+        with b3:
+            if st.button("Clear", use_container_width=True, key="top_season_clear"):
+                st.session_state["_clear_top_season"] = True
+                st.rerun()
 
         if show_top or refresh_top:
             shuffle_salt = None
@@ -7140,13 +7174,23 @@ with tab_discover:
                 + str(st.session_state.get("_top_season_pick_used") or ts_season)
                 + "**"
             )
+            _q = (st.session_state.get("top_season_search") or ts_search or "").strip().lower()
             for label in season_labels:
                 if label not in results:
                     continue
                 picks = results.get(label) or []
+                if _q:
+                    picks = [
+                        f for f in picks
+                        if _q in (f.get("name") or "").lower()
+                        or _q in (f.get("brand") or "").lower()
+                    ]
                 st.markdown(f"### {label}")
                 if not picks:
-                    st.caption("No bottles matched this season + gender.")
+                    st.caption(
+                        "No bottles matched"
+                        + (" your search." if _q else " this season + gender.")
+                    )
                 else:
                     for i, f in enumerate(picks, 1):
                         cats = ", ".join((f.get("category") or [])[:4])
