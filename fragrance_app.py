@@ -1265,8 +1265,76 @@ def _stable_tiebreak(name: str) -> int:
     return int(h[:4], 16) % 4  # 0-3
 
 
+
+def estimate_projection(f: dict) -> str:
+    """Heuristic loudness: Soft / Moderate / Strong (not lab data)."""
+    cats = set((c or "").lower() for c in (f.get("category") or []))
+    notes = (f.get("notes") or "").lower()
+    conc = (f.get("concentration") or "").lower()
+    name = (f.get("name") or "").lower()
+    pts = 40
+    loud_cats = {"gourmand", "oriental", "oud", "spicy", "leather", "amber", "boozy", "smoky"}
+    soft_cats = {"fresh", "citrus", "aquatic", "green", "musky", "powdery"}
+    pts += 8 * len(cats & loud_cats)
+    pts -= 8 * len(cats & soft_cats)
+    for k in ("oud", "vanilla", "caramel", "chocolate", "incense", "tobacco", "amber", "praline"):
+        if k in notes:
+            pts += 4
+    for k in ("citrus", "bergamot", "tea", "cucumber", "light", "musk"):
+        if k in notes:
+            pts -= 3
+    if "oil" in conc or "oil" in name:
+        pts -= 6
+    if "body spray" in conc or "body spray" in name:
+        pts -= 10
+    if "extrait" in conc:
+        pts += 8
+    if "edt" in conc or "edc" in conc:
+        pts -= 5
+    if pts <= 38:
+        return "Soft"
+    if pts <= 58:
+        return "Moderate"
+    return "Strong"
+
+
+def projection_tip(level: str, occasion: str = "Any") -> str:
+    level = level or "Moderate"
+    if level == "Soft" or occasion == "Work / Office":
+        return "1-2 sprays max; chest or wrists. Skip heavy layering."
+    if level == "Strong":
+        return "Strong throw — 2-3 sprays; careful indoors."
+    return "2 sprays; add only if needed after 20 min."
+
+
+def default_projection_for_occasion(occasion: str) -> str:
+    if occasion == "Work / Office":
+        return "Soft"
+    if occasion in ("Date / Evening", "Formal / Event"):
+        return "Moderate"
+    if occasion == "Outdoor / Sporty":
+        return "Strong"
+    if occasion == "Daily / Casual":
+        return "Moderate"
+    return "Moderate"
+
+
+def score_projection_fit(f: dict, preferred: str) -> int:
+    if not preferred or preferred == "Any":
+        return 5
+    got = estimate_projection(f)
+    if preferred == "Soft":
+        return 22 if got == "Soft" else (8 if got == "Moderate" else -12)
+    if preferred == "Moderate":
+        return 18 if got == "Moderate" else 10
+    if preferred == "Strong":
+        return 20 if got == "Strong" else (10 if got == "Moderate" else 0)
+    return 5
+
+
 def score_fragrance(
-    f: dict, gender: str, weather: str, category: str, occasion: str, temp_f=None
+    f: dict, gender: str, weather: str, category: str, occasion: str, temp_f=None,
+    projection: str = "Any",
 ) -> int:
     score = 0
     name = f.get("name") or ""
@@ -1277,9 +1345,9 @@ def score_fragrance(
     elif reaction == "fav":
         score += 50
 
-    season = f["season"].lower()
-    cats = f["category"]
-    g = normalize_gender(f["gender"])
+    season = (f.get("season") or "").lower()
+    cats = f.get("category") or []
+    g = normalize_gender(f.get("gender") or "")
 
     if gender == "Any":
         score += 5
@@ -1374,6 +1442,10 @@ def score_fragrance(
             if any(c in cats for c in ["Fresh", "Citrus", "Aromatic", "Fruity"])
             else 4
         )
+
+    score += score_projection_fit(f, projection or "Any")
+    if occasion == "Work / Office" and estimate_projection(f) == "Strong":
+        score -= 10
 
     # Temperature-aware fine-tuning (degrees beat vague season labels when set)
     if temp_f is not None:
@@ -1619,6 +1691,7 @@ def get_top_fragrances(
     shuffle: bool = False,
     exclude_names: list = None,
     concentration: str = "Any",
+    projection: str = "Any",
 ) -> list:
     # If a real temperature is provided, derive the weather band when set to Any
     effective_weather = weather
@@ -1627,12 +1700,14 @@ def get_top_fragrances(
 
     exclude = set(exclude_names or [])
     scored = []
+    reactions = st.session_state.get("user_reactions") or {}
     for f in (st.session_state.get("fragrances_db") or []):
-        if f.get("name") in exclude:
+        fname = f.get("name") or ""
+        if not fname or fname in exclude:
             continue
-        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
+        if reactions.get(fname) == "dislike":
             continue
-        if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
+        if favorites_only and reactions.get(fname) != "fav":
             continue
         if concentration and concentration != "Any":
             fc = (f.get("concentration") or "").strip()
@@ -1655,7 +1730,8 @@ def get_top_fragrances(
             and matches_occasion(f, occasion)
         ):
             s = score_fragrance(
-                f, gender, effective_weather, category, occasion, temp_f=temp_f
+                f, gender, effective_weather, category, occasion, temp_f=temp_f,
+                projection=projection or "Any",
             )
             scored.append((s, f))
     scored.sort(key=lambda x: x[0], reverse=True)
@@ -4147,6 +4223,8 @@ def suggest_partners_for(
     include_unisex: bool = False,
     exclude_dislikes: bool = True,
     season: str = "Any",
+    projection: str = "Any",
+    occasion: str = "Any",
 ) -> list:
     """Best layering partners for a single selected fragrance.
 
@@ -6592,6 +6670,8 @@ with st.sidebar:
             "filter_oils_only": False,
             "filter_prefer_oils": False,
             "filter_use_temp": True,
+            "filter_projection": "Moderate",
+            "filter_climate_mode": "Outdoor (live / slider)",
         }.items():
             st.session_state[k] = v
         st.session_state.pop("last_recs", None)
@@ -6749,6 +6829,36 @@ with st.sidebar:
                 "Outdoor / Sporty",
             ],
             key="filter_occasion",
+        )
+        climate_mode = st.radio(
+            "Climate for picks",
+            ["Outdoor (live / slider)", "Indoor work (~67 F)"],
+            key="filter_climate_mode",
+            horizontal=True,
+            help="Indoor work uses building temp so High Desert heat outside does not force summer bombs at your desk.",
+        )
+        # Auto projection from occasion when user leaves default link on
+        occ_now = st.session_state.get("filter_occasion", "Any")
+        auto_proj = default_projection_for_occasion(occ_now)
+        proj_options = ["Soft", "Moderate", "Strong", "Any"]
+        # keep previous selection if set
+        if "filter_projection" not in st.session_state:
+            st.session_state["filter_projection"] = auto_proj if occ_now == "Work / Office" else "Moderate"
+        # When switching to Work, nudge Soft once
+        if st.session_state.get("_last_occ_for_proj") != occ_now:
+            st.session_state["_last_occ_for_proj"] = occ_now
+            if occ_now == "Work / Office":
+                st.session_state["filter_projection"] = "Soft"
+            elif occ_now in ("Date / Evening", "Formal / Event") and st.session_state.get("filter_projection") == "Soft":
+                st.session_state["filter_projection"] = "Moderate"
+        projection = st.selectbox(
+            "Projection",
+            proj_options,
+            key="filter_projection",
+            help="Soft = close to skin (office). Strong = fills a room.",
+        )
+        st.caption(
+            "Tip: Work + Soft + Indoor ~67 F keeps picks quieter for a shared building."
         )
         r3, r4 = st.columns(2)
         with r3:
@@ -7379,10 +7489,20 @@ with tab_discover:
         oils_only = bool(st.session_state.get("filter_oils_only", False))
         prefer_oils = bool(st.session_state.get("filter_prefer_oils", False))
         conc_filter = "Concentrated oil" if oils_only else "Any"
-        # Season from outdoor temp (slider / live) unless user forced a weather band
+        projection = st.session_state.get("filter_projection") or "Any"
+        climate_mode = st.session_state.get("filter_climate_mode") or "Outdoor (live / slider)"
+        # Season from outdoor temp (slider / live) unless indoor work mode or forced band
         rec_temp_f = None
         use_temp = bool(st.session_state.get("filter_use_temp", True))
-        if use_temp and (not weather or weather == "Any"):
+        if "Indoor work" in str(climate_mode):
+            rec_temp_f = 67.0
+            weather = "Cool / Autumn"
+            use_temp = False
+            if occasion == "Any":
+                occasion = "Work / Office"
+            if not projection or projection == "Any":
+                projection = "Soft"
+        elif use_temp and (not weather or weather == "Any"):
             try:
                 if st.session_state.get("temp_search_f") is not None:
                     rec_temp_f = float(st.session_state.get("temp_search_f"))
@@ -7421,6 +7541,7 @@ with tab_discover:
             shuffle=True,
             exclude_names=exclude,
             concentration=conc_filter,
+            projection=projection,
         )
         # Widen filters if nothing matched (common when traveling / strict season)
         if not selected:
@@ -7435,6 +7556,7 @@ with tab_discover:
                 shuffle=True,
                 exclude_names=exclude,
                 concentration="Any",
+                projection=projection if projection != "Any" else "Soft",
             )
             st.session_state["_recs_widened"] = True
         else:
@@ -7475,6 +7597,8 @@ with tab_discover:
                 "temp_f": rec_temp_f,
                 "category": category,
                 "occasion": occasion,
+                "projection": projection,
+                "climate_mode": climate_mode,
                 "favorites_only": favorites_only,
                 "oils_only": oils_only,
                 "prefer_oils": prefer_oils,
@@ -7631,9 +7755,15 @@ with tab_discover:
                 conc = f.get("concentration") or ""
                 conc_bit = f" | {conc}" if conc else ""
                 st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
-                st.write(f"**Gender:** {f['gender']} | **Season:** {f['season']}{conc_bit}")
-                st.write(f"**Category:** {', '.join(f['category'])}")
-                st.caption(f"Notes: {f['notes']}")
+                proj = estimate_projection(f)
+                tip = projection_tip(proj, (meta or {}).get("occasion") or "Any")
+                st.write(
+                    f"**Gender:** {f.get('gender')} | **Season:** {f.get('season')}{conc_bit} "
+                    f"| **Projection:** {proj}"
+                )
+                st.write(f"**Category:** {', '.join(f.get('category') or [])}")
+                st.caption(f"Notes: {f.get('notes')}")
+                st.caption(f"Wear: {tip}")
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     if st.button("YAY", key=f"rec_fav_{f['name']}_{i}"):
@@ -7891,6 +8021,8 @@ with tab_layer:
                     num=max(int(show_n) * 3, 12),
                     gender=layer_partner_gender,
                     include_unisex=include_unisex,
+                    projection=st.session_state.get("layer_projection") or "Any",
+                    occasion=st.session_state.get("layer_occasion") or "Any",
                     season=layer_partner_season,
                 )
                 # Safety net: drop any partner that still fails gender/season
