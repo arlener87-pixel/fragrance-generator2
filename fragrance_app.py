@@ -6703,6 +6703,9 @@ with st.sidebar:
             for f in (st.session_state.get("fragrances_db") or [])
             if f.get("name")
         )
+        # Clear after log must happen BEFORE multiselect (Streamlit widget rule)
+        if st.session_state.pop("_clear_sidebar_sotd_pick", False):
+            st.session_state["sidebar_sotd_pick"] = []
         q_pick = st.multiselect(
             "Bottle(s)",
             _q_names,
@@ -6715,7 +6718,7 @@ with st.sidebar:
                 st.warning("Pick at least one bottle.")
             else:
                 log_sotd_immediate(q_pick, notes=q_notes or "")
-                st.session_state["sidebar_sotd_pick"] = []
+                st.session_state["_clear_sidebar_sotd_pick"] = True
                 st.rerun()
 
     with st.expander("Variety / reshuffle", expanded=False):
