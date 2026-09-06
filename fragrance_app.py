@@ -969,6 +969,42 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
 
 
 
+def matches_weather_strict(fragrance: dict, weather: str) -> bool:
+    """Harder season filter for Layer partners — list changes when band changes."""
+    if not weather or weather == "Any":
+        return True
+    season = (fragrance.get("season") or "").lower().strip()
+    w = (weather or "").lower()
+    has_summer = "summer" in season or "hot" in season
+    has_spring = "spring" in season
+    has_fall = "fall" in season or "autumn" in season
+    has_winter = "winter" in season or "cold" in season
+    has_versatile = (
+        "versatile" in season
+        or "year-round" in season
+        or "year round" in season
+        or season in ("", "any", "all")
+    )
+    winter_locked = has_winter and not (has_summer or has_spring)
+    summer_locked = has_summer and not (has_winter or has_fall)
+
+    if "hot" in w or ("summer" in w and "warm" not in w and "mild" not in w):
+        if winter_locked and not has_fall:
+            return False
+        return bool(has_summer or has_spring or has_versatile)
+    if "warm" in w or "mild" in w:
+        return bool(has_spring or has_summer or has_fall or has_versatile or (has_winter and has_fall))
+    if "cool" in w or "autumn" in w:
+        if summer_locked and not has_spring:
+            return False
+        return bool(has_fall or has_winter or has_spring or has_versatile)
+    if "cold" in w or "winter" in w:
+        if summer_locked and not has_fall:
+            return False
+        return bool(has_winter or has_fall or has_versatile)
+    return True
+
+
 def temp_f_to_band(temp_f: float) -> str:
     """Map outdoor temperature ( F) to the app's weather band."""
     if temp_f >= 85:
@@ -4261,7 +4297,7 @@ def suggest_partners_for(
                 continue
         if season and season != "Any":
             try:
-                if not matches_weather(f, season):
+                if not matches_weather_strict(f, season):
                     continue
             except Exception:
                 pass
@@ -7947,8 +7983,33 @@ with tab_layer:
                 "Cold / Winter",
             ],
             key="layer_partner_season",
-            help="Only suggest partners that fit this weather band (versatile bottles still can appear).",
+            help="Partners must fit this band. Change it to refresh the list (strict filter).",
         )
+        tw1, tw2 = st.columns(2)
+        with tw1:
+            if st.button("Use outdoor temp band", use_container_width=True, key="layer_use_outdoor_band"):
+                try:
+                    t = st.session_state.get("temp_search_f")
+                    if t is None:
+                        live = st.session_state.get("live_temp_meta") or {}
+                        t = live.get("temp_f") if live.get("ok") else None
+                    if t is not None:
+                        st.session_state["layer_partner_season"] = temp_f_to_band(float(t))
+                        st.rerun()
+                    else:
+                        st.warning("Set temp in Recommend first (slider or live temp).")
+                except Exception as e:
+                    st.warning(str(e))
+        with tw2:
+            if st.button("Use indoor ~67 F band", use_container_width=True, key="layer_use_indoor_band"):
+                st.session_state["layer_partner_season"] = temp_f_to_band(67.0)
+                st.rerun()
+        if layer_partner_season and layer_partner_season != "Any":
+            st.caption(
+                f"Partner list filtered to **{layer_partner_season}** — change the band to see different matches."
+            )
+        else:
+            st.caption("Season **Any** — partners are ranked by layer fit only (weather not applied).")
 
         include_unisex = False
         if layer_partner_gender in ("Male", "Female"):
@@ -8025,6 +8086,11 @@ with tab_layer:
                     occasion=st.session_state.get("layer_occasion") or "Any",
                     season=layer_partner_season,
                 )
+                st.caption(
+                    f"**{len(partners)}** partner(s) for **{base_f.get('name')}**"
+                    + (f" · weather **{layer_partner_season}**" if layer_partner_season != "Any" else " · weather Any")
+                    + (f" · gender **{layer_partner_gender}**" if layer_partner_gender != "Any" else "")
+                )
                 # Safety net: drop any partner that still fails gender/season
                 _strict = []
                 for item in partners:
@@ -8047,7 +8113,7 @@ with tab_layer:
                             continue
                     if layer_partner_season and layer_partner_season != "Any":
                         try:
-                            if not matches_weather(pf, layer_partner_season):
+                            if not matches_weather_strict(pf, layer_partner_season):
                                 continue
                         except Exception:
                             pass
