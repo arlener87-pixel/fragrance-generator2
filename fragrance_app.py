@@ -7973,6 +7973,11 @@ with tab_layer:
                 st.session_state["_clear_layer"] = True
                 st.rerun()
 
+        # Apply pending season BEFORE the selectbox (Streamlit widget rule)
+        if "_pending_layer_partner_season" in st.session_state:
+            st.session_state["layer_partner_season"] = st.session_state.pop(
+                "_pending_layer_partner_season"
+            )
         layer_partner_season = st.selectbox(
             "Season / temp for partners",
             [
@@ -7994,7 +7999,7 @@ with tab_layer:
                         live = st.session_state.get("live_temp_meta") or {}
                         t = live.get("temp_f") if live.get("ok") else None
                     if t is not None:
-                        st.session_state["layer_partner_season"] = temp_f_to_band(float(t))
+                        st.session_state["_pending_layer_partner_season"] = temp_f_to_band(float(t))
                         st.rerun()
                     else:
                         st.warning("Set temp in Recommend first (slider or live temp).")
@@ -8002,7 +8007,7 @@ with tab_layer:
                     st.warning(str(e))
         with tw2:
             if st.button("Use indoor ~67 F band", use_container_width=True, key="layer_use_indoor_band"):
-                st.session_state["layer_partner_season"] = temp_f_to_band(67.0)
+                st.session_state["_pending_layer_partner_season"] = temp_f_to_band(67.0)
                 st.rerun()
         if layer_partner_season and layer_partner_season != "Any":
             st.caption(
