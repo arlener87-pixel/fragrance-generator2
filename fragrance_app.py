@@ -4457,6 +4457,135 @@ def suggest_multi_layers(
     return final
 
 
+
+def suggest_occasion_layer_stacks(
+    gender: str = "Any",
+    weather: str = "Any",
+    occasion: str = "Any",
+    projection: str = "Any",
+    temp_f=None,
+    category="Any",
+    num_stacks: int = 3,
+) -> list:
+    """2-3 bottle layer recipes matched to Recommend occasion/weather."""
+    try:
+        pool = get_top_fragrances(
+            gender,
+            weather,
+            category if category else "Any",
+            occasion,
+            top_n=14,
+            favorites_only=False,
+            temp_f=temp_f,
+            shuffle=True,
+            concentration="Any",
+            projection=projection or "Any",
+        )
+    except TypeError:
+        pool = get_top_fragrances(
+            gender, weather, category if category else "Any", occasion, 14,
+            favorites_only=False, temp_f=temp_f, shuffle=True,
+        )
+    if len(pool) < 2:
+        try:
+            pool = get_top_fragrances(
+                gender, "Any", "Any", "Any", top_n=14, shuffle=True,
+                projection=projection or "Any",
+            )
+        except TypeError:
+            pool = get_top_fragrances(gender, "Any", "Any", "Any", 14, shuffle=True)
+    if len(pool) < 2:
+        return []
+
+    stacks = []
+    used = set()
+    ranked_bases = list(pool)
+    if projection == "Soft" or occasion == "Work / Office":
+        try:
+            ranked_bases = sorted(
+                pool,
+                key=lambda f: (0 if estimate_projection(f) == "Soft" else 1, f.get("name") or ""),
+            )
+        except Exception:
+            pass
+
+    for base in ranked_bases[:8]:
+        if len(stacks) >= num_stacks:
+            break
+        try:
+            partners = suggest_partners_for(
+                base,
+                num=10,
+                gender=gender if gender != "Any" else "Any",
+                include_unisex=(gender == "Any"),
+                season=weather if weather and weather != "Any" else "Any",
+                projection=projection or "Any",
+                occasion=occasion or "Any",
+            )
+        except TypeError:
+            partners = suggest_partners_for(
+                base, num=10, gender=gender if gender != "Any" else "Any",
+                season=weather if weather and weather != "Any" else "Any",
+            )
+        for item in partners:
+            if len(stacks) >= num_stacks:
+                break
+            pf = item[0]
+            try:
+                names = order_names_heavy_to_light([base.get("name"), pf.get("name")])
+            except Exception:
+                names = [base.get("name"), pf.get("name")]
+            key = tuple(names)
+            if key in used or len(set(names)) < 2:
+                continue
+            used.add(key)
+            sc = item[2] if len(item) > 2 else 50
+            try:
+                sc = int(sc)
+            except Exception:
+                sc = 50
+            why_bits = []
+            if occasion and occasion != "Any":
+                why_bits.append(str(occasion))
+            if weather and weather != "Any":
+                why_bits.append(str(weather))
+            if projection and projection != "Any":
+                why_bits.append(str(projection) + " projection")
+            why_bits.append(str(item[1] if len(item) > 1 else "layer fit"))
+            stacks.append({
+                "names": names,
+                "score": sc,
+                "size": 2,
+                "why": " · ".join(why_bits),
+                "spray": " > ".join(names),
+            })
+        if len(stacks) < num_stacks and len(partners) >= 2:
+            p1, p2 = partners[0][0], partners[1][0]
+            try:
+                names = order_names_heavy_to_light(
+                    [base.get("name"), p1.get("name"), p2.get("name")]
+                )
+            except Exception:
+                names = [base.get("name"), p1.get("name"), p2.get("name")]
+            key = tuple(names)
+            if key not in used and len(set([n for n in names if n])) >= 3:
+                used.add(key)
+                try:
+                    sc = int((partners[0][2] + partners[1][2]) / 2)
+                except Exception:
+                    sc = 50
+                stacks.append({
+                    "names": names,
+                    "score": sc,
+                    "size": 3,
+                    "why": str(occasion or "Layer") + " · 3-bottle stack · heavy to light",
+                    "spray": " > ".join(names),
+                })
+
+    stacks.sort(key=lambda x: -int(x.get("score") or 0))
+    return stacks[:num_stacks]
+
+
 def suggest_his_match(her_frags: list, num: int = 4) -> list:
     """Male / male-leaning bottles that complement her selected scent(s)."""
     if not her_frags:
@@ -7624,9 +7753,22 @@ with tab_discover:
                         0 if "oil" in (f.get("concentration") or "").lower() else 1,
                     ),
                 )
+        try:
+            layer_stacks = suggest_occasion_layer_stacks(
+                gender=gender,
+                weather=weather if weather else "Any",
+                occasion=occasion if occasion else "Any",
+                projection=projection if projection else "Any",
+                temp_f=rec_temp_f,
+                category=category,
+                num_stacks=3,
+            )
+        except Exception:
+            layer_stacks = []
         st.session_state["last_recs"] = {
             "selected": selected,
             "num": num_recs,
+            "layer_stacks": layer_stacks,
             "meta": {
                 "gender": gender,
                 "weather": weather,
@@ -7930,6 +8072,66 @@ with tab_discover:
                                     )
                                     st.rerun()
                 st.markdown("---")
+
+        # Suggested 2-3 bottle layers for same occasion / weather
+        layer_stacks = last_recs.get("layer_stacks") or []
+        if layer_stacks:
+            st.subheader("Suggested layers (2-3 bottles)")
+            st.caption(
+                "Matched to your Recommend filters (occasion, weather, projection). "
+                "Spray order is heavy to light."
+            )
+            for si, stack in enumerate(layer_stacks, 1):
+                names = stack.get("names") or []
+                title = " + ".join(names)
+                score = stack.get("score", "—")
+                size = stack.get("size", len(names))
+                spray = stack.get("spray") or " > ".join(names)
+                st.markdown(
+                    f"**{si}. {title}**  \n"
+                    f"Score {score} · {size} bottles  \n"
+                    f"Spray: {spray}"
+                )
+                st.caption(stack.get("why") or "")
+                b1, b2, b3 = st.columns(3)
+                with b1:
+                    if st.button("Wear layer", key=f"stack_sotd_{si}"):
+                        send_to_sotd(list(names), notes="Suggested layer")
+                        st.rerun()
+                with b2:
+                    if st.button("Check in Layer", key=f"stack_check_{si}"):
+                        st.session_state["_pending_layer"] = list(names)
+                        try:
+                            st.session_state["last_layer_check"] = evaluate_layer_recipe(list(names))
+                        except Exception:
+                            try:
+                                st.session_state["last_layer_check"] = evaluate_layer(list(names))
+                            except Exception:
+                                pass
+                        st.session_state["_layer_studio_flash"] = (
+                            "Loaded suggested layer: **" + title + "**"
+                        )
+                        st.rerun()
+                with b3:
+                    if st.button("Save recipe", key=f"stack_save_{si}"):
+                        short = " / ".join(names[:2])
+                        if len(names) > 2:
+                            short += "..."
+                        rec = {
+                            "name": short,
+                            "bottles": list(names),
+                            "gender": (meta or {}).get("gender") or "Any",
+                            "score": stack.get("score"),
+                            "label": "Suggested",
+                            "why": stack.get("why") or "",
+                            "occasion": (meta or {}).get("occasion"),
+                            "weather": (meta or {}).get("weather"),
+                        }
+                        st.session_state.setdefault("layer_recipes", []).insert(0, rec)
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success("Recipe saved")
+                        st.rerun()
 
     if not search_query and not note_query and last_recs is None and last_temp is None:
         st.info(
