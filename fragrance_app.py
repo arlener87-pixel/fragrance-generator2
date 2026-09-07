@@ -6866,7 +6866,6 @@ with st.sidebar:
             "filter_num_recs": 3,
             "filter_favorites_only": False,
             "filter_oils_only": False,
-            "filter_prefer_oils": False,
             "filter_use_temp": True,
             "filter_projection": "Moderate",
             "filter_climate_mode": "Outdoor (live / slider)",
@@ -7065,19 +7064,12 @@ with st.sidebar:
             )
         with r4:
             oils_only = st.checkbox(
-                "Oils only", value=False, key="filter_oils_only",
-                help="Only concentrated / perfume oils",
+                "Oils only",
+                value=False,
+                key="filter_oils_only",
+                help="Only concentrated / perfume oils. Mark oils in Vault → Edit.",
             )
-        prefer_oils = st.checkbox(
-            "Prefer oils (rank oils higher)", value=False, key="filter_prefer_oils",
-            help="Still shows sprays, but oils float to the top",
-        )
-        oil_as_base = st.checkbox(
-            "Suggest oil + spray layers",
-            value=False,
-            key="filter_oil_spray_layers",
-            help="Suggested stacks prefer oil base under a spray top",
-        )
+        prefer_oils = False
 
         generate_clicked = st.button(
             "Generate", type="primary", use_container_width=True, key="gen_recs_btn"
@@ -7805,23 +7797,6 @@ with tab_discover:
                 category=category,
                 num_stacks=3,
             )
-            # Prefer oil base + spray top when requested
-            if st.session_state.get("filter_oil_spray_layers") and layer_stacks:
-                def _oil_spray_score(stack):
-                    names = stack.get("names") or []
-                    frags = []
-                    for n in names:
-                        for f in (st.session_state.get("fragrances_db") or []):
-                            if f.get("name") == n:
-                                frags.append(f)
-                                break
-                    if len(frags) < 2:
-                        return 0
-                    # ideal: first (heaviest) is oil OR any oil present with a spray
-                    oils = sum(1 for f in frags if is_oil_fragrance(f))
-                    sprays = len(frags) - oils
-                    return oils * 10 + sprays * 2
-                layer_stacks = sorted(layer_stacks, key=_oil_spray_score, reverse=True)
         except Exception:
             layer_stacks = []
         st.session_state["last_recs"] = {
@@ -11179,90 +11154,6 @@ with tab_vault:
 
 
     
-    with st.expander("Oil tag fixer", expanded=True):
-        st.caption(
-            "Find bottles that look like oils but are not tagged, or tag any bottle as Concentrated oil. "
-            "Oils only on Recommend uses this tag + name."
-        )
-        db = st.session_state.get("fragrances_db") or []
-        tagged_oils = [f for f in db if is_oil_fragrance(f)]
-        # Suspects: name/notes hint oil but not detected, or concentration empty and name has oil
-        suspects = []
-        for i, f in enumerate(db):
-            if is_oil_fragrance(f):
-                continue
-            blob = f"{f.get('name') or ''} {f.get('notes') or ''} {f.get('concentration') or ''}".lower()
-            if any(k in blob for k in ("oil", "attar", "mukhallat", "perfume oil", "concentrated")):
-                suspects.append({"idx": i, "f": f, "why": "name/notes mention oil"})
-        st.write(
-            f"**{len(tagged_oils)}** tagged as oil · **{len(suspects)}** possible missed oil(s)"
-        )
-        fix_mode = st.radio(
-            "Fix mode",
-            ["Review suspects", "Pick any bottle to mark as oil", "List all tagged oils"],
-            key="oil_fix_mode",
-            horizontal=True,
-        )
-        if fix_mode == "List all tagged oils":
-            for f in sorted(tagged_oils, key=lambda x: (x.get("name") or "").lower())[:80]:
-                st.markdown(
-                    f"**{f.get('name')}** - *{f.get('brand')}* · {f.get('concentration') or 'oil'}"
-                )
-        elif fix_mode == "Pick any bottle to mark as oil":
-            names = sorted((f.get("name") or "") for f in db if f.get("name"))
-            pick = st.selectbox("Bottle", ["-"] + names, key="oil_fix_pick")
-            if pick and pick != "-":
-                if st.button("Mark as Concentrated oil", type="primary", key="oil_fix_mark_one"):
-                    for i, f in enumerate(st.session_state["fragrances_db"]):
-                        if f.get("name") == pick:
-                            st.session_state["fragrances_db"][i]["concentration"] = "Concentrated oil"
-                            break
-                    try:
-                        log_vault_action("edited", pick, "mark-oil")
-                    except Exception:
-                        pass
-                    mark_vault_dirty()
-                    save_persisted_data()
-                    st.success(f"Tagged **{pick}** as Concentrated oil")
-                    st.rerun()
-        else:
-            if not suspects:
-                st.success("No obvious missed oils from names/notes.")
-            for item in suspects[:40]:
-                f = item["f"]
-                st.markdown(
-                    f"**{f.get('name')}** (*{f.get('brand')}*)  \n"
-                    f"Now: {f.get('concentration') or 'blank'} · {item['why']}"
-                )
-                if st.button(
-                    "Tag as oil",
-                    key=f"oil_sus_{item['idx']}",
-                ):
-                    st.session_state["fragrances_db"][item["idx"]]["concentration"] = "Concentrated oil"
-                    try:
-                        log_vault_action("edited", f.get("name"), "mark-oil-suspect")
-                    except Exception:
-                        pass
-                    mark_vault_dirty()
-                    save_persisted_data()
-                    st.rerun()
-            if suspects and st.button(
-                f"Tag all {len(suspects)} suspects as oil",
-                type="primary",
-                key="oil_fix_all",
-            ):
-                for item in suspects:
-                    st.session_state["fragrances_db"][item["idx"]]["concentration"] = "Concentrated oil"
-                try:
-                    log_vault_action("edited", f"{len(suspects)} bottles", "mark-oil-bulk")
-                except Exception:
-                    pass
-                mark_vault_dirty()
-                save_persisted_data()
-                st.success(f"Tagged {len(suspects)} bottle(s) as oil")
-                st.rerun()
-
-
     with st.expander("Batch edit", expanded=False):
         st.caption("Apply gender, season, or a category to several bottles at once.")
         all_names = sorted(
