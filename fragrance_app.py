@@ -3298,9 +3298,16 @@ def resolve_frag_by_name(name: str):
     """Resolve a bottle name to one vault entry (exact name match)."""
     if not name:
         return None
+    name = str(name).strip()
     for f in st.session_state.get("fragrances_db") or []:
         if f.get("name") == name:
             return f
+    # Label form "Name - Brand"
+    if " - " in name:
+        left = name.split(" - ", 1)[0].strip()
+        for f in st.session_state.get("fragrances_db") or []:
+            if f.get("name") == left:
+                return f
     # soft match strip
     n = name.strip().lower()
     for f in st.session_state.get("fragrances_db") or []:
@@ -8202,84 +8209,38 @@ with tab_layer:
         st.session_state["layer_partner_gender"] = "Any"
 
     with st.expander("Base + partners", expanded=True):
-        st.markdown(
-            """
-**Oil + spray how-to**
-1. **Oil first** — dab on pulse points (skin-close, long base)
-2. Wait **30–60 sec**
-3. **Spray on top** — 1–2 sprays for office, 2–3 for evening
-4. In this studio: pick the **oil as base**, set filter to **Sprays only** for tops
-"""
-        )
         # Apply pending season BEFORE the selectbox (Streamlit widget rule)
         if "_pending_layer_partner_season" in st.session_state:
             st.session_state["layer_partner_season"] = st.session_state.pop(
                 "_pending_layer_partner_season"
             )
 
-        f1, f2 = st.columns(2)
-        with f1:
-            layer_partner_gender = st.selectbox(
-                "Gender",
-                ["Any", "Male", "Female", "Unisex"],
-                key="layer_partner_gender",
-            )
-        with f2:
-            layer_partner_season = st.selectbox(
-                "Weather",
-                [
-                    "Any",
-                    "Hot / Summer",
-                    "Warm / Mild",
-                    "Cool / Autumn",
-                    "Cold / Winter",
-                ],
-                key="layer_partner_season",
-            )
-        f3, f4 = st.columns(2)
-        with f3:
-            layer_oil_mode = st.selectbox(
-                "Oil / spray",
-                [
-                    "Any format",
-                    "Oils only",
-                    "Sprays only",
-                    "Oil base + spray partners",
-                ],
-                key="layer_oil_mode",
-                help="Oil base + spray partners ranks sprays as tops for an oil base.",
-            )
-        with f4:
-            if st.button("Clear filters", use_container_width=True, key="layer_clear_btn"):
-                st.session_state["_clear_layer"] = True
-                st.rerun()
-
-        t1, t2, t3 = st.columns(3)
-        with t1:
-            if st.button("Outdoor temp", use_container_width=True, key="layer_use_outdoor_band"):
-                try:
-                    t = st.session_state.get("temp_search_f")
-                    if t is None:
-                        live = st.session_state.get("live_temp_meta") or {}
-                        t = live.get("temp_f") if live.get("ok") else None
-                    if t is not None:
-                        st.session_state["_pending_layer_partner_season"] = temp_f_to_band(float(t))
-                        st.rerun()
-                    else:
-                        st.warning("Set temp in Recommend first.")
-                except Exception as e:
-                    st.warning(str(e))
-        with t2:
-            if st.button("Indoor 67 F", use_container_width=True, key="layer_use_indoor_band"):
-                st.session_state["_pending_layer_partner_season"] = temp_f_to_band(67.0)
-                st.rerun()
-        with t3:
-            if st.button("Refresh partners", use_container_width=True, key="layer_refresh_partners"):
-                st.session_state["_layer_partner_nonce"] = random.random()
-                st.rerun()
-
-        if layer_partner_season and layer_partner_season != "Any":
-            st.caption(f"Weather filter: **{layer_partner_season}**")
+        layer_partner_gender = st.selectbox(
+            "Gender",
+            ["Any", "Male", "Female", "Unisex"],
+            key="layer_partner_gender",
+        )
+        layer_partner_season = st.selectbox(
+            "Weather",
+            [
+                "Any",
+                "Hot / Summer",
+                "Warm / Mild",
+                "Cool / Autumn",
+                "Cold / Winter",
+            ],
+            key="layer_partner_season",
+        )
+        layer_oil_mode = st.selectbox(
+            "Oil / spray",
+            [
+                "Any format",
+                "Oils only",
+                "Sprays only",
+                "Oil base + spray partners",
+            ],
+            key="layer_oil_mode",
+        )
         include_unisex = False
         if layer_partner_gender in ("Male", "Female"):
             include_unisex = st.checkbox(
@@ -8482,9 +8443,15 @@ with tab_layer:
                                     str(pf.get("name") or "").strip(),
                                 ]
                                 _pair = [n for n in _pair if n]
-                                # One-shot: applied before multiselect on next run only
+                                # Normalize labels to pure names
+                                _pair = [
+                                    (resolve_frag_by_name(n) or {}).get("name") or n
+                                    for n in _pair
+                                ]
                                 st.session_state["_pending_layer_pick"] = list(_pair)
+                                st.session_state["_locked_layer_pair"] = list(_pair)
                                 _ev = evaluate_layer_recipe(list(_pair))
+                                _ev["selected_names"] = list(_pair)
                                 st.session_state["last_layer_check"] = _ev
                                 # Seed recipe gender for this pair
                                 _ag = recipe_gender_from_frags(_ev.get("frags") or [])
@@ -8531,6 +8498,36 @@ with tab_layer:
 
 
     # --- Multi-bottle stacks (3+) ---
+
+        st.markdown("---")
+        st.caption("Actions")
+        _ba1, _ba2, _ba3 = st.columns(3)
+        with _ba1:
+            if st.button("Clear filters", use_container_width=True, key="layer_clear_btn"):
+                st.session_state["_clear_layer"] = True
+                st.rerun()
+        with _ba2:
+            if st.button("Refresh partners", use_container_width=True, key="layer_refresh_partners"):
+                st.session_state["_layer_partner_nonce"] = random.random()
+                st.rerun()
+        with _ba3:
+            if st.button("Indoor 67 F", use_container_width=True, key="layer_use_indoor_band"):
+                st.session_state["_pending_layer_partner_season"] = temp_f_to_band(67.0)
+                st.rerun()
+        if st.button("Use outdoor temp band", use_container_width=True, key="layer_use_outdoor_band"):
+            try:
+                t = st.session_state.get("temp_search_f")
+                if t is None:
+                    live = st.session_state.get("live_temp_meta") or {}
+                    t = live.get("temp_f") if live.get("ok") else None
+                if t is not None:
+                    st.session_state["_pending_layer_partner_season"] = temp_f_to_band(float(t))
+                    st.rerun()
+                else:
+                    st.warning("Set temp in Recommend first.")
+            except Exception as e:
+                st.warning(str(e))
+
     with st.expander("Multi-bottle stacks (3 bottles)", expanded=False):
         st.caption(
             "Suggest full layers with more than one partner - ordered heavy to light."
@@ -8692,8 +8689,8 @@ with tab_layer:
     st.markdown("---")
     st.subheader("Layer check")
     st.caption(
-        "Pick two or more bottles. We score the combo from categories and notes "
-        "so you can see if it is a good layer."
+        "Bottles below must match what you selected. "
+        "Oil + spray: apply oil first on skin, wait 30–60 sec, then spray on top."
     )
     # Clear multiselect BEFORE the widget is created (Streamlit forbids writing
     # to a widget key after that widget has been instantiated).
@@ -8706,10 +8703,12 @@ with tab_layer:
 
     # When results exist, show a summary at the TOP so you do not have to hunt for it
     _ev_top = st.session_state.get("last_layer_check")
-    if _ev_top and (_ev_top.get("selected_names") or _ev_top.get("frags")):
-        _selected = _ev_top.get("selected_names") or []
-        _spray = _ev_top.get("spray_order") or []
-        _checked = _ev_top.get("checked_line") or (" + ".join(_selected))
+    if _ev_top and (_ev_top.get("selected_names") or _ev_top.get("frags") or st.session_state.get("_locked_layer_pair")):
+        _selected = _ev_top.get("selected_names") or list(st.session_state.get("_locked_layer_pair") or [])
+        if not _selected and _ev_top.get("frags"):
+            _selected = [f.get("name") for f in _ev_top.get("frags") if isinstance(f, dict)]
+        _spray = _ev_top.get("spray_order") or list(_selected)
+        _checked = " + ".join([str(x) for x in _selected if x])
         _sc = _ev_top.get("score")
         try:
             _sc_i = int(round(float(_sc)))
@@ -8726,6 +8725,19 @@ with tab_layer:
         st.markdown(
             "**Spray order:** " + clean_display_text(" > ".join([str(x) for x in _spray]) if _spray else "-")
         )
+        # Oil + spray application guide
+        _frs = _ev_top.get("frags") or []
+        _has_oil = any(is_oil_fragrance(f) for f in _frs if isinstance(f, dict))
+        _has_spray = any(not is_oil_fragrance(f) for f in _frs if isinstance(f, dict))
+        if _has_oil and _has_spray:
+            st.info(
+                "**Oil + spray:** 1) Dab oil on pulse points first. "
+                "2) Wait 30–60 seconds. "
+                "3) Spray 1–2 (office) or 2–3 (evening) of the spray on top / clothes. "
+                "Do not spray over wet oil in the same spot."
+            )
+        elif _has_oil:
+            st.caption("Oil only — dab on skin; a little goes a long way.")
         if _ev_top.get("why"):
             st.caption(clean_display_text(str(_ev_top.get("why") or ""))[:320])
         st.caption("Full guidance and Save recipe are below the picker.")
@@ -8775,9 +8787,14 @@ with tab_layer:
     # One-shot load from Base+partners (before building options + widget)
     _pending = st.session_state.pop("_pending_layer_pick", None)
     if _pending and isinstance(_pending, (list, tuple)) and len(_pending) >= 2:
-        st.session_state["roulette_layer_pick"] = [
-            str(n).strip() for n in _pending if n and str(n).strip()
-        ]
+        _clean = []
+        for n in _pending:
+            if not n:
+                continue
+            rf = resolve_frag_by_name(str(n).strip())
+            _clean.append((rf.get("name") if rf else str(n).strip()))
+        st.session_state["roulette_layer_pick"] = list(_clean)
+        st.session_state["_locked_layer_pair"] = list(_clean)
 
     current_pick = list(st.session_state.get("roulette_layer_pick") or [])
     must_keep = set(n for n in current_pick if n)
