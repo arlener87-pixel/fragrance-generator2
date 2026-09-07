@@ -11140,23 +11140,9 @@ with tab_vault:
                     st.success("Vault looks solid - no major gaps found.")
                 else:
                     _n_iss = len(issues)
-                    _hi = max(1, _n_iss)
-                    _default = min(_hi, max(1, min(25, _n_iss)))
-                    # Stale session value can sit outside [1, _hi] after a smaller audit
-                    _prev = st.session_state.get("audit_show_n")
-                    try:
-                        _prev_i = int(_prev) if _prev is not None else _default
-                    except Exception:
-                        _prev_i = _default
-                    if _prev_i < 1 or _prev_i > _hi:
-                        st.session_state["audit_show_n"] = _default
-                    show_n = st.slider(
-                        "Show first N issues",
-                        min_value=1,
-                        max_value=_hi,
-                        value=st.session_state.get("audit_show_n", _default),
-                        key="audit_show_n",
-                    )
+                    # Avoid slider min/max session bugs — show up to 25 issues
+                    show_n = min(25, _n_iss)
+                    st.caption(f"Showing {show_n} of {_n_iss} issue(s).")
                     for item in issues[:show_n]:
                         flag_txt = ", ".join(item["flags"]) if item["flags"] else "family mismatch"
                         st.markdown(
