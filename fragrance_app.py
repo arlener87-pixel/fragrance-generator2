@@ -9365,15 +9365,17 @@ with tab_sotd:
         if len(st.session_state.get("sotd_multiselect", [])) > 1:
             st.session_state["sotd_notes_input"] = "Layered combo"
 
-    st.caption("Pick one bottle, or several for a layering day.")
-    # Default to Pacific "today" so the date matches the user, not the server UTC clock
+    # --- Core log (keep simple at the top) ---
+    st.markdown("##### Log today")
+    st.caption("One bottle or several for a layering day.")
+
     if "sotd_date" not in st.session_state:
         st.session_state["sotd_date"] = pacific_today()
     sotd_date = st.date_input(
         "Date",
         value=st.session_state.get("sotd_date", pacific_today()),
         key="sotd_date",
-        help="Calendar uses your selected day. Defaults to Pacific time today.",
+        help="Defaults to Pacific today.",
     )
     sotd_choices = st.multiselect(
         "Wearing today",
@@ -9386,13 +9388,17 @@ with tab_sotd:
         placeholder="Rainy afternoon | office | date night",
         key="sotd_notes_input",
     )
-    all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
-    sotd_his = st.selectbox(
-        "His scent (optional)",
-        ["- none -"] + all_names_his,
-        key="sotd_his_select",
-    )
+    with st.expander("More options", expanded=False):
+        all_names_his = sorted(f["name"] for f in st.session_state["fragrances_db"])
+        sotd_his = st.selectbox(
+            "His scent (optional)",
+            ["- none -"] + all_names_his,
+            key="sotd_his_select",
+        )
+    # his scent lives in More options expander (widget still runs)
+    sotd_his = st.session_state.get("sotd_his_select") or "- none -"
 
+    st.markdown("##### Inspiration (optional)")
     with st.expander("Horror night vibes", expanded=False):
         st.caption(
             "Scary-movie nights - gothic fog, cabin woods, slashers, haunted gourmand, vampires."
@@ -9530,14 +9536,15 @@ with tab_sotd:
                     st.rerun()
                 st.markdown("---")
 
+    st.markdown("##### Save")
     sotd_photo = st.file_uploader(
-        "Optional photo (bottle / flat lay)",
+        "Photo (optional)",
         type=["jpg", "jpeg", "png", "webp"],
         key="sotd_photo_up",
-        help="Stored as a small compressed image with this log.",
+        help="Bottle / flat lay — stored compressed with this log.",
     )
 
-    if st.button("Log today's scent", type="primary"):
+    if st.button("Log today's scent", type="primary", use_container_width=True):
         if sotd_choices:
             today_date = sotd_date.strftime("%Y-%m-%d") if hasattr(sotd_date, "strftime") else str(sotd_date)
             scent_display = " + ".join(sotd_choices)
