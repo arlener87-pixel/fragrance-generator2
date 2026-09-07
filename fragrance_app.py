@@ -8593,6 +8593,30 @@ with tab_layer:
                     include_unisex=stack_unisex,
                     season=stack_season,
                 )
+                # Extra gender pass on stack names (strict)
+                if stack_gender and stack_gender != "Any" and stacks:
+                    _clean_stacks = []
+                    for sk in stacks:
+                        names = sk.get("names") or []
+                        ok = True
+                        for n in names:
+                            fr = resolve_frag_by_name(n)
+                            if not fr:
+                                continue
+                            fg = normalize_gender(fr.get("gender") or "")
+                            if stack_gender == "Female" and fg not in ("Female", "Female-leaning") and not (
+                                stack_unisex and fg == "Unisex"
+                            ):
+                                ok = False
+                                break
+                            if stack_gender == "Male" and fg not in ("Male", "Male-leaning") and not (
+                                stack_unisex and fg == "Unisex"
+                            ):
+                                ok = False
+                                break
+                        if ok:
+                            _clean_stacks.append(sk)
+                    stacks = _clean_stacks
                 st.session_state["last_multi_stacks"] = {
                     "base": stack_base,
                     "base_name": stack_base_name,
@@ -8689,8 +8713,8 @@ with tab_layer:
     st.markdown("---")
     st.subheader("Layer check")
     st.caption(
-        "Bottles below must match what you selected. "
-        "Oil + spray: apply oil first on skin, wait 30–60 sec, then spray on top."
+        "1) Pick 2+ bottles  ·  2) Check layer  ·  3) Read spray order. "
+        "Oil + spray: oil on skin first, wait 30–60 sec, then spray on top."
     )
     # Clear multiselect BEFORE the widget is created (Streamlit forbids writing
     # to a widget key after that widget has been instantiated).
@@ -8772,18 +8796,8 @@ with tab_layer:
             except Exception:
                 pass
 
-    layer_check_season = st.selectbox(
-        "Season filter for layer pick list",
-        [
-            "Any",
-            "Hot / Summer",
-            "Warm / Mild",
-            "Cool / Autumn",
-            "Cold / Winter",
-        ],
-        key="layer_check_season",
-        help="Narrow which bottles appear in the picker. Your current picks always stay visible.",
-    )
+    # Keep picker simple — no extra season dropdown (use Base+partners weather for partners)
+    layer_check_season = "Any"
     # One-shot load from Base+partners (before building options + widget)
     _pending = st.session_state.pop("_pending_layer_pick", None)
     if _pending and isinstance(_pending, (list, tuple)) and len(_pending) >= 2:
