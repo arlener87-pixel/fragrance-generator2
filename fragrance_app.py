@@ -1302,6 +1302,36 @@ def _stable_tiebreak(name: str) -> int:
 
 
 
+
+def is_oil_fragrance(f: dict) -> bool:
+    """True if bottle is concentrated oil / perfume oil."""
+    if not f:
+        return False
+    conc = (f.get("concentration") or "").lower()
+    name = (f.get("name") or "").lower()
+    notes = (f.get("notes") or "").lower()
+    if "oil" in conc:
+        return True
+    if "perfume oil" in name or "concentrated oil" in name or name.endswith(" oil"):
+        return True
+    if "body spray" in conc or "body spray" in name:
+        return False
+    return False
+
+
+def oil_badge(f: dict) -> str:
+    return " · OIL" if is_oil_fragrance(f) else ""
+
+
+def spray_or_oil_label(f: dict) -> str:
+    if is_oil_fragrance(f):
+        return "Oil"
+    conc = (f.get("concentration") or "").strip()
+    if conc:
+        return conc
+    return "Spray"
+
+
 def estimate_projection(f: dict) -> str:
     """Heuristic loudness: Soft / Moderate / Strong (not lab data)."""
     cats = set((c or "").lower() for c in (f.get("category") or []))
@@ -7035,10 +7065,18 @@ with st.sidebar:
             )
         with r4:
             oils_only = st.checkbox(
-                "Concentrated oils only", value=False, key="filter_oils_only"
+                "Oils only", value=False, key="filter_oils_only",
+                help="Only concentrated / perfume oils",
             )
         prefer_oils = st.checkbox(
-            "Prefer oils in ranking", value=False, key="filter_prefer_oils"
+            "Prefer oils (rank oils higher)", value=False, key="filter_prefer_oils",
+            help="Still shows sprays, but oils float to the top",
+        )
+        oil_as_base = st.checkbox(
+            "Suggest oil + spray layers",
+            value=False,
+            key="filter_oil_spray_layers",
+            help="Suggested stacks prefer oil base under a spray top",
         )
 
         generate_clicked = st.button(
@@ -7766,6 +7804,23 @@ with tab_discover:
                 category=category,
                 num_stacks=3,
             )
+            # Prefer oil base + spray top when requested
+            if st.session_state.get("filter_oil_spray_layers") and layer_stacks:
+                def _oil_spray_score(stack):
+                    names = stack.get("names") or []
+                    frags = []
+                    for n in names:
+                        for f in (st.session_state.get("fragrances_db") or []):
+                            if f.get("name") == n:
+                                frags.append(f)
+                                break
+                    if len(frags) < 2:
+                        return 0
+                    # ideal: first (heaviest) is oil OR any oil present with a spray
+                    oils = sum(1 for f in frags if is_oil_fragrance(f))
+                    sprays = len(frags) - oils
+                    return oils * 10 + sprays * 2
+                layer_stacks = sorted(layer_stacks, key=_oil_spray_score, reverse=True)
         except Exception:
             layer_stacks = []
         st.session_state["last_recs"] = {
@@ -7935,12 +7990,14 @@ with tab_discover:
                 badge = " YAY" if current_reaction == "fav" else ""
                 conc = f.get("concentration") or ""
                 conc_bit = f" | {conc}" if conc else ""
-                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}")
+                oil_bit = oil_badge(f)
+                st.success(f"**#{i} - {f['name']}** by *{f['brand']}*{badge}{oil_bit}")
                 proj = estimate_projection(f)
                 tip = projection_tip(proj, (meta or {}).get("occasion") or "Any")
+                fmt = spray_or_oil_label(f)
                 st.write(
-                    f"**Gender:** {f.get('gender')} | **Season:** {f.get('season')}{conc_bit} "
-                    f"| **Projection:** {proj}"
+                    f"**Gender:** {f.get('gender')} | **Season:** {f.get('season')} "
+                    f"| **Format:** {fmt} | **Projection:** {proj}"
                 )
                 st.write(f"**Category:** {', '.join(f.get('category') or [])}")
                 st.caption(f"Notes: {f.get('notes')}")
@@ -8022,7 +8079,7 @@ with tab_discover:
                                 pf, reason = item[0], item[1]
                                 score = None
                             st.markdown(
-                                f"**{pi}. {pf.get('name')}** (*{pf.get('brand')}*)"
+                                f"**{pi}. {pf.get('name')}** (*{pf.get('brand')}*){oil_badge(pf)}"
                                 + (f" | score {score}" if score is not None else "")
                             )
                             st.caption(
@@ -8221,6 +8278,18 @@ with tab_layer:
         else:
             st.caption("Season **Any** — partners are ranked by layer fit only (weather not applied).")
 
+
+        layer_oil_mode = st.selectbox(
+            "Oil / spray filter",
+            [
+                "Any format",
+                "Oils only",
+                "Sprays only",
+                "Prefer oil as base",
+            ],
+            key="layer_oil_mode",
+            help="Oils only = partners that are oils. Prefer oil as base = rank oil bases higher when searching matches.",
+        )
         include_unisex = False
         if layer_partner_gender in ("Male", "Female"):
             include_unisex = st.checkbox(
@@ -8296,6 +8365,17 @@ with tab_layer:
                     occasion=st.session_state.get("layer_occasion") or "Any",
                     season=layer_partner_season,
                 )
+                _oil_mode = st.session_state.get("layer_oil_mode") or "Any format"
+                if _oil_mode == "Oils only":
+                    partners = [x for x in partners if is_oil_fragrance(x[0])]
+                elif _oil_mode == "Sprays only":
+                    partners = [x for x in partners if not is_oil_fragrance(x[0])]
+                elif _oil_mode == "Prefer oil as base" and base_f and not is_oil_fragrance(base_f):
+                    # Prefer oil partners to wear under/with a spray base, still show all
+                    partners = sorted(
+                        partners,
+                        key=lambda x: (0 if is_oil_fragrance(x[0]) else 1, -int(x[2] if len(x) > 2 else 0)),
+                    )
                 st.caption(
                     f"**{len(partners)}** partner(s) for **{base_f.get('name')}**"
                     + (f" · weather **{layer_partner_season}**" if layer_partner_season != "Any" else " · weather Any")
@@ -9619,6 +9699,23 @@ with tab_sotd:
 # ===== STARS / HOROSCOPE =====
 with tab_collection:
     st.subheader("Collection browser")
+    _db_c = st.session_state.get("fragrances_db") or []
+    _oil_count = sum(1 for f in _db_c if is_oil_fragrance(f))
+    st.caption(
+        f"**{_oil_count}** concentrated oil(s) in the vault · "
+        "Oils show with an **OIL** tag in Recommend and Layer."
+    )
+    show_oils_only = st.checkbox("Show oils only in browser", key="coll_oils_only")
+    if show_oils_only:
+        oil_list = [f for f in _db_c if is_oil_fragrance(f)]
+        oil_list = sorted(oil_list, key=lambda x: (x.get("name") or "").lower())
+        st.markdown(f"### Oils ({len(oil_list)})")
+        for f in oil_list[:60]:
+            st.markdown(
+                f"**{f.get('name')}** - *{f.get('brand')}* · {f.get('gender')} · {f.get('season')}"
+            )
+            if f.get("notes"):
+                st.caption(str(f.get("notes"))[:120])
 
     wear_counts = get_wear_counts()
     favs = [
