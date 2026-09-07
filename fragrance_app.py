@@ -7976,7 +7976,7 @@ with tab_discover:
                         key="rec_send_all_layer",
                         use_container_width=True,
                     ):
-                        st.session_state["roulette_layer_pick"] = list(names_all)
+                        st.session_state["_pending_layer_pick"] = list(names_all)
                         st.session_state["last_layer_check"] = evaluate_layer_recipe(
                             list(names_all)
                         )
@@ -8110,7 +8110,7 @@ with tab_discover:
                                     key=f"rec_pair_check_{i}_{pi}",
                                 ):
                                     pair = [f["name"], pf["name"]]
-                                    st.session_state["roulette_layer_pick"] = pair
+                                    st.session_state["_pending_layer_pick"] = pair
                                     st.session_state["last_layer_check"] = (
                                         evaluate_layer_recipe(pair)
                                     )
@@ -8544,8 +8544,13 @@ with tab_layer:
 
     with st.expander("Multi-bottle stacks (3 bottles)", expanded=False):
         st.caption(
-            "Suggest full layers with more than one partner - ordered heavy to light."
+            "Uses Gender / Weather from Base + partners above. Change those first."
         )
+        stack_gender = st.session_state.get("layer_partner_gender") or "Any"
+        stack_season = st.session_state.get("layer_partner_season") or "Any"
+        stack_unisex = bool(st.session_state.get("layer_include_unisex_v3"))
+        st.caption(f"Active filters: **{stack_gender}** · **{stack_season}**")
+
         ms_label_to_frag = {}
         ms_labels = []
         for f in sorted(
@@ -8555,6 +8560,16 @@ with tab_layer:
             nm = (f.get("name") or "").strip()
             if not nm:
                 continue
+            if stack_gender and stack_gender != "Any":
+                fg = normalize_gender(f.get("gender") or "")
+                if stack_gender == "Female":
+                    if fg not in ("Female", "Female-leaning") and not (stack_unisex and fg == "Unisex"):
+                        continue
+                elif stack_gender == "Male":
+                    if fg not in ("Male", "Male-leaning") and not (stack_unisex and fg == "Unisex"):
+                        continue
+                elif stack_gender == "Unisex" and fg != "Unisex":
+                    continue
             br = (f.get("brand") or "").strip() or "?"
             lab = f"{nm} - {br}"
             if lab in ms_label_to_frag:
@@ -8564,36 +8579,12 @@ with tab_layer:
         stack_base_opts = ["- select a bottle -"] + ms_labels
         cur_ms = st.session_state.get("multi_stack_base")
         if cur_ms and cur_ms not in stack_base_opts:
-            matched = next(
-                (lab for lab in ms_labels if lab.startswith(str(cur_ms) + " -")),
-                None,
-            )
-            st.session_state["multi_stack_base"] = matched or "- select a bottle -"
+            st.session_state["multi_stack_base"] = "- select a bottle -"
         stack_base = st.selectbox(
             "Base for multi-bottle stack",
             stack_base_opts,
             key="multi_stack_base",
         )
-        ms1, ms2 = st.columns(2)
-        with ms1:
-            stack_gender = st.selectbox(
-                "Gender",
-                ["Any", "Female", "Male", "Unisex"],
-                key="multi_stack_gender",
-            )
-        with ms2:
-            stack_season = st.selectbox(
-                "Season",
-                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-                key="multi_stack_season",
-            )
-        stack_unisex = False
-        if stack_gender in ("Male", "Female"):
-            stack_unisex = st.checkbox(
-                "Include Unisex",
-                value=False,
-                key="multi_stack_unisex",
-            )
         n_stacks = st.slider("How many stacks to show", 2, 6, 3, key="multi_stack_count")
         if stack_base != "- select a bottle -":
             base_s = ms_label_to_frag.get(stack_base)
@@ -8871,9 +8862,15 @@ with tab_layer:
         if len(layer_pick) < 2:
             st.warning("Pick at least two bottles.")
         else:
-            picks_now = [str(n).strip() for n in list(layer_pick) if n]
+            picks_now = []
+            for n in list(layer_pick):
+                if not n:
+                    continue
+                rf = resolve_frag_by_name(str(n).strip())
+                picks_now.append((rf.get("name") if rf else str(n).strip()))
             result = evaluate_layer_recipe(picks_now)
-            result["selected_names"] = picks_now
+            result["selected_names"] = list(picks_now)
+            st.session_state["_locked_layer_pair"] = list(picks_now)
             result["suggested_name"] = suggest_recipe_name_from_notes(
                 picks_now, randomize=True
             )
