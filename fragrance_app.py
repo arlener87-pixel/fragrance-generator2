@@ -11142,11 +11142,19 @@ with tab_vault:
                     _n_iss = len(issues)
                     _hi = max(1, _n_iss)
                     _default = min(_hi, max(1, min(25, _n_iss)))
+                    # Stale session value can sit outside [1, _hi] after a smaller audit
+                    _prev = st.session_state.get("audit_show_n")
+                    try:
+                        _prev_i = int(_prev) if _prev is not None else _default
+                    except Exception:
+                        _prev_i = _default
+                    if _prev_i < 1 or _prev_i > _hi:
+                        st.session_state["audit_show_n"] = _default
                     show_n = st.slider(
                         "Show first N issues",
                         min_value=1,
                         max_value=_hi,
-                        value=_default,
+                        value=st.session_state.get("audit_show_n", _default),
                         key="audit_show_n",
                     )
                     for item in issues[:show_n]:
