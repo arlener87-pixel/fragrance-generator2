@@ -8181,7 +8181,7 @@ with tab_discover:
 # ===== LAYER =====
 with tab_layer:
     st.subheader("Layering Studio")
-    st.caption("Partners for a base bottle, free combos, or saved recipes.")
+    st.caption("Pick a base → filter partners → refresh for new matches. Oil first, spray second.")
     _studio_flash = st.session_state.pop("_layer_studio_flash", None)
     if _studio_flash:
         st.success(_studio_flash)
@@ -8189,7 +8189,9 @@ with tab_layer:
     if st.session_state.pop("_clear_layer", False):
         st.session_state["layer_partner_gender"] = "Any"
         st.session_state["layer_partner_season"] = "Any"
+        st.session_state["layer_oil_mode"] = "Any format"
         st.session_state["layer_base_select"] = "- select a bottle -"
+        st.session_state.pop("_layer_partner_nonce", None)
         st.session_state["layer_gender"] = "Any"
         st.session_state["layer_season"] = "Any"
         st.session_state["layer_favs_only"] = False
@@ -8200,39 +8202,61 @@ with tab_layer:
         st.session_state["layer_partner_gender"] = "Any"
 
     with st.expander("Base + partners", expanded=True):
-        lp1, lp2 = st.columns(2)
-        with lp1:
-            layer_partner_gender = st.selectbox(
-                "Partner gender filter",
-                ["Any", "Male", "Female", "Unisex"],
-                key="layer_partner_gender",
-                help="Filters partner suggestions only. Base list always shows the full vault.",
-            )
-        with lp2:
-            if st.button("Clear layer studio", use_container_width=True, key="layer_clear_btn"):
-                st.session_state["_clear_layer"] = True
-                st.rerun()
-
+        st.markdown(
+            """
+**Oil + spray how-to**
+1. **Oil first** — dab on pulse points (skin-close, long base)
+2. Wait **30–60 sec**
+3. **Spray on top** — 1–2 sprays for office, 2–3 for evening
+4. In this studio: pick the **oil as base**, set filter to **Sprays only** for tops
+"""
+        )
         # Apply pending season BEFORE the selectbox (Streamlit widget rule)
         if "_pending_layer_partner_season" in st.session_state:
             st.session_state["layer_partner_season"] = st.session_state.pop(
                 "_pending_layer_partner_season"
             )
-        layer_partner_season = st.selectbox(
-            "Season / temp for partners",
-            [
-                "Any",
-                "Hot / Summer",
-                "Warm / Mild",
-                "Cool / Autumn",
-                "Cold / Winter",
-            ],
-            key="layer_partner_season",
-            help="Partners must fit this band. Change it to refresh the list (strict filter).",
-        )
-        tw1, tw2 = st.columns(2)
-        with tw1:
-            if st.button("Use outdoor temp band", use_container_width=True, key="layer_use_outdoor_band"):
+
+        f1, f2 = st.columns(2)
+        with f1:
+            layer_partner_gender = st.selectbox(
+                "Gender",
+                ["Any", "Male", "Female", "Unisex"],
+                key="layer_partner_gender",
+            )
+        with f2:
+            layer_partner_season = st.selectbox(
+                "Weather",
+                [
+                    "Any",
+                    "Hot / Summer",
+                    "Warm / Mild",
+                    "Cool / Autumn",
+                    "Cold / Winter",
+                ],
+                key="layer_partner_season",
+            )
+        f3, f4 = st.columns(2)
+        with f3:
+            layer_oil_mode = st.selectbox(
+                "Oil / spray",
+                [
+                    "Any format",
+                    "Oils only",
+                    "Sprays only",
+                    "Oil base + spray partners",
+                ],
+                key="layer_oil_mode",
+                help="Oil base + spray partners ranks sprays as tops for an oil base.",
+            )
+        with f4:
+            if st.button("Clear filters", use_container_width=True, key="layer_clear_btn"):
+                st.session_state["_clear_layer"] = True
+                st.rerun()
+
+        t1, t2, t3 = st.columns(3)
+        with t1:
+            if st.button("Outdoor temp", use_container_width=True, key="layer_use_outdoor_band"):
                 try:
                     t = st.session_state.get("temp_search_f")
                     if t is None:
@@ -8242,39 +8266,26 @@ with tab_layer:
                         st.session_state["_pending_layer_partner_season"] = temp_f_to_band(float(t))
                         st.rerun()
                     else:
-                        st.warning("Set temp in Recommend first (slider or live temp).")
+                        st.warning("Set temp in Recommend first.")
                 except Exception as e:
                     st.warning(str(e))
-        with tw2:
-            if st.button("Use indoor ~67 F band", use_container_width=True, key="layer_use_indoor_band"):
+        with t2:
+            if st.button("Indoor 67 F", use_container_width=True, key="layer_use_indoor_band"):
                 st.session_state["_pending_layer_partner_season"] = temp_f_to_band(67.0)
                 st.rerun()
+        with t3:
+            if st.button("Refresh partners", use_container_width=True, key="layer_refresh_partners"):
+                st.session_state["_layer_partner_nonce"] = random.random()
+                st.rerun()
+
         if layer_partner_season and layer_partner_season != "Any":
-            st.caption(
-                f"Partner list filtered to **{layer_partner_season}** — change the band to see different matches."
-            )
-        else:
-            st.caption("Season **Any** — partners are ranked by layer fit only (weather not applied).")
-
-
-        layer_oil_mode = st.selectbox(
-            "Oil / spray filter",
-            [
-                "Any format",
-                "Oils only",
-                "Sprays only",
-                "Prefer oil as base",
-            ],
-            key="layer_oil_mode",
-            help="Oils only = partners that are oils. Prefer oil as base = rank oil bases higher when searching matches.",
-        )
+            st.caption(f"Weather filter: **{layer_partner_season}**")
         include_unisex = False
         if layer_partner_gender in ("Male", "Female"):
             include_unisex = st.checkbox(
-                "Include Unisex in partners",
+                "Include Unisex",
                 value=False,
                 key="layer_include_unisex_v3",
-                help="Off by default. Turn on only if you want pure Unisex bottles with Female/Male.",
             )
 
         # Base list: unique "Name - Brand" labels so the right bottle is always selected
@@ -8348,12 +8359,24 @@ with tab_layer:
                     partners = [x for x in partners if is_oil_fragrance(x[0])]
                 elif _oil_mode == "Sprays only":
                     partners = [x for x in partners if not is_oil_fragrance(x[0])]
-                elif _oil_mode == "Prefer oil as base" and base_f and not is_oil_fragrance(base_f):
-                    # Prefer oil partners to wear under/with a spray base, still show all
-                    partners = sorted(
-                        partners,
-                        key=lambda x: (0 if is_oil_fragrance(x[0]) else 1, -int(x[2] if len(x) > 2 else 0)),
+                # Refresh: reshuffle partner order
+                if st.session_state.get("_layer_partner_nonce"):
+                    random.shuffle(partners)
+                elif _oil_mode == "Oil base + spray partners":
+                    if base_f and is_oil_fragrance(base_f):
+                        partners = [x for x in partners if not is_oil_fragrance(x[0])]
+                    else:
+                        # Suggest oils as partners if base is spray (user can still oil-first)
+                        partners = sorted(
+                            partners,
+                            key=lambda x: (0 if is_oil_fragrance(x[0]) else 1, -int(x[2] if len(x) > 2 else 0)),
+                        )
+                if base_f and is_oil_fragrance(base_f):
+                    st.info(
+                        "Base is an **oil** — apply oil first, then a spray partner on top."
                     )
+                elif base_f and not is_oil_fragrance(base_f):
+                    st.caption("Base is a **spray**. For oil+spray: choose an oil as base, or pick an oil partner and apply oil first.")
                 st.caption(
                     f"**{len(partners)}** partner(s) for **{base_f.get('name')}**"
                     + (f" · weather **{layer_partner_season}**" if layer_partner_season != "Any" else " · weather Any")
