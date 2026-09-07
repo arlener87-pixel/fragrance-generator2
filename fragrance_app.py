@@ -10683,6 +10683,39 @@ with tab_vault:
                         cat_opts,
                         default=[c for c in frag.get("category", []) if c in cat_opts],
                     )
+                    # Oil / format mark
+                    _is_oil_now = is_oil_fragrance(frag)
+                    e_is_oil = st.checkbox(
+                        "Concentrated oil (mark as oil)",
+                        value=_is_oil_now,
+                        help="Turn on so Oils only Recommend and Layer oil filters include this bottle.",
+                    )
+                    _conc_opts = [
+                        "EDP",
+                        "EDT",
+                        "EDC",
+                        "Extrait",
+                        "Concentrated oil",
+                        "Body spray",
+                        "Other",
+                    ]
+                    _cur_conc = (frag.get("concentration") or "").strip()
+                    if e_is_oil:
+                        _default_conc = "Concentrated oil"
+                    elif _cur_conc in _conc_opts:
+                        _default_conc = _cur_conc
+                    elif _cur_conc:
+                        _default_conc = "Other"
+                    else:
+                        _default_conc = "EDP"
+                    e_conc = st.selectbox(
+                        "Format",
+                        _conc_opts,
+                        index=_conc_opts.index(_default_conc),
+                        help="Oils only uses Concentrated oil (or oil in the name).",
+                    )
+                    if e_is_oil:
+                        e_conc = "Concentrated oil"
                     save_edit = st.form_submit_button("Save changes", type="primary")
                     if save_edit:
                         name_lower = e_name.strip().lower()
@@ -10704,6 +10737,7 @@ with tab_vault:
                                 except ValueError:
                                     return None
 
+                            _save_conc = "Concentrated oil" if e_is_oil else (e_conc or frag.get("concentration") or "EDP")
                             st.session_state["fragrances_db"][idx] = {
                                 "name": e_name.strip(),
                                 "brand": e_brand.strip(),
@@ -10715,6 +10749,7 @@ with tab_vault:
                                 "shelf_status": e_shelf,
                                 "size_ml": _num(e_size),
                                 "price": _num(e_price),
+                                "concentration": _save_conc,
                             }
                             if (
                                 e_name != edit_name
