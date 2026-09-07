@@ -1778,10 +1778,10 @@ def get_top_fragrances(
         if concentration and concentration != "Any":
             fc = (f.get("concentration") or "").strip()
             if concentration == "Concentrated oil":
-                if "oil" not in fc.lower():
+                if not is_oil_fragrance(f):
                     continue
             elif concentration == "Spray only":
-                if "oil" in fc.lower():
+                if is_oil_fragrance(f):
                     continue
             elif fc != concentration:
                 # allow empty as EDP default when filtering EDP
@@ -7751,6 +7751,7 @@ with tab_discover:
         )
         # Widen filters if nothing matched (common when traveling / strict season)
         if not selected:
+            # Keep oils-only if user asked for it — never mix sprays back in
             selected = get_top_fragrances(
                 gender,
                 "Any",
@@ -7761,7 +7762,7 @@ with tab_discover:
                 temp_f=None,
                 shuffle=True,
                 exclude_names=exclude,
-                concentration="Any",
+                concentration=conc_filter,
                 projection=projection if projection != "Any" else "Soft",
             )
             st.session_state["_recs_widened"] = True
@@ -7928,6 +7929,8 @@ with tab_discover:
         num_show = last_recs.get("num", 3)
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
+        if (meta or {}).get("oils_only") or st.session_state.get("filter_oils_only"):
+            st.caption("Oils only — every pick should be a concentrated oil.")
         if st.session_state.get("_recs_widened"):
             st.info(
                 "Few bottles matched that temp/season strictly — showing best overall picks for your gender/filters."
@@ -11129,6 +11132,91 @@ with tab_vault:
                         save_persisted_data()
                         st.success("Updated season on " + str(fixed) + " bottle(s).")
                         st.rerun()
+
+
+    
+    with st.expander("Oil tag fixer", expanded=True):
+        st.caption(
+            "Find bottles that look like oils but are not tagged, or tag any bottle as Concentrated oil. "
+            "Oils only on Recommend uses this tag + name."
+        )
+        db = st.session_state.get("fragrances_db") or []
+        tagged_oils = [f for f in db if is_oil_fragrance(f)]
+        # Suspects: name/notes hint oil but not detected, or concentration empty and name has oil
+        suspects = []
+        for i, f in enumerate(db):
+            if is_oil_fragrance(f):
+                continue
+            blob = f"{f.get('name') or ''} {f.get('notes') or ''} {f.get('concentration') or ''}".lower()
+            if any(k in blob for k in ("oil", "attar", "mukhallat", "perfume oil", "concentrated")):
+                suspects.append({"idx": i, "f": f, "why": "name/notes mention oil"})
+        st.write(
+            f"**{len(tagged_oils)}** tagged as oil · **{len(suspects)}** possible missed oil(s)"
+        )
+        fix_mode = st.radio(
+            "Fix mode",
+            ["Review suspects", "Pick any bottle to mark as oil", "List all tagged oils"],
+            key="oil_fix_mode",
+            horizontal=True,
+        )
+        if fix_mode == "List all tagged oils":
+            for f in sorted(tagged_oils, key=lambda x: (x.get("name") or "").lower())[:80]:
+                st.markdown(
+                    f"**{f.get('name')}** - *{f.get('brand')}* · {f.get('concentration') or 'oil'}"
+                )
+        elif fix_mode == "Pick any bottle to mark as oil":
+            names = sorted((f.get("name") or "") for f in db if f.get("name"))
+            pick = st.selectbox("Bottle", ["-"] + names, key="oil_fix_pick")
+            if pick and pick != "-":
+                if st.button("Mark as Concentrated oil", type="primary", key="oil_fix_mark_one"):
+                    for i, f in enumerate(st.session_state["fragrances_db"]):
+                        if f.get("name") == pick:
+                            st.session_state["fragrances_db"][i]["concentration"] = "Concentrated oil"
+                            break
+                    try:
+                        log_vault_action("edited", pick, "mark-oil")
+                    except Exception:
+                        pass
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.success(f"Tagged **{pick}** as Concentrated oil")
+                    st.rerun()
+        else:
+            if not suspects:
+                st.success("No obvious missed oils from names/notes.")
+            for item in suspects[:40]:
+                f = item["f"]
+                st.markdown(
+                    f"**{f.get('name')}** (*{f.get('brand')}*)  \n"
+                    f"Now: {f.get('concentration') or 'blank'} · {item['why']}"
+                )
+                if st.button(
+                    "Tag as oil",
+                    key=f"oil_sus_{item['idx']}",
+                ):
+                    st.session_state["fragrances_db"][item["idx"]]["concentration"] = "Concentrated oil"
+                    try:
+                        log_vault_action("edited", f.get("name"), "mark-oil-suspect")
+                    except Exception:
+                        pass
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.rerun()
+            if suspects and st.button(
+                f"Tag all {len(suspects)} suspects as oil",
+                type="primary",
+                key="oil_fix_all",
+            ):
+                for item in suspects:
+                    st.session_state["fragrances_db"][item["idx"]]["concentration"] = "Concentrated oil"
+                try:
+                    log_vault_action("edited", f"{len(suspects)} bottles", "mark-oil-bulk")
+                except Exception:
+                    pass
+                mark_vault_dirty()
+                save_persisted_data()
+                st.success(f"Tagged {len(suspects)} bottle(s) as oil")
+                st.rerun()
 
 
     with st.expander("Batch edit", expanded=False):
