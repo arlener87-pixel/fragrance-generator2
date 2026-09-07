@@ -10999,7 +10999,16 @@ with tab_vault:
                 if not issues:
                     st.success("Vault looks solid - no major gaps found.")
                 else:
-                    show_n = st.slider("Show first N issues", 5, max(5, len(issues)), min(25, len(issues)), key="audit_show_n")
+                    _n_iss = len(issues)
+                    _hi = max(1, _n_iss)
+                    _default = min(_hi, max(1, min(25, _n_iss)))
+                    show_n = st.slider(
+                        "Show first N issues",
+                        min_value=1,
+                        max_value=_hi,
+                        value=_default,
+                        key="audit_show_n",
+                    )
                     for item in issues[:show_n]:
                         flag_txt = ", ".join(item["flags"]) if item["flags"] else "family mismatch"
                         st.markdown(
