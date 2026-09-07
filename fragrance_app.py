@@ -876,6 +876,88 @@ def pacific_today() -> datetime.date:
     return datetime.datetime.now(ZoneInfo("America/Los_Angeles")).date()
 
 
+
+def normalize_season_label(season) -> str:
+    """Standardize season text: Autumn -> Fall, tidy lists, title-ish form.
+
+    Examples:
+      "fall, autumn" -> "Fall"
+      "Fall / Autumn" -> "Fall"
+      "spring, summer" -> "Spring, Summer"
+      "versatile" -> "Versatile"
+    """
+    if season is None:
+        return ""
+    raw = str(season).strip()
+    if not raw:
+        return ""
+    low = raw.lower().replace("/", ",").replace("|", ",").replace(";", ",")
+    low = low.replace(" and ", ",").replace("&", ",")
+    # tokenise
+    parts = [p.strip() for p in low.split(",") if p.strip()]
+    # map tokens
+    token_map = {
+        "autumn": "Fall",
+        "fall": "Fall",
+        "spring": "Spring",
+        "summer": "Summer",
+        "winter": "Winter",
+        "hot": "Summer",
+        "cold": "Winter",
+        "cool": "Fall",
+        "mild": "Spring",
+        "warm": "Spring",
+        "year-round": "Versatile",
+        "year round": "Versatile",
+        "all year": "Versatile",
+        "all-year": "Versatile",
+        "versatile": "Versatile",
+        "any": "Versatile",
+        "all": "Versatile",
+        "cooler": "Fall",
+    }
+    found = []
+    seen = set()
+    for p in parts:
+        # multi-word check
+        key = p
+        mapped = token_map.get(key)
+        if not mapped:
+            # try single words inside
+            for w in p.split():
+                if w in token_map:
+                    mapped = token_map[w]
+                    break
+        if not mapped:
+            # keep original title case word if unknown
+            mapped = p.title()
+        if mapped not in seen:
+            seen.add(mapped)
+            found.append(mapped)
+    if not found:
+        return raw.title()
+    # Prefer canonical order Spring, Summer, Fall, Winter, Versatile
+    order = {"Spring": 0, "Summer": 1, "Fall": 2, "Winter": 3, "Versatile": 4}
+    found.sort(key=lambda x: order.get(x, 50))
+    # If only Versatile + a season, keep the season
+    if "Versatile" in found and len(found) > 1:
+        found = [x for x in found if x != "Versatile"]
+    return ", ".join(found)
+
+
+def normalize_all_seasons_in_vault() -> int:
+    """Rewrite every bottle season to normalized labels. Returns count changed."""
+    db = st.session_state.get("fragrances_db") or []
+    changed = 0
+    for i, f in enumerate(db):
+        old = f.get("season") or ""
+        new = normalize_season_label(old)
+        if new != old:
+            st.session_state["fragrances_db"][i]["season"] = new
+            changed += 1
+    return changed
+
+
 def normalize_gender(g: str) -> str:
     g = g.lower().strip()
     if re.search(r"\bfemale[- ]?leaning\b|\bleans feminine\b|\bleans female\b", g):
@@ -7498,6 +7580,17 @@ with st.expander("Add fragrance", expanded=False):
     # (Add fragrance form / expander end above)
 
 # ---------- MAIN TABS ----------
+
+# Normalize season labels once per session (Autumn -> Fall, tidy tags)
+if not st.session_state.get("_seasons_normalized"):
+    try:
+        n = normalize_all_seasons_in_vault()
+        st.session_state["_seasons_normalized"] = True
+        if n:
+            mark_vault_dirty()
+    except Exception:
+        st.session_state["_seasons_normalized"] = True
+
 tab_discover, tab_layer, tab_sotd, tab_collection, tab_vault = st.tabs(
     ["Discover", "Layer", "SOTD", "Collection", "Vault"]
 )
@@ -10789,7 +10882,7 @@ with tab_vault:
                                 "name": e_name.strip(),
                                 "brand": e_brand.strip(),
                                 "gender": e_gender,
-                                "season": e_season,
+                                "season": normalize_season_label(e_season),
                                 "notes": e_notes,
                                 "category": e_cats if e_cats else ["Gourmand"],
                                 "dupe_of": frag.get("dupe_of") or "",
@@ -11089,8 +11182,14 @@ with tab_vault:
     
     with st.expander("Season helper", expanded=True):
         st.caption(
-            "Fix bottle seasons: one bottle at a time, or apply suggestions to every weak tag."
+            "Seasons use **Fall** (not Autumn). Normalize cleans tags; weak tags can get note-based suggestions."
         )
+        if st.button("Normalize all seasons (Autumn → Fall)", key="season_normalize_all"):
+            n = normalize_all_seasons_in_vault()
+            mark_vault_dirty()
+            save_persisted_data()
+            st.success(f"Normalized **{n}** bottle season tag(s).")
+            st.rerun()
         db = st.session_state.get("fragrances_db") or []
         SEASON_CHOICES = [
             "Spring",
@@ -11099,6 +11198,8 @@ with tab_vault:
             "Winter",
             "Spring, Summer",
             "Fall, Winter",
+            "Spring, Fall",
+            "Summer, Fall",
             "Versatile",
         ]
 
@@ -11172,7 +11273,7 @@ with tab_vault:
                     if st.button("Save season", type="primary", key="season_apply_one"):
                         for i, f in enumerate(st.session_state["fragrances_db"]):
                             if f.get("name") == bottle:
-                                st.session_state["fragrances_db"][i]["season"] = new_season
+                                st.session_state["fragrances_db"][i]["season"] = normalize_season_label(new_season)
                                 break
                         try:
                             log_vault_action("edited", bottle, "season-helper")
@@ -11281,7 +11382,7 @@ with tab_vault:
                     if be_gender != "- no change -":
                         st.session_state["fragrances_db"][i]["gender"] = be_gender
                     if be_season != "- no change -":
-                        st.session_state["fragrances_db"][i]["season"] = be_season
+                        st.session_state["fragrances_db"][i]["season"] = normalize_season_label(be_season)
                     if be_cat != "- no change -":
                         cats = list(f.get("category") or [])
                         if be_cat not in cats:
