@@ -1663,9 +1663,11 @@ def suggest_seasons_from_notes(notes: str, categories: list = None) -> list:
 
 
 def top_picks_for_calendar_season(season_name: str, gender: str = "Any", top_n: int = 5) -> list:
-    """Top N vault bottles for Spring / Summer / Fall / Winter, by gender."""
+    """Top N vault bottles for Spring / Summer / Fall / Winter, by gender.
+
+    Strict: bottle season text must include the chosen season (no soft weather fill-ins).
+    """
     season_name = (season_name or "").strip().lower()
-    # Map calendar season to weather band(s) used by matches_weather
     band_map = {
         "spring": "Warm / Mild",
         "summer": "Hot / Summer",
@@ -1682,29 +1684,41 @@ def top_picks_for_calendar_season(season_name: str, gender: str = "Any", top_n: 
         if gender and gender != "Any":
             if not matches_gender(f, gender):
                 continue
-        # Prefer explicit season tags first
         s = (f.get("season") or "").lower()
-        tag_hit = False
-        if season_name in ("spring",):
-            tag_hit = "spring" in s
+        has_spring = "spring" in s
+        has_summer = "summer" in s
+        has_fall = "fall" in s or "autumn" in s
+        has_winter = "winter" in s
+
+        if season_name == "spring":
+            tag_hit = has_spring
+            # pure spring ranks higher than spring+summer only if no winter lock
+            pure = has_spring and not has_winter and not has_fall
         elif season_name == "summer":
-            tag_hit = "summer" in s
+            tag_hit = has_summer
+            pure = has_summer and not has_winter
         elif season_name in ("fall", "autumn"):
-            tag_hit = "fall" in s or "autumn" in s
+            tag_hit = has_fall
+            pure = has_fall and not has_summer
         elif season_name == "winter":
-            tag_hit = "winter" in s
-        try:
-            weather_hit = matches_weather(f, band) if band != "Any" else True
-        except Exception:
-            weather_hit = tag_hit
-        if not (tag_hit or weather_hit):
+            tag_hit = has_winter
+            pure = has_winter and not has_summer
+        else:
+            tag_hit = True
+            pure = False
+
+        # Must list the selected season on the bottle — no soft "versatile" fill-in
+        if not tag_hit:
             continue
-        # Score: season fit + favorites boost
-        pts = 10.0
-        if tag_hit:
-            pts += 25.0
-        if weather_hit:
-            pts += 10.0
+
+        pts = 20.0
+        if pure:
+            pts += 30.0
+        else:
+            pts += 12.0
+        # slight boost if only that season + one neighbor
+        if season_name in ("fall", "autumn") and has_fall and has_winter and not has_summer:
+            pts += 8.0
         try:
             pts += float(
                 score_fragrance(f, gender if gender != "Any" else "Any", band, "Any", "Any")
