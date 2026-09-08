@@ -1215,7 +1215,7 @@ LOCATION_PRESETS = {
 
 
 def geocode_city(query: str) -> dict:
-    """Look up lat/lon for a city name via Open-Meteo Geocoding (no API key)."""
+    """Look up lat/lon for a city via Open-Meteo Geocoding. Prefers US when CA/US hinted."""
     import json as _json
     import urllib.parse
     import urllib.request
@@ -1225,16 +1225,31 @@ def geocode_city(query: str) -> dict:
     try:
         url = (
             "https://geocoding-api.open-meteo.com/v1/search?"
-            + urllib.parse.urlencode({"name": q, "count": 5, "language": "en", "format": "json"})
+            + urllib.parse.urlencode({"name": q, "count": 8, "language": "en", "format": "json"})
         )
-        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "ScentedDeadGirl/1.1", "Accept": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
             payload = _json.loads(resp.read().decode("utf-8"))
         results = payload.get("results") or []
         if not results:
             return {"ok": False, "detail": f"No match for '{q}'"}
-        # Prefer exact-ish first result
-        best = results[0]
+        qlow = q.lower()
+        prefer_us = any(x in qlow for x in (", ca", " california", " usa", " us", ", tx", ", nv", ", az", ", ny", ", fl"))
+        prefer_us = prefer_us or qlow.endswith(" ca") or "victorville" in qlow
+        scored = []
+        for r in results:
+            score = int(r.get("population") or 0)
+            cc = (r.get("country_code") or "").upper()
+            name = (r.get("name") or "").lower()
+            if prefer_us and cc == "US":
+                score += 1_000_000
+            if name == qlow.split(",")[0].strip():
+                score += 500_000
+            scored.append((score, r))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        best = scored[0][1]
         label_parts = [best.get("name") or q]
         if best.get("admin1"):
             label_parts.append(str(best["admin1"]))
@@ -1245,21 +1260,22 @@ def geocode_city(query: str) -> dict:
             "lat": float(best["latitude"]),
             "lon": float(best["longitude"]),
             "label": ", ".join(label_parts),
-            "timezone": best.get("timezone") or "auto",
+            "country": best.get("country_code"),
+            "admin1": best.get("admin1"),
+            "detail": f"Matched {label_parts[0]} ({best.get('latitude')}, {best.get('longitude')})",
         }
     except Exception as e:
-        return {"ok": False, "detail": str(e)}
+        return {"ok": False, "detail": f"Geocode failed: {e}"}
 
 
-def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None) -> dict:
+
+def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, force: bool = False) -> dict:
     """
     Current outdoor temperature via Open-Meteo (no API key).
-    Works for any lat/lon — home or travel.
-    Caches successful readings for 20 minutes per location.
+    Uses temperature_2m at the exact lat/lon. Cache 5 minutes unless force=True.
     """
     import json as _json
     import time as _time
-    import urllib.error
     import urllib.request
 
     if lat is None:
@@ -1267,53 +1283,87 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None) -
     if lon is None:
         lon = float(st.session_state.get("wx_lon") or CA_LON)
     label = label or st.session_state.get("wx_label") or CA_LOCATION_LABEL
+    lat = float(lat)
+    lon = float(lon)
 
-    cache_key = f"{round(float(lat), 3)},{round(float(lon), 3)}"
+    cache_key = f"{round(lat, 4)},{round(lon, 4)}"
     cache_all = st.session_state.get("_live_temp_cache_map") or {}
     cache = cache_all.get(cache_key) or {}
     age = _time.time() - float(cache.get("ts") or 0)
-    if cache.get("ok") and age < 20 * 60:
+    if (not force) and cache.get("ok") and age < 5 * 60:
         out = dict(cache)
-        out["detail"] = (out.get("detail") or "") + f" (cached {int(age)}s ago)"
+        out["detail"] = (out.get("detail") or "") + f" (cached {int(age)}s)"
+        out["cached"] = True
         return out
 
+    # Request current + units; timezone auto matches the location
     url = (
         "https://api.open-meteo.com/v1/forecast"
-        f"?latitude={lat}&longitude={lon}"
-        "&current=temperature_2m"
+        f"?latitude={lat:.5f}&longitude={lon:.5f}"
+        "&current=temperature_2m,relative_humidity_2m,weather_code"
         "&temperature_unit=fahrenheit"
         "&timezone=auto"
+        "&forecast_days=1"
     )
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "ScentedDeadGirl/1.1", "Accept": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
             payload = _json.loads(resp.read().decode("utf-8"))
         cur = payload.get("current") or {}
         temp = cur.get("temperature_2m")
         if temp is None:
-            return {"ok": False, "detail": "No temperature in response"}
-        temp_f = int(round(float(temp)))
-        temp_f = max(30, min(115, temp_f))
+            # Fallback: current_weather (older schema)
+            cw = payload.get("current_weather") or {}
+            temp = cw.get("temperature")
+        if temp is None:
+            return {"ok": False, "detail": "No temperature in weather response", "label": label}
+        temp_f = float(temp)
+        # Soft clamp only for absurd API glitches
+        if temp_f < -40 or temp_f > 140:
+            return {
+                "ok": False,
+                "detail": f"Implausible reading {temp_f} F from API",
+                "label": label,
+            }
+        temp_i = int(round(temp_f))
+        band = temp_f_to_band(temp_i)
+        observed = str(cur.get("time") or (payload.get("current_weather") or {}).get("time") or "")
+        tz = str(payload.get("timezone") or "")
+        hum = cur.get("relative_humidity_2m")
+        detail = f"{label} | {temp_i} F | {band}"
+        if observed:
+            detail += f" | as of {observed}"
+        if tz:
+            detail += f" ({tz})"
         out = {
             "ok": True,
-            "temp_f": temp_f,
+            "temp_f": temp_i,
+            "temp_f_raw": temp_f,
+            "band": band,
             "source": "Open-Meteo",
-            "observed": str(cur.get("time") or ""),
+            "observed": observed,
+            "timezone": tz,
+            "humidity": hum,
             "label": label,
             "lat": lat,
             "lon": lon,
             "ts": _time.time(),
-            "detail": f"{label}: {temp_f} F",
+            "detail": detail,
+            "cached": False,
         }
         cache_all[cache_key] = dict(out)
         st.session_state["_live_temp_cache_map"] = cache_all
-        # also keep legacy single cache for older callers
-        st.session_state["_live_temp_cache"] = dict(out)
         return out
-    except urllib.error.HTTPError as e:
-        return {"ok": False, "detail": f"HTTP {e.code}"}
     except Exception as e:
-        return {"ok": False, "detail": str(e)}
+        return {
+            "ok": False,
+            "detail": f"Weather fetch failed: {e}",
+            "label": label,
+            "lat": lat,
+            "lon": lon,
+        }
 
 
 
@@ -7120,20 +7170,44 @@ with st.sidebar:
                     st.rerun()
                 else:
                     st.warning(geo.get("detail") or "City not found")
+        _wx = st.session_state.get("wx_label") or CA_LOCATION_LABEL
+        _la = st.session_state.get("wx_lat")
+        _lo = st.session_state.get("wx_lon")
         st.caption(
-            "Using: **"
-            + str(st.session_state.get("wx_label") or CA_LOCATION_LABEL)
+            "Location: **"
+            + str(_wx)
             + "**"
+            + (f" ({float(_la):.3f}, {float(_lo):.3f})" if _la is not None and _lo is not None else "")
         )
+        _live = st.session_state.get("live_temp_meta") or {}
+        if _live.get("ok"):
+            st.success(
+                "Live: **"
+                + str(_live.get("temp_f"))
+                + " F** → "
+                + str(_live.get("band") or temp_f_to_band(float(_live.get("temp_f") or 70)))
+                + "  ·  "
+                + str(_live.get("observed") or "")
+                + ("  · cached" if _live.get("cached") else "  · fresh")
+            )
+        elif _live.get("detail"):
+            st.caption("Last weather: " + str(_live.get("detail")))
 
         # Temperature = season (replaces Season dropdown)
         st.markdown("**Temperature (drives season)**")
         t1, t2 = st.columns([2, 1])
         with t1:
+            # Clamp into slider range so live desert temps still apply
+            _tv = st.session_state.get("temp_search_f")
+            try:
+                if _tv is not None and (int(_tv) < 30 or int(_tv) > 125):
+                    st.session_state["temp_search_f"] = max(30, min(125, int(_tv)))
+            except Exception:
+                pass
             temp_search_f = st.slider(
                 "Outdoor temp (F)",
                 min_value=30,
-                max_value=115,
+                max_value=125,
                 key="temp_search_f",
             )
         with t2:
@@ -7144,10 +7218,16 @@ with st.sidebar:
                     lat=float(st.session_state.get("wx_lat") or CA_LAT),
                     lon=float(st.session_state.get("wx_lon") or CA_LON),
                     label=st.session_state.get("wx_label") or CA_LOCATION_LABEL,
+                    force=True,
                 )
                 st.session_state["live_temp_meta"] = result
                 if result.get("ok"):
                     st.session_state["_apply_live_temp"] = True
+                    # Also align Recommend weather band with live outdoor temp
+                    try:
+                        st.session_state["filter_weather"] = temp_f_to_band(float(result["temp_f"]))
+                    except Exception:
+                        pass
                     st.rerun()
                 else:
                     st.session_state["_live_temp_error"] = result.get("detail", "failed")
