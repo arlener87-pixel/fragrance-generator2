@@ -8845,89 +8845,6 @@ with tab_layer:
         st.session_state.pop("_pending_layer_pick", None)
         st.session_state.pop("_recipe_gender_fp", None)
 
-    # When results exist, show a summary at the TOP so you do not have to hunt for it
-    _ev_top = st.session_state.get("last_layer_check")
-    if _ev_top and (_ev_top.get("selected_names") or _ev_top.get("frags") or st.session_state.get("_locked_layer_pair")):
-        # Locked pair from Base+partners wins over any reordered result
-        _locked_disp = list(st.session_state.get("_locked_layer_pair") or [])
-        _selected = _locked_disp or list(_ev_top.get("selected_names") or [])
-        if not _selected and _ev_top.get("frags"):
-            _selected = [f.get("name") for f in _ev_top.get("frags") if isinstance(f, dict)]
-        _spray = list(_ev_top.get("spray_order") or _selected)
-        _checked = " + ".join([str(x) for x in _selected if x])
-        _sc = _ev_top.get("score")
-        try:
-            _sc_i = int(round(float(_sc)))
-        except Exception:
-            _sc_i = None
-        # Color rating: green 75+, red under 75
-        _verdict = clean_display_text(str(_ev_top.get("verdict") or ""))
-        _label = str(_ev_top.get("label") or "Layer result")
-        if _sc_i is None:
-            st.info("**" + _label + "**")
-        elif _sc_i < 75:
-            st.error(
-                "**Weak combo - " + str(_sc_i) + "/100**\n\n"
-                + "Not recommended as a daily layer. Skin-test with 1 spray each only.\n\n_"
-                + (_verdict or "Families may fight or feel muddy together.") + "_"
-            )
-        else:
-            st.success(
-                "**Good combo - " + str(_sc_i) + "/100**\n\n"
-                + "Solid layer - worth wearing together.\n\n_"
-                + (_verdict or "Categories support each other.") + "_"
-            )
-        st.markdown("**You checked:** " + _checked)
-        st.markdown(
-            "**Spray order:** " + clean_display_text(" > ".join([str(x) for x in _spray]) if _spray else "-")
-        )
-        # Oil + spray application guide
-        _frs = _ev_top.get("frags") or []
-        _has_oil = any(is_oil_fragrance(f) for f in _frs if isinstance(f, dict))
-        _has_spray = any(not is_oil_fragrance(f) for f in _frs if isinstance(f, dict))
-        if _has_oil and _has_spray:
-            st.info(
-                "**Oil + spray:** 1) Dab oil on pulse points first. "
-                "2) Wait 30–60 seconds. "
-                "3) Spray 1–2 (office) or 2–3 (evening) of the spray on top / clothes. "
-                "Do not spray over wet oil in the same spot."
-            )
-        elif _has_oil:
-            st.caption("Oil only — dab on skin; a little goes a long way.")
-        if _ev_top.get("why"):
-            st.caption(clean_display_text(str(_ev_top.get("why") or ""))[:320])
-        st.caption("Full guidance and Save recipe are below the picker.")
-
-        # Soft scroll toward results block on mobile/desktop when just checked
-        if st.session_state.pop("_scroll_to_layer_result", False) or st.session_state.pop(
-            "_open_layer_check", False
-        ):
-            try:
-                import streamlit.components.v1 as _components
-                _components.html(
-                    """
-                    <div id="sdg-layer-result-anchor"></div>
-                    <script>
-                    (function() {
-                      try {
-                        const doc = window.parent.document;
-                        const nodes = doc.querySelectorAll('div, p, span');
-                        for (const n of nodes) {
-                          const t = (n.innerText || n.textContent || '');
-                          if (t.indexOf('Last result:') >= 0 || t.indexOf('How to wear this layer') >= 0) {
-                            n.scrollIntoView({behavior: 'smooth', block: 'start'});
-                            break;
-                          }
-                        }
-                      } catch (e) {}
-                    })();
-                    </script>
-                    """,
-                    height=0,
-                )
-            except Exception:
-                pass
-
     # Keep picker simple — no extra season dropdown (use Base+partners weather for partners)
     layer_check_season = "Any"
     # One-shot load from Base+partners (before building options + widget)
@@ -9024,20 +8941,74 @@ with tab_layer:
             st.session_state["_scroll_to_layer_result"] = True
             st.rerun()
 
+    # Rating sits under the picker / Check layer toolbar
+    _ev_top = st.session_state.get("last_layer_check")
+    if _ev_top and (
+        _ev_top.get("selected_names")
+        or _ev_top.get("frags")
+        or st.session_state.get("_locked_layer_pair")
+    ):
+        _locked_disp = list(st.session_state.get("_locked_layer_pair") or [])
+        _selected = _locked_disp or list(_ev_top.get("selected_names") or [])
+        if not _selected and _ev_top.get("frags"):
+            _selected = [
+                f.get("name") for f in _ev_top.get("frags") if isinstance(f, dict)
+            ]
+        _spray = list(_ev_top.get("spray_order") or _selected)
+        _checked = " + ".join([str(x) for x in _selected if x])
+        _sc = _ev_top.get("score")
+        try:
+            _sc_i = int(round(float(_sc)))
+        except Exception:
+            _sc_i = None
+        _verdict = clean_display_text(str(_ev_top.get("verdict") or ""))
+        st.markdown("---")
+        st.markdown("##### Layer rating")
+        if _sc_i is None:
+            st.info("**" + str(_ev_top.get("label") or "Layer result") + "**")
+        elif _sc_i < 75:
+            st.error(
+                "**Weak combo - " + str(_sc_i) + "/100**\n\n"
+                + "Not recommended as a daily layer. Skin-test with 1 spray each only.\n\n_"
+                + (_verdict or "Families may fight or feel muddy together.") + "_"
+            )
+        else:
+            st.success(
+                "**Good combo - " + str(_sc_i) + "/100**\n\n"
+                + "Solid layer - worth wearing together.\n\n_"
+                + (_verdict or "Categories support each other.") + "_"
+            )
+        if _checked:
+            st.markdown("**You checked:** " + _checked)
+        if _spray:
+            st.markdown(
+                "**Spray order:** "
+                + clean_display_text(" > ".join([str(x) for x in _spray]))
+            )
+        _why = clean_display_text(str(_ev_top.get("why") or ""))
+        if _why:
+            st.caption(_why[:360])
+
     _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
     if _rl_save_flash:
         st.success(_rl_save_flash)
 
     ev = st.session_state.get("last_layer_check")
     if ev:
-        label = ev.get("label") or "?"
-        st.markdown("### " + str(label))
-        st.write(ev.get("verdict") or "")
-        _line = ev.get("checked_line") or (
-            " + ".join(ev.get("selected_names") or [])
-        )
-        if _line:
-            st.markdown("**You checked:** " + _line)
+        try:
+            _sc_full = int(round(float(ev.get("score"))))
+        except Exception:
+            _sc_full = None
+        if _sc_full is not None and _sc_full < 75:
+            st.markdown("### Full guidance")
+            st.caption("Score under 75 - treat as a weak / test-only layer.")
+        elif _sc_full is not None:
+            st.markdown("### Full guidance")
+            st.caption("Score 75+ - solid layer details below.")
+        else:
+            st.markdown("### " + str(ev.get("label") or "Full guidance"))
+        if ev.get("verdict"):
+            st.caption(clean_display_text(str(ev.get("verdict"))))
         _spray = ev.get("spray_order") or []
         if _spray:
             st.caption("Spray order: " + clean_display_text(" > ".join([str(x) for x in _spray])))
