@@ -8860,13 +8860,29 @@ with tab_layer:
             _sc_i = int(round(float(_sc)))
         except Exception:
             _sc_i = None
-        _head = (
-            "**"
-            + str(_ev_top.get("label") or "Layer result")
-            + "**"
-            + (f" - {_sc_i}/100" if _sc_i is not None else "")
-        )
-        st.success(_head)
+        # Color rating: red < 50, amber 50-69, green 70+
+        _verdict = clean_display_text(str(_ev_top.get("verdict") or ""))
+        _label = str(_ev_top.get("label") or "Layer result")
+        if _sc_i is None:
+            st.info("**" + _label + "**")
+        elif _sc_i < 50:
+            st.error(
+                "**Weak combo - " + str(_sc_i) + "/100**" + "\n\n"
+                + "Not recommended as a daily layer. Skin-test with 1 spray each only." + "\n\n_"
+                + (_verdict or "Families may fight or feel muddy together.") + "_"
+            )
+        elif _sc_i < 70:
+            st.warning(
+                "**Okay combo - " + str(_sc_i) + "/100**" + "\n\n"
+                + "Wearable, but not perfect. Use fewer sprays of the louder bottle." + "\n\n_"
+                + (_verdict or "Fine for casual wear; test before a long day.") + "_"
+            )
+        else:
+            st.success(
+                "**Good combo - " + str(_sc_i) + "/100**" + "\n\n"
+                + "Solid layer - worth wearing together." + "\n\n_"
+                + (_verdict or "Categories support each other.") + "_"
+            )
         st.markdown("**You checked:** " + _checked)
         st.markdown(
             "**Spray order:** " + clean_display_text(" > ".join([str(x) for x in _spray]) if _spray else "-")
@@ -9037,13 +9053,28 @@ with tab_layer:
             _sc = int(round(float(ev.get("score") or 0)))
         except Exception:
             _sc = ev.get("score")
-        st.caption(
-            "Match score: **"
-            + str(_sc)
-            + "**  |  Name: *"
-            + str(ev.get("suggested_name") or "")
-            + "* (Reroll name for another)"
-        )
+        try:
+            _sci = int(round(float(_sc)))
+        except Exception:
+            _sci = None
+        if _sci is not None:
+            if _sci < 50:
+                _tone = "Weak (under 50) — not recommended"
+            elif _sci < 70:
+                _tone = "Okay (50–69) — wearable, test first"
+            else:
+                _tone = "Good (70+) — solid layer"
+            st.caption(
+                f"Match score: **{_sci}/100** — {_tone}  |  Name: *{ev.get('suggested_name') or ''}* (Reroll name)"
+            )
+        else:
+            st.caption(
+                "Match score: **"
+                + str(_sc)
+                + "**  |  Name: *"
+                + str(ev.get("suggested_name") or "")
+                + "* (Reroll name for another)"
+            )
         season = ev.get("season") or {}
         if season.get("detail"):
             st.info(season.get("detail"))
