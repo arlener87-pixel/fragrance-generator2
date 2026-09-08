@@ -8545,22 +8545,24 @@ with tab_layer:
                         b1, b2, b3 = st.columns(3)
                         with b1:
                             if st.button("Layer check", key=f"layer_base_check_{pi}"):
-                                _pair = [
-                                    str(base_name).strip(),
-                                    str(pf.get("name") or "").strip(),
-                                ]
-                                _pair = [n for n in _pair if n]
-                                # Normalize labels to pure names
-                                _pair = [
-                                    (resolve_frag_by_name(n) or {}).get("name") or n
-                                    for n in _pair
-                                ]
+                                # Exact bottles from this row only
+                                _bn = str((base_f or {}).get("name") or base_name or "").strip()
+                                _pn = str((pf or {}).get("name") or "").strip()
+                                _pair = [n for n in (_bn, _pn) if n]
+                                # Resolve to vault names (guarantees picker options match)
+                                _resolved = []
+                                for n in _pair:
+                                    rf = resolve_frag_by_name(n)
+                                    _resolved.append(rf.get("name") if rf else n)
+                                _pair = list(dict.fromkeys(_resolved))  # dedupe, keep order
                                 st.session_state["_pending_layer_pick"] = list(_pair)
                                 st.session_state["_locked_layer_pair"] = list(_pair)
+                                st.session_state["roulette_layer_pick"] = list(_pair)
                                 _ev = evaluate_layer_recipe(list(_pair))
                                 _ev["selected_names"] = list(_pair)
+                                _ev["checked_line"] = " + ".join(_pair)
+                                _ev["spray_order"] = list(_ev.get("spray_order") or _pair)
                                 st.session_state["last_layer_check"] = _ev
-                                # Seed recipe gender for this pair
                                 _ag = recipe_gender_from_frags(_ev.get("frags") or [])
                                 st.session_state["roulette_layer_recipe_gender"] = (
                                     _ag if _ag in ("Any", "Female", "Male", "Unisex") else "Any"
@@ -8569,7 +8571,6 @@ with tab_layer:
                                 st.session_state["_scroll_to_layer_result"] = True
                                 st.session_state["_open_layer_check"] = True
                                 st.session_state["_seed_roulette_recipe_name"] = True
-                                st.session_state["_open_layer_check"] = True
                                 st.rerun()
                         with b2:
                             if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
@@ -8826,10 +8827,12 @@ with tab_layer:
     # When results exist, show a summary at the TOP so you do not have to hunt for it
     _ev_top = st.session_state.get("last_layer_check")
     if _ev_top and (_ev_top.get("selected_names") or _ev_top.get("frags") or st.session_state.get("_locked_layer_pair")):
-        _selected = _ev_top.get("selected_names") or list(st.session_state.get("_locked_layer_pair") or [])
+        # Locked pair from Base+partners wins over any reordered result
+        _locked_disp = list(st.session_state.get("_locked_layer_pair") or [])
+        _selected = _locked_disp or list(_ev_top.get("selected_names") or [])
         if not _selected and _ev_top.get("frags"):
             _selected = [f.get("name") for f in _ev_top.get("frags") if isinstance(f, dict)]
-        _spray = _ev_top.get("spray_order") or list(_selected)
+        _spray = list(_ev_top.get("spray_order") or _selected)
         _checked = " + ".join([str(x) for x in _selected if x])
         _sc = _ev_top.get("score")
         try:
@@ -8898,15 +8901,26 @@ with tab_layer:
     layer_check_season = "Any"
     # One-shot load from Base+partners (before building options + widget)
     _pending = st.session_state.pop("_pending_layer_pick", None)
-    if _pending and isinstance(_pending, (list, tuple)) and len(_pending) >= 2:
+    if _pending and isinstance(_pending, (list, tuple)) and len(_pending) >= 1:
         _clean = []
         for n in _pending:
             if not n:
                 continue
             rf = resolve_frag_by_name(str(n).strip())
             _clean.append((rf.get("name") if rf else str(n).strip()))
+        _clean = list(dict.fromkeys([x for x in _clean if x]))
         st.session_state["roulette_layer_pick"] = list(_clean)
         st.session_state["_locked_layer_pair"] = list(_clean)
+
+    # Prefer locked pair as the source of truth for what was selected
+    _locked = [
+        str(n).strip()
+        for n in (st.session_state.get("_locked_layer_pair") or [])
+        if n and str(n).strip()
+    ]
+    if _locked:
+        st.session_state["roulette_layer_pick"] = list(_locked)
+        st.info("**Selected for check:** " + " + ".join(_locked))
 
     current_pick = list(st.session_state.get("roulette_layer_pick") or [])
     must_keep = set(n for n in current_pick if n)
