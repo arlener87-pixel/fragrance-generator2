@@ -1389,15 +1389,18 @@ def is_oil_fragrance(f: dict) -> bool:
     """True if bottle is concentrated oil / perfume oil."""
     if not f:
         return False
-    conc = (f.get("concentration") or "").lower()
+    conc = (f.get("concentration") or "").lower().strip()
     name = (f.get("name") or "").lower()
-    notes = (f.get("notes") or "").lower()
-    if "oil" in conc:
+    # Non-oil formats win unless concentration explicitly says oil
+    if any(x in conc for x in ("body spray", "body mist", "edt", "edp", "edc", "extrait", "cologne", "mist")):
+        if "oil" not in conc:
+            return False
+    if "oil" in conc or "attar" in conc or "mukhallat" in conc:
         return True
-    if "perfume oil" in name or "concentrated oil" in name or name.endswith(" oil"):
+    if any(k in name for k in ("perfume oil", "concentrated oil", " attar")):
         return True
-    if "body spray" in conc or "body spray" in name:
-        return False
+    if name.endswith(" oil") or " oil " in f" {name} ":
+        return True
     return False
 
 
@@ -8929,6 +8932,8 @@ with tab_layer:
         _clean = list(dict.fromkeys([x for x in _clean if x]))
         st.session_state["roulette_layer_pick"] = list(_clean)
         st.session_state["_locked_layer_pair"] = list(_clean)
+        _pv = int(st.session_state.get("_layer_pick_ver") or 0)
+        st.session_state[f"roulette_layer_pick_{_pv}"] = list(_clean)
 
     current_pick = list(st.session_state.get("roulette_layer_pick") or [])
     must_keep = set(n for n in current_pick if n)
@@ -8955,14 +8960,16 @@ with tab_layer:
 
     st.caption(f"{len(all_names_layer)} bottle(s) in picker")
     _pick_ver = int(st.session_state.get("_layer_pick_ver") or 0)
+    _pick_key = f"roulette_layer_pick_{_pick_ver}"
+    # Seed versioned widget once (never use default= with key=)
+    if _pick_key not in st.session_state:
+        st.session_state[_pick_key] = list(st.session_state.get("roulette_layer_pick") or [])
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
-        key=f"roulette_layer_pick_{_pick_ver}",
+        key=_pick_key,
         placeholder="Choose 2+ fragrances...",
-        default=list(st.session_state.get("roulette_layer_pick") or []),
     )
-    # Keep canonical key in sync for the rest of the script
     st.session_state["roulette_layer_pick"] = list(layer_pick or [])
     lc1, lc2 = st.columns(2)
     with lc1:
@@ -8974,6 +8981,7 @@ with tab_layer:
             st.session_state["_clear_roulette_layer_pick"] = True
             st.session_state["_layer_pick_ver"] = int(st.session_state.get("_layer_pick_ver") or 0) + 1
             st.session_state["roulette_layer_pick"] = []
+            st.session_state[f"roulette_layer_pick_{st.session_state['_layer_pick_ver']}"] = []
             st.session_state.pop("last_layer_check", None)
             st.session_state.pop("_locked_layer_pair", None)
             st.session_state.pop("_pending_layer_pick", None)
