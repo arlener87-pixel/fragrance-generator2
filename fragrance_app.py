@@ -987,6 +987,53 @@ def normalize_gender(g: str) -> str:
     return "Unisex"
 
 
+
+def suggest_gender_from_notes(notes: str, categories: list = None, name: str = "") -> str:
+    """Heuristic gender from notes/categories when the bottle tag is missing or vague.
+
+    Returns Female, Male, Unisex, Female-leaning, Male-leaning, or "".
+    """
+    text = ((notes or "") + " " + (name or "")).lower()
+    cats = {str(c).lower() for c in (categories or [])}
+    fem = 0
+    masc = 0
+    # category signals
+    for c in cats:
+        if c in ("floral", "fruity", "gourmand", "sweet", "vanilla", "creamy", "powdery"):
+            fem += 2
+        if c in ("fougere", "aromatic", "leather", "tobacco", "smoky"):
+            masc += 2
+        if c in ("woody", "spicy", "oriental", "oud", "amber", "musky"):
+            fem += 1
+            masc += 1
+    # note keywords
+    for k in (
+        "rose", "jasmine", "peony", "violet", "iris", "vanilla", "caramel",
+        "praline", "marshmallow", "coconut", "pear", "peach", "berry", "lychee",
+        "white musk", "sandalwood cream", "orchid", "tuberose", "magnolia",
+    ):
+        if k in text:
+            fem += 2
+    for k in (
+        "oud", "tobacco", "leather", "vetiver", "iso e", "cedar", "cypress",
+        "lavender", "geranium", "mint", "anise", "fougere", "animalic",
+        "incense", "smoke", "rum", "whiskey", "bourbon",
+    ):
+        if k in text:
+            masc += 2
+    if fem == 0 and masc == 0:
+        return "Unisex"
+    if fem >= masc + 3:
+        return "Female"
+    if masc >= fem + 3:
+        return "Male"
+    if fem > masc:
+        return "Female-leaning"
+    if masc > fem:
+        return "Male-leaning"
+    return "Unisex"
+
+
 def matches_gender(fragrance: dict, preferred: str) -> bool:
     if preferred == "Any":
         return True
@@ -1499,6 +1546,13 @@ def score_fragrance(
     season = (f.get("season") or "").lower()
     cats = f.get("category") or []
     g = normalize_gender(f.get("gender") or "")
+    if not g or g in ("", "Any"):
+        # Soft fill from notes when gender tag is empty
+        g = normalize_gender(
+            suggest_gender_from_notes(
+                f.get("notes") or "", f.get("category") or [], f.get("name") or ""
+            )
+        )
 
     if gender == "Any":
         score += 5
@@ -1705,11 +1759,15 @@ def suggest_seasons_from_notes(notes: str, categories: list = None) -> list:
             scores["Winter"] += 3
     # note keywords
     hot = ["citrus", "bergamot", "lemon", "grapefruit", "aquatic", "ozone", "coconut",
-           "pineapple", "mango", "mint", "green tea", "neroli"]
-    warm = ["rose", "jasmine", "peony", "pear", "apple", "peach", "freesia"]
-    cool = ["cinnamon", "apple", "pear", "cedar", "violet", "iris", "spice"]
+           "pineapple", "mango", "mint", "green tea", "neroli", "lime", "pomelo",
+           "watermelon", "marine", "salt"]
+    warm = ["rose", "jasmine", "peony", "pear", "apple", "peach", "freesia", "lilac",
+            "magnolia", "tea", "fig", "melon"]
+    cool = ["cinnamon", "apple", "pear", "cedar", "violet", "iris", "spice", "cardamom",
+            "saffron", "nutmeg", "clove", "orchid"]
     cold = ["vanilla", "amber", "oud", "incense", "leather", "tobacco", "tonka",
-            "caramel", "chocolate", "coffee", "benzoin", "myrrh", "patchouli"]
+            "caramel", "chocolate", "coffee", "benzoin", "myrrh", "patchouli",
+            "praline", "cocoa", "resin", "labdanum"]
     for k in hot:
         if k in text:
             scores["Summer"] += 2
@@ -11221,6 +11279,25 @@ with tab_vault:
             save_persisted_data()
             st.success(f"Normalized **{n}** bottle season tag(s).")
             st.rerun()
+        if st.button("Fill empty genders from notes", key="gender_fill_from_notes"):
+            filled = 0
+            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                cur = normalize_gender(f.get("gender") or "")
+                if cur in ("Male", "Female", "Unisex", "Male-leaning", "Female-leaning"):
+                    continue
+                sug = suggest_gender_from_notes(
+                    f.get("notes") or "", f.get("category") or [], f.get("name") or ""
+                )
+                if sug:
+                    st.session_state["fragrances_db"][i]["gender"] = sug
+                    filled += 1
+            if filled:
+                mark_vault_dirty()
+                save_persisted_data()
+                st.success(f"Set gender on **{filled}** untagged bottle(s) from notes/categories.")
+                st.rerun()
+            else:
+                st.info("No empty gender tags found.")
         db = st.session_state.get("fragrances_db") or []
         SEASON_CHOICES = [
             "Spring",
