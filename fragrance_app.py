@@ -8348,6 +8348,13 @@ with tab_layer:
             ],
             key="layer_oil_mode",
         )
+        _lom = st.session_state.get("layer_oil_mode") or "Any format"
+        if _lom == "Sprays only":
+            st.caption("Partners: **sprays only** — oils are filtered out.")
+        elif _lom == "Oils only":
+            st.caption("Partners: **oils only**.")
+        elif _lom == "Oil base + spray partners":
+            st.caption("Partners: **sprays** (use an oil as the base).")
         include_unisex = False
         if layer_partner_gender in ("Male", "Female"):
             include_unisex = st.checkbox(
@@ -8423,22 +8430,24 @@ with tab_layer:
                     season=layer_partner_season,
                 )
                 _oil_mode = st.session_state.get("layer_oil_mode") or "Any format"
+                # Strict format filter (always applied, independent of refresh)
                 if _oil_mode == "Oils only":
                     partners = [x for x in partners if is_oil_fragrance(x[0])]
-                elif _oil_mode == "Sprays only":
+                elif _oil_mode in ("Sprays only", "Oil base + spray partners"):
+                    # Sprays only AND oil-base mode: partners must be non-oil sprays
                     partners = [x for x in partners if not is_oil_fragrance(x[0])]
-                # Refresh: reshuffle partner order
+                # Final safety pass for Sprays only
+                if _oil_mode == "Sprays only":
+                    partners = [x for x in partners if not is_oil_fragrance(x[0])]
+                if _oil_mode == "Oils only":
+                    partners = [x for x in partners if is_oil_fragrance(x[0])]
+                # Refresh: reshuffle / rotate after filters
                 if st.session_state.get("_layer_partner_nonce"):
                     random.shuffle(partners)
-                elif _oil_mode == "Oil base + spray partners":
-                    if base_f and is_oil_fragrance(base_f):
-                        partners = [x for x in partners if not is_oil_fragrance(x[0])]
-                    else:
-                        # Suggest oils as partners if base is spray (user can still oil-first)
-                        partners = sorted(
-                            partners,
-                            key=lambda x: (0 if is_oil_fragrance(x[0]) else 1, -int(x[2] if len(x) > 2 else 0)),
-                        )
+                    _ri = int(st.session_state.get("_layer_partner_refresh_i") or 0)
+                    if _ri and partners:
+                        _k = _ri % max(1, len(partners))
+                        partners = partners[_k:] + partners[:_k]
                 if base_f and is_oil_fragrance(base_f):
                     st.info(
                         "Base is an **oil** — apply oil first, then a spray partner on top."
@@ -8450,10 +8459,15 @@ with tab_layer:
                     + (f" · weather **{layer_partner_season}**" if layer_partner_season != "Any" else " · weather Any")
                     + (f" · gender **{layer_partner_gender}**" if layer_partner_gender != "Any" else "")
                 )
-                # Safety net: drop any partner that still fails gender/season
+                # Safety net: drop any partner that still fails gender/season/format
                 _strict = []
+                _oil_mode = st.session_state.get("layer_oil_mode") or "Any format"
                 for item in partners:
                     pf = item[0]
+                    if _oil_mode == "Oils only" and not is_oil_fragrance(pf):
+                        continue
+                    if _oil_mode in ("Sprays only", "Oil base + spray partners") and is_oil_fragrance(pf):
+                        continue
                     if layer_partner_gender and layer_partner_gender != "Any":
                         fg = normalize_gender(pf.get("gender", ""))
                         if layer_partner_gender == "Female":
@@ -8940,12 +8954,16 @@ with tab_layer:
             all_names_layer.insert(0, n)
 
     st.caption(f"{len(all_names_layer)} bottle(s) in picker")
+    _pick_ver = int(st.session_state.get("_layer_pick_ver") or 0)
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
-        key="roulette_layer_pick",
+        key=f"roulette_layer_pick_{_pick_ver}",
         placeholder="Choose 2+ fragrances...",
+        default=list(st.session_state.get("roulette_layer_pick") or []),
     )
+    # Keep canonical key in sync for the rest of the script
+    st.session_state["roulette_layer_pick"] = list(layer_pick or [])
     lc1, lc2 = st.columns(2)
     with lc1:
         run_layer = st.button(
@@ -8954,6 +8972,9 @@ with tab_layer:
     with lc2:
         if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
             st.session_state["_clear_roulette_layer_pick"] = True
+            st.session_state["_layer_pick_ver"] = int(st.session_state.get("_layer_pick_ver") or 0) + 1
+            st.session_state["roulette_layer_pick"] = []
+            st.session_state.pop("last_layer_check", None)
             st.session_state.pop("_locked_layer_pair", None)
             st.session_state.pop("_pending_layer_pick", None)
             st.session_state.pop("_recipe_gender_fp", None)
