@@ -8617,6 +8617,10 @@ with tab_layer:
         with _ba2:
             if st.button("Refresh partners", use_container_width=True, key="layer_refresh_partners"):
                 st.session_state["_layer_partner_nonce"] = random.random()
+                # Force a different slice of partners on next draw
+                st.session_state["_layer_partner_refresh_i"] = int(
+                    st.session_state.get("_layer_partner_refresh_i") or 0
+                ) + 1
                 st.rerun()
         with _ba3:
             if st.button("Indoor 67 F", use_container_width=True, key="layer_use_indoor_band"):
@@ -8911,16 +8915,6 @@ with tab_layer:
         _clean = list(dict.fromkeys([x for x in _clean if x]))
         st.session_state["roulette_layer_pick"] = list(_clean)
         st.session_state["_locked_layer_pair"] = list(_clean)
-
-    # Prefer locked pair as the source of truth for what was selected
-    _locked = [
-        str(n).strip()
-        for n in (st.session_state.get("_locked_layer_pair") or [])
-        if n and str(n).strip()
-    ]
-    if _locked:
-        st.session_state["roulette_layer_pick"] = list(_locked)
-        st.info("**Selected for check:** " + " + ".join(_locked))
 
     current_pick = list(st.session_state.get("roulette_layer_pick") or [])
     must_keep = set(n for n in current_pick if n)
