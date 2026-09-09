@@ -3326,38 +3326,40 @@ def fragrance_weight_score(f: dict) -> int:
 
 
 def order_frags_heavy_to_light(frags: list) -> list:
-    """Sort fragrances heaviest first (apply as base first)."""
+    """Sort fragrances heaviest first (apply as base first) via density weight."""
     return sorted(
-        frags,
+        [f for f in (frags or []) if isinstance(f, dict)],
         key=lambda f: (fragrance_weight_score(f), f.get("name") or ""),
         reverse=True,
     )
 
 
 def order_names_heavy_to_light(bottle_names: list) -> list:
-    """Reorder bottle name list heavy -> light using vault data."""
+    """Reorder bottle name list heavy -> light using vault data + density weight."""
     name_map = {f.get("name"): f for f in st.session_state.get("fragrances_db") or []}
     frags = [name_map[n] for n in bottle_names if n in name_map]
     ranked = order_frags_heavy_to_light(frags)
     ordered = [f.get("name") for f in ranked if f.get("name")]
-    # keep any unknown names at end
     for n in bottle_names:
         if n not in ordered:
             ordered.append(n)
     return ordered
 
 
-
-# Aliases (same density-based weight engine)
 def calculate_fragrance_weight(f: dict) -> int:
+    """Alias for fragrance_weight_score (density + note position)."""
     return fragrance_weight_score(f)
 
 
 def process_layering_order(frags_or_names) -> list:
-    """Always return heavy -> light using density weight score."""
+    """Always return heavy -> light using density weight score.
+
+    Accepts a list of fragrance dicts OR bottle name strings.
+    """
     if not frags_or_names:
         return []
-    if frags_or_names and isinstance(frags_or_names[0], dict):
+    first = frags_or_names[0]
+    if isinstance(first, dict):
         return order_frags_heavy_to_light(list(frags_or_names))
     return order_names_heavy_to_light(list(frags_or_names))
 
@@ -3366,11 +3368,7 @@ def layer_application_guide(frags: list) -> dict:
     """Order, sprays, placement for a multi-bottle layer."""
     if not frags:
         return {}
-    ranked = sorted(
-        frags,
-        key=lambda f: (fragrance_weight_score(f), f.get("name") or ""),
-        reverse=True,
-    )
+    ranked = order_frags_heavy_to_light(list(frags))
     n = len(ranked)
     # sprays: heavier gets fewer if very heavy; lighter can take slightly more
     steps = []
@@ -3792,7 +3790,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         else:
             missing.append(n)
 
-    frags = order_frags_heavy_to_light(list(frags_selected)) if frags_selected else []
+    frags = process_layering_order(list(frags_selected)) if frags_selected else []
     spray_order = [f.get("name") for f in frags if f.get("name")]
     season_info = season_for_layer_recipe(frags) if frags else {}
     suggested_name = (
@@ -4882,7 +4880,7 @@ def suggest_multi_layers(
             pf = item[0]
             s = item[2] if len(item) > 2 else 0
             reason = item[1] if len(item) > 1 else ""
-            names = order_names_heavy_to_light([base["name"], pf["name"]])
+            names = process_layering_order([base["name"], pf["name"]])
             key = tuple(names)
             if key in used_sets:
                 continue
@@ -4904,7 +4902,7 @@ def suggest_multi_layers(
             cross = layer_score(p1, p2)
             if cross <= -30:
                 continue
-            names = order_names_heavy_to_light(
+            names = process_layering_order(
                 [base["name"], p1["name"], p2["name"]]
             )
             key = tuple(names)
@@ -5024,7 +5022,7 @@ def suggest_occasion_layer_stacks(
                 break
             pf = item[0]
             try:
-                names = order_names_heavy_to_light([base.get("name"), pf.get("name")])
+                names = process_layering_order([base.get("name"), pf.get("name")])
             except Exception:
                 names = [base.get("name"), pf.get("name")]
             key = tuple(names)
@@ -5054,7 +5052,7 @@ def suggest_occasion_layer_stacks(
         if len(stacks) < num_stacks and len(partners) >= 2:
             p1, p2 = partners[0][0], partners[1][0]
             try:
-                names = order_names_heavy_to_light(
+                names = process_layering_order(
                     [base.get("name"), p1.get("name"), p2.get("name")]
                 )
             except Exception:
@@ -8162,6 +8160,59 @@ def _dessert_name_from_frags(frags: list) -> str:
 
 
 
+
+def _clean_dessert_label(name: str) -> str:
+    """Drop repeated words (e.g. Cream Cream) and extra spaces."""
+    if not name:
+        return "Sweet Layer"
+    parts = str(name).split()
+    out = []
+    for p in parts:
+        if out and out[-1].lower() == p.lower():
+            continue
+        out.append(p)
+    return " ".join(out) or "Sweet Layer"
+
+
+def _unique_dessert_name(frags: list, used: set) -> str:
+    """Note-based dessert name unique within this menu."""
+    base = _clean_dessert_label(_dessert_name_from_frags(frags))
+    if base not in used:
+        used.add(base)
+        return base
+    text = " ".join(
+        ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+        for f in frags
+        if isinstance(f, dict)
+    )
+    alts = []
+    if "coconut" in text:
+        alts += ["Coconut Cream Layer", "Tropical Coconut Soft Serve"]
+    if "vanilla" in text:
+        alts += ["Vanilla Bean Soft Stack", "Madagascar Vanilla Layer"]
+    if "caramel" in text or "praline" in text:
+        alts += ["Caramel Cream Stack", "Praline Soft Layer"]
+    if "marshmallow" in text:
+        alts += ["Marshmallow Cloud Layer"]
+    if "chocolate" in text or "cocoa" in text:
+        alts += ["Chocolate Mousse Layer"]
+    if any(x in text for x in ("berry", "strawberry", "raspberry", "cherry")):
+        alts += ["Berry Cream Stack", "Fruit Cream Tart"]
+    alts += [base + " Duo", base + " Soft", "Gourmand " + base, "Layered " + base]
+    for a in alts:
+        a = _clean_dessert_label(a)
+        if a not in used:
+            used.add(a)
+            return a
+    n = 2
+    while True:
+        cand = f"{base} ({n})"
+        if cand not in used:
+            used.add(cand)
+            return cand
+        n += 1
+
+
 def _dessert_season_tip(frags: list) -> str:
     text = " ".join((f.get("season") or "").lower() for f in frags)
     notes = " ".join((f.get("notes") or "").lower() for f in frags)
@@ -8177,7 +8228,7 @@ def _dessert_season_tip(frags: list) -> str:
 def _dessert_layer_tip(frags: list) -> str:
     if not frags:
         return "Pick two sweet bottles and apply the richer one first."
-    ordered = order_frags_heavy_to_light(list(frags))
+    ordered = process_layering_order(list(frags))
     names = [f.get("name") for f in ordered if f.get("name")]
     oils = [f for f in ordered if is_oil_fragrance(f)]
     tips = []
@@ -8272,6 +8323,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
 
     stacks = []
     used = set()
+    menu_names = set()
     # Cap evaluations for speed on mobile
     max_eval = min(80, len(candidates))
     for dessert_pts, frags in candidates[:max_eval]:
@@ -8290,7 +8342,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
             continue
         used.add(key)
         stacks.append({
-            "dessert_name": _dessert_name_from_frags(frags),
+            "dessert_name": _unique_dessert_name(frags, menu_names),
             "names": names,
             "frags": frags,
             "score": layer_sc,
@@ -8330,7 +8382,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
                 used.add(key)
                 frags = list(base["frags"]) + [f]
                 stacks.append({
-                    "dessert_name": _dessert_name_from_frags(frags),
+                    "dessert_name": _unique_dessert_name(frags, menu_names),
                     "names": names,
                     "frags": frags,
                     "score": layer_sc,
@@ -9366,7 +9418,7 @@ with tab_layer:
                                 st.rerun()
                         with b3:
                             if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
-                                names = order_names_heavy_to_light([base_name, pf["name"]])
+                                names = process_layering_order([base_name, pf["name"]])
                                 ev = evaluate_layer_recipe(names)
                                 final_name = (ev.get("suggested_name") or f"{base_name} x {pf['name']}")
                                 st.session_state.setdefault("layer_recipes", []).insert(
