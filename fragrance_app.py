@@ -38,20 +38,22 @@ def _vault_count(data: dict) -> int:
 
 
 def load_persisted_data():
-    """Load the best available vault: main file, then .bak, then /tmp copy."""
+    """Load the best available vault: main file, then .bak, then /tmp copy.
+
+    Always returns a dict. Sort by bottle count only (never compare nested dicts).
+    """
     candidates = []
     for p in (DATA_FILE, DATA_BAK, DATA_TMP):
         data = _safe_json_load(p)
-        if data and _vault_count(data) > 0:
-            candidates.append(( _vault_count(data), str(p), data ))
-    if not candidates:
-        # still try empty main for reactions-only etc.
-        data = _safe_json_load(DATA_FILE)
-        return data if data else {}
-    # Prefer the largest vault (most bottles). Tie-break: main > bak > tmp order already
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    best = candidates[0][2]
-    return best
+        if data and isinstance(data, dict) and _vault_count(data) > 0:
+            candidates.append((_vault_count(data), str(p), data))
+    if candidates:
+        # Sort ONLY by integer count — never by the full tuple (dicts are not orderable)
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        best = candidates[0][2]
+        return best if isinstance(best, dict) else {}
+    data = _safe_json_load(DATA_FILE)
+    return data if isinstance(data, dict) else {}
 
 
 def save_persisted_data(force: bool = False):
@@ -724,7 +726,57 @@ div[role="alert"] {
 # FRAGRANCE DATABASE (Stored in Session State)
 # ==========================================
 # Load any previously saved data first
-_persisted = load_persisted_data()
+
+def init_session_states():
+    """Populate required session keys once at startup (safe defaults).
+
+    Does not force an empty fragrances_db — seed / disk recovery runs after.
+    """
+    data = load_persisted_data()
+    if not isinstance(data, dict):
+        data = {}
+    disk_db = list(data.get("fragrances_db") or [])
+    defaults = {
+        "user_reactions": dict(data.get("user_reactions") or {}),
+        "sotd_history": list(data.get("sotd_history") or []),
+        "layer_recipes": list(data.get("layer_recipes") or []),
+        "play_stats": dict(data.get("play_stats") or {}),
+        "wishlist": list(data.get("wishlist") or []),
+        "try_recipes": list(data.get("try_recipes") or []),
+        "vault_log": list(data.get("vault_log") or []),
+        "last_export_date": data.get("last_export_date"),
+        "last_saved_at": data.get("last_saved_at"),
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+    # Only set vault if disk actually has bottles (else leave for seed block)
+    if "fragrances_db" not in st.session_state and disk_db:
+        st.session_state["fragrances_db"] = disk_db
+    # Chart keys
+    chart = data.get("chart") if isinstance(data.get("chart"), dict) else {}
+    for ck, sk in [
+        ("sun", "chart_sun"),
+        ("moon", "chart_moon"),
+        ("rising", "chart_rising"),
+        ("venus", "chart_venus"),
+        ("full", "birth_calc_full"),
+        ("his_sun", "chart_his_sun"),
+        ("his_moon", "chart_his_moon"),
+        ("his_rising", "chart_his_rising"),
+        ("his_venus", "chart_his_venus"),
+        ("his_full", "birth_calc_his_full"),
+    ]:
+        if sk not in st.session_state and chart.get(ck) is not None:
+            st.session_state[sk] = chart.get(ck)
+    return data
+
+
+
+_persisted = init_session_states()
+# Keep alias for older code paths
+if not _persisted:
+    _persisted = load_persisted_data()
 
 # Built-in list is only a seed when there is NO saved vault on disk.
 # If disk has bottles, those always win on a fresh session.
@@ -3146,12 +3198,23 @@ def _parse_note_sections(notes: str) -> dict:
 
 
 def _note_density_points(blob: str) -> float:
-    """Weight contribution of ingredients in a text blob (before position multiplier)."""
+    """Weight contribution of ingredients before position multiplier.
+
+    Defensive cleaning: strip parentheticals, normalize spaces, try singular forms
+    so "Cooked Sugar (Caramel)" and "vanillas" still match.
+    """
     if not blob:
         return 0.0
-    t = blob.lower()
-    pts = 0.0
-    # Each hit counts once per keyword
+    import re as _re
+    t = str(blob).lower()
+    # Remove anything in parentheses
+    t = _re.sub(r"\([^)]*\)", " ", t)
+    # Normalize separators to spaces
+    t = _re.sub(r"[,;/|+]+", " ", t)
+    t = " ".join(t.split())
+    if not t:
+        return 0.0
+
     class4 = [
         "butter", "caramel", "cooked sugar", "honey", "oud", "leather", "civet",
         "labdanum", "tar", "castoreum", "styrax", "resin", "benzoin", "myrrh",
@@ -3160,7 +3223,7 @@ def _note_density_points(blob: str) -> float:
     class3 = [
         "vanilla", "amber", "sandalwood", "musk", "patchouli", "whipped cream",
         "cream", "tonka", "cedar", "tobacco", "chocolate", "cocoa", "coffee",
-        "incense", "oud", "cashmere", "boozy", "rum", "whiskey",
+        "incense", "cashmere", "boozy", "rum", "whiskey",
     ]
     class2 = [
         "strawberry", "jasmine", "orange blossom", "citrus", "bergamot", "lemon",
@@ -3168,14 +3231,41 @@ def _note_density_points(blob: str) -> float:
         "peach", "berry", "raspberry", "cherry", "pineapple", "coconut",
         "neroli", "freesia", "peony", "lily",
     ]
+
+    def _variants(word: str):
+        w = (word or "").strip().lower()
+        if not w:
+            return []
+        out = {w}
+        # singularize trailing s for longer words
+        if len(w) > 4 and w.endswith("s") and not w.endswith("ss"):
+            out.add(w[:-1])
+        return out
+
+    def _hit(keyword: str) -> bool:
+        keys = _variants(keyword)
+        # multi-word keyword
+        for k in list(keys):
+            if " " in k:
+                if k in t:
+                    return True
+            else:
+                # word-boundary-ish match
+                if k in t.split() or f" {k} " in f" {t} ":
+                    return True
+                if k in t:
+                    return True
+        return False
+
+    pts = 0.0
     for k in class4:
-        if k in t:
+        if _hit(k):
             pts += 8.0
     for k in class3:
-        if k in t:
+        if _hit(k):
             pts += 4.0
     for k in class2:
-        if k in t:
+        if _hit(k):
             pts += 1.5
     return pts
 
@@ -3255,6 +3345,21 @@ def order_names_heavy_to_light(bottle_names: list) -> list:
         if n not in ordered:
             ordered.append(n)
     return ordered
+
+
+
+# Aliases (same density-based weight engine)
+def calculate_fragrance_weight(f: dict) -> int:
+    return fragrance_weight_score(f)
+
+
+def process_layering_order(frags_or_names) -> list:
+    """Always return heavy -> light using density weight score."""
+    if not frags_or_names:
+        return []
+    if frags_or_names and isinstance(frags_or_names[0], dict):
+        return order_frags_heavy_to_light(list(frags_or_names))
+    return order_names_heavy_to_light(list(frags_or_names))
 
 
 def layer_application_guide(frags: list) -> dict:
