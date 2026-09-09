@@ -11953,7 +11953,7 @@ def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Des
     mark_vault_dirty()
     return True
 
-def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female") -> list:
+def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female + Unisex") -> list:
     """Female-leaning dessert stacks that pass Layer check (>= min_layer_score).
 
     Enumerates strong pairs systematically so "4 ideas" can actually fill.
@@ -11961,19 +11961,22 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     db = st.session_state.get("fragrances_db") or []
     scored = []
     for f in db:
-        pts = _dessert_score_bottle(f)
-        if pts < 6:
+        pts = float(_dessert_score_bottle(f))
+        if pts < 4:
             continue
         g = normalize_gender(f.get("gender") or "")
         if gender_mode == "Female":
             if g not in ("Female", "Female-leaning"):
                 continue
         else:
+            # Female + Unisex — rotate a larger female-leaning pool
             if g not in ("Female", "Female-leaning", "Unisex"):
                 continue
+            if g in ("Female", "Female-leaning"):
+                pts += 3.0
         scored.append((pts, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    pool = [f for _, f in scored[:22]]
+    pool = [f for _, f in scored[:40]]
     if len(pool) < 2:
         return []
 
@@ -12010,12 +12013,17 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
             dessert_pts = (_dessert_score_bottle(a) + _dessert_score_bottle(b)) / 2.0
             candidates.append((dessert_pts, [a, b]))
     candidates.sort(key=lambda x: x[0], reverse=True)
+    # Mix mid-tier dessert bottles into the eval window so menus rotate
+    head = candidates[:12]
+    rest = candidates[12:]
+    random.shuffle(rest)
+    candidates = head + rest
 
     stacks = []
     used = set()
     menu_names = set()
     # Cap evaluations for speed on mobile
-    max_eval = min(28, len(candidates))
+    max_eval = min(80, len(candidates))
     for dessert_pts, frags in candidates[:max_eval]:
         if len(stacks) >= num:
             break
@@ -14130,7 +14138,7 @@ with tab_dessert:
         menu = build_dessert_suggestions(
             num=int(n_desserts),
             min_layer_score=75,
-            gender_mode="Female" if dessert_gender == "Female" else "Female + Unisex",
+            gender_mode=dessert_gender if dessert_gender in ("Female", "Female + Unisex") else "Female + Unisex",
         )
         st.session_state["_dessert_menu"] = menu
         if refresh_d:
