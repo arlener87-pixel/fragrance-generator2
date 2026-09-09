@@ -8483,6 +8483,9 @@ with tab_discover:
         num_show = last_recs.get("num", 3)
         meta = last_recs.get("meta") or {}
         st.subheader(f"Top {num_show}")
+        _tr = st.session_state.get("try_recipes") or []
+        if _tr:
+            st.caption("Try list: **" + str(len(_tr)) + "** idea(s) — open **Dessert** tab to check off & save.")
         if (meta or {}).get("oils_only") or st.session_state.get("filter_oils_only"):
             st.caption("Oils only — every pick should be a concentrated oil.")
         if st.session_state.get("_recs_widened"):
@@ -9052,6 +9055,20 @@ with tab_layer:
                                 st.session_state["_seed_roulette_recipe_name"] = True
                                 st.rerun()
                         with b2:
+                            if st.button("Try it", key=f"layer_base_try_{pi}"):
+                                _bn = str((base_f or {}).get("name") or base_name or "").strip()
+                                _pn = str((pf or {}).get("name") or "").strip()
+                                _pair = [n for n in (_bn, _pn) if n]
+                                ok = add_try_recipe(
+                                    f"{_bn} + {_pn}",
+                                    _pair,
+                                    notes="Layer studio partner",
+                                    source="Layer",
+                                )
+                                save_persisted_data()
+                                st.success("On Try list" if ok else "Already listed")
+                                st.rerun()
+                        with b3:
                             if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
                                 names = order_names_heavy_to_light([base_name, pf["name"]])
                                 ev = evaluate_layer_recipe(names)
