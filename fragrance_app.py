@@ -7768,8 +7768,199 @@ if not st.session_state.get("_seasons_normalized"):
     except Exception:
         st.session_state["_seasons_normalized"] = True
 
-tab_discover, tab_layer, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "SOTD", "Collection", "Vault"]
+
+def _dessert_score_bottle(f: dict) -> float:
+    """How dessert-like a bottle is (female-leaning vault picks)."""
+    if not f:
+        return -1.0
+    g = normalize_gender(f.get("gender") or "")
+    if g not in ("Female", "Female-leaning", "Unisex"):
+        return -1.0
+    cats = {str(c).lower() for c in (f.get("category") or [])}
+    notes = (f.get("notes") or "").lower()
+    name = (f.get("name") or "").lower()
+    text = notes + " " + name + " " + " ".join(cats)
+    pts = 0.0
+    dessert_cats = {
+        "gourmand": 12, "sweet": 10, "vanilla": 10, "creamy": 9,
+        "fruity": 6, "floral": 3, "powdery": 3, "amber": 4, "musky": 2,
+    }
+    for c, w in dessert_cats.items():
+        if c in cats:
+            pts += w
+    dessert_notes = [
+        ("vanilla", 8), ("caramel", 8), ("praline", 7), ("chocolate", 7),
+        ("cocoa", 6), ("coffee", 5), ("tonka", 5), ("marshmallow", 7),
+        ("sugar", 5), ("honey", 5), ("coconut", 5), ("almond", 5),
+        ("pistachio", 6), ("hazelnut", 5), ("cream", 5), ("milk", 4),
+        ("strawberry", 6), ("raspberry", 5), ("cherry", 5), ("peach", 4),
+        ("banana", 4), ("apple pie", 6), ("cinnamon", 4), ("whipped", 5),
+        ("butter", 4), ("cookie", 6), ("cake", 6), ("custard", 6),
+        ("toffee", 6), ("maple", 5), ("brown sugar", 6), ("sandalwood", 2),
+    ]
+    for k, w in dessert_notes:
+        if k in text:
+            pts += w
+    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
+        pts += 8
+    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+        return -1.0
+    if is_oil_fragrance(f):
+        pts += 2  # oils layer nicely under sprays
+    return pts
+
+
+def _dessert_name_from_frags(frags: list) -> str:
+    """Pretty dessert recipe name from notes/categories."""
+    text = " ".join(
+        ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+        for f in frags
+        if isinstance(f, dict)
+    )
+    cats = set()
+    for f in frags:
+        for c in f.get("category") or []:
+            cats.add(str(c).lower())
+    # Named desserts by dominant profile
+    pairs = [
+        (("strawberry", "raspberry", "cherry", "berry"), [
+            "Strawberry Shortcake", "Berry Cream Tart", "Cherry Glaze Cupcake",
+            "Raspberry Whipped Dream",
+        ]),
+        (("chocolate", "cocoa", "coffee"), [
+            "Molten Chocolate Cake", "Cocoa Butter Truffle", "Espresso Tiramisu",
+            "Dark Chocolate Souffle",
+        ]),
+        (("caramel", "toffee", "praline", "butterscotch"), [
+            "Salted Caramel Flan", "Praline Cream Puff", "Butterscotch Pudding",
+            "Caramel Apple Tart",
+        ]),
+        (("coconut", "pineapple", "tropical"), [
+            "Coconut Cream Pie", "Pina Colada Pudding", "Tropical Mousse Cup",
+        ]),
+        (("pistachio", "hazelnut", "almond", "nut"), [
+            "Pistachio Baklava", "Hazelnut Gianduja", "Almond Cream Croissant",
+        ]),
+        (("peach", "pear", "apple"), [
+            "Peach Cobbler Cloud", "Pear Almond Tart", "Warm Apple Crumble",
+        ]),
+        (("marshmallow", "cotton candy", "sugar"), [
+            "Toasted Marshmallow Cloud", "Cotton Candy Creme", "Powdered Sugar Kiss",
+        ]),
+        (("vanilla", "cream", "milk", "custard"), [
+            "Vanilla Bean Custard", "Creme Brulee Soft", "Madagascar Vanilla Soft Serve",
+            "Whipped Cream Dream",
+        ]),
+        (("honey", "lavender", "floral"), [
+            "Honey Lavender Cake", "Floral Cream Puff", "Sugar Violet Macaron",
+        ]),
+        (("cinnamon", "spice", "pumpkin"), [
+            "Cinnamon Roll Swirl", "Pumpkin Spice Latte Cream", "Spiced Honey Cake",
+        ]),
+    ]
+    for keys, names in pairs:
+        if any(k in text for k in keys):
+            return random.choice(names)
+    if "gourmand" in cats or "sweet" in cats:
+        return random.choice([
+            "Sweet Cream Sundae", "Sugar Cookie Layer", "Dessert Plate Soft",
+            "Gourmand Cloud Stack",
+        ])
+    return random.choice([
+        "Soft Serve Duo", "Bakery Case Layer", "After-Dinner Sweet",
+        "Pastry Counter Mist",
+    ])
+
+
+def _dessert_season_tip(frags: list) -> str:
+    text = " ".join((f.get("season") or "").lower() for f in frags)
+    notes = " ".join((f.get("notes") or "").lower() for f in frags)
+    if any(k in notes for k in ("vanilla", "caramel", "chocolate", "tonka", "amber")):
+        if "summer" in text and "winter" not in text and "fall" not in text:
+            return "Best in **Fall / Winter** evenings — heavy sweets bloom in cooler air."
+        return "Best in **Fall & Winter** — cozy dessert vibes; go light sprays in heat."
+    if any(k in notes for k in ("coconut", "citrus", "fruit", "berry", "peach")):
+        return "Best in **Spring / Summer** — fruity dessert layers stay bright in warmth."
+    return "Versatile — lighter sprays for warm days, richer base for cool nights."
+
+
+def _dessert_layer_tip(frags: list) -> str:
+    if not frags:
+        return "Pick two sweet bottles and apply the richer one first."
+    ordered = order_frags_heavy_to_light(list(frags))
+    names = [f.get("name") for f in ordered if f.get("name")]
+    oils = [f for f in ordered if is_oil_fragrance(f)]
+    tips = []
+    if oils and len(ordered) >= 2:
+        tips.append(
+            "Oil first on pulse points, wait 30–60 sec, then spray the lighter dessert on top."
+        )
+    if len(names) >= 2:
+        tips.append(
+            "Spray order: **" + " > ".join(names) + "** (richest base → lighter top)."
+        )
+    tips.append("1–2 sprays each for daily; add one more of the top note for date night.")
+    tips.append("Target pulse points + a light mist on clothes for longer gourmand trail.")
+    return " ".join(tips)
+
+
+def build_dessert_suggestions(num: int = 5) -> list:
+    """Female-leaning dessert layer stacks from the vault."""
+    db = st.session_state.get("fragrances_db") or []
+    scored = []
+    for f in db:
+        pts = _dessert_score_bottle(f)
+        if pts >= 8:
+            scored.append((pts, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    pool = [f for _, f in scored[:40]]
+    if len(pool) < 2:
+        pool = [f for f in db if _dessert_score_bottle(f) > 0][:30]
+    if len(pool) < 2:
+        return []
+    random.shuffle(pool)
+    stacks = []
+    used = set()
+    # Prefer oil + spray when possible
+    oils = [f for f in pool if is_oil_fragrance(f)]
+    sprays = [f for f in pool if not is_oil_fragrance(f)]
+    attempts = 0
+    while len(stacks) < num and attempts < 60:
+        attempts += 1
+        if oils and sprays and random.random() < 0.55:
+            a = random.choice(oils)
+            b = random.choice(sprays)
+        else:
+            a, b = random.sample(pool, 2)
+        key = tuple(sorted([a.get("name"), b.get("name")]))
+        if key in used:
+            continue
+        used.add(key)
+        frags = [a, b]
+        # optional third light top
+        if len(pool) > 4 and random.random() < 0.35:
+            cands = [f for f in pool if f.get("name") not in key]
+            if cands:
+                c = random.choice(cands[:12])
+                frags.append(c)
+        score = sum(_dessert_score_bottle(f) for f in frags) / max(1, len(frags))
+        stacks.append({
+            "dessert_name": _dessert_name_from_frags(frags),
+            "names": [f.get("name") for f in frags],
+            "frags": frags,
+            "score": round(score, 1),
+            "season_tip": _dessert_season_tip(frags),
+            "layer_tip": _dessert_layer_tip(frags),
+            "why": "Sweet " + ", ".join(
+                sorted({c for f in frags for c in (f.get("category") or []) if c})[:4]
+            ) or "gourmand layer",
+        })
+    stacks.sort(key=lambda s: s["score"], reverse=True)
+    return stacks[:num]
+
+
+tab_discover, tab_layer, tab_dessert, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Dessert", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -9645,6 +9836,113 @@ with tab_layer:
 
 
 # ===== ROULETTE =====
+
+with tab_dessert:
+    st.subheader("Dessert layering")
+    st.caption(
+        "Female-leaning sweet stacks from your vault — named like a dessert menu. "
+        "Richer base first, lighter cream on top."
+    )
+    d1, d2, d3 = st.columns(3)
+    with d1:
+        n_desserts = st.slider("How many ideas", 3, 8, 5, key="dessert_n")
+    with d2:
+        dessert_gender = st.selectbox(
+            "Gender lean",
+            ["Female", "Female + Unisex"],
+            key="dessert_gender_mode",
+            help="Default Female only; add Unisex if your vault is small.",
+        )
+    with d3:
+        st.write("")
+        st.write("")
+        refresh_d = st.button("Fresh menu", type="primary", key="dessert_refresh", use_container_width=True)
+
+    if refresh_d or st.session_state.get("_dessert_menu") is None:
+        menu = build_dessert_suggestions(num=int(n_desserts))
+        # Optional filter: Female only (drop pure unisex bases if mode Female)
+        if dessert_gender == "Female":
+            filtered = []
+            for item in menu:
+                ok = True
+                for f in item.get("frags") or []:
+                    g = normalize_gender(f.get("gender") or "")
+                    if g not in ("Female", "Female-leaning"):
+                        ok = False
+                        break
+                if ok:
+                    filtered.append(item)
+            if filtered:
+                menu = filtered
+        st.session_state["_dessert_menu"] = menu
+    menu = st.session_state.get("_dessert_menu") or []
+
+    if not menu:
+        st.warning(
+            "Not enough sweet / gourmand bottles tagged Female. "
+            "Add notes like vanilla, caramel, or set category Gourmand — then refresh."
+        )
+    else:
+        for i, item in enumerate(menu):
+            with st.container():
+                st.markdown("### " + str(item.get("dessert_name") or "Sweet layer"))
+                names = item.get("names") or []
+                st.markdown("**Bottles:** " + " + ".join(names))
+                for f in item.get("frags") or []:
+                    g = f.get("gender") or "?"
+                    try:
+                        oil = oil_badge(f)
+                    except Exception:
+                        oil = ""
+                    st.caption(
+                        (f.get("name") or "?")
+                        + " · "
+                        + str(f.get("brand") or "")
+                        + " · "
+                        + str(g)
+                        + oil
+                        + " · "
+                        + str(f.get("season") or "")
+                    )
+                st.info(str(item.get("layer_tip") or ""))
+                st.caption(str(item.get("season_tip") or ""))
+                st.caption("Profile: " + str(item.get("why") or "dessert"))
+                b1, b2, b3 = st.columns(3)
+                with b1:
+                    if st.button("Layer check", key=f"dessert_check_{i}"):
+                        st.session_state["_pending_layer_pick"] = list(names)
+                        st.session_state["_locked_layer_pair"] = list(names)
+                        _ev = evaluate_layer_recipe(list(names))
+                        _ev["selected_names"] = list(names)
+                        st.session_state["last_layer_check"] = _ev
+                        st.success("Loaded in Layer check — open the **Layer** tab.")
+                        st.rerun()
+                with b2:
+                    if st.button("Save recipe", key=f"dessert_save_{i}"):
+                        recipe = {
+                            "name": item.get("dessert_name") or "Dessert layer",
+                            "bottles": list(names),
+                            "notes": item.get("layer_tip") or "Dessert menu",
+                            "gender": "Female",
+                            "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
+                        }
+                        lr = list(st.session_state.get("layer_recipes") or [])
+                        lr.insert(0, recipe)
+                        st.session_state["layer_recipes"] = lr[:80]
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success("Saved **" + str(recipe["name"]) + "**")
+                with b3:
+                    if st.button("SOTD", key=f"dessert_sotd_{i}"):
+                        try:
+                            send_to_sotd(list(names), notes=item.get("dessert_name") or "Dessert layer")
+                        except Exception:
+                            st.session_state["sotd_prefill"] = list(names)
+                        st.success("Ready for SOTD")
+                        st.rerun()
+                st.markdown("---")
+
+
 with tab_sotd:
     st.subheader("Scent of the Day")
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
