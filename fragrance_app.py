@@ -7904,71 +7904,65 @@ def _dessert_layer_tip(frags: list) -> str:
     return " ".join(tips)
 
 
-def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75) -> list:
-    """Female-leaning dessert stacks that also pass Layer check (>= min_layer_score)."""
+def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female") -> list:
+    """Female-leaning dessert stacks that pass Layer check (>= min_layer_score).
+
+    Enumerates strong pairs systematically so "4 ideas" can actually fill.
+    """
     db = st.session_state.get("fragrances_db") or []
     scored = []
     for f in db:
         pts = _dessert_score_bottle(f)
-        if pts >= 8:
-            scored.append((pts, f))
+        if pts < 6:
+            continue
+        g = normalize_gender(f.get("gender") or "")
+        if gender_mode == "Female":
+            if g not in ("Female", "Female-leaning"):
+                continue
+        else:
+            if g not in ("Female", "Female-leaning", "Unisex"):
+                continue
+        scored.append((pts, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    pool = [f for _, f in scored[:50]]
-    if len(pool) < 2:
-        pool = [f for f in db if _dessert_score_bottle(f) > 0][:40]
+    pool = [f for _, f in scored[:36]]
     if len(pool) < 2:
         return []
 
-    oils = [f for f in pool if is_oil_fragrance(f)]
-    sprays = [f for f in pool if not is_oil_fragrance(f)]
+    # Build candidate pairs: top x top, then oil+spray
+    candidates = []
+    n = len(pool)
+    # Systematic pairs among top bottles (best dessert affinity first)
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = pool[i], pool[j]
+            dessert_pts = (_dessert_score_bottle(a) + _dessert_score_bottle(b)) / 2.0
+            candidates.append((dessert_pts, [a, b]))
+    candidates.sort(key=lambda x: x[0], reverse=True)
+
     stacks = []
     used = set()
-    attempts = 0
-    max_attempts = 120
-
-    while len(stacks) < num and attempts < max_attempts:
-        attempts += 1
-        # Prefer complementary dessert profiles, not random near-duplicates
-        if oils and sprays and random.random() < 0.5:
-            a = random.choice(oils[:12] if len(oils) > 12 else oils)
-            b = random.choice(sprays[:20] if len(sprays) > 20 else sprays)
-            frags = [a, b]
-        else:
-            # weighted sample from top dessert bottles
-            top = pool[: max(8, min(24, len(pool)))]
-            if len(top) < 2:
-                break
-            a, b = random.sample(top, 2)
-            frags = [a, b]
-
-        # Optional light third only if it still scores well later
-        if len(pool) > 6 and random.random() < 0.25:
-            names_ab = {a.get("name"), b.get("name")}
-            cands = [f for f in pool[:30] if f.get("name") not in names_ab]
-            if cands:
-                frags.append(random.choice(cands))
-
+    # Cap evaluations for speed on mobile
+    max_eval = min(80, len(candidates))
+    for dessert_pts, frags in candidates[:max_eval]:
+        if len(stacks) >= num:
+            break
         names = [f.get("name") for f in frags if f.get("name")]
         key = tuple(sorted(names))
         if len(names) < 2 or key in used:
             continue
-        used.add(key)
-
-        # Must pass real layer engine at the same bar as "Good combo"
         try:
             ev = evaluate_layer_recipe(list(names))
             layer_sc = int(round(float(ev.get("score") or 0)))
         except Exception:
-            layer_sc = 0
+            continue
         if layer_sc < int(min_layer_score):
             continue
-
-        dessert_pts = sum(_dessert_score_bottle(f) for f in frags) / max(1, len(frags))
+        used.add(key)
         stacks.append({
             "dessert_name": _dessert_name_from_frags(frags),
             "names": names,
             "frags": frags,
-            "score": layer_sc,  # show Layer check score
+            "score": layer_sc,
             "dessert_pts": round(dessert_pts, 1),
             "season_tip": _dessert_season_tip(frags),
             "layer_tip": _dessert_layer_tip(frags),
@@ -7979,8 +7973,51 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75) -> list:
                 )),
         })
 
+    # If still short, try a few 3-bottle stacks from winning pairs + light top
+    if len(stacks) < num and stacks:
+        tops = pool[:20]
+        for base in list(stacks[:8]):
+            if len(stacks) >= num:
+                break
+            base_names = set(base.get("names") or [])
+            for f in tops:
+                if len(stacks) >= num:
+                    break
+                if f.get("name") in base_names:
+                    continue
+                names = list(base["names"]) + [f.get("name")]
+                key = tuple(sorted(names))
+                if key in used:
+                    continue
+                try:
+                    ev = evaluate_layer_recipe(list(names))
+                    layer_sc = int(round(float(ev.get("score") or 0)))
+                except Exception:
+                    continue
+                if layer_sc < int(min_layer_score):
+                    continue
+                used.add(key)
+                frags = list(base["frags"]) + [f]
+                stacks.append({
+                    "dessert_name": _dessert_name_from_frags(frags),
+                    "names": names,
+                    "frags": frags,
+                    "score": layer_sc,
+                    "dessert_pts": round(
+                        sum(_dessert_score_bottle(x) for x in frags) / len(frags), 1
+                    ),
+                    "season_tip": _dessert_season_tip(frags),
+                    "layer_tip": _dessert_layer_tip(frags),
+                    "verdict": clean_display_text(str(ev.get("verdict") or "")),
+                    "why": clean_display_text(str(ev.get("why") or ""))[:220],
+                })
+
     stacks.sort(key=lambda s: (s.get("score") or 0, s.get("dessert_pts") or 0), reverse=True)
-    return stacks[:num]
+    # Shuffle among top scores so Fresh menu feels new
+    top = stacks[: max(num * 2, num)]
+    random.shuffle(top)
+    top.sort(key=lambda s: s.get("score") or 0, reverse=True)
+    return top[:num]
 
 
 
@@ -9887,23 +9924,21 @@ with tab_dessert:
         refresh_d = st.button("Fresh menu", type="primary", key="dessert_refresh", use_container_width=True)
 
     if refresh_d or st.session_state.get("_dessert_menu") is None:
-        menu = build_dessert_suggestions(num=int(n_desserts))
-        # Optional filter: Female only (drop pure unisex bases if mode Female)
-        if dessert_gender == "Female":
-            filtered = []
-            for item in menu:
-                ok = True
-                for f in item.get("frags") or []:
-                    g = normalize_gender(f.get("gender") or "")
-                    if g not in ("Female", "Female-leaning"):
-                        ok = False
-                        break
-                if ok:
-                    filtered.append(item)
-            if filtered:
-                menu = filtered
+        menu = build_dessert_suggestions(
+            num=int(n_desserts),
+            min_layer_score=75,
+            gender_mode="Female" if dessert_gender == "Female" else "Female + Unisex",
+        )
         st.session_state["_dessert_menu"] = menu
     menu = st.session_state.get("_dessert_menu") or []
+    if menu and len(menu) < int(n_desserts):
+        st.caption(
+            "Found **"
+            + str(len(menu))
+            + "** stack(s) at 75+ (asked for "
+            + str(int(n_desserts))
+            + "). Fresh menu or Female + Unisex can unlock more."
+        )
 
     if not menu:
         st.warning(
