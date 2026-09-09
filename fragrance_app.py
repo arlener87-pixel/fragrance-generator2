@@ -10332,11 +10332,31 @@ with tab_dessert:
                         "Tried" if not titem.get("tried") else "Undo",
                         key=f"try_toggle_{ti}",
                     ):
-                        st.session_state["try_recipes"][ti]["tried"] = not bool(
-                            st.session_state["try_recipes"][ti].get("tried")
-                        )
-                        mark_vault_dirty()
-                        save_persisted_data()
+                        cur = list(st.session_state.get("try_recipes") or [])
+                        if ti >= len(cur):
+                            st.rerun()
+                        item = dict(cur[ti])
+                        now_tried = not bool(item.get("tried"))
+                        item["tried"] = now_tried
+                        # If marked tried and this combo is already a saved recipe → remove
+                        bottles_key = tuple(sorted(str(b) for b in (item.get("bottles") or []) if b))
+                        already_saved = False
+                        for r in st.session_state.get("layer_recipes") or []:
+                            rk = tuple(sorted(str(b) for b in (r.get("bottles") or r.get("names") or []) if b))
+                            if bottles_key and bottles_key == rk:
+                                already_saved = True
+                                break
+                        if now_tried and already_saved:
+                            cur = [x for j, x in enumerate(cur) if j != ti]
+                            st.session_state["try_recipes"] = cur
+                            mark_vault_dirty()
+                            save_persisted_data()
+                            st.success("Tried + already saved — removed from Try list")
+                        else:
+                            cur[ti] = item
+                            st.session_state["try_recipes"] = cur
+                            mark_vault_dirty()
+                            save_persisted_data()
                         st.rerun()
                 with tb3:
                     if st.button("Save", key=f"try_save_{ti}"):
@@ -10352,9 +10372,15 @@ with tab_dessert:
                         lr = list(st.session_state.get("layer_recipes") or [])
                         lr.insert(0, recipe)
                         st.session_state["layer_recipes"] = lr[:80]
+                        # Remove from Try list once saved
+                        st.session_state["try_recipes"] = [
+                            x for j, x in enumerate(st.session_state.get("try_recipes") or [])
+                            if j != ti
+                        ]
                         mark_vault_dirty()
                         save_persisted_data()
-                        st.success("Saved recipe **" + recipe["name"] + "**")
+                        st.success("Saved **" + recipe["name"] + "** and removed from Try list")
+                        st.rerun()
                 if st.button("Remove", key=f"try_rm_{ti}"):
                     st.session_state["try_recipes"] = [
                         x for j, x in enumerate(st.session_state["try_recipes"]) if j != ti
