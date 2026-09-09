@@ -7963,6 +7963,23 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     if len(pool) < 2:
         return []
 
+    # Skip combos already on Try list or saved as recipes (same bottles, any name)
+    def _combo_key(names):
+        return tuple(sorted(str(n).strip() for n in (names or []) if n and str(n).strip()))
+
+    blocked = set()
+    for item in st.session_state.get("try_recipes") or []:
+        k = _combo_key(item.get("bottles") or [])
+        if len(k) >= 2:
+            blocked.add(k)
+        elif len(k) == 1:
+            blocked.add(k)
+    for item in st.session_state.get("layer_recipes") or []:
+        bottles = item.get("bottles") or item.get("names") or []
+        k = _combo_key(bottles)
+        if len(k) >= 1:
+            blocked.add(k)
+
     # Build candidate pairs: top x top, then oil+spray
     candidates = []
     n = len(pool)
@@ -7982,8 +7999,8 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
         if len(stacks) >= num:
             break
         names = [f.get("name") for f in frags if f.get("name")]
-        key = tuple(sorted(names))
-        if len(names) < 2 or key in used:
+        key = tuple(sorted(str(n).strip() for n in names if n))
+        if len(names) < 2 or key in used or key in blocked:
             continue
         try:
             ev = evaluate_layer_recipe(list(names))
@@ -8021,8 +8038,8 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
                 if f.get("name") in base_names:
                     continue
                 names = list(base["names"]) + [f.get("name")]
-                key = tuple(sorted(names))
-                if key in used:
+                key = tuple(sorted(str(n).strip() for n in names if n))
+                if key in used or key in blocked:
                     continue
                 try:
                     ev = evaluate_layer_recipe(list(names))
@@ -9966,7 +9983,7 @@ with tab_dessert:
         expanded=bool(_try),
     ):
         if not _try:
-            st.caption("Tap **Try it** on a dessert idea to build your list.")
+            st.caption("Tap **Try it** on a dessert idea to build your list. Those combos will not be suggested again.")
         else:
             for ti, titem in enumerate(list(_try)):
                 tb1, tb2, tb3 = st.columns([3, 1, 1])
