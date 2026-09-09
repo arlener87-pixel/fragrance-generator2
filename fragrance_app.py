@@ -3881,7 +3881,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         else:
             checked_bits.append(n + " (not in vault)")
 
-    return {
+    _result = {
         "score": display_score,
         "score_raw": round(avg, 1),
         "selected_names": selected_names,
@@ -3897,6 +3897,16 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
         "application": guide,
         "why": why,
     }
+    try:
+        if _ck is not None and _ec is not None and len(selected_names) >= 2:
+            _ec[_ck] = dict(_result)
+            # cap cache size
+            if len(_ec) > 120:
+                for _old in list(_ec.keys())[:40]:
+                    _ec.pop(_old, None)
+    except Exception:
+        pass
+    return _result
 
 
 
@@ -8309,7 +8319,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
                 continue
         scored.append((pts, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    pool = [f for _, f in scored[:36]]
+    pool = [f for _, f in scored[:22]]
     if len(pool) < 2:
         return []
 
@@ -8345,7 +8355,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     used = set()
     menu_names = set()
     # Cap evaluations for speed on mobile
-    max_eval = min(80, len(candidates))
+    max_eval = min(28, len(candidates))
     for dessert_pts, frags in candidates[:max_eval]:
         if len(stacks) >= num:
             break
@@ -8379,11 +8389,11 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     # If still short, try a few 3-bottle stacks from winning pairs + light top
     if len(stacks) < num and stacks:
         tops = pool[:20]
-        for base in list(stacks[:8]):
+        for base in list(stacks[:4]):
             if len(stacks) >= num:
                 break
             base_names = set(base.get("names") or [])
-            for f in tops:
+            for f in tops[:8]:
                 if len(stacks) >= num:
                     break
                 if f.get("name") in base_names:
@@ -8423,6 +8433,17 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     return top[:num]
 
 
+
+
+# Drop score caches when vault size changes (edits / restore)
+try:
+    _vc = len(st.session_state.get("fragrances_db") or [])
+    if st.session_state.get("_weight_cache_n") != _vc:
+        st.session_state["_weight_cache"] = {}
+        st.session_state["_layer_eval_cache"] = {}
+        st.session_state["_weight_cache_n"] = _vc
+except Exception:
+    pass
 
 tab_discover, tab_layer, tab_dessert, tab_sotd, tab_collection, tab_vault = st.tabs(
     ["Discover", "Layer", "Dessert", "SOTD", "Collection", "Vault"]
