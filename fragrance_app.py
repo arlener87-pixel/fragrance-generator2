@@ -88,6 +88,7 @@ def save_persisted_data(force: bool = False):
             "his_full": st.session_state.get("birth_calc_his_full"),
         },
         "wishlist": st.session_state.get("wishlist", []),
+        "try_recipes": st.session_state.get("try_recipes", []),
         "vault_log": st.session_state.get("vault_log", []),
         "bottle_count": session_n,
     }
@@ -185,6 +186,7 @@ def vault_fingerprint() -> str:
         "layer_recipes": st.session_state.get("layer_recipes"),
         "play_stats": st.session_state.get("play_stats"),
         "wishlist": st.session_state.get("wishlist"),
+        "try_recipes": st.session_state.get("try_recipes"),
         "vault_log": st.session_state.get("vault_log"),
         "chart": {
             "sun": st.session_state.get("chart_sun"),
@@ -775,6 +777,15 @@ else:
 if "wishlist" not in st.session_state:
     # list of {name, brand, notes, checked}
     st.session_state["wishlist"] = _persisted.get("wishlist", [])
+
+if "try_recipes" not in st.session_state:
+    # list of {name, bottles, notes, tried, source, saved_at}
+    st.session_state["try_recipes"] = list(_persisted.get("try_recipes") or [])
+else:
+    _disk_tr = list(_persisted.get("try_recipes") or [])
+    _sess_tr = st.session_state.get("try_recipes") or []
+    if len(_disk_tr) > len(_sess_tr):
+        st.session_state["try_recipes"] = _disk_tr
 
 if "vault_log" not in st.session_state:
     # list of {when, action, name, detail}
@@ -7904,6 +7915,30 @@ def _dessert_layer_tip(frags: list) -> str:
     return " ".join(tips)
 
 
+
+def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Dessert") -> bool:
+    """Add a layer idea to the Try list (deduped by bottles)."""
+    bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+    if len(bottles) < 2:
+        return False
+    key = tuple(sorted(bottles))
+    existing = st.session_state.get("try_recipes") or []
+    for item in existing:
+        if tuple(sorted(item.get("bottles") or [])) == key:
+            return False
+    entry = {
+        "name": name or "Try layer",
+        "bottles": bottles,
+        "notes": notes or "",
+        "tried": False,
+        "source": source,
+        "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
+    }
+    st.session_state["try_recipes"] = [entry] + list(existing)
+    st.session_state["try_recipes"] = st.session_state["try_recipes"][:60]
+    mark_vault_dirty()
+    return True
+
 def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female") -> list:
     """Female-leaning dessert stacks that pass Layer check (>= min_layer_score).
 
@@ -9906,8 +9941,63 @@ with tab_dessert:
     st.subheader("Dessert layering")
     st.caption(
         "Female-leaning sweet stacks from your vault — named like a dessert menu. "
-        "Only stacks that score **75+** on Layer check. Richer base first, lighter cream on top."
+        "Only stacks that score **75+** on Layer check. Use **Try it** to track ideas to wear."
     )
+    _try = st.session_state.get("try_recipes") or []
+    with st.expander(
+        "Try list (" + str(len(_try)) + ") — check off & save recipes",
+        expanded=bool(_try),
+    ):
+        if not _try:
+            st.caption("Tap **Try it** on a dessert idea to build your list.")
+        else:
+            for ti, titem in enumerate(list(_try)):
+                tb1, tb2, tb3 = st.columns([3, 1, 1])
+                with tb1:
+                    tried = bool(titem.get("tried"))
+                    label = ("[x] " if tried else "[ ] ") + str(titem.get("name") or "Try layer")
+                    st.markdown("**" + label + "**")
+                    st.caption(
+                        " + ".join(titem.get("bottles") or [])
+                        + " · "
+                        + str(titem.get("source") or "")
+                    )
+                with tb2:
+                    if st.button(
+                        "Tried" if not titem.get("tried") else "Undo",
+                        key=f"try_toggle_{ti}",
+                    ):
+                        st.session_state["try_recipes"][ti]["tried"] = not bool(
+                            st.session_state["try_recipes"][ti].get("tried")
+                        )
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.rerun()
+                with tb3:
+                    if st.button("Save", key=f"try_save_{ti}"):
+                        recipe = {
+                            "name": titem.get("name") or "Try layer",
+                            "bottles": list(titem.get("bottles") or []),
+                            "notes": titem.get("notes") or "From Try list",
+                            "gender": "Female",
+                            "saved_at": datetime.datetime.now(
+                                ZoneInfo("America/Los_Angeles")
+                            ).isoformat(timespec="seconds"),
+                        }
+                        lr = list(st.session_state.get("layer_recipes") or [])
+                        lr.insert(0, recipe)
+                        st.session_state["layer_recipes"] = lr[:80]
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success("Saved recipe **" + recipe["name"] + "**")
+                if st.button("Remove", key=f"try_rm_{ti}"):
+                    st.session_state["try_recipes"] = [
+                        x for j, x in enumerate(st.session_state["try_recipes"]) if j != ti
+                    ]
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.rerun()
+                st.markdown("---")
     d1, d2, d3 = st.columns(3)
     with d1:
         n_desserts = st.slider("How many ideas", 3, 8, 5, key="dessert_n")
@@ -9973,7 +10063,7 @@ with tab_dessert:
                 st.info(str(item.get("layer_tip") or ""))
                 st.caption(str(item.get("season_tip") or ""))
                 st.caption("Profile: " + str(item.get("why") or "dessert"))
-                b1, b2, b3 = st.columns(3)
+                b1, b2, b3, b4 = st.columns(4)
                 with b1:
                     if st.button("Layer check", key=f"dessert_check_{i}"):
                         st.session_state["_pending_layer_pick"] = list(names)
@@ -9984,6 +10074,20 @@ with tab_dessert:
                         st.success("Loaded in Layer check — open the **Layer** tab.")
                         st.rerun()
                 with b2:
+                    if st.button("Try it", key=f"dessert_try_{i}"):
+                        ok = add_try_recipe(
+                            item.get("dessert_name") or "Dessert layer",
+                            list(names),
+                            notes=item.get("layer_tip") or "",
+                            source="Dessert",
+                        )
+                        save_persisted_data()
+                        if ok:
+                            st.success("Added to **Try list**")
+                        else:
+                            st.info("Already on your Try list")
+                        st.rerun()
+                with b3:
                     if st.button("Save recipe", key=f"dessert_save_{i}"):
                         recipe = {
                             "name": item.get("dessert_name") or "Dessert layer",
@@ -9998,7 +10102,7 @@ with tab_dessert:
                         mark_vault_dirty()
                         save_persisted_data()
                         st.success("Saved **" + str(recipe["name"]) + "**")
-                with b3:
+                with b4:
                     if st.button("SOTD", key=f"dessert_sotd_{i}"):
                         try:
                             send_to_sotd(list(names), notes=item.get("dessert_name") or "Dessert layer")
@@ -12036,6 +12140,7 @@ with tab_vault:
                 "his_full": st.session_state.get("birth_calc_his_full"),
             },
             "wishlist": st.session_state.get("wishlist", []),
+            "try_recipes": st.session_state.get("try_recipes", []),
             "vault_log": st.session_state.get("vault_log", []),
         }
         json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
@@ -12086,6 +12191,8 @@ with tab_vault:
                         st.session_state["_pending_chart_restore"] = imported_data["chart"]
                     if "wishlist" in imported_data:
                         st.session_state["wishlist"] = imported_data["wishlist"]
+                    if "try_recipes" in imported_data:
+                        st.session_state["try_recipes"] = imported_data["try_recipes"]
                     if "vault_log" in imported_data:
                         st.session_state["vault_log"] = imported_data["vault_log"]
                     n_bot = len(st.session_state.get("fragrances_db") or [])
