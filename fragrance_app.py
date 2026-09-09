@@ -7904,8 +7904,8 @@ def _dessert_layer_tip(frags: list) -> str:
     return " ".join(tips)
 
 
-def build_dessert_suggestions(num: int = 5) -> list:
-    """Female-leaning dessert layer stacks from the vault."""
+def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75) -> list:
+    """Female-leaning dessert stacks that also pass Layer check (>= min_layer_score)."""
     db = st.session_state.get("fragrances_db") or []
     scored = []
     for f in db:
@@ -7913,50 +7913,75 @@ def build_dessert_suggestions(num: int = 5) -> list:
         if pts >= 8:
             scored.append((pts, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    pool = [f for _, f in scored[:40]]
+    pool = [f for _, f in scored[:50]]
     if len(pool) < 2:
-        pool = [f for f in db if _dessert_score_bottle(f) > 0][:30]
+        pool = [f for f in db if _dessert_score_bottle(f) > 0][:40]
     if len(pool) < 2:
         return []
-    random.shuffle(pool)
-    stacks = []
-    used = set()
-    # Prefer oil + spray when possible
+
     oils = [f for f in pool if is_oil_fragrance(f)]
     sprays = [f for f in pool if not is_oil_fragrance(f)]
+    stacks = []
+    used = set()
     attempts = 0
-    while len(stacks) < num and attempts < 60:
+    max_attempts = 120
+
+    while len(stacks) < num and attempts < max_attempts:
         attempts += 1
-        if oils and sprays and random.random() < 0.55:
-            a = random.choice(oils)
-            b = random.choice(sprays)
+        # Prefer complementary dessert profiles, not random near-duplicates
+        if oils and sprays and random.random() < 0.5:
+            a = random.choice(oils[:12] if len(oils) > 12 else oils)
+            b = random.choice(sprays[:20] if len(sprays) > 20 else sprays)
+            frags = [a, b]
         else:
-            a, b = random.sample(pool, 2)
-        key = tuple(sorted([a.get("name"), b.get("name")]))
-        if key in used:
+            # weighted sample from top dessert bottles
+            top = pool[: max(8, min(24, len(pool)))]
+            if len(top) < 2:
+                break
+            a, b = random.sample(top, 2)
+            frags = [a, b]
+
+        # Optional light third only if it still scores well later
+        if len(pool) > 6 and random.random() < 0.25:
+            names_ab = {a.get("name"), b.get("name")}
+            cands = [f for f in pool[:30] if f.get("name") not in names_ab]
+            if cands:
+                frags.append(random.choice(cands))
+
+        names = [f.get("name") for f in frags if f.get("name")]
+        key = tuple(sorted(names))
+        if len(names) < 2 or key in used:
             continue
         used.add(key)
-        frags = [a, b]
-        # optional third light top
-        if len(pool) > 4 and random.random() < 0.35:
-            cands = [f for f in pool if f.get("name") not in key]
-            if cands:
-                c = random.choice(cands[:12])
-                frags.append(c)
-        score = sum(_dessert_score_bottle(f) for f in frags) / max(1, len(frags))
+
+        # Must pass real layer engine at the same bar as "Good combo"
+        try:
+            ev = evaluate_layer_recipe(list(names))
+            layer_sc = int(round(float(ev.get("score") or 0)))
+        except Exception:
+            layer_sc = 0
+        if layer_sc < int(min_layer_score):
+            continue
+
+        dessert_pts = sum(_dessert_score_bottle(f) for f in frags) / max(1, len(frags))
         stacks.append({
             "dessert_name": _dessert_name_from_frags(frags),
-            "names": [f.get("name") for f in frags],
+            "names": names,
             "frags": frags,
-            "score": round(score, 1),
+            "score": layer_sc,  # show Layer check score
+            "dessert_pts": round(dessert_pts, 1),
             "season_tip": _dessert_season_tip(frags),
             "layer_tip": _dessert_layer_tip(frags),
-            "why": "Sweet " + ", ".join(
-                sorted({c for f in frags for c in (f.get("category") or []) if c})[:4]
-            ) or "gourmand layer",
+            "verdict": clean_display_text(str(ev.get("verdict") or "")),
+            "why": clean_display_text(str(ev.get("why") or ""))[:220]
+                or ("Sweet " + ", ".join(
+                    sorted({c for f in frags for c in (f.get("category") or []) if c})[:4]
+                )),
         })
-    stacks.sort(key=lambda s: s["score"], reverse=True)
+
+    stacks.sort(key=lambda s: (s.get("score") or 0, s.get("dessert_pts") or 0), reverse=True)
     return stacks[:num]
+
 
 
 tab_discover, tab_layer, tab_dessert, tab_sotd, tab_collection, tab_vault = st.tabs(
@@ -9332,10 +9357,13 @@ with tab_layer:
         if _sc_i is None:
             st.info("**" + str(_ev_top.get("label") or "Layer result") + "**")
         elif _sc_i < 75:
+            _weak_note = _verdict
+            if _weak_note and ("worth wearing" in _weak_note.lower() or "support each other" in _weak_note.lower()):
+                _weak_note = "Categories overlap, but the full blend is not strong enough for daily layering."
             st.error(
                 "**Weak combo - " + str(_sc_i) + "/100**\n\n"
                 + "Not recommended as a daily layer. Skin-test with 1 spray each only.\n\n_"
-                + (_verdict or "Families may fight or feel muddy together.") + "_"
+                + (_weak_note or "Families may fight or feel muddy together.") + "_"
             )
         else:
             st.success(
@@ -9841,7 +9869,7 @@ with tab_dessert:
     st.subheader("Dessert layering")
     st.caption(
         "Female-leaning sweet stacks from your vault — named like a dessert menu. "
-        "Richer base first, lighter cream on top."
+        "Only stacks that score **75+** on Layer check. Richer base first, lighter cream on top."
     )
     d1, d2, d3 = st.columns(3)
     with d1:
@@ -9879,14 +9907,17 @@ with tab_dessert:
 
     if not menu:
         st.warning(
-            "Not enough sweet / gourmand bottles tagged Female. "
-            "Add notes like vanilla, caramel, or set category Gourmand — then refresh."
+            "No dessert stacks hit **75+** layer score yet. "
+            "Tag more Female gourmands (vanilla, caramel, cream) or loosen gender to Female + Unisex, then **Fresh menu**."
         )
     else:
         for i, item in enumerate(menu):
             with st.container():
                 st.markdown("### " + str(item.get("dessert_name") or "Sweet layer"))
                 names = item.get("names") or []
+                sc = item.get("score")
+                if sc is not None:
+                    st.success("Layer score: **" + str(sc) + "/100** (good dessert stack)")
                 st.markdown("**Bottles:** " + " + ".join(names))
                 for f in item.get("frags") or []:
                     g = f.get("gender") or "?"
