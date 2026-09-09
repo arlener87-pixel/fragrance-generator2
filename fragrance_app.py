@@ -3103,35 +3103,136 @@ def recipes_for_band(band: str, gender: str = "Any", limit: int = 5) -> list:
 
 
 
+def _parse_note_sections(notes: str) -> dict:
+    """Split freeform notes into top / heart / base when labeled; else all unknown."""
+    text = (notes or "").strip()
+    out = {"top": "", "heart": "", "base": "", "all": text.lower()}
+    if not text:
+        return out
+    low = text.lower()
+    # Common patterns: Top: ... Heart: ... Base: ... | Opens ... heart ... dries ...
+    import re as _re
+    patterns = [
+        ("top", r"(?:^|[;|/]|\n)\s*(?:top(?:\s*notes?)?|opens?|opening)\s*[:\-–]\s*"),
+        ("heart", r"(?:^|[;|/]|\n)\s*(?:heart(?:\s*notes?)?|middle(?:\s*notes?)?|mid)\s*[:\-–]\s*"),
+        ("base", r"(?:^|[;|/]|\n)\s*(?:base(?:\s*notes?)?|dry\s*down|dries?\s*down)\s*[:\-–]\s*"),
+    ]
+    # Simpler split on keywords
+    chunks = {"top": [], "heart": [], "base": []}
+    # Try structured "Top: x | Heart: y | Base: z"
+    m_top = _re.search(r"top(?:\s*notes?)?\s*[:\-]\s*([^|\n]+)", low)
+    m_heart = _re.search(r"(?:heart|middle)(?:\s*notes?)?\s*[:\-]\s*([^|\n]+)", low)
+    m_base = _re.search(r"(?:base(?:\s*notes?)?|dry\s*down)\s*[:\-]\s*([^|\n]+)", low)
+    if m_top:
+        out["top"] = m_top.group(1).strip()
+    if m_heart:
+        out["heart"] = m_heart.group(1).strip()
+    if m_base:
+        out["base"] = m_base.group(1).strip()
+    # opens X, heart Y, dries Z narrative
+    if not out["top"]:
+        m = _re.search(r"opens?\s+([a-z0-9 ,\-/]+?)(?:[,.]|\s+heart|\s+dries|$)", low)
+        if m:
+            out["top"] = m.group(1).strip()
+    if not out["heart"]:
+        m = _re.search(r"heart\s+([a-z0-9 ,\-/]+?)(?:[,.]|\s+dries|$)", low)
+        if m:
+            out["heart"] = m.group(1).strip()
+    if not out["base"]:
+        m = _re.search(r"dries?(?:\s+down)?\s+([a-z0-9 ,\-/]+)", low)
+        if m:
+            out["base"] = m.group(1).strip()
+    return out
+
+
+def _note_density_points(blob: str) -> float:
+    """Weight contribution of ingredients in a text blob (before position multiplier)."""
+    if not blob:
+        return 0.0
+    t = blob.lower()
+    pts = 0.0
+    # Each hit counts once per keyword
+    class4 = [
+        "butter", "caramel", "cooked sugar", "honey", "oud", "leather", "civet",
+        "labdanum", "tar", "castoreum", "styrax", "resin", "benzoin", "myrrh",
+        "praline", "toffee", "butterscotch", "molasses",
+    ]
+    class3 = [
+        "vanilla", "amber", "sandalwood", "musk", "patchouli", "whipped cream",
+        "cream", "tonka", "cedar", "tobacco", "chocolate", "cocoa", "coffee",
+        "incense", "oud", "cashmere", "boozy", "rum", "whiskey",
+    ]
+    class2 = [
+        "strawberry", "jasmine", "orange blossom", "citrus", "bergamot", "lemon",
+        "lime", "green", "tea", "mint", "aquatic", "ozonic", "pear", "apple",
+        "peach", "berry", "raspberry", "cherry", "pineapple", "coconut",
+        "neroli", "freesia", "peony", "lily",
+    ]
+    for k in class4:
+        if k in t:
+            pts += 8.0
+    for k in class3:
+        if k in t:
+            pts += 4.0
+    for k in class2:
+        if k in t:
+            pts += 1.5
+    return pts
+
+
 def fragrance_weight_score(f: dict) -> int:
-    """Higher = heavier / denser on skin (apply earlier as base)."""
-    cats = set(f.get("category") or [])
-    notes = (f.get("notes") or "").lower()
+    """Higher = denser on skin (apply first as base).
+
+    Uses note *position* (top 0.5x, heart 1.5x, base 3x) and density class
+    so long top-note lists do not outrank syrupy bases.
+    """
+    if not f:
+        return 0
+    notes = f.get("notes") or ""
     name = (f.get("name") or "").lower()
-    score = 50
-    heavy_cats = {"Oriental", "Oud", "Leather", "Smoky", "Woody", "Gourmand", "Amber", "Boozy"}
+    cats = {str(c) for c in (f.get("category") or [])}
+    sections = _parse_note_sections(notes)
+
+    top_pts = _note_density_points(sections.get("top") or "")
+    heart_pts = _note_density_points(sections.get("heart") or "")
+    base_pts = _note_density_points(sections.get("base") or "")
+    # Unsectioned notes: treat as mixed, slight base bias for dense keywords
+    all_pts = _note_density_points(sections.get("all") or "")
+
+    if top_pts or heart_pts or base_pts:
+        score = top_pts * 0.5 + heart_pts * 1.5 + base_pts * 3.0
+        # Small blend of full text so we don't miss untagged dense notes
+        score += all_pts * 0.35
+    else:
+        # No structure: density from full text, then mild category nudge
+        score = all_pts * 1.2
+
+    # Class 4 density bonus if syrupy anchors appear in base/heart/full
+    class4_hit = any(
+        k in (notes or "").lower() or k in name
+        for k in (
+            "butter", "caramel", "honey", "oud", "leather", "praline",
+            "toffee", "labdanum", "benzoin", "myrrh",
+        )
+    )
+    if class4_hit:
+        score += 40.0
+
+    # Category modifiers (small — notes dominate)
+    heavy_cats = {"Oriental", "Oud", "Leather", "Smoky", "Woody", "Gourmand", "Amber", "Boozy", "Vanilla", "Creamy"}
     light_cats = {"Fresh", "Citrus", "Aquatic", "Green", "Aromatic"}
-    mid_cats = {"Floral", "Fruity", "Powdery", "Musky", "Sweet", "Spicy", "Vanilla", "Creamy"}
-    score += 12 * len(cats & heavy_cats)
-    score -= 12 * len(cats & light_cats)
-    score += 4 * len(cats & mid_cats)
-    heavy_kw = [
-        "oud", "incense", "leather", "tobacco", "amber", "vanilla", "caramel",
-        "chocolate", "coffee", "smoke", "patchouli", "myrrh", "tonka", "benzoin",
-        "labdanum", "resin", "boozy", "rum", "cedar", "sandalwood",
-    ]
-    light_kw = [
-        "citrus", "bergamot", "lemon", "fresh", "aquatic", "marine", "green",
-        "tea", "mint", "ozonic", "light", "airy", "cucumber",
-    ]
-    score += sum(6 for k in heavy_kw if k in notes or k in name)
-    score -= sum(6 for k in light_kw if k in notes or k in name)
-    # body spray / mist often lighter
+    score += 6 * len(cats & heavy_cats)
+    score -= 8 * len(cats & light_cats)
+
+    conc = (f.get("concentration") or "").lower()
+    if "oil" in conc or is_oil_fragrance(f):
+        score += 12  # oils sit closer to skin / denser feel
     if any(x in name for x in ("body spray", "mist", "cologne", "hair")):
-        score -= 15
-    if any(x in name for x in ("intense", "elixir", "extrait", "concentre", "concentre")):
+        score -= 20
+    if any(x in name for x in ("intense", "elixir", "extrait")):
         score += 10
-    return score
+
+    return int(round(score))
 
 
 def order_frags_heavy_to_light(frags: list) -> list:
