@@ -7822,7 +7822,7 @@ def _dessert_score_bottle(f: dict) -> float:
 
 
 def _dessert_name_from_frags(frags: list) -> str:
-    """Pretty dessert recipe name from notes/categories."""
+    """Dessert name driven by the strongest notes in the stack (not random flavor)."""
     text = " ".join(
         ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
         for f in frags
@@ -7832,55 +7832,128 @@ def _dessert_name_from_frags(frags: list) -> str:
     for f in frags:
         for c in f.get("category") or []:
             cats.add(str(c).lower())
-    # Named desserts by dominant profile
-    pairs = [
-        (("strawberry", "raspberry", "cherry", "berry"), [
-            "Strawberry Shortcake", "Berry Cream Tart", "Cherry Glaze Cupcake",
-            "Raspberry Whipped Dream",
-        ]),
-        (("chocolate", "cocoa", "coffee"), [
-            "Molten Chocolate Cake", "Cocoa Butter Truffle", "Espresso Tiramisu",
-            "Dark Chocolate Souffle",
-        ]),
-        (("caramel", "toffee", "praline", "butterscotch"), [
-            "Salted Caramel Flan", "Praline Cream Puff", "Butterscotch Pudding",
-            "Caramel Apple Tart",
-        ]),
-        (("coconut", "pineapple", "tropical"), [
-            "Coconut Cream Pie", "Pina Colada Pudding", "Tropical Mousse Cup",
-        ]),
-        (("pistachio", "hazelnut", "almond", "nut"), [
-            "Pistachio Baklava", "Hazelnut Gianduja", "Almond Cream Croissant",
-        ]),
-        (("peach", "pear", "apple"), [
-            "Peach Cobbler Cloud", "Pear Almond Tart", "Warm Apple Crumble",
-        ]),
-        (("marshmallow", "cotton candy", "sugar"), [
-            "Toasted Marshmallow Cloud", "Cotton Candy Creme", "Powdered Sugar Kiss",
-        ]),
-        (("vanilla", "cream", "milk", "custard"), [
-            "Vanilla Bean Custard", "Creme Brulee Soft", "Madagascar Vanilla Soft Serve",
-            "Whipped Cream Dream",
-        ]),
-        (("honey", "lavender", "floral"), [
-            "Honey Lavender Cake", "Floral Cream Puff", "Sugar Violet Macaron",
-        ]),
-        (("cinnamon", "spice", "pumpkin"), [
-            "Cinnamon Roll Swirl", "Pumpkin Spice Latte Cream", "Spiced Honey Cake",
-        ]),
+
+    # Score note families present in this exact stack
+    families = {
+        "strawberry": (["strawberry", "fraise"], 0),
+        "raspberry": (["raspberry", "framboise"], 0),
+        "cherry": (["cherry", "cerise"], 0),
+        "berry": (["berry", "berries", "blackcurrant", "cassis"], 0),
+        "coconut": (["coconut", "coco"], 0),
+        "pineapple": (["pineapple"], 0),
+        "peach": (["peach", "nectarine"], 0),
+        "apple": (["apple", "apple pie"], 0),
+        "pear": (["pear"], 0),
+        "banana": (["banana"], 0),
+        "chocolate": (["chocolate", "cocoa", "cacao"], 0),
+        "coffee": (["coffee", "espresso", "mocha"], 0),
+        "caramel": (["caramel", "toffee", "butterscotch"], 0),
+        "praline": (["praline", "hazelnut", "gianduja"], 0),
+        "pistachio": (["pistachio"], 0),
+        "almond": (["almond", "marzipan"], 0),
+        "vanilla": (["vanilla", "vanille", "tonka"], 0),
+        "marshmallow": (["marshmallow", "cotton candy", "meringue"], 0),
+        "cream": (["cream", "milk", "custard", "whipped", "lactonic"], 0),
+        "honey": (["honey", "beeswax"], 0),
+        "cinnamon": (["cinnamon", "spice", "clove", "nutmeg"], 0),
+        "pumpkin": (["pumpkin"], 0),
+        "rose": (["rose", "rosy"], 0),
+        "jasmine": (["jasmine", "sampaguita"], 0),
+        "sugar": (["sugar", "candied", "syrup"], 0),
+    }
+    scores = {}
+    for fam, (keys, _) in families.items():
+        sc = 0
+        for k in keys:
+            if k in text:
+                sc += text.count(k) + 2
+        if sc:
+            scores[fam] = sc
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    top = [f for f, _ in ranked[:3]]
+
+    # Combo names when two clear notes show up together
+    combos = [
+        (frozenset(["strawberry", "coconut"]), "Strawberry Coconut Cream"),
+        (frozenset(["strawberry", "cream"]), "Strawberry Whipped Cream"),
+        (frozenset(["strawberry", "vanilla"]), "Strawberry Vanilla Soft Serve"),
+        (frozenset(["raspberry", "vanilla"]), "Raspberry Vanilla Tart"),
+        (frozenset(["raspberry", "cream"]), "Raspberry Cream Tart"),
+        (frozenset(["cherry", "vanilla"]), "Cherry Vanilla Cupcake"),
+        (frozenset(["cherry", "chocolate"]), "Chocolate Cherry Gateau"),
+        (frozenset(["coconut", "vanilla"]), "Coconut Vanilla Chiffon"),
+        (frozenset(["coconut", "pineapple"]), "Pina Colada Cream Cup"),
+        (frozenset(["coconut", "cream"]), "Coconut Cream Pie"),
+        (frozenset(["peach", "cream"]), "Peach Cream Cobbler"),
+        (frozenset(["peach", "vanilla"]), "Peach Vanilla Crumble"),
+        (frozenset(["apple", "cinnamon"]), "Warm Apple Cinnamon Crumble"),
+        (frozenset(["apple", "caramel"]), "Caramel Apple Tart"),
+        (frozenset(["chocolate", "vanilla"]), "Chocolate Vanilla Sundae"),
+        (frozenset(["chocolate", "caramel"]), "Salted Caramel Brownie"),
+        (frozenset(["chocolate", "coffee"]), "Mocha Espresso Tiramisu"),
+        (frozenset(["chocolate", "cream"]), "Chocolate Mousse Cup"),
+        (frozenset(["caramel", "vanilla"]), "Salted Caramel Flan"),
+        (frozenset(["praline", "vanilla"]), "Praline Vanilla Cream Puff"),
+        (frozenset(["pistachio", "vanilla"]), "Pistachio Vanilla Baklava"),
+        (frozenset(["almond", "vanilla"]), "Almond Vanilla Croissant"),
+        (frozenset(["marshmallow", "vanilla"]), "Toasted Marshmallow Vanilla"),
+        (frozenset(["marshmallow", "chocolate"]), "Smores Chocolate Cloud"),
+        (frozenset(["honey", "vanilla"]), "Honey Vanilla Cake"),
+        (frozenset(["rose", "vanilla"]), "Rose Vanilla Macaron"),
+        (frozenset(["jasmine", "vanilla"]), "Jasmine Vanilla Cream"),
+        (frozenset(["cinnamon", "vanilla"]), "Cinnamon Roll Cream"),
+        (frozenset(["pumpkin", "vanilla"]), "Pumpkin Spice Latte Cream"),
+        (frozenset(["berry", "cream"]), "Berry Cream Tart"),
+        (frozenset(["berry", "vanilla"]), "Berry Vanilla Shortcake"),
     ]
-    for keys, names in pairs:
-        if any(k in text for k in keys):
-            return random.choice(names)
-    if "gourmand" in cats or "sweet" in cats:
-        return random.choice([
-            "Sweet Cream Sundae", "Sugar Cookie Layer", "Dessert Plate Soft",
-            "Gourmand Cloud Stack",
-        ])
-    return random.choice([
-        "Soft Serve Duo", "Bakery Case Layer", "After-Dinner Sweet",
-        "Pastry Counter Mist",
-    ])
+    top_set = frozenset(top[:2]) if len(top) >= 2 else frozenset(top)
+    for need, name in combos:
+        if need.issubset(frozenset(top)):
+            return name
+    # Partial: any 2 of top match a combo
+    if len(top) >= 2:
+        pair = frozenset(top[:2])
+        for need, name in combos:
+            if need == pair:
+                return name
+
+    # Single dominant note → specific dessert
+    single = {
+        "strawberry": "Strawberry Shortcake",
+        "raspberry": "Raspberry Whipped Tart",
+        "cherry": "Cherry Glaze Cupcake",
+        "berry": "Berry Cream Tart",
+        "coconut": "Coconut Cream Chiffon",
+        "pineapple": "Pineapple Upside-Down Cake",
+        "peach": "Peach Cobbler Cloud",
+        "apple": "Warm Apple Crumble",
+        "pear": "Pear Almond Tart",
+        "banana": "Banana Cream Pudding",
+        "chocolate": "Molten Chocolate Cake",
+        "coffee": "Espresso Tiramisu",
+        "caramel": "Salted Caramel Flan",
+        "praline": "Praline Cream Puff",
+        "pistachio": "Pistachio Baklava",
+        "almond": "Almond Cream Croissant",
+        "vanilla": "Vanilla Bean Custard",
+        "marshmallow": "Toasted Marshmallow Cloud",
+        "cream": "Whipped Cream Dream",
+        "honey": "Honey Cream Cake",
+        "cinnamon": "Cinnamon Roll Swirl",
+        "pumpkin": "Pumpkin Spice Latte Cream",
+        "rose": "Rose Cream Macaron",
+        "jasmine": "Jasmine Sugar Cream",
+        "sugar": "Powdered Sugar Kiss",
+    }
+    if top:
+        if top[0] in single:
+            return single[top[0]]
+
+    if "gourmand" in cats or "sweet" in cats or "vanilla" in cats:
+        return "Sweet Cream Gourmand"
+    return "Soft Serve Layer"
+
 
 
 def _dessert_season_tip(frags: list) -> str:
