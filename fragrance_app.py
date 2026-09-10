@@ -273,6 +273,17 @@ def clean_display_text(s) -> str:
     return " ".join(t.split())
 
 
+
+# --- stubs (play/stars removed) ---
+def compute_badges(*a, **k):
+    return []
+def brand_stats(*a, **k):
+    return {}
+def sotd_streak(*a, **k):
+    return 0
+def weekly_wishlist_suggestions(*a, **k):
+    return []
+
 CAT_OPTIONS = [
     "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
     "Fruity", "Spicy", "Citrus", "Musky", "Vanilla", "Creamy",
@@ -5900,63 +5911,6 @@ DEFAULT_CHART = {
 }
 
 
-def chart_category_weights(sun: str, moon: str, rising: str) -> dict:
-    """Blend Big Three into category preference scores."""
-    weights = {}
-    for sign, weight in ((sun, 3), (moon, 2), (rising, 2)):
-        profile = SIGN_SCENT_PROFILE.get(sign, {})
-        for cat in profile.get("categories", []):
-            weights[cat] = weights.get(cat, 0) + weight
-    return weights
-
-
-# Traditional day rulers -> scent leanings
-DAY_RULER = {
-    "Monday": {
-        "planet": "Moon",
-        "vibe": "Soft, emotional, milky-musk comfort",
-        "categories": ["Gourmand", "Floral", "Sweet", "Fresh"],
-        "notes_keywords": ["milk", "musk", "vanilla", "coconut", "powder", "white flower"],
-    },
-    "Tuesday": {
-        "planet": "Mars",
-        "vibe": "Bold, spicy, energetic heat",
-        "categories": ["Spicy", "Oriental", "Woody", "Fruity"],
-        "notes_keywords": ["pepper", "ginger", "cinnamon", "saffron", "dark fruit"],
-    },
-    "Wednesday": {
-        "planet": "Mercury",
-        "vibe": "Light, airy, clean and curious",
-        "categories": ["Fresh", "Citrus", "Floral", "Fruity"],
-        "notes_keywords": ["citrus", "bergamot", "green", "tea", "pear", "light musk"],
-    },
-    "Thursday": {
-        "planet": "Jupiter",
-        "vibe": "Warm, expansive, golden sweetness",
-        "categories": ["Oriental", "Gourmand", "Spicy", "Sweet"],
-        "notes_keywords": ["amber", "honey", "vanilla", "cinnamon", "tonka", "pineapple"],
-    },
-    "Friday": {
-        "planet": "Venus",
-        "vibe": "Romantic, floral, beauty-forward (Libra/Taurus)",
-        "categories": ["Floral", "Sweet", "Gourmand", "Fruity"],
-        "notes_keywords": ["rose", "iris", "vanilla", "pear", "soft floral", "musk"],
-    },
-    "Saturday": {
-        "planet": "Saturn",
-        "vibe": "Polished, structured, amber-wood depth",
-        "categories": ["Woody", "Oriental", "Gourmand", "Spicy"],
-        "notes_keywords": ["amber", "cedar", "vanilla", "tonka", "leather", "incense"],
-    },
-    "Sunday": {
-        "planet": "Sun",
-        "vibe": "Radiant, warm, confident glow (Leo)",
-        "categories": ["Gourmand", "Floral", "Sweet", "Oriental"],
-        "notes_keywords": ["vanilla", "orange blossom", "honey", "amber", "cinnamon"],
-    },
-}
-
-
 def is_female_or_unisex(f: dict) -> bool:
     g = normalize_gender(f.get("gender", ""))
     return g in ("Female", "Female-leaning", "Unisex")
@@ -6154,18 +6108,6 @@ def bottles_for_moon_phase(phase: str = None, top_n: int = 5) -> list:
     return [f for _, f in scored[:top_n]]
 
 
-def chart_elements(sun, moon, rising, venus=None) -> dict:
-    from collections import Counter
-    c = Counter()
-    for sign in (sun, moon, rising, venus):
-        if not sign:
-            continue
-        el = (SIGN_SCENT_PROFILE.get(sign) or {}).get("element")
-        if el:
-            c[el] += 1
-    return dict(c)
-
-
 def compatibility_blurb(her: dict, him: dict) -> str:
     """Fun scent-compatibility text from two charts."""
     bits = []
@@ -6217,143 +6159,6 @@ def compatibility_bottles(her: dict, him: dict, top_n: int = 4) -> list:
     return picks
 
 
-def write_day_horoscope(day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
-    """Fun interpretive scent-horoscope blurb for the selected day + chart."""
-    day_prof = DAY_RULER.get(day, {})
-    planet = day_prof.get("planet", "the sky")
-    vibe = day_prof.get("vibe", "a shifting mood")
-    sun_p = SIGN_SCENT_PROFILE.get(sun, {})
-    moon_p = SIGN_SCENT_PROFILE.get(moon, {})
-    rise_p = SIGN_SCENT_PROFILE.get(rising, {})
-    venus = venus or sun
-    ven_p = SIGN_SCENT_PROFILE.get(venus, {})
-
-    echoes = []
-    day_cats = set(day_prof.get("categories", []))
-
-    if day == "Friday":
-        if sun in ("Libra", "Taurus") or venus in ("Libra", "Taurus") or rising in ("Libra", "Taurus"):
-            echoes.append(
-                "Venus day flatters your beauty placements  -  soft florals, polished sweetness, and skin-close musk."
-            )
-        else:
-            echoes.append(
-                "Venus day invites charm: floral-fruity or creamy gourmand, whichever feels like a compliment."
-            )
-    elif day == "Saturday":
-        if moon == "Capricorn" or sun == "Capricorn" or rising == "Capricorn":
-            echoes.append(
-                "Saturn day steadies Capricorn energy  -  amber, woods, and structured gourmands feel like armor."
-            )
-        else:
-            echoes.append(
-                "Saturn day favors polish and depth  -  woody, oriental, or ambered bottles over pure fluff."
-            )
-    elif day == "Sunday":
-        if rising == "Leo" or sun == "Leo" or moon == "Leo":
-            echoes.append(
-                "Sun day turns up Leo heat  -  radiant vanilla, honey, and warm florals read as main-character."
-            )
-        else:
-            echoes.append(
-                "Sun day asks for confidence and glow  -  warm gourmand, golden floral, or a bold oriental."
-            )
-    elif day == "Monday":
-        if moon_p.get("element") == "Water":
-            echoes.append(
-                "Moon day over a water Moon favors milky, musky comfort over sharp edges."
-            )
-        else:
-            echoes.append(
-                "Moon day softens the pace  -  powder, milk, white florals, or a gentle gourmand hug."
-            )
-    elif day == "Tuesday":
-        if sun_p.get("element") == "Fire" or rise_p.get("element") == "Fire":
-            echoes.append(
-                "Mars day stokes fire placements  -  spice, projection, and heat without apology."
-            )
-        else:
-            echoes.append(
-                "Mars day wants drive  -  pepper, ginger, dark fruit, or a spicy oriental edge."
-            )
-    elif day == "Wednesday":
-        if sun_p.get("element") == "Air" or rise_p.get("element") == "Air":
-            echoes.append(
-                "Mercury day loves air signs  -  keep it light, citrus-bright, or softly floral."
-            )
-        else:
-            echoes.append(
-                "Mercury day stays curious and clean  -  citrus, green, pear, or a breezy floral."
-            )
-    elif day == "Thursday":
-        if any(SIGN_SCENT_PROFILE.get(s, {}).get("element") == "Fire" for s in (sun, rising)):
-            echoes.append(
-                "Jupiter day expands fire energy  -  golden, honeyed, or warmly spiced trails."
-            )
-        else:
-            echoes.append(
-                "Jupiter day goes generous  -  amber, vanilla, tonka, or a lush oriental-gourmand."
-            )
-
-    chart_cats = set()
-    for sign in (sun, moon, rising, venus):
-        chart_cats.update(SIGN_SCENT_PROFILE.get(sign, {}).get("categories", []))
-    overlap = list(day_cats & chart_cats)[:3]
-    if overlap:
-        echoes.append(f"Chart overlap with today: **{', '.join(overlap)}**  -  lean there first.")
-
-    if not echoes:
-        echoes.append(
-            f"Let {planet}'s mood lead: {vibe.lower()}. "
-            f"Your {sun} Sun wants {sun_p.get('vibe', 'balance').lower()}; "
-            f"your {moon} Moon reaches for {moon_p.get('vibe', 'comfort').lower()}; "
-            f"{rising} rising adds {rise_p.get('vibe', 'presence').lower()}."
-        )
-
-    families = ", ".join(day_prof.get("categories", [])[:4])
-    venus_line = (
-        f"Venus in {venus} steers beauty toward "
-        f"{', '.join(ven_p.get('categories', [])[:3]) or 'soft allure'}."
-    )
-    body = echoes[0]
-    if len(echoes) > 1:
-        body = echoes[0] + " " + echoes[1]
-
-    nl = "\n"
-    return (
-        f"**{day}  -  ruled by {planet}.** {vibe}{nl}{nl}"
-        f"{body}{nl}{nl}"
-        f"{venus_line} Favor these families today: **{families}**."
-    )
-
-
-
-
-
-GOOD_LAYER_PAIRS = [
-    ("Gourmand", "Fresh"),
-    ("Gourmand", "Floral"),
-    ("Gourmand", "Woody"),
-    ("Gourmand", "Fruity"),
-    ("Sweet", "Fresh"),
-    ("Sweet", "Woody"),
-    ("Floral", "Woody"),
-    ("Floral", "Oriental"),
-    ("Fruity", "Woody"),
-    ("Fruity", "Fresh"),
-    ("Oriental", "Floral"),
-    ("Oriental", "Woody"),
-    ("Spicy", "Sweet"),
-    ("Spicy", "Woody"),
-    ("Citrus", "Gourmand"),
-    ("Citrus", "Floral"),
-    ("Aromatic", "Gourmand"),
-    ("Oud", "Floral"),
-    ("Oud", "Sweet"),
-    ("Gourmand", "Sweet"),
-]
-
-
 def _note_tokens(f: dict) -> set:
     raw = (f.get("notes") or "").lower()
     toks = set(re.findall(r"[a-z]{3,}", raw))
@@ -6382,6 +6187,49 @@ _NOTE_CLASH = [
     ({"mint", "green"}, {"caramel", "praline", "marshmallow"}, -3),
 ]
 
+
+
+# Category pairs that layer well together (used by layer_score)
+GOOD_LAYER_PAIRS = [
+    ("Gourmand", "Vanilla"),
+    ("Gourmand", "Sweet"),
+    ("Gourmand", "Creamy"),
+    ("Gourmand", "Fruity"),
+    ("Gourmand", "Floral"),
+    ("Vanilla", "Sweet"),
+    ("Vanilla", "Creamy"),
+    ("Vanilla", "Floral"),
+    ("Vanilla", "Woody"),
+    ("Sweet", "Fruity"),
+    ("Sweet", "Floral"),
+    ("Floral", "Fruity"),
+    ("Floral", "Musky"),
+    ("Floral", "Powdery"),
+    ("Woody", "Oriental"),
+    ("Woody", "Spicy"),
+    ("Woody", "Oud"),
+    ("Oriental", "Spicy"),
+    ("Oriental", "Amber"),
+    ("Oriental", "Oud"),
+    ("Fresh", "Citrus"),
+    ("Fresh", "Aquatic"),
+    ("Fresh", "Green"),
+    ("Citrus", "Floral"),
+    ("Citrus", "Aromatic"),
+    ("Amber", "Vanilla"),
+    ("Amber", "Musky"),
+    ("Creamy", "Fruity"),
+    ("Boozy", "Gourmand"),
+    ("Boozy", "Woody"),
+]
+BAD_LAYER_PAIRS = [
+    ("Aquatic", "Oud"),
+    ("Aquatic", "Leather"),
+    ("Citrus", "Oud"),
+    ("Fresh", "Oud"),
+    ("Green", "Gourmand"),
+    ("Aquatic", "Gourmand"),
+]
 
 def layer_score(f1: dict, f2: dict) -> int:
     if f1["name"] == f2["name"]:
@@ -7690,177 +7538,6 @@ HALLOWEEN_PROFILES = {
 }
 
 
-def score_for_halloween(f: dict, mode: str) -> int:
-    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
-        return -999
-    prof = HALLOWEEN_PROFILES.get(mode, {})
-    score = 0
-    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
-        score += 20
-    for c in f.get("category") or []:
-        if c in prof.get("categories", []):
-            score += 15
-    notes_l = (f.get("notes") or "").lower()
-    name_l = (f.get("name") or "").lower()
-    for kw in prof.get("notes_keywords", []):
-        if kw in notes_l or kw in name_l:
-            score += 8
-    score += _stable_tiebreak((f.get("name") or "") + mode) % 7
-    return score
-
-
-def get_halloween_picks(
-    mode: str,
-    top_n: int = 5,
-    gender: str = "Any",
-    season_band: str = "Any",
-    salt: int = 0,
-) -> list:
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        if gender and gender != "Any":
-            try:
-                if not matches_gender(f, gender):
-                    continue
-            except Exception:
-                g = (f.get("gender") or "").lower()
-                if gender.lower() == "female" and not any(
-                    x in g for x in ("female", "feminine", "women")
-                ):
-                    continue
-                if gender.lower() == "male" and not any(
-                    x in g for x in ("male", "masculine", "men")
-                ):
-                    continue
-                if gender.lower() == "unisex" and "unisex" not in g:
-                    continue
-        if season_band and season_band != "Any":
-            s = (f.get("season") or "").lower()
-            band = season_band.lower()
-            ok = True
-            if "fall" in band or "autumn" in band or "cool" in band:
-                ok = any(
-                    x in s
-                    for x in ("fall", "autumn", "cool", "winter", "versatile", "year")
-                )
-            elif "cold" in band or "winter" in band:
-                ok = any(x in s for x in ("winter", "fall", "cold", "cool", "versatile"))
-            elif "spring" in band or "mild" in band:
-                ok = any(x in s for x in ("spring", "fall", "mild", "versatile", "year"))
-            elif "summer" in band or "hot" in band:
-                ok = any(x in s for x in ("summer", "spring", "hot", "warm", "versatile"))
-            if not ok:
-                continue
-        sc = score_for_halloween(f, mode)
-        if sc > 0:
-            scored.append((sc, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    ranked = [f for _, f in scored]
-    if not ranked:
-        return []
-    window = ranked[: max(top_n * 4, 12)]
-    start = (int(salt) * top_n) % max(1, len(window))
-    picks = []
-    seen = set()
-    i = 0
-    while len(picks) < top_n and i < len(window) * 2:
-        f = window[(start + i) % len(window)]
-        i += 1
-        b = (f.get("brand") or "").lower()
-        if b in seen and len(window) > top_n:
-            continue
-        picks.append(f)
-        seen.add(b)
-    if len(picks) < top_n:
-        for f in window:
-            if f not in picks:
-                picks.append(f)
-            if len(picks) >= top_n:
-                break
-    return picks[:top_n]
-
-
-HORROR_SCENT_PROFILES = {
-    "Gothic fog": {
-        "categories": ["Oriental", "Woody", "Powdery", "Smoky"],
-        "notes_keywords": [
-            "incense", "smoke", "oud", "amber", "rose", "violet", "iris",
-            "leather", "patchouli", "myrrh", "vetiver",
-        ],
-        "blurb": "Candlelit halls, fog machines, velvet and old churches.",
-        "vibe_note": "Gothic fog - horror night",
-    },
-    "Cabin in the woods": {
-        "categories": ["Woody", "Aromatic", "Smoky", "Fresh"],
-        "notes_keywords": [
-            "pine", "cedar", "wood", "smoke", "moss", "earth", "vetiver",
-            "fir", "cypress", "leather",
-        ],
-        "blurb": "Trees, damp earth, campfire - something is outside the cabin.",
-        "vibe_note": "Cabin in the woods - horror night",
-    },
-    "Slasher neon": {
-        "categories": ["Sweet", "Fruity", "Gourmand", "Spicy"],
-        "notes_keywords": [
-            "cherry", "berry", "pepper", "cinnamon", "caramel",
-            "plum", "rose", "metallic",
-        ],
-        "blurb": "Bright candy blood, 80s neon, popcorn and adrenaline.",
-        "vibe_note": "Slasher neon - horror night",
-    },
-    "Haunted gourmand": {
-        "categories": ["Gourmand", "Sweet", "Spicy", "Oriental"],
-        "notes_keywords": [
-            "vanilla", "cocoa", "coffee", "caramel", "smoke", "tobacco",
-            "rum", "almond", "marshmallow",
-        ],
-        "blurb": "Warm kitchen that should not be empty - sugar and shadow.",
-        "vibe_note": "Haunted gourmand - horror night",
-    },
-    "Vampire lounge": {
-        "categories": ["Oriental", "Floral", "Woody", "Leather"],
-        "notes_keywords": [
-            "rose", "oud", "incense", "musk", "amber",
-            "jasmine", "tobacco", "dark",
-        ],
-        "blurb": "Dark florals, incense, late-night velvet booths.",
-        "vibe_note": "Vampire lounge - horror night",
-    },
-}
-
-
-def score_for_horror(f: dict, mode: str) -> int:
-    profile = HORROR_SCENT_PROFILES.get(mode) or {}
-    score = 0
-    cats = set(f.get("category") or [])
-    notes = (f.get("notes") or "").lower()
-    for c in profile.get("categories") or []:
-        if c in cats:
-            score += 18
-    for kw in profile.get("notes_keywords") or []:
-        if kw.lower() in notes:
-            score += 8
-    if st.session_state["user_reactions"].get(f.get("name")) == "fav":
-        score += 10
-    if st.session_state["user_reactions"].get(f.get("name")) == "dislike":
-        score -= 50
-    score += _stable_tiebreak((f.get("name") or "") + mode) % 5
-    return score
-
-
-def get_horror_picks(mode: str, top_n: int = 3, gender: str = "Any") -> list:
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        if gender and gender != "Any":
-            if not matches_gender(f, gender):
-                continue
-        s = score_for_horror(f, mode)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
-
-
 def suggest_categories_from_notes(notes: str) -> list:
     """Suggest scent families from free-text notes using keyword matching."""
     if not notes:
@@ -8013,168 +7690,6 @@ ME_WISHLIST_POOL = [
 ME_WISHLIST_POOL = [x for x in ME_WISHLIST_POOL if "placeholder" not in (x.get("name") or "").lower() and "petite cherie" not in (x.get("name") or "").lower()]
 
 
-def weekly_wishlist_suggestions(n: int = 5) -> list:
-    """Suggest Middle Eastern bottles not already in vault or wishlist, biased to user tastes."""
-    import datetime as _dt
-    db = st.session_state.get("fragrances_db") or []
-    wl = st.session_state.get("wishlist") or []
-    owned = set()
-    for f in db:
-        owned.add(((f.get("name") or "").strip().lower(), (f.get("brand") or "").strip().lower()))
-    for w in wl:
-        owned.add(((w.get("name") or "").strip().lower(), (w.get("brand") or "").strip().lower()))
-
-    # Taste from vault categories
-    from collections import Counter
-    cat_counts = Counter()
-    for f in db:
-        for c in f.get("category") or []:
-            cat_counts[c] += 1
-    top_cats = {c for c, _ in cat_counts.most_common(8)}
-
-    # Score pool items
-    scored = []
-    for item in ME_WISHLIST_POOL:
-        key = ((item.get("name") or "").strip().lower(), (item.get("brand") or "").strip().lower())
-        # also skip if name alone matches owned (brand variants)
-        name_owned = any(key[0] == o[0] for o in owned if key[0])
-        if key in owned or name_owned:
-            continue
-        score = 1
-        why = (item.get("why") or "").lower()
-        if "gourmand" in why or "vanilla" in why or "caramel" in why or "sweet" in why:
-            if "Gourmand" in top_cats or "Sweet" in top_cats or "Vanilla" in top_cats:
-                score += 3
-        if "oud" in why or "oriental" in why:
-            if "Oriental" in top_cats or "Oud" in top_cats or "Woody" in top_cats:
-                score += 2
-        if "fresh" in why or "citrus" in why:
-            if "Fresh" in top_cats or "Citrus" in top_cats:
-                score += 2
-        if "floral" in why or "rose" in why:
-            if "Floral" in top_cats:
-                score += 2
-        if "cozy" in why or "soft" in why or "skin" in why:
-            score += 1
-        scored.append((score, item))
-
-    scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
-    candidates = [it for _, it in scored]
-    if not candidates:
-        return []
-
-    # Rotate by ISO week so suggestions change weekly
-    today = pacific_today()
-    week = int(today.strftime("%Y%W"))
-    start = (week * n) % max(1, len(candidates))
-    picks = []
-    for i in range(min(n, len(candidates))):
-        picks.append(candidates[(start + i) % len(candidates)])
-    return picks
-
-
-
-
-def sotd_streak() -> int:
-    """Consecutive days with at least one SOTD log ending today (Pacific)."""
-    hist = st.session_state.get("sotd_history") or []
-    days = set()
-    for e in hist:
-        d = e.get("date") or e.get("when") or ""
-        if d:
-            days.add(str(d)[:10])
-    if not days:
-        return 0
-    today = pacific_today()
-    streak = 0
-    from datetime import timedelta
-    cur = today
-    while cur.isoformat() in days:
-        streak += 1
-        cur = cur - timedelta(days=1)
-    return streak
-
-
-def brand_stats() -> list:
-    """Return list of (brand, count) sorted by count desc."""
-    from collections import Counter
-    c = Counter()
-    for f in st.session_state.get("fragrances_db") or []:
-        b = (f.get("brand") or "Unknown").strip() or "Unknown"
-        c[b] += 1
-    return c.most_common()
-
-
-def is_october_mode() -> bool:
-    if st.session_state.get("force_october_mode"):
-        return True
-    try:
-        return pacific_today().month == 10
-    except Exception:
-        return False
-
-
-def halloween_countdown_text() -> str:
-    from datetime import date
-    today = pacific_today()
-    year = today.year
-    target = date(year, 10, 31)
-    if today > target:
-        target = date(year + 1, 10, 31)
-    delta = (target - today).days
-    if delta == 0:
-        return "It is Halloween. The vault is open."
-    if today.month == 10:
-        return f"{delta} day(s) until Halloween."
-    return f"{delta} day(s) until Halloween."
-
-
-
-
-TAROT_CARDS = [
-    {"name": "The Moon", "mood": "Soft", "blurb": "Fog, intuition, silver musk."},
-    {"name": "The Tower", "mood": "Fierce", "blurb": "Smoke, spice, something breaks open."},
-    {"name": "The Empress", "mood": "Date night", "blurb": "Rose, honey, full bloom."},
-    {"name": "The Hermit", "mood": "Lazy / stay home", "blurb": "Candlelight, cream, quiet skin."},
-    {"name": "Death", "mood": "Fierce", "blurb": "Oud, incense, transformation."},
-    {"name": "The Star", "mood": "Soft", "blurb": "Clean light, soft florals, hope."},
-    {"name": "The Devil", "mood": "Date night", "blurb": "Caramel, leather, temptation."},
-    {"name": "Wheel of Fortune", "mood": "Main character", "blurb": "Whatever turns - wear it loud."},
-    {"name": "The High Priestess", "mood": "Rainy day", "blurb": "Powder, iris, secret notes."},
-    {"name": "The Magician", "mood": "Focus / work", "blurb": "Sharp citrus, green focus."},
-    {"name": "The Lovers", "mood": "Date night", "blurb": "Shared air, sweet and deep."},
-    {"name": "Judgement", "mood": "Main character", "blurb": "Amber wake-up call."},
-]
-
-
-def draw_tarot_card(salt: int = 0) -> dict:
-    import hashlib
-    cards = TAROT_CARDS or [
-        {"name": "The Star", "mood": "Soft", "blurb": "A quiet glow."}
-    ]
-    today = pacific_today().isoformat()
-    seed = int(hashlib.md5(f"tarot-{today}-{salt}".encode()).hexdigest()[:8], 16)
-    return cards[seed % len(cards)]
-
-
-def score_for_mood(f: dict, mood: str) -> int:
-    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-        return -999
-    prof = MOOD_PROFILES.get(mood, {})
-    score = 0
-    if st.session_state["user_reactions"].get(f["name"]) == "fav":
-        score += 20
-    for c in f.get("category", []):
-        if c in prof.get("categories", []):
-            score += 15
-    notes_l = f.get("notes", "").lower()
-    for kw in prof.get("notes_keywords", []):
-        if kw in notes_l:
-            score += 8
-    score += _stable_tiebreak(f["name"] + mood)
-    return score
-
-
 def _norm_name(s: str) -> str:
     s = (s or "").strip().lower()
     s = re.sub(r"[^a-z0-9]+", " ", s)
@@ -8304,77 +7819,6 @@ def bulk_add_fragrances(
 
 
 
-def filter_play_pool(gender: str = "Any", season: str = "Any", priced_only: bool = False) -> list:
-    """Shared pool filter for Play games."""
-    pool = []
-    for f in st.session_state.get("fragrances_db") or []:
-        if st.session_state["user_reactions"].get(f.get("name")) == "dislike":
-            continue
-        if gender and gender != "Any" and not matches_gender(f, gender):
-            continue
-        if season and season != "Any" and not matches_weather(f, season):
-            continue
-        if priced_only and f.get("price") is None:
-            continue
-        pool.append(f)
-    return pool
-
-
-
-def get_mood_picks(mood: str, top_n: int = 3, pool: list = None, salt: int = 0) -> list:
-    """Return top mood matches. salt rotates through the ranked list so redraw is not identical."""
-    source = pool if pool is not None else st.session_state["fragrances_db"]
-    scored = []
-    for f in source:
-        s = score_for_mood(f, mood)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    if not scored:
-        return []
-    recent = _recent_shown("play")
-    # Wider pool + salt rotation + recent/brand diversity
-    pool_size = min(len(scored), max(top_n * 6, 18))
-    pool = scored[:pool_size]
-    # Rotate window start by salt
-    if len(pool) > top_n:
-        start = (int(salt) * top_n + int(salt)) % len(pool)
-        pool = pool[start:] + pool[:start]
-    picks = _diversify_scored(pool, top_n, recent=recent, strength=16.0)
-    _remember_shown("play", [f.get("name") for f in picks])
-    return picks
-
-
-def twin_score(f1: dict, f2: dict) -> int:
-    if f1["name"] == f2["name"]:
-        return -1
-    score = 0
-    cats1 = set(f1.get("category", []))
-    cats2 = set(f2.get("category", []))
-    score += len(cats1 & cats2) * 20
-    # shared note tokens
-    t1 = set(re.findall(r"[a-zA-Z]{3,}", f1.get("notes", "").lower()))
-    t2 = set(re.findall(r"[a-zA-Z]{3,}", f2.get("notes", "").lower()))
-    # drop boring words
-    stop = {"top", "heart", "base", "and", "with", "notes", "the", "from"}
-    t1 -= stop
-    t2 -= stop
-    score += len(t1 & t2) * 5
-    if normalize_gender(f1.get("gender", "")) == normalize_gender(f2.get("gender", "")):
-        score += 5
-    return score
-
-
-def find_twins(base: dict, top_n: int = 5) -> list:
-    scored = []
-    for f in st.session_state["fragrances_db"]:
-        s = twin_score(base, f)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [(s, f) for s, f in scored[:top_n]]
-
-
 def least_worn(top_n: int = 5) -> list:
     counts = get_wear_counts()
     items = []
@@ -8385,45 +7829,6 @@ def least_worn(top_n: int = 5) -> list:
     items.sort(key=lambda x: (x[0], x[1]["name"].lower()))
     return items[:top_n]
 
-
-
-def compute_badges() -> list:
-    badges = []
-    hist = st.session_state.get("sotd_history") or []
-    favs = [n for n, s in st.session_state.get("user_reactions", {}).items() if s == "fav"]
-    recipes = st.session_state.get("layer_recipes") or []
-    counts = get_wear_counts()
-    unique_worn = len([k for k, v in counts.items() if v > 0])
-    layered = sum(1 for e in hist if e.get("is_layering"))
-    stats = st.session_state.get("play_stats") or {}
-
-    if hist:
-        badges.append("First log")
-    if sotd_streak() >= 3:
-        badges.append(f"{sotd_streak()}-day streak")
-    if layered:
-        badges.append("Layer explorer")
-    if len(favs) >= 5:
-        badges.append("Collector heart")
-    if unique_worn >= 10:
-        badges.append("10 unique wears")
-    if recipes:
-        badges.append("Recipe keeper")
-    if stats.get("blind_played", 0) >= 1:
-        badges.append("Blind bottle brave")
-    if stats.get("blind_correct", 0) >= 3:
-        badges.append("Nose knows")
-    if stats.get("moods_drawn", 0) >= 5:
-        badges.append("Mood alchemist")
-    if stats.get("challenges_done", 0) >= 3:
-        badges.append("Challenge accepter")
-    # performance logger
-    logged_perf = sum(
-        1 for e in hist if e.get("sillage") or e.get("longevity")
-    )
-    if logged_perf >= 5:
-        badges.append("Performance tracker")
-    return badges
 
 
 def suggest_partners_for(
@@ -10687,122 +10092,6 @@ def _planet_block(lon: float) -> dict:
     }
 
 
-def calculate_full_chart(
-    year: int,
-    month: int,
-    day: int,
-    hour: int,
-    minute: int,
-    city: str,
-    nation: str = "US",
-    lat: float = None,
-    lon: float = None,
-    tz_str: str = None,
-) -> dict:
-    """
-    Tropical chart: luminaries, classical + modern planets, Lilith, 12 equal houses.
-    Sign-level accuracy for fragrance / vibe use (not a pro natal service).
-    """
-    sun_fallback = sun_sign_from_date(month, day)
-    result = {
-        "ok": True,
-        "sun": sun_fallback,
-        "moon": None,
-        "rising": None,
-        "venus": None,
-        "planets": {},
-        "houses": {},
-        "lilith": None,
-        "engine": "built-in",
-        "detail": "",
-        "place_label": city,
-    }
-
-    # Optional kerykeion enrichment for core points if installed
-    try:
-        from kerykeion import AstrologicalSubject
-        kwargs = {}
-        if lat is not None and lon is not None:
-            kwargs["lat"] = float(lat)
-            kwargs["lng"] = float(lon)
-        if tz_str:
-            kwargs["tz_str"] = tz_str
-        subject = AstrologicalSubject(
-            "ScentedDeadGirl",
-            int(year), int(month), int(day), int(hour), int(minute),
-            city or "Unknown", nation or "US", **kwargs,
-        )
-        def _sign(obj):
-            if obj is None:
-                return None
-            if isinstance(obj, dict):
-                return normalize_sign_name(obj.get("sign") or "")
-            return normalize_sign_name(getattr(obj, "sign", "") or "")
-        result["sun"] = _sign(getattr(subject, "sun", None)) or sun_fallback
-        result["moon"] = _sign(getattr(subject, "moon", None))
-        result["rising"] = _sign(getattr(subject, "first_house", None)) or _sign(
-            getattr(subject, "ascendant", None)
-        )
-        result["venus"] = _sign(getattr(subject, "venus", None))
-        result["engine"] = "kerykeion+built-in"
-    except Exception:
-        pass
-
-    try:
-        tz = tz_str or "UTC"
-        jd = _local_to_jd_utc(year, month, day, hour, minute, tz)
-        bodies = {
-            "Sun": _sun_longitude(jd),
-            "Moon": _moon_longitude(jd),
-            "Mercury": _mercury_longitude(jd),
-            "Venus": _venus_longitude(jd),
-            "Mars": _mars_longitude(jd),
-            "Jupiter": _jupiter_longitude(jd),
-            "Saturn": _saturn_longitude(jd),
-            "Uranus": _uranus_longitude(jd),
-            "Neptune": _neptune_longitude(jd),
-            "Pluto": _pluto_longitude(jd),
-            "Lilith": _lilith_longitude(jd),
-        }
-        planets = {name: _planet_block(lon) for name, lon in bodies.items()}
-        result["planets"] = planets
-        result["lilith"] = planets.get("Lilith")
-        result["sun"] = planets["Sun"]["sign"]
-        result["moon"] = planets["Moon"]["sign"]
-        result["venus"] = planets["Venus"]["sign"]
-
-        rising_s = None
-        houses = {}
-        if lat is not None and lon is not None:
-            asc_lon = _ascendant_longitude(jd, float(lat), float(lon))
-            rising_s = _longitude_to_sign(asc_lon)
-            houses = _equal_houses_from_asc(asc_lon)
-            planets["Ascendant"] = _planet_block(asc_lon)
-            # Midheaven approx: RAMC-based rough MC = LST projected - use asc+90 for equal
-            mc_lon = _norm360(asc_lon + 90.0)
-            planets["MC"] = _planet_block(mc_lon)
-        result["rising"] = rising_s
-        result["houses"] = houses
-        result["engine"] = "built-in-full"
-        result["detail"] = (
-            "Tropical signs for Sun through Pluto, Mean Lilith, and 12 equal houses "
-            "(House 1 = Rising). Sign-level accuracy for sanctuary use."
-        )
-        if rising_s is None:
-            result["detail"] += " Rising/houses need a successful place lookup."
-        return result
-    except Exception as ex:
-        result["engine"] = "sun-only"
-        result["detail"] = f"Full chart failed ({ex}). Sun from calendar date only."
-        return result
-
-
-# ==========================================
-# STREAMLIT USER INTERFACE
-# ==========================================
-
-
-# Brand logo (header)
 def _show_brand_logo():
     """Show sanctuary logo at top of app."""
     import base64 as _b64
@@ -10897,7 +10186,7 @@ with st.sidebar:
 
     with st.expander("Variety / reshuffle", expanded=False):
         st.caption(
-            "If the same bottles keep showing, clear memory so Recommend, Layer, and Play pick fresh ones."
+            "If the same bottles keep showing, clear memory so Recommend and Layer pick fresh ones."
         )
         if st.button("Clear recent suggestion memory", key="clear_recent_shown"):
             for k in list(st.session_state.keys()):
@@ -11953,7 +11242,7 @@ def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Des
     mark_vault_dirty()
     return True
 
-def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female") -> list:
+def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female + Unisex") -> list:
     """Female-leaning dessert stacks that pass Layer check (>= min_layer_score).
 
     Enumerates strong pairs systematically so "4 ideas" can actually fill.
@@ -11961,19 +11250,22 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     db = st.session_state.get("fragrances_db") or []
     scored = []
     for f in db:
-        pts = _dessert_score_bottle(f)
-        if pts < 6:
+        pts = float(_dessert_score_bottle(f))
+        if pts < 4:
             continue
         g = normalize_gender(f.get("gender") or "")
         if gender_mode == "Female":
             if g not in ("Female", "Female-leaning"):
                 continue
         else:
+            # Female + Unisex — rotate a larger female-leaning pool
             if g not in ("Female", "Female-leaning", "Unisex"):
                 continue
+            if g in ("Female", "Female-leaning"):
+                pts += 3.0
         scored.append((pts, f))
     scored.sort(key=lambda x: x[0], reverse=True)
-    pool = [f for _, f in scored[:22]]
+    pool = [f for _, f in scored[:40]]
     if len(pool) < 2:
         return []
 
@@ -11994,9 +11286,11 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
         if len(k) >= 1:
             blocked.add(k)
 
-    for k in st.session_state.get("_dessert_exclude") or []:
-        if isinstance(k, (list, tuple)) and len(k) >= 1:
+    for k in (st.session_state.get("_dessert_exclude") or []):
+        try:
             blocked.add(tuple(sorted(str(x) for x in k if x)))
+        except Exception:
+            pass
 
     # Build candidate pairs: top x top, then oil+spray
     candidates = []
@@ -12008,12 +11302,17 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
             dessert_pts = (_dessert_score_bottle(a) + _dessert_score_bottle(b)) / 2.0
             candidates.append((dessert_pts, [a, b]))
     candidates.sort(key=lambda x: x[0], reverse=True)
+    # Mix mid-tier dessert bottles into the eval window so menus rotate
+    head = candidates[:12]
+    rest = candidates[12:]
+    random.shuffle(rest)
+    candidates = head + rest
 
     stacks = []
     used = set()
     menu_names = set()
     # Cap evaluations for speed on mobile
-    max_eval = min(28, len(candidates))
+    max_eval = min(36, len(candidates))
     for dessert_pts, frags in candidates[:max_eval]:
         if len(stacks) >= num:
             break
@@ -13433,6 +12732,7 @@ with tab_layer:
         if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
             st.session_state["_clear_roulette_layer_pick"] = True
             st.session_state["_layer_pick_ver"] = int(st.session_state.get("_layer_pick_ver") or 0) + 1
+            st.session_state.pop("_locked_recipe_name", None)
             st.session_state["roulette_layer_pick"] = []
             st.session_state[f"roulette_layer_pick_{st.session_state['_layer_pick_ver']}"] = []
             st.session_state.pop("last_layer_check", None)
@@ -13454,9 +12754,18 @@ with tab_layer:
             result = evaluate_layer_recipe(picks_now)
             result["selected_names"] = list(picks_now)
             st.session_state["_locked_layer_pair"] = list(picks_now)
-            result["suggested_name"] = suggest_recipe_name_from_notes(
-                picks_now, randomize=True
-            )
+            # Keep dessert / locked name when the same bottles are checked again
+            _locked_nm = (st.session_state.get("_locked_recipe_name") or "").strip()
+            _locked_pair = tuple(sorted(str(x) for x in (st.session_state.get("_locked_layer_pair") or []) if x))
+            _now_pair = tuple(sorted(str(x) for x in picks_now if x))
+            if _locked_nm and _locked_pair and _locked_pair == _now_pair:
+                result["suggested_name"] = _locked_nm
+                result["dessert_name"] = _locked_nm
+            else:
+                result["suggested_name"] = suggest_recipe_name_from_notes(
+                    picks_now, randomize=True
+                )
+                st.session_state["_locked_recipe_name"] = result["suggested_name"]
             st.session_state["last_layer_check"] = result
             _ag = recipe_gender_from_frags(result.get("frags") or [])
             st.session_state["roulette_layer_recipe_gender"] = (
@@ -13635,7 +12944,10 @@ with tab_layer:
                 st.caption(str(fr.get("notes") or "(no notes)"))
 
         names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
-        suggested = (ev.get("suggested_name") or "").strip()
+        # Prefer dessert name / locked name so Layer matches the Dessert card
+        suggested = (
+            (ev.get("dessert_name") or ev.get("suggested_name") or st.session_state.get("_locked_recipe_name") or "")
+        ).strip()
         # Seed name once when a new layer check appears (avoid value= + key conflict)
         if st.session_state.pop("_seed_roulette_recipe_name", False) or (
             "roulette_layer_recipe_name" not in st.session_state and suggested
@@ -13644,6 +12956,7 @@ with tab_layer:
         # Reroll before the text input so the new name is applied this run
         if st.session_state.pop("_reroll_layer_name", False) and names:
             new_nm = suggest_recipe_name_from_notes(names, randomize=True)
+            st.session_state["_locked_recipe_name"] = new_nm
             st.session_state["roulette_layer_recipe_name"] = new_nm
             if isinstance(st.session_state.get("last_layer_check"), dict):
                 st.session_state["last_layer_check"]["suggested_name"] = new_nm
@@ -14109,16 +13422,17 @@ with tab_dessert:
             tuple(sorted(str(x) for x in (item.get("names") or []) if x))
             for item in prev
         ]
-        st.session_state["_dessert_menu"] = None
-    if refresh_d or st.session_state.get("_dessert_menu") is None:
         menu = build_dessert_suggestions(
             num=int(n_desserts),
             min_layer_score=75,
-            gender_mode="Female" if dessert_gender == "Female" else "Female + Unisex",
+            gender_mode=dessert_gender if dessert_gender in ("Female", "Female + Unisex") else "Female + Unisex",
         )
         st.session_state["_dessert_menu"] = menu
         st.session_state["_dessert_exclude"] = []
+        st.rerun()
     menu = st.session_state.get("_dessert_menu") or []
+    if not menu and not refresh_d:
+        st.info("Tap **Fresh menu** to load dessert layering ideas (keeps other tabs fast).")
     if menu and len(menu) < int(n_desserts):
         st.caption(
             "Found **"
@@ -14164,12 +13478,18 @@ with tab_dessert:
                 b1, b2, b3, b4 = st.columns(4)
                 with b1:
                     if st.button("Layer check", key=f"dessert_check_{i}"):
+                        _dname = str(item.get("dessert_name") or "Dessert layer").strip()
                         st.session_state["_pending_layer_pick"] = list(names)
                         st.session_state["_locked_layer_pair"] = list(names)
+                        st.session_state["_locked_recipe_name"] = _dname
                         _ev = evaluate_layer_recipe(list(names))
                         _ev["selected_names"] = list(names)
+                        _ev["suggested_name"] = _dname
+                        _ev["dessert_name"] = _dname
                         st.session_state["last_layer_check"] = _ev
-                        st.success("Loaded in Layer check — open the **Layer** tab.")
+                        st.session_state["roulette_layer_recipe_name"] = _dname
+                        st.session_state["_seed_roulette_recipe_name"] = True
+                        st.success("Loaded in Layer check as **" + _dname + "** — open the **Layer** tab.")
                         st.rerun()
                 with b2:
                     if st.button("Try it", key=f"dessert_try_{i}"):
@@ -14616,7 +13936,6 @@ with tab_sotd:
             st.rerun()
 
 
-# ===== STARS / HOROSCOPE =====
 with tab_collection:
     st.subheader("Collection browser")
     _db_c = st.session_state.get("fragrances_db") or []
