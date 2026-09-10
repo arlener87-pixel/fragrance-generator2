@@ -284,6 +284,46 @@ def sotd_streak(*a, **k):
 def weekly_wishlist_suggestions(*a, **k):
     return []
 
+
+def clean_notes_text(raw: str) -> str:
+    """Normalize fragrance notes: spacing, punctuation, Top/Heart/Base labels."""
+    if raw is None:
+        return ""
+    t = str(raw).strip()
+    if not t:
+        return ""
+    # Fix glued words before known section headers
+    t = re.sub(r"(?i)([a-z0-9])(top\s*notes?\s*:)", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(heart\s*(?:notes?)?\s*:)", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(middle\s*(?:notes?)?\s*:)", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(base\s*(?:notes?)?\s*:)", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(dry\s*-?\s*down\s*:)", r"\1. \2", t)
+    # Space after commas / slashes
+    t = re.sub(r",\s*", ", ", t)
+    t = re.sub(r"\s*/\s*", " / ", t)
+    t = re.sub(r"\s*\|\s*", " | ", t)
+    # Collapse whitespace
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r"\s*\n\s*", "\n", t)
+    # Normalize section labels
+    t = re.sub(r"(?i)\btop\s*notes?\s*:", "Top -", t)
+    t = re.sub(r"(?i)\bheart\s*(?:notes?)?\s*:", "Heart -", t)
+    t = re.sub(r"(?i)\bmiddle\s*(?:notes?)?\s*:", "Heart -", t)
+    t = re.sub(r"(?i)\bbase\s*(?:notes?)?\s*:", "Base -", t)
+    t = re.sub(r"(?i)\bdry\s*-?\s*down\s*:", "Base -", t)
+    # Prefer slash structure for short pyramid lines
+    if "Top -" in t and "Heart -" in t and " / " not in t:
+        # keep as is with labels
+        pass
+    return t.strip()
+
+
+def format_notes_pyramid(raw: str) -> str:
+    """If notes already have Top/Heart/Base, return cleaned; else return cleaned text."""
+    t = clean_notes_text(raw)
+    return t
+
+
 CAT_OPTIONS = [
     "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
     "Fruity", "Spicy", "Citrus", "Musky", "Vanilla", "Creamy",
@@ -11344,8 +11384,8 @@ try:
 except Exception:
     pass
 
-tab_discover, tab_layer, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "SOTD", "Collection", "Vault"]
+tab_discover, tab_layer, tab_try, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Try", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -13257,6 +13297,91 @@ with tab_layer:
 # ===== ROULETTE =====
 
 
+
+with tab_try:
+    st.subheader("Try list")
+    st.caption(
+        "Ideas you marked **Try it** from Layer or Discover. "
+        "Mark **Tried**, then **Save recipe** to keep it and remove it from this list."
+    )
+    tries = list(st.session_state.get("try_recipes") or [])
+    if not tries:
+        st.info("No try items yet. Use **Try it** on a Layer check or recommendation.")
+    else:
+        st.write(f"**{len(tries)}** item(s) to try.")
+        for ti, item in enumerate(list(tries)):
+            bottles = item.get("bottles") or []
+            nm = item.get("name") or " + ".join(bottles) or "Try"
+            tried = bool(item.get("tried"))
+            src = item.get("source") or ""
+            st.markdown(f"### {'✓ ' if tried else ''}{nm}")
+            st.caption(
+                "Bottles: **" + " + ".join(str(b) for b in bottles) + "**"
+                + (f" · from {src}" if src else "")
+            )
+            if item.get("notes"):
+                st.caption(str(item.get("notes"))[:200])
+            # Rating for this combo
+            if len(bottles) >= 2:
+                try:
+                    _ev = evaluate_layer_recipe(list(bottles))
+                    _sc = int(_ev.get("score") or 0)
+                    if _sc >= 75:
+                        st.success(f"Layer rating: **{_sc}/100** — good combo")
+                    else:
+                        st.warning(f"Layer rating: **{_sc}/100** — skin-test first")
+                    if _ev.get("spray_order"):
+                        st.caption("Spray: " + " > ".join(_ev.get("spray_order") or []))
+                except Exception:
+                    pass
+            b1, b2, b3, b4 = st.columns(4)
+            with b1:
+                if st.button("Tried" if not tried else "Untried", key=f"try_tab_tried_{ti}"):
+                    tries[ti]["tried"] = not tried
+                    st.session_state["try_recipes"] = tries
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.rerun()
+            with b2:
+                if st.button("Save recipe", key=f"try_tab_save_{ti}", type="primary"):
+                    recipe = {
+                        "name": nm,
+                        "bottles": list(bottles),
+                        "notes": item.get("notes") or "",
+                        "gender": item.get("gender") or "",
+                        "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
+                    }
+                    lr = list(st.session_state.get("layer_recipes") or [])
+                    lr.insert(0, recipe)
+                    st.session_state["layer_recipes"] = lr[:80]
+                    st.session_state["try_recipes"] = [x for j, x in enumerate(tries) if j != ti]
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.success(f"Saved **{nm}** and removed from Try list.")
+                    st.rerun()
+            with b3:
+                if st.button("Layer check", key=f"try_tab_layer_{ti}"):
+                    st.session_state["_pending_layer_pick"] = list(bottles)
+                    st.session_state["_locked_layer_pair"] = list(bottles)
+                    st.session_state["_locked_recipe_name"] = nm
+                    try:
+                        _ev = evaluate_layer_recipe(list(bottles))
+                        _ev["selected_names"] = list(bottles)
+                        _ev["suggested_name"] = nm
+                        st.session_state["last_layer_check"] = _ev
+                    except Exception:
+                        pass
+                    st.success("Open **Layer** tab for full check.")
+                    st.rerun()
+            with b4:
+                if st.button("Remove", key=f"try_tab_rm_{ti}"):
+                    st.session_state["try_recipes"] = [x for j, x in enumerate(tries) if j != ti]
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.rerun()
+            st.markdown("---")
+
+
 with tab_sotd:
     st.subheader("Scent of the Day")
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
@@ -14957,6 +15082,46 @@ with tab_vault:
 
 
     
+    
+    with st.expander("Clean notes spacing", expanded=False):
+        st.caption("Fix glued words, commas, and Top / Heart / Base labels on bottle notes.")
+        if st.button("Clean all vault notes", key="clean_all_notes"):
+            fixed = 0
+            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                raw = f.get("notes") or ""
+                cleaned = clean_notes_text(raw)
+                if cleaned != raw:
+                    st.session_state["fragrances_db"][i]["notes"] = cleaned
+                    fixed += 1
+            if fixed:
+                mark_vault_dirty()
+                save_persisted_data()
+                st.success(f"Cleaned notes on **{fixed}** bottle(s).")
+                st.rerun()
+            else:
+                st.info("No notes needed changes.")
+        one = st.selectbox(
+            "Or clean one bottle",
+            ["- select -"] + sorted(f.get("name") or "" for f in (st.session_state.get("fragrances_db") or []) if f.get("name")),
+            key="clean_one_notes_pick",
+        )
+        if one and one != "- select -":
+            frag = next((f for f in st.session_state["fragrances_db"] if f.get("name") == one), None)
+            if frag:
+                preview = clean_notes_text(frag.get("notes") or "")
+                st.text_area("Preview cleaned notes", value=preview, height=120, key="clean_notes_preview")
+                if st.button("Apply cleaned notes", key="clean_one_apply"):
+                    for i, f in enumerate(st.session_state["fragrances_db"]):
+                        if f.get("name") == one:
+                            st.session_state["fragrances_db"][i]["notes"] = clean_notes_text(
+                                st.session_state.get("clean_notes_preview") or preview
+                            )
+                            break
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.success(f"Updated notes for **{one}**.")
+                    st.rerun()
+
     with st.expander("Season helper", expanded=True):
         st.caption(
             "Seasons use **Fall** (not Autumn). Normalize cleans tags; weak tags can get note-based suggestions."
