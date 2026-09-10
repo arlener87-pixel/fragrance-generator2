@@ -13347,19 +13347,53 @@ with tab_recipes:
         st.info("No saved recipes yet. Save from **Layer check** or the **Try** tab.")
     else:
         st.write(f"**{len(recipes)}** recipe(s).")
-        filt = st.text_input("Filter recipes", placeholder="Name or bottle...", key="recipes_filter")
+        rf1, rf2 = st.columns([2, 1])
+        with rf1:
+            filt = st.text_input("Filter recipes", placeholder="Name or bottle...", key="recipes_filter")
+        with rf2:
+            season_filter = st.selectbox(
+                "Season",
+                [
+                    "Any",
+                    "Spring",
+                    "Summer",
+                    "Fall",
+                    "Winter",
+                    "Spring, Summer",
+                    "Fall, Winter",
+                    "Versatile",
+                ],
+                key="recipes_season_filter",
+            )
         show = []
         fl = (filt or "").strip().lower()
+        sf = (season_filter or "Any").strip()
         for r in recipes:
-            if not fl:
-                show.append(r)
-                continue
-            blob = " ".join([
-                str(r.get("name") or ""),
-                " ".join(str(b) for b in (r.get("bottles") or r.get("names") or [])),
-            ]).lower()
-            if fl in blob:
-                show.append(r)
+            bottles = list(r.get("bottles") or r.get("names") or [])
+            season = (r.get("season") or recipe_season_label(bottles) or "").strip()
+            if sf and sf != "Any":
+                season_l = season.lower()
+                sf_l = sf.lower()
+                # Match exact or overlapping season words (e.g. Fall in "Fall, Winter")
+                if sf_l == "versatile":
+                    if season_l not in ("versatile", "any", "all", ""):
+                        # still allow empty as versatile
+                        if season_l and "versatile" not in season_l:
+                            continue
+                else:
+                    tokens = [t.strip() for t in sf_l.replace("/", ",").split(",") if t.strip()]
+                    season_tokens = [t.strip() for t in season_l.replace("/", ",").split(",") if t.strip()]
+                    if tokens and not any(t in season_l or t in season_tokens for t in tokens):
+                        continue
+            if fl:
+                blob = " ".join([
+                    str(r.get("name") or ""),
+                    " ".join(str(b) for b in bottles),
+                    season,
+                ]).lower()
+                if fl not in blob:
+                    continue
+            show.append(r)
         if not show:
             st.warning("No recipes match that filter.")
         for ri, r in enumerate(show):
