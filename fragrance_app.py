@@ -13589,45 +13589,6 @@ with tab_sotd:
     sotd_his = st.session_state.get("sotd_his_select") or "- none -"
 
     st.markdown("##### Inspiration (optional)")
-    with st.expander("Horror night vibes", expanded=False):
-        st.caption(
-            "Scary-movie nights - gothic fog, cabin woods, slashers, haunted gourmand, vampires."
-        )
-        horror_mode = st.selectbox(
-            "Horror mood",
-            list(HORROR_SCENT_PROFILES.keys()),
-            key="sotd_horror_mode",
-        )
-        horror_gender = st.selectbox(
-            "Gender filter",
-            ["Any", "Female", "Male", "Unisex"],
-            key="sotd_horror_gender",
-        )
-        hp = HORROR_SCENT_PROFILES[horror_mode]
-        st.write(hp.get("blurb", ""))
-        if st.button("Draw horror night scents", type="primary", key="sotd_horror_draw"):
-            picks = get_horror_picks(horror_mode, top_n=3, gender=horror_gender)
-            st.session_state["last_horror_picks"] = {
-                "mode": horror_mode,
-                "picks": picks,
-                "vibe": hp.get("vibe_note", horror_mode),
-            }
-        last_h = st.session_state.get("last_horror_picks")
-        if last_h:
-            st.caption(f"Mode: {last_h.get('mode')}")
-            for i, f in enumerate(last_h.get("picks") or [], 1):
-                st.markdown(
-                    f"**{i}. {f.get('name')}** ({f.get('brand')}) - "
-                    f"{', '.join(f.get('category') or [])}"
-                )
-                if st.button("Use tonight", key=f"horror_use_{i}"):
-                    log_sotd_immediate(
-                        [f["name"]],
-                        notes=str((last_h or {}).get("vibe") or "Horror night"),
-                    )
-                    st.rerun()
-
-
 
     # Layering partners based on current selection
     if sotd_choices:
