@@ -7273,6 +7273,43 @@ def resolve_frag_by_name(name: str):
     return None
 
 
+
+def recipe_season_label(bottles: list) -> str:
+    """Best-effort season tag from bottles in a recipe."""
+    db = { (f.get("name") or ""): f for f in (st.session_state.get("fragrances_db") or []) }
+    seasons = []
+    for n in bottles or []:
+        f = db.get(n) or resolve_frag_by_name(str(n))
+        if not f:
+            continue
+        s = normalize_season_label(f.get("season") or "")
+        if s and s not in seasons:
+            seasons.append(s)
+    if not seasons:
+        return "Versatile"
+    if len(seasons) == 1:
+        return seasons[0]
+    # Prefer combined familiar labels
+    joined = ", ".join(seasons[:3])
+    return joined
+
+
+def recipe_layer_rating(bottles: list) -> dict:
+    """Score + spray order for a saved recipe."""
+    bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+    if len(bottles) < 2:
+        return {"score": 0, "spray_order": bottles, "ok": False}
+    try:
+        ev = evaluate_layer_recipe(bottles)
+        return {
+            "score": int(ev.get("score") or 0),
+            "spray_order": list(ev.get("spray_order") or bottles),
+            "ok": True,
+            "ev": ev,
+        }
+    except Exception:
+        return {"score": 0, "spray_order": bottles, "ok": False}
+
 def evaluate_layer_recipe(bottle_names: list) -> dict:
     """Score a multi-bottle layer. selected_names = what user picked; spray_order = wear order."""
     selected_names = [str(n).strip() for n in list(bottle_names or []) if n and str(n).strip()]
@@ -11384,8 +11421,8 @@ try:
 except Exception:
     pass
 
-tab_discover, tab_layer, tab_try, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Try", "SOTD", "Collection", "Vault"]
+tab_discover, tab_layer, tab_recipes, tab_try, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -13298,6 +13335,109 @@ with tab_layer:
 
 
 
+
+with tab_recipes:
+    st.subheader("Saved recipes")
+    st.caption(
+        "All layer recipes you saved. Each card shows **rating**, **season**, spray order, "
+        "and a quick **SOTD** button when you wear it."
+    )
+    recipes = list(st.session_state.get("layer_recipes") or [])
+    if not recipes:
+        st.info("No saved recipes yet. Save from **Layer check** or the **Try** tab.")
+    else:
+        st.write(f"**{len(recipes)}** recipe(s).")
+        filt = st.text_input("Filter recipes", placeholder="Name or bottle...", key="recipes_filter")
+        show = []
+        fl = (filt or "").strip().lower()
+        for r in recipes:
+            if not fl:
+                show.append(r)
+                continue
+            blob = " ".join([
+                str(r.get("name") or ""),
+                " ".join(str(b) for b in (r.get("bottles") or r.get("names") or [])),
+            ]).lower()
+            if fl in blob:
+                show.append(r)
+        if not show:
+            st.warning("No recipes match that filter.")
+        for ri, r in enumerate(show):
+            bottles = list(r.get("bottles") or r.get("names") or [])
+            nm = r.get("name") or (" + ".join(bottles) if bottles else "Recipe")
+            gender = r.get("gender") or ""
+            season = r.get("season") or recipe_season_label(bottles)
+            rating = recipe_layer_rating(bottles)
+            score = rating.get("score") or 0
+            st.markdown(f"### {nm}")
+            meta_bits = []
+            if gender:
+                meta_bits.append(str(gender))
+            meta_bits.append(f"Season: **{season}**")
+            st.caption(" · ".join(meta_bits))
+            st.write("Bottles: **" + " + ".join(str(b) for b in bottles) + "**")
+            if score >= 75:
+                st.success(f"Layer rating: **{score}/100**")
+            elif score > 0:
+                st.warning(f"Layer rating: **{score}/100** — skin-test first")
+            else:
+                st.caption("Layer rating: n/a (need 2+ bottles in vault)")
+            if rating.get("spray_order"):
+                st.caption("Spray order: " + " > ".join(str(x) for x in rating["spray_order"]))
+            if r.get("notes"):
+                st.caption(str(r.get("notes"))[:220])
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                if st.button("Add to SOTD", key=f"recipe_sotd_{ri}", type="primary"):
+                    try:
+                        send_to_sotd(list(bottles), notes=nm)
+                    except Exception:
+                        try:
+                            log_sotd_immediate(list(bottles), notes=nm)
+                        except Exception as e:
+                            st.error(str(e))
+                    else:
+                        st.success(f"Logged SOTD: **{nm}**")
+                        st.rerun()
+            with c2:
+                if st.button("Layer check", key=f"recipe_layer_{ri}"):
+                    st.session_state["_pending_layer_pick"] = list(bottles)
+                    st.session_state["_locked_layer_pair"] = list(bottles)
+                    st.session_state["_locked_recipe_name"] = nm
+                    try:
+                        ev = evaluate_layer_recipe(list(bottles))
+                        ev["selected_names"] = list(bottles)
+                        ev["suggested_name"] = nm
+                        st.session_state["last_layer_check"] = ev
+                    except Exception:
+                        pass
+                    st.success("Open the **Layer** tab.")
+                    st.rerun()
+            with c3:
+                if st.button("Refresh rating", key=f"recipe_rate_{ri}"):
+                    # force recompute by clearing nothing - next render recalculates
+                    st.rerun()
+            with c4:
+                if st.button("Delete", key=f"recipe_del_{ri}"):
+                    # delete matching entry from full list
+                    full = list(st.session_state.get("layer_recipes") or [])
+                    target_key = (nm, tuple(bottles))
+                    new_full = []
+                    removed = False
+                    for item in full:
+                        ib = list(item.get("bottles") or item.get("names") or [])
+                        iname = item.get("name") or ""
+                        if not removed and (iname, tuple(ib)) == target_key:
+                            removed = True
+                            continue
+                        new_full.append(item)
+                    st.session_state["layer_recipes"] = new_full
+                    mark_vault_dirty()
+                    save_persisted_data()
+                    st.rerun()
+            st.markdown("---")
+
+
 with tab_try:
     st.subheader("Try list")
     st.caption(
@@ -13349,6 +13489,7 @@ with tab_try:
                         "bottles": list(bottles),
                         "notes": item.get("notes") or "",
                         "gender": item.get("gender") or "",
+                        "season": recipe_season_label(list(bottles)),
                         "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
                     }
                     lr = list(st.session_state.get("layer_recipes") or [])
