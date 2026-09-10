@@ -6217,9 +6217,9 @@ def layer_score(f1: dict, f2: dict) -> int:
     cats2 = set(f2.get("category") or [])
     score = 0
 
-    if st.session_state["user_reactions"].get(f1["name"]) == "fav":
+    if _rx.get(f1.get("name")) == "fav":
         score += 10
-    if st.session_state["user_reactions"].get(f2["name"]) == "fav":
+    if _rx.get(f2.get("name")) == "fav":
         score += 10
 
     for a, b in GOOD_LAYER_PAIRS:
@@ -6766,59 +6766,28 @@ def _note_density_points(blob: str) -> float:
 
 
 def fragrance_weight_score(f: dict) -> int:
-    """Higher = denser on skin (apply first as base).
-
-    Uses note *position* (top 0.5x, heart 1.5x, base 3x) and density class
-    so long top-note lists do not outrank syrupy bases.
-    """
+    """Higher = denser on skin (spray first). Simple category + keyword score."""
     if not f:
         return 0
-    notes = f.get("notes") or ""
-    name = (f.get("name") or "").lower()
+    score = 40
     cats = {str(c) for c in (f.get("category") or [])}
-    sections = _parse_note_sections(notes)
-
-    top_pts = _note_density_points(sections.get("top") or "")
-    heart_pts = _note_density_points(sections.get("heart") or "")
-    base_pts = _note_density_points(sections.get("base") or "")
-    # Unsectioned notes: treat as mixed, slight base bias for dense keywords
-    all_pts = _note_density_points(sections.get("all") or "")
-
-    if top_pts or heart_pts or base_pts:
-        score = top_pts * 0.5 + heart_pts * 1.5 + base_pts * 3.0
-        # Small blend of full text so we don't miss untagged dense notes
-        score += all_pts * 0.35
-    else:
-        # No structure: density from full text, then mild category nudge
-        score = all_pts * 1.2
-
-    # Class 4 density bonus if syrupy anchors appear in base/heart/full
-    class4_hit = any(
-        k in (notes or "").lower() or k in name
-        for k in (
-            "butter", "caramel", "honey", "oud", "leather", "praline",
-            "toffee", "labdanum", "benzoin", "myrrh",
-        )
-    )
-    if class4_hit:
-        score += 40.0
-
-    # Category modifiers (small — notes dominate)
-    heavy_cats = {"Oriental", "Oud", "Leather", "Smoky", "Woody", "Gourmand", "Amber", "Boozy", "Vanilla", "Creamy"}
-    light_cats = {"Fresh", "Citrus", "Aquatic", "Green", "Aromatic"}
-    score += 6 * len(cats & heavy_cats)
-    score -= 8 * len(cats & light_cats)
-
+    heavy = {"Oriental", "Oud", "Leather", "Smoky", "Woody", "Gourmand", "Amber", "Boozy", "Vanilla", "Creamy"}
+    light = {"Fresh", "Citrus", "Aquatic", "Green", "Aromatic"}
+    score += 12 * len(cats & heavy)
+    score -= 10 * len(cats & light)
+    text = ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+    for k in ("oud", "vanilla", "amber", "caramel", "leather", "tobacco", "incense", "patchouli", "tonka", "benzoin"):
+        if k in text:
+            score += 8
+    for k in ("bergamot", "lemon", "citrus", "marine", "aquatic", "mint", "green tea"):
+        if k in text:
+            score -= 5
     conc = (f.get("concentration") or "").lower()
-    if "oil" in conc or is_oil_fragrance(f):
-        score += 12  # oils sit closer to skin / denser feel
-    if any(x in name for x in ("body spray", "mist", "cologne", "hair")):
-        score -= 20
-    if any(x in name for x in ("intense", "elixir", "extrait")):
+    if "oil" in conc:
+        score += 15
+    if any(x in (f.get("name") or "").lower() for x in ("intense", "elixir", "extrait")):
         score += 10
-
-    return int(round(score))
-
+    return int(max(0, score))
 
 def order_frags_heavy_to_light(frags: list) -> list:
     """Sort fragrances heaviest first (apply as base first) via density weight."""
@@ -11285,7 +11254,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     used = set()
     menu_names = set()
     # Cap evaluations for speed on mobile
-    max_eval = min(45, len(candidates))
+    max_eval = min(30, len(candidates))
     for dessert_pts, frags in candidates[:max_eval]:
         if len(stacks) >= num:
             break
