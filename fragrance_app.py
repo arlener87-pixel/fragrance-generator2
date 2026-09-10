@@ -6189,55 +6189,28 @@ _NOTE_CLASH = [
 
 
 
-# Category pairs that layer well together (used by layer_score)
 GOOD_LAYER_PAIRS = [
-    ("Gourmand", "Vanilla"),
-    ("Gourmand", "Sweet"),
-    ("Gourmand", "Creamy"),
-    ("Gourmand", "Fruity"),
-    ("Gourmand", "Floral"),
-    ("Vanilla", "Sweet"),
-    ("Vanilla", "Creamy"),
-    ("Vanilla", "Floral"),
-    ("Vanilla", "Woody"),
-    ("Sweet", "Fruity"),
-    ("Sweet", "Floral"),
-    ("Floral", "Fruity"),
-    ("Floral", "Musky"),
-    ("Floral", "Powdery"),
-    ("Woody", "Oriental"),
-    ("Woody", "Spicy"),
-    ("Woody", "Oud"),
-    ("Oriental", "Spicy"),
-    ("Oriental", "Amber"),
-    ("Oriental", "Oud"),
-    ("Fresh", "Citrus"),
-    ("Fresh", "Aquatic"),
-    ("Fresh", "Green"),
-    ("Citrus", "Floral"),
-    ("Citrus", "Aromatic"),
-    ("Amber", "Vanilla"),
-    ("Amber", "Musky"),
-    ("Creamy", "Fruity"),
-    ("Boozy", "Gourmand"),
-    ("Boozy", "Woody"),
+    ("Gourmand", "Vanilla"), ("Gourmand", "Sweet"), ("Gourmand", "Creamy"),
+    ("Gourmand", "Fruity"), ("Gourmand", "Floral"), ("Vanilla", "Sweet"),
+    ("Vanilla", "Creamy"), ("Vanilla", "Floral"), ("Vanilla", "Woody"),
+    ("Sweet", "Fruity"), ("Sweet", "Floral"), ("Floral", "Fruity"),
+    ("Floral", "Musky"), ("Floral", "Powdery"), ("Woody", "Oriental"),
+    ("Woody", "Spicy"), ("Woody", "Oud"), ("Oriental", "Spicy"),
+    ("Oriental", "Amber"), ("Oriental", "Oud"), ("Fresh", "Citrus"),
+    ("Fresh", "Aquatic"), ("Fresh", "Green"), ("Citrus", "Floral"),
+    ("Citrus", "Aromatic"), ("Amber", "Vanilla"), ("Amber", "Musky"),
+    ("Creamy", "Fruity"), ("Boozy", "Gourmand"), ("Boozy", "Woody"),
 ]
 BAD_LAYER_PAIRS = [
-    ("Aquatic", "Oud"),
-    ("Aquatic", "Leather"),
-    ("Citrus", "Oud"),
-    ("Fresh", "Oud"),
-    ("Green", "Gourmand"),
-    ("Aquatic", "Gourmand"),
+    ("Aquatic", "Oud"), ("Aquatic", "Leather"), ("Citrus", "Oud"),
+    ("Fresh", "Oud"), ("Green", "Gourmand"), ("Aquatic", "Gourmand"),
 ]
 
 def layer_score(f1: dict, f2: dict) -> int:
-    if f1["name"] == f2["name"]:
+    if not f1 or not f2 or f1.get("name") == f2.get("name"):
         return -100
-    if (
-        st.session_state["user_reactions"].get(f1["name"]) == "dislike"
-        or st.session_state["user_reactions"].get(f2["name"]) == "dislike"
-    ):
+    _rx = st.session_state.get("user_reactions") or {}
+    if _rx.get(f1.get("name")) == "dislike" or _rx.get(f2.get("name")) == "dislike":
         return -100
 
     cats1 = set(f1.get("category") or [])
@@ -11312,7 +11285,7 @@ def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mo
     used = set()
     menu_names = set()
     # Cap evaluations for speed on mobile
-    max_eval = min(36, len(candidates))
+    max_eval = min(45, len(candidates))
     for dessert_pts, frags in candidates[:max_eval]:
         if len(stacks) >= num:
             break
@@ -11402,8 +11375,8 @@ try:
 except Exception:
     pass
 
-tab_discover, tab_layer, tab_dessert, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Dessert", "SOTD", "Collection", "Vault"]
+tab_discover, tab_layer, tab_sotd, tab_collection, tab_vault = st.tabs(
+    ["Discover", "Layer", "SOTD", "Collection", "Vault"]
 )
 
 # ===== DISCOVER =====
@@ -13313,222 +13286,6 @@ with tab_layer:
 
 
 # ===== ROULETTE =====
-
-with tab_dessert:
-    st.subheader("Dessert layering")
-    st.caption(
-        "Female-leaning sweet stacks from your vault — named like a dessert menu. "
-        "Only stacks that score **75+** on Layer check. Use **Try it** to track ideas to wear."
-    )
-    _try = st.session_state.get("try_recipes") or []
-    with st.expander(
-        "Try list (" + str(len(_try)) + ") — check off & save recipes",
-        expanded=bool(_try),
-    ):
-        if not _try:
-            st.caption("Tap **Try it** on a dessert idea to build your list. Those combos will not be suggested again.")
-        else:
-            for ti, titem in enumerate(list(_try)):
-                tb1, tb2, tb3 = st.columns([3, 1, 1])
-                with tb1:
-                    tried = bool(titem.get("tried"))
-                    label = ("[x] " if tried else "[ ] ") + str(titem.get("name") or "Try layer")
-                    st.markdown("**" + label + "**")
-                    st.caption(
-                        " + ".join(titem.get("bottles") or [])
-                        + " · "
-                        + str(titem.get("source") or "")
-                    )
-                with tb2:
-                    if st.button(
-                        "Tried" if not titem.get("tried") else "Undo",
-                        key=f"try_toggle_{ti}",
-                    ):
-                        cur = list(st.session_state.get("try_recipes") or [])
-                        if ti >= len(cur):
-                            st.rerun()
-                        item = dict(cur[ti])
-                        now_tried = not bool(item.get("tried"))
-                        item["tried"] = now_tried
-                        # If marked tried and this combo is already a saved recipe → remove
-                        bottles_key = tuple(sorted(str(b) for b in (item.get("bottles") or []) if b))
-                        already_saved = False
-                        for r in st.session_state.get("layer_recipes") or []:
-                            rk = tuple(sorted(str(b) for b in (r.get("bottles") or r.get("names") or []) if b))
-                            if bottles_key and bottles_key == rk:
-                                already_saved = True
-                                break
-                        if now_tried and already_saved:
-                            cur = [x for j, x in enumerate(cur) if j != ti]
-                            st.session_state["try_recipes"] = cur
-                            mark_vault_dirty()
-                            save_persisted_data()
-                            st.success("Tried + already saved — removed from Try list")
-                        else:
-                            cur[ti] = item
-                            st.session_state["try_recipes"] = cur
-                            mark_vault_dirty()
-                            save_persisted_data()
-                        st.rerun()
-                with tb3:
-                    if st.button("Save", key=f"try_save_{ti}"):
-                        recipe = {
-                            "name": titem.get("name") or "Try layer",
-                            "bottles": list(titem.get("bottles") or []),
-                            "notes": titem.get("notes") or "From Try list",
-                            "gender": "Female",
-                            "saved_at": datetime.datetime.now(
-                                ZoneInfo("America/Los_Angeles")
-                            ).isoformat(timespec="seconds"),
-                        }
-                        lr = list(st.session_state.get("layer_recipes") or [])
-                        lr.insert(0, recipe)
-                        st.session_state["layer_recipes"] = lr[:80]
-                        # Remove from Try list once saved
-                        st.session_state["try_recipes"] = [
-                            x for j, x in enumerate(st.session_state.get("try_recipes") or [])
-                            if j != ti
-                        ]
-                        mark_vault_dirty()
-                        save_persisted_data()
-                        st.success("Saved **" + recipe["name"] + "** and removed from Try list")
-                        st.rerun()
-                if st.button("Remove", key=f"try_rm_{ti}"):
-                    st.session_state["try_recipes"] = [
-                        x for j, x in enumerate(st.session_state["try_recipes"]) if j != ti
-                    ]
-                    mark_vault_dirty()
-                    save_persisted_data()
-                    st.rerun()
-                st.markdown("---")
-    d1, d2, d3 = st.columns(3)
-    with d1:
-        n_desserts = st.slider("How many ideas", 3, 8, 5, key="dessert_n")
-    with d2:
-        dessert_gender = st.selectbox(
-            "Gender lean",
-            ["Female", "Female + Unisex"],
-            key="dessert_gender_mode",
-            help="Default Female only; add Unisex if your vault is small.",
-        )
-    with d3:
-        st.write("")
-        st.write("")
-        refresh_d = st.button("Fresh menu", type="primary", key="dessert_refresh", use_container_width=True)
-
-    if refresh_d:
-        prev = st.session_state.get("_dessert_menu") or []
-        st.session_state["_dessert_exclude"] = [
-            tuple(sorted(str(x) for x in (item.get("names") or []) if x))
-            for item in prev
-        ]
-        menu = build_dessert_suggestions(
-            num=int(n_desserts),
-            min_layer_score=75,
-            gender_mode=dessert_gender if dessert_gender in ("Female", "Female + Unisex") else "Female + Unisex",
-        )
-        st.session_state["_dessert_menu"] = menu
-        st.session_state["_dessert_exclude"] = []
-        st.rerun()
-    menu = st.session_state.get("_dessert_menu") or []
-    if not menu and not refresh_d:
-        st.info("Tap **Fresh menu** to load dessert layering ideas (keeps other tabs fast).")
-    if menu and len(menu) < int(n_desserts):
-        st.caption(
-            "Found **"
-            + str(len(menu))
-            + "** stack(s) at 75+ (asked for "
-            + str(int(n_desserts))
-            + "). Fresh menu or Female + Unisex can unlock more."
-        )
-
-    if not menu:
-        st.warning(
-            "No dessert stacks hit **75+** layer score yet. "
-            "Tag more Female gourmands (vanilla, caramel, cream) or loosen gender to Female + Unisex, then **Fresh menu**."
-        )
-    else:
-        for i, item in enumerate(menu):
-            with st.container():
-                st.markdown("### " + str(item.get("dessert_name") or "Sweet layer"))
-                names = item.get("names") or []
-                sc = item.get("score")
-                if sc is not None:
-                    st.success("Layer score: **" + str(sc) + "/100** (good dessert stack)")
-                st.markdown("**Bottles:** " + " + ".join(names))
-                for f in item.get("frags") or []:
-                    g = f.get("gender") or "?"
-                    try:
-                        oil = oil_badge(f)
-                    except Exception:
-                        oil = ""
-                    st.caption(
-                        (f.get("name") or "?")
-                        + " · "
-                        + str(f.get("brand") or "")
-                        + " · "
-                        + str(g)
-                        + oil
-                        + " · "
-                        + str(f.get("season") or "")
-                    )
-                st.info(str(item.get("layer_tip") or ""))
-                st.caption(str(item.get("season_tip") or ""))
-                st.caption("Profile: " + str(item.get("why") or "dessert"))
-                b1, b2, b3, b4 = st.columns(4)
-                with b1:
-                    if st.button("Layer check", key=f"dessert_check_{i}"):
-                        _dname = str(item.get("dessert_name") or "Dessert layer").strip()
-                        st.session_state["_pending_layer_pick"] = list(names)
-                        st.session_state["_locked_layer_pair"] = list(names)
-                        st.session_state["_locked_recipe_name"] = _dname
-                        _ev = evaluate_layer_recipe(list(names))
-                        _ev["selected_names"] = list(names)
-                        _ev["suggested_name"] = _dname
-                        _ev["dessert_name"] = _dname
-                        st.session_state["last_layer_check"] = _ev
-                        st.session_state["roulette_layer_recipe_name"] = _dname
-                        st.session_state["_seed_roulette_recipe_name"] = True
-                        st.success("Loaded in Layer check as **" + _dname + "** — open the **Layer** tab.")
-                        st.rerun()
-                with b2:
-                    if st.button("Try it", key=f"dessert_try_{i}"):
-                        ok = add_try_recipe(
-                            item.get("dessert_name") or "Dessert layer",
-                            list(names),
-                            notes=item.get("layer_tip") or "",
-                            source="Dessert",
-                        )
-                        save_persisted_data()
-                        if ok:
-                            st.success("Added to **Try list**")
-                        else:
-                            st.info("Already on your Try list")
-                        st.rerun()
-                with b3:
-                    if st.button("Save recipe", key=f"dessert_save_{i}"):
-                        recipe = {
-                            "name": item.get("dessert_name") or "Dessert layer",
-                            "bottles": list(names),
-                            "notes": item.get("layer_tip") or "Dessert menu",
-                            "gender": "Female",
-                            "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
-                        }
-                        lr = list(st.session_state.get("layer_recipes") or [])
-                        lr.insert(0, recipe)
-                        st.session_state["layer_recipes"] = lr[:80]
-                        mark_vault_dirty()
-                        save_persisted_data()
-                        st.success("Saved **" + str(recipe["name"]) + "**")
-                with b4:
-                    if st.button("SOTD", key=f"dessert_sotd_{i}"):
-                        try:
-                            send_to_sotd(list(names), notes=item.get("dessert_name") or "Dessert layer")
-                        except Exception:
-                            st.session_state["sotd_prefill"] = list(names)
-                        st.success("Ready for SOTD")
-                        st.rerun()
-                st.markdown("---")
 
 
 with tab_sotd:
