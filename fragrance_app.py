@@ -340,12 +340,14 @@ def clean_notes_text(raw: str) -> str:
     t = str(raw).strip()
     if not t:
         return ""
-    # Fix glued words before known section headers
-    t = re.sub(r"(?i)([a-z0-9])(top\s*notes?\s*:)", r"\1. \2", t)
-    t = re.sub(r"(?i)([a-z0-9])(heart\s*(?:notes?)?\s*:)", r"\1. \2", t)
-    t = re.sub(r"(?i)([a-z0-9])(middle\s*(?:notes?)?\s*:)", r"\1. \2", t)
-    t = re.sub(r"(?i)([a-z0-9])(base\s*(?:notes?)?\s*:)", r"\1. \2", t)
-    t = re.sub(r"(?i)([a-z0-9])(dry\s*-?\s*down\s*:)", r"\1. \2", t)
+    # Fix glued section headers (CoconutMiddle, MandarinHeart, etc.)
+    t = re.sub(r"(?i)([a-z0-9])(top\s*notes?\s*[-–:])", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(heart\s*(?:notes?)?\s*[-–:])", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(middle\s*\(\s*heart\s*\)\s*notes?\s*[-–:])", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(heart\s*\(\s*middle\s*\)\s*notes?\s*[-–:])", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(middle\s*(?:notes?)?\s*[-–:])", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(base\s*(?:notes?)?\s*[-–:])", r"\1. \2", t)
+    t = re.sub(r"(?i)([a-z0-9])(dry\s*-?\s*down\s*[-–:])", r"\1. \2", t)
     # Space after commas / slashes
     t = re.sub(r",\s*", ", ", t)
     t = re.sub(r"\s*/\s*", " / ", t)
@@ -353,17 +355,17 @@ def clean_notes_text(raw: str) -> str:
     # Collapse whitespace
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r"\s*\n\s*", "\n", t)
-    # Normalize section labels
-    t = re.sub(r"(?i)\btop\s*notes?\s*:", "Top -", t)
-    t = re.sub(r"(?i)\bheart\s*(?:notes?)?\s*:", "Heart -", t)
-    t = re.sub(r"(?i)\bmiddle\s*(?:notes?)?\s*:", "Heart -", t)
-    t = re.sub(r"(?i)\bbase\s*(?:notes?)?\s*:", "Base -", t)
-    t = re.sub(r"(?i)\bdry\s*-?\s*down\s*:", "Base -", t)
-    # Prefer slash structure for short pyramid lines
-    if "Top -" in t and "Heart -" in t and " / " not in t:
-        # keep as is with labels
-        pass
+    # Normalize section labels to Top - / Heart - / Base -
+    t = re.sub(r"(?i)\btop\s*notes?\s*[-–:]", "Top -", t)
+    t = re.sub(r"(?i)\bmiddle\s*\(\s*heart\s*\)\s*notes?\s*[-–:]", "Heart -", t)
+    t = re.sub(r"(?i)\bheart\s*\(\s*middle\s*\)\s*notes?\s*[-–:]", "Heart -", t)
+    t = re.sub(r"(?i)\bheart\s*(?:notes?)?\s*[-–:]", "Heart -", t)
+    t = re.sub(r"(?i)\bmiddle\s*(?:notes?)?\s*[-–:]", "Heart -", t)
+    t = re.sub(r"(?i)\bbase\s*(?:notes?)?\s*[-–:]", "Base -", t)
+    t = re.sub(r"(?i)\bdry\s*-?\s*down\s*[-–:]", "Base -", t)
     return t.strip()
+
+
 
 
 def format_notes_pyramid(raw: str) -> str:
@@ -8485,18 +8487,19 @@ def note_char_count(f: dict) -> int:
 
 
 def is_incomplete_notes(f: dict) -> bool:
-    """True only when notes are missing, tiny, vague placeholders, or have no pyramid at all.
+    """True only when notes are missing, tiny, or true placeholders.
 
-    Accepts common formats once fixed:
+    Accepts common pyramid styles including retailer glue:
       Top - X / Heart - Y / Base - Z
-      Top Notes: X | Heart Notes: Y | Base Notes: Z
-      Top: X / Middle: Y / Base: Z
+      Top Notes: X
+      Middle (Heart) Notes: Y
+      Heart (Middle) Notes: Y
+      Base Notes: Z
     """
     notes = (f.get("notes") or "").strip()
     if not notes or len(notes) < 25:
         return True
     low = notes.lower()
-    # Only flag true placeholders — not normal descriptive text
     vague = (
         "limited public data",
         "not specified",
@@ -8509,21 +8512,36 @@ def is_incomplete_notes(f: dict) -> bool:
     )
     if any(v in low for v in vague):
         return True
-    # Flexible pyramid detection (dash, colon, optional "notes"/"note")
-    has_top = bool(re.search(
-        r"(?i)\btop(\s*notes?)?\s*[-–:]", notes
-    ))
+
+    has_top = bool(re.search(r"(?i)\btop(\s*notes?)?\s*[-–:]", notes))
     has_heart = bool(re.search(
-        r"(?i)\b(heart|middle|mid)(\s*notes?)?\s*[-–:]", notes
+        r"(?i)\b("
+        r"heart(\s*notes?)?|"
+        r"middle(\s*notes?)?|"
+        r"mid(\s*notes?)?|"
+        r"middle\s*\(\s*heart\s*\)\s*notes?|"
+        r"heart\s*\(\s*middle\s*\)\s*notes?"
+        r")\s*[-–:]",
+        notes,
     ))
     has_base = bool(re.search(
-        r"(?i)\b(base|dry\s*-?\s*down)(\s*notes?)?\s*[-–:]", notes
+        r"(?i)\b(base(\s*notes?)?|dry\s*-?\s*down(\s*notes?)?)\s*[-–:]",
+        notes,
     ))
     if has_top and has_heart and has_base:
         return False
-    # Also accept slash-separated mini pyramids without labels if long enough
-    # e.g. still prefer labels — without labels keep flagged
+
+    # Glued retailer text without perfect spacing
+    glued_top = bool(re.search(r"(?i)top\s*notes?\s*[-–:]", notes))
+    glued_heart = bool(re.search(
+        r"(?i)(middle|heart)\s*(\(\s*(heart|middle)\s*\))?\s*notes?\s*[-–:]",
+        notes,
+    ))
+    glued_base = bool(re.search(r"(?i)base\s*notes?\s*[-–:]", notes))
+    if glued_top and glued_heart and glued_base:
+        return False
     return True
+
 
 
 
@@ -10675,12 +10693,17 @@ with st.sidebar:
                 "YAY only", value=False, key="filter_favorites_only"
             )
         with r4:
-            oils_only = st.checkbox(
-                "Oils only",
-                value=False,
-                key="filter_oils_only",
-                help="Only concentrated / perfume oils. Mark oils in Vault → Edit.",
+            format_mode = st.selectbox(
+                "Format",
+                ["Sprays only", "Oils only", "Any format"],
+                index=0,
+                key="filter_format_mode",
+                help="Sprays only excludes concentrated oils. Oils only is attars / perfume oils.",
             )
+            oils_only = format_mode == "Oils only"
+            sprays_only = format_mode == "Sprays only"
+            st.session_state["filter_oils_only"] = oils_only
+            st.session_state["filter_sprays_only"] = sprays_only
         prefer_oils = False
 
         generate_clicked = st.button(
@@ -11754,8 +11777,12 @@ with tab_discover:
         num_recs = st.session_state.get("filter_num_recs", 3)
         favorites_only = bool(st.session_state.get("filter_favorites_only", False))
         oils_only = bool(st.session_state.get("filter_oils_only", False))
+        sprays_only = bool(st.session_state.get("filter_sprays_only", True))
         prefer_oils = bool(st.session_state.get("filter_prefer_oils", False))
-        conc_filter = "Concentrated oil" if oils_only else "Any"
+        if oils_only:
+            conc_filter = "Concentrated oil"
+        else:
+            conc_filter = "Any"
         projection = st.session_state.get("filter_projection") or "Any"
         climate_mode = st.session_state.get("filter_climate_mode") or "Outdoor (live / slider)"
         # Season from outdoor temp (slider / live) unless indoor work mode or forced band
@@ -11829,6 +11856,9 @@ with tab_discover:
             st.session_state["_recs_widened"] = True
         else:
             st.session_state["_recs_widened"] = False
+        # Sprays only: drop concentrated oils from results
+        if sprays_only and selected:
+            selected = [f for f in selected if not is_oil_fragrance(f)]
         if prefer_oils and selected and not oils_only:
             # Re-rank: oils first while keeping relative order
             selected = sorted(
@@ -11868,10 +11898,60 @@ with tab_discover:
             )
         except Exception:
             layer_stacks = []
+
+        # Saved recipes that fit current season / weather
+        recipe_recs = []
+        try:
+            for rec in (st.session_state.get("layer_recipes") or []):
+                if not isinstance(rec, dict):
+                    continue
+                bottles = rec.get("bottles") or []
+                if len(bottles) < 2:
+                    continue
+                # Resolve frags
+                frags = []
+                skip = False
+                for bn in bottles:
+                    frag = next(
+                        (x for x in (st.session_state.get("fragrances_db") or [])
+                         if (x.get("name") or "") == bn),
+                        None,
+                    )
+                    if not frag:
+                        skip = True
+                        break
+                    if sprays_only and is_oil_fragrance(frag):
+                        skip = True
+                        break
+                    if oils_only and not is_oil_fragrance(frag):
+                        skip = True
+                        break
+                    if gender and gender != "Any" and not matches_gender(frag, gender):
+                        # soft: allow if any bottle matches
+                        pass
+                    frags.append(frag)
+                if skip or len(frags) < 2:
+                    continue
+                # Season fit: at least half of bottles match weather
+                if weather and weather != "Any":
+                    ok_n = sum(1 for f in frags if matches_weather(f, weather))
+                    if ok_n < max(1, len(frags) // 2):
+                        continue
+                recipe_recs.append({
+                    "name": rec.get("name") or " + ".join(bottles[:3]),
+                    "bottles": bottles,
+                    "notes": rec.get("notes") or "",
+                    "source": rec.get("source") or "Saved",
+                })
+            recipe_recs = recipe_recs[:5]
+        except Exception:
+            recipe_recs = []
+
         st.session_state["last_recs"] = {
             "selected": selected,
             "num": num_recs,
             "layer_stacks": layer_stacks,
+            "recipe_recs": recipe_recs,
             "meta": {
                 "gender": gender,
                 "weather": weather,
@@ -12184,6 +12264,38 @@ with tab_discover:
                 st.markdown("---")
 
         # Suggested 2-3 bottle layers for same occasion / weather
+        # Saved recipes that fit season / format
+        recipe_recs = last_recs.get("recipe_recs") or []
+        if recipe_recs:
+            st.subheader("From your saved recipes")
+            st.caption(
+                "Recipes from your vault that fit the current season/format filters."
+            )
+            for ri, rec in enumerate(recipe_recs, 1):
+                names = rec.get("bottles") or []
+                title = rec.get("name") or " + ".join(names)
+                st.markdown(
+                    f"**{ri}. {title}**  \n"
+                    f"Bottles: {' > '.join(names)}"
+                )
+                if rec.get("notes"):
+                    st.caption(str(rec.get("notes"))[:200])
+                rb1, rb2 = st.columns(2)
+                with rb1:
+                    if st.button("Wear recipe", key=f"recipe_sotd_{ri}"):
+                        send_to_sotd(list(names), notes=f"Recipe: {title}")
+                        st.rerun()
+                with rb2:
+                    if st.button("Check in Layer", key=f"recipe_layer_{ri}"):
+                        st.session_state["_pending_layer_pick"] = list(names)
+                        try:
+                            st.session_state["last_layer_check"] = evaluate_layer_recipe(list(names))
+                        except Exception:
+                            pass
+                        st.session_state["_open_layer_check"] = True
+                        st.success("Loaded in Layer — open the Layer tab.")
+                        st.rerun()
+
         layer_stacks = last_recs.get("layer_stacks") or []
         if layer_stacks:
             st.subheader("Suggested layers (2-3 bottles)")
