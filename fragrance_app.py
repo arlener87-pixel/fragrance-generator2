@@ -13573,6 +13573,50 @@ with tab_layer:
                     st.session_state["layer_recipes"] = full
                     save_persisted_data()
                     st.rerun()
+
+            # Inline rename form (note-based name)
+            if st.session_state.get(f"_renaming_recipe_{_rkey}"):
+                suggested = st.session_state.get(f"_rename_recipe_val_{_rkey}") or nm
+                new_name = st.text_input(
+                    "New name (from notes)",
+                    value=suggested,
+                    key=f"recipe_rename_input_{ri}_{_rkey}",
+                    help="Suggested from shared notes on the bottles. Edit freely.",
+                )
+                rn1, rn2, rn3 = st.columns(3)
+                with rn1:
+                    if st.button("Save name", key=f"recipe_rename_save_{ri}_{_rkey}", type="primary"):
+                        clean = (new_name or "").strip() or suggested
+                        full = st.session_state.get("layer_recipes") or []
+                        for j, r in enumerate(full):
+                            if r is recipe or (
+                                r.get("name") == recipe.get("name")
+                                and list(r.get("bottles") or []) == list(bottles)
+                            ):
+                                full[j]["name"] = clean
+                                break
+                        st.session_state["layer_recipes"] = full
+                        st.session_state.pop(f"_renaming_recipe_{_rkey}", None)
+                        st.session_state.pop(f"_rename_recipe_val_{_rkey}", None)
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success(f"Renamed → **{clean}**")
+                        st.rerun()
+                with rn2:
+                    if st.button("Suggest from notes", key=f"recipe_rename_sug_{ri}_{_rkey}"):
+                        try:
+                            st.session_state[f"_rename_recipe_val_{_rkey}"] = suggest_recipe_name_from_notes(
+                                list(bottles), randomize=True
+                            )
+                        except Exception:
+                            pass
+                        st.rerun()
+                with rn3:
+                    if st.button("Cancel", key=f"recipe_rename_cancel_{ri}_{_rkey}"):
+                        st.session_state.pop(f"_renaming_recipe_{_rkey}", None)
+                        st.session_state.pop(f"_rename_recipe_val_{_rkey}", None)
+                        st.rerun()
+
             st.markdown("---")
 
 
@@ -13592,6 +13636,32 @@ with tab_recipes:
         st.info("No saved recipes yet. Save from **Layer check** or the **Try** tab.")
     else:
         st.write(f"**{len(recipes)}** recipe(s).")
+        if st.button(
+            "Rename all from notes",
+            key="recipe_bulk_rename_notes",
+            help="Sets every recipe name from shared notes on its bottles (overwrites current names).",
+        ):
+            full = list(st.session_state.get("layer_recipes") or [])
+            changed = 0
+            for i, item in enumerate(full):
+                bottles_i = list(item.get("bottles") or item.get("names") or [])
+                if len(bottles_i) < 1:
+                    continue
+                try:
+                    new_nm = suggest_recipe_name_from_notes(bottles_i, randomize=False)
+                except Exception:
+                    new_nm = ""
+                if new_nm and new_nm != (item.get("name") or ""):
+                    full[i]["name"] = new_nm
+                    changed += 1
+            st.session_state["layer_recipes"] = full
+            if changed:
+                mark_vault_dirty()
+                save_persisted_data()
+                st.success(f"Renamed **{changed}** recipe(s) from notes.")
+            else:
+                st.info("No names changed (already matched or no note data).")
+            st.rerun()
         rf1, rf2 = st.columns([2, 1])
         with rf1:
             filt = st.text_input("Filter recipes", placeholder="Name or bottle...", key="recipes_filter")
@@ -13692,13 +13762,11 @@ with tab_recipes:
                         pass
                     st.success("Open the **Layer** tab.")
                     st.rerun()
-            with c3:
-                if st.button("Refresh rating", key=f"recipe_rate_{ri}_{abs(hash(tuple(bottles)))%10000000}"):
-                    # force recompute by clearing nothing - next render recalculates
-                    st.rerun()
             with c4:
-                if st.button("Delete", key=f"recipe_del_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}"):
-                    # delete matching entry from full list
+                if st.button("Refresh rating", key=f"recipe_rate_{ri}_{_trk}"):
+                    st.rerun()
+            with c5:
+                if st.button("Delete", key=f"recipe_del_{ri}_{_trk}"):
                     full = list(st.session_state.get("layer_recipes") or [])
                     target_key = (nm, tuple(bottles))
                     new_full = []
@@ -13714,6 +13782,49 @@ with tab_recipes:
                     mark_vault_dirty()
                     save_persisted_data()
                     st.rerun()
+
+            if st.session_state.get(f"_renaming_recipe_{_trk}"):
+                suggested = st.session_state.get(f"_rename_recipe_val_{_trk}") or nm
+                new_name = st.text_input(
+                    "New name (from notes)",
+                    value=suggested,
+                    key=f"recipe_rename_input_{ri}_{_trk}",
+                    help="Suggested from notes on the bottles. Edit or re-roll.",
+                )
+                rn1, rn2, rn3 = st.columns(3)
+                with rn1:
+                    if st.button("Save name", key=f"recipe_rename_save_{ri}_{_trk}", type="primary"):
+                        clean = (new_name or "").strip() or suggested
+                        full = list(st.session_state.get("layer_recipes") or [])
+                        target_key = (nm, tuple(bottles))
+                        for j, item in enumerate(full):
+                            ib = list(item.get("bottles") or item.get("names") or [])
+                            iname = item.get("name") or ""
+                            if (iname, tuple(ib)) == target_key:
+                                full[j]["name"] = clean
+                                break
+                        st.session_state["layer_recipes"] = full
+                        st.session_state.pop(f"_renaming_recipe_{_trk}", None)
+                        st.session_state.pop(f"_rename_recipe_val_{_trk}", None)
+                        mark_vault_dirty()
+                        save_persisted_data()
+                        st.success(f"Renamed → **{clean}**")
+                        st.rerun()
+                with rn2:
+                    if st.button("Suggest from notes", key=f"recipe_rename_sug_{ri}_{_trk}"):
+                        try:
+                            st.session_state[f"_rename_recipe_val_{_trk}"] = suggest_recipe_name_from_notes(
+                                list(bottles), randomize=True
+                            )
+                        except Exception:
+                            pass
+                        st.rerun()
+                with rn3:
+                    if st.button("Cancel", key=f"recipe_rename_cancel_{ri}_{_trk}"):
+                        st.session_state.pop(f"_renaming_recipe_{_trk}", None)
+                        st.session_state.pop(f"_rename_recipe_val_{_trk}", None)
+                        st.rerun()
+
             st.markdown("---")
 
 
