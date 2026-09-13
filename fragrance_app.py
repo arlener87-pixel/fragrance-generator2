@@ -5109,14 +5109,20 @@ def geocode_city(query: str) -> dict:
 
 def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, force: bool = False) -> dict:
     """
-    Current outdoor temperature.
-    US: National Weather Service hourly (closer to Apple Weather).
-    Elsewhere / fallback: Open-Meteo.
-    Cache 5 minutes unless force=True.
+    Current outdoor temperature (actual when possible).
+
+    Priority for US coords:
+      1) NWS latest station observation (measured)
+      2) NWS hourly forecast period 0
+      3) Open-Meteo current temperature (F)
+
+    Elsewhere: Open-Meteo.
+    Cache 3 minutes unless force=True.
     """
     import json as _json
     import time as _time
     import urllib.request
+    import urllib.error
 
     if lat is None:
         lat = float(st.session_state.get("wx_lat") or CA_LAT)
@@ -5130,7 +5136,7 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
     cache_all = st.session_state.get("_live_temp_cache_map") or {}
     cache = cache_all.get(cache_key) or {}
     age = _time.time() - float(cache.get("ts") or 0)
-    if (not force) and cache.get("ok") and age < 5 * 60:
+    if (not force) and cache.get("ok") and age < 3 * 60:
         out = dict(cache)
         out["detail"] = (out.get("detail") or "") + f" (cached {int(age)}s)"
         out["cached"] = True
@@ -5148,7 +5154,7 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
         out = {
             "ok": True,
             "temp_f": temp_i,
-            "temp_f_raw": temp_f,
+            "temp_f_raw": round(temp_f, 1),
             "band": band,
             "source": source,
             "observed": observed,
@@ -5165,60 +5171,120 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
         st.session_state["_live_temp_cache_map"] = cache_all
         return out
 
-    ua = {"User-Agent": "ScentedDeadGirl/1.2 (fragrance sanctuary; contact: local)", "Accept": "application/geo+json, application/json"}
+    def _http_json(url, headers, timeout=10):
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return _json.loads(resp.read().decode("utf-8"))
 
-    # --- 1) NWS for continental US-ish coords ---
+    ua = {
+        "User-Agent": "ScentedDeadGirl/1.3 (fragrance sanctuary; personal use)",
+        "Accept": "application/geo+json, application/json",
+    }
+    errors = []
+
+    # --- 1) NWS measured observation (US) ---
     if 24.0 <= lat <= 50.0 and -125.0 <= lon <= -66.0:
         try:
-            pts_url = f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}"
-            req = urllib.request.Request(pts_url, headers=ua)
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                pts = _json.loads(resp.read().decode("utf-8"))
-            hourly_url = (pts.get("properties") or {}).get("forecastHourly")
-            if hourly_url:
-                req2 = urllib.request.Request(hourly_url, headers=ua)
-                with urllib.request.urlopen(req2, timeout=10) as resp:
-                    fc = _json.loads(resp.read().decode("utf-8"))
-                periods = (fc.get("properties") or {}).get("periods") or []
-                if periods:
-                    p0 = periods[0]
-                    t = p0.get("temperature")
-                    unit = (p0.get("temperatureUnit") or "F").upper()
-                    if t is not None:
-                        t = float(t)
-                        if unit == "C":
-                            t = t * 9.0 / 5.0 + 32.0
+            pts = _http_json(f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}", ua, 10)
+            props = pts.get("properties") or {}
+            stations_url = props.get("observationStations")
+            hourly_url = props.get("forecastHourly")
+
+            # 1a) Latest observation from nearest stations
+            if stations_url:
+                try:
+                    stn = _http_json(stations_url, ua, 10)
+                    features = (stn.get("features") or [])[:5]
+                    for feat in features:
+                        stn_id = (feat.get("properties") or {}).get("stationIdentifier")
+                        if not stn_id:
+                            # fallback: id from feature id URL
+                            fid = feat.get("id") or ""
+                            stn_id = fid.rstrip("/").split("/")[-1] if fid else None
+                        if not stn_id:
+                            continue
+                        obs_url = f"https://api.weather.gov/stations/{stn_id}/observations/latest"
+                        try:
+                            obs = _http_json(obs_url, ua, 8)
+                        except Exception:
+                            continue
+                        oprops = obs.get("properties") or {}
+                        temp_obj = oprops.get("temperature") or {}
+                        val = temp_obj.get("value")
+                        if val is None:
+                            continue
+                        # NWS observations are Celsius
+                        unit = str(temp_obj.get("unitCode") or "").lower()
+                        t = float(val)
+                        if "degc" in unit or "celsius" in unit or unit.endswith(":c") or unit == "":
+                            # default observation unit is C when unitCode is unit:degC
+                            if "degf" not in unit and "fahrenheit" not in unit:
+                                t = t * 9.0 / 5.0 + 32.0
+                        name = (oprops.get("station") or stn_id)
+                        observed = str(oprops.get("timestamp") or "")
                         return _pack(
                             t,
-                            "NWS",
-                            observed=str(p0.get("startTime") or ""),
-                            extra={"short_forecast": p0.get("shortForecast") or ""},
+                            f"NWS observation ({stn_id})",
+                            observed=observed,
+                            extra={
+                                "short_forecast": (oprops.get("textDescription") or ""),
+                                "station": stn_id,
+                            },
                         )
+                except Exception as e:
+                    errors.append(f"NWS obs: {e}")
+
+            # 1b) Hourly forecast as backup
+            if hourly_url:
+                try:
+                    fc = _http_json(hourly_url, ua, 10)
+                    periods = (fc.get("properties") or {}).get("periods") or []
+                    if periods:
+                        p0 = periods[0]
+                        t = p0.get("temperature")
+                        unit = (p0.get("temperatureUnit") or "F").upper()
+                        if t is not None:
+                            t = float(t)
+                            if unit == "C":
+                                t = t * 9.0 / 5.0 + 32.0
+                            return _pack(
+                                t,
+                                "NWS hourly forecast",
+                                observed=str(p0.get("startTime") or ""),
+                                extra={"short_forecast": p0.get("shortForecast") or ""},
+                            )
+                except Exception as e:
+                    errors.append(f"NWS hourly: {e}")
         except Exception as nws_err:
+            errors.append(f"NWS points: {nws_err}")
             st.session_state["_wx_nws_error"] = str(nws_err)
 
-    # --- 2) Open-Meteo fallback (global) ---
+    # --- 2) Open-Meteo current (global, explicit Fahrenheit) ---
     try:
         url = (
             "https://api.open-meteo.com/v1/forecast"
             f"?latitude={lat:.5f}&longitude={lon:.5f}"
-            "&current=temperature_2m,relative_humidity_2m"
+            "&current=temperature_2m,relative_humidity_2m,weather_code"
             "&temperature_unit=fahrenheit"
             "&timezone=auto"
             "&forecast_days=1"
         )
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "ScentedDeadGirl/1.2", "Accept": "application/json"}
+        payload = _http_json(
+            url,
+            {"User-Agent": "ScentedDeadGirl/1.3", "Accept": "application/json"},
+            12,
         )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            payload = _json.loads(resp.read().decode("utf-8"))
         cur = payload.get("current") or {}
         temp = cur.get("temperature_2m")
         if temp is None:
             cw = payload.get("current_weather") or {}
             temp = cw.get("temperature")
+            # current_weather is Celsius unless unit set on older API - we requested fahrenheit on current=
         if temp is None:
-            return {"ok": False, "detail": "No temperature in weather response", "label": label}
+            detail = "No temperature in weather response"
+            if errors:
+                detail += " | " + "; ".join(errors[:2])
+            return {"ok": False, "detail": detail, "label": label, "lat": lat, "lon": lon}
         return _pack(
             float(temp),
             "Open-Meteo",
@@ -5226,9 +5292,12 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
             extra={"timezone": str(payload.get("timezone") or "")},
         )
     except Exception as e:
+        detail = f"Weather fetch failed: {e}"
+        if errors:
+            detail += " | " + "; ".join(errors[:2])
         return {
             "ok": False,
-            "detail": f"Weather fetch failed: {e}",
+            "detail": detail,
             "label": label,
             "lat": lat,
             "lon": lon,
