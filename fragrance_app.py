@@ -5789,9 +5789,11 @@ def _diversify_scored(
             adj = s
             if name in recent:
                 adj -= strength
-            if brand and brand in used_brands:
+            # Brand penalty only while we still have room to be picky
+            if brand and brand in used_brands and len(picks) < max(1, top_n - 1):
                 adj -= strength * 0.75
-            # light random jitter so ties and near-ties rotate
+            elif brand and brand in used_brands:
+                adj -= strength * 0.2  # soft penalty when we must fill slots
             adj += random.random() * 4.0
             if best_adj is None or adj > best_adj:
                 best_adj = adj
@@ -5807,6 +5809,16 @@ def _diversify_scored(
         if brand:
             used_brands.add(brand)
         picks.append(f)
+    # If still short, take remaining highest scores ignoring brand diversity
+    if len(picks) < top_n:
+        for s, f in items:
+            if len(picks) >= top_n:
+                break
+            name = f.get("name") or ""
+            if not name or name in used_names:
+                continue
+            used_names.add(name)
+            picks.append(f)
     return picks
 
 
@@ -11918,6 +11930,8 @@ with tab_discover:
         prefer_oils = bool(st.session_state.get("filter_prefer_oils", False))
         if oils_only:
             conc_filter = "Concentrated oil"
+        elif sprays_only:
+            conc_filter = "Spray only"
         else:
             conc_filter = "Any"
         projection = st.session_state.get("filter_projection") or "Any"
@@ -11996,6 +12010,66 @@ with tab_discover:
         # Sprays only: drop concentrated oils from results
         if sprays_only and selected:
             selected = [f for f in selected if not is_oil_fragrance(f)]
+        # Top up if filters left us short of requested count
+        if selected is not None and len(selected) < int(num_recs or 3):
+            have = {f.get("name") for f in selected if f.get("name")}
+            need = int(num_recs or 3) - len(selected)
+            try:
+                extra = get_top_fragrances(
+                    gender,
+                    weather if weather else "Any",
+                    category,
+                    occasion if occasion else "Any",
+                    max(need * 4, need + 6),
+                    favorites_only=False,
+                    temp_f=rec_temp_f,
+                    shuffle=True,
+                    exclude_names=list(have) + list(exclude or []),
+                    concentration=conc_filter,
+                    projection=projection if projection != "Any" else "Any",
+                )
+            except Exception:
+                extra = []
+            for f in extra:
+                if len(selected) >= int(num_recs or 3):
+                    break
+                n = f.get("name")
+                if not n or n in have:
+                    continue
+                if sprays_only and is_oil_fragrance(f):
+                    continue
+                if oils_only and not is_oil_fragrance(f):
+                    continue
+                selected.append(f)
+                have.add(n)
+            # Last resort: relax weather to Any
+            if len(selected) < int(num_recs or 3):
+                try:
+                    extra2 = get_top_fragrances(
+                        gender,
+                        "Any",
+                        category,
+                        "Any",
+                        max(need * 4, 8),
+                        favorites_only=False,
+                        temp_f=None,
+                        shuffle=True,
+                        exclude_names=list(have),
+                        concentration=conc_filter,
+                        projection="Any",
+                    )
+                except Exception:
+                    extra2 = []
+                for f in extra2:
+                    if len(selected) >= int(num_recs or 3):
+                        break
+                    n = f.get("name")
+                    if not n or n in have:
+                        continue
+                    if sprays_only and is_oil_fragrance(f):
+                        continue
+                    selected.append(f)
+                    have.add(n)
         if prefer_oils and selected and not oils_only:
             # Re-rank: oils first while keeping relative order
             selected = sorted(
@@ -12192,7 +12266,7 @@ with tab_discover:
         st.subheader(f"Top {num_show}")
         _tr = st.session_state.get("try_recipes") or []
         if _tr:
-            st.caption("Try list: **" + str(len(_tr)) + "** idea(s) — open **Dessert** tab to check off & save.")
+            st.caption("Try list: **" + str(len(_tr)) + "** idea(s) — open the **Try** tab to check off & save.")
         if (meta or {}).get("oils_only") or st.session_state.get("filter_oils_only"):
             st.caption("Oils only — every pick should be a concentrated oil.")
         if st.session_state.get("_recs_widened"):
