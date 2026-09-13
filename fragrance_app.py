@@ -281,8 +281,56 @@ def brand_stats(*a, **k):
     return {}
 def sotd_streak(*a, **k):
     return 0
-def weekly_wishlist_suggestions(*a, **k):
-    return []
+def weekly_wishlist_suggestions(n: int = 5):
+    """Suggest Middle Eastern / Arabic-house bottles not already owned or wishlisted.
+    Rotates weekly based on the ISO week number so the list feels fresh.
+    """
+    import datetime
+    # Popular / commonly recommended ME bottles (name, brand, short why)
+    pool = [
+        {"name": "Khamrah", "brand": "Lattafa", "why": "Iconic date-cinnamon gourmand"},
+        {"name": "Khamrah Qahwa", "brand": "Lattafa", "why": "Coffee twist on Khamrah"},
+        {"name": "Asad Bourbon", "brand": "Lattafa", "why": "Warm boozy Asad flanker"},
+        {"name": "Maahir Legacy", "brand": "Lattafa", "why": "Fresh aquatic-woody crowd-pleaser"},
+        {"name": "Ameerat Al Arab", "brand": "Asdaaf", "why": "Classic rose-oud feminine"},
+        {"name": "Yara Candy", "brand": "Lattafa", "why": "Sweet candy-floral Yara flanker"},
+        {"name": "Badee Al Oud Amethyst", "brand": "Lattafa", "why": "Berry-rose oud"},
+        {"name": "Thameen Carat", "brand": "Paris Corner", "why": "Rich amber-gourmand"},
+        {"name": "Liquid Brun", "brand": "French Avenue", "why": "Bozy vanilla-tobacco"},
+        {"name": "9pm Rebel", "brand": "Afnan", "why": "Spicy-sweet 9pm flanker"},
+        {"name": "Club De Nuit Untold", "brand": "Armaf", "why": "Baccarat-style amber"},
+        {"name": "Hawas Ice", "brand": "Rasasi", "why": "Cool aquatic Hawas flanker"},
+        {"name": "Qaaed Al Fursan", "brand": "Lattafa", "why": "Pineapple-oud classic"},
+        {"name": "Ansaam Silver", "brand": "Lattafa", "why": "Fresh fruity-musky"},
+        {"name": "Hayaati Florence", "brand": "Lattafa", "why": "Floral-woody unisex"},
+        {"name": "Raghba Wood Intense", "brand": "Lattafa", "why": "Sweet woody vanilla"},
+        {"name": "Oud Mood", "brand": "Lattafa", "why": "Soft rose-oud daily driver"},
+        {"name": "Sheikh Al Shuyukh Final Edition", "brand": "Lattafa", "why": "Spicy amber powerhouse"},
+        {"name": "Velvet Gold", "brand": "Lattafa", "why": "Creamy gourmand"},
+        {"name": "Ajwad Pink to Pink", "brand": "Lattafa", "why": "Fruity-floral pink flanker"},
+    ]
+    owned = {
+        (f.get("name") or "").strip().lower()
+        for f in (st.session_state.get("fragrances_db") or [])
+    }
+    wish = set()
+    for w in (st.session_state.get("wishlist") or []):
+        if isinstance(w, dict):
+            wish.add((w.get("name") or "").strip().lower())
+        else:
+            wish.add(str(w).strip().lower())
+    available = [
+        p for p in pool
+        if p["name"].strip().lower() not in owned
+        and p["name"].strip().lower() not in wish
+    ]
+    if not available:
+        return []
+    # Rotate by ISO week so the same week always shows the same slice
+    week = datetime.date.today().isocalendar()[1]
+    start = (week * 3) % max(1, len(available))
+    rotated = available[start:] + available[:start]
+    return rotated[: max(1, min(n, len(rotated)))]
 
 
 def clean_notes_text(raw: str) -> str:
@@ -8392,11 +8440,25 @@ def note_char_count(f: dict) -> int:
 
 
 def is_incomplete_notes(f: dict) -> bool:
-    notes = (f.get("notes") or "").strip().lower()
-    if len(notes) < 25:
+    """True if notes are missing, very short, vague, or lack a clear Top/Heart/Base pyramid."""
+    notes = (f.get("notes") or "").strip()
+    if not notes or len(notes) < 40:
         return True
-    vague = ("limited public data", "not specified", "likely ", "typically ", "or oriental", "or floral")
-    return any(v in notes for v in vague)
+    low = notes.lower()
+    vague = (
+        "limited public data", "not specified", "likely ", "typically ",
+        "or oriental", "or floral", "deeper/intensified", "fruity-woody-oriental",
+        "spicy-sweet (", "dulce de leche / caramel",
+    )
+    if any(v in low for v in vague):
+        return True
+    # Require a recognizable pyramid structure
+    has_top = bool(re.search(r"(?i)\btop\s*[-–:]|\btop\s*notes?\s*:", notes))
+    has_heart = bool(re.search(r"(?i)\b(heart|middle)\s*[-–:]|\b(heart|middle)\s*notes?\s*:", notes))
+    has_base = bool(re.search(r"(?i)\bbase\s*[-–:]|\bbase\s*notes?\s*:|\bdry\s*-?\s*down\s*:", notes))
+    if not (has_top and has_heart and has_base):
+        return True
+    return False
 
 
 def short_notes_bottles(max_chars: int = 40) -> list:
