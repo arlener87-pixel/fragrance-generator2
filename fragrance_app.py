@@ -5109,20 +5109,20 @@ def geocode_city(query: str) -> dict:
 
 def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, force: bool = False) -> dict:
     """
-    Current outdoor temperature (actual when possible).
+    Current outdoor temperature, tuned to match consumer weather apps (e.g. Apple).
 
-    Priority for US coords:
-      1) NWS latest station observation (measured)
-      2) NWS hourly forecast period 0
-      3) Open-Meteo current temperature (F)
+    For US locations:
+      - Pull latest NWS observations from nearby stations
+      - Prefer non-airport stations (airports run hot on concrete)
+      - Use the median of the closest valid readings
+      - Blend with Open-Meteo + NWS hourly when available
 
-    Elsewhere: Open-Meteo.
     Cache 3 minutes unless force=True.
     """
     import json as _json
     import time as _time
+    import math
     import urllib.request
-    import urllib.error
 
     if lat is None:
         lat = float(st.session_state.get("wx_lat") or CA_LAT)
@@ -5176,13 +5176,31 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return _json.loads(resp.read().decode("utf-8"))
 
+    def _dist_km(lat1, lon1, lat2, lon2):
+        r = 6371.0
+        p1, p2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dl = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * r * math.asin(math.sqrt(min(1.0, a)))
+
+    def _median(vals):
+        s = sorted(vals)
+        n = len(s)
+        if n == 0:
+            return None
+        if n % 2:
+            return s[n // 2]
+        return (s[n // 2 - 1] + s[n // 2]) / 2.0
+
     ua = {
-        "User-Agent": "ScentedDeadGirl/1.3 (fragrance sanctuary; personal use)",
+        "User-Agent": "ScentedDeadGirl/1.4 (fragrance sanctuary; personal use)",
         "Accept": "application/geo+json, application/json",
     }
+    samples = []  # (temp_f, source_label, observed, weight)
     errors = []
 
-    # --- 1) NWS measured observation (US) ---
+    # --- NWS stations (US) ---
     if 24.0 <= lat <= 50.0 and -125.0 <= lon <= -66.0:
         try:
             pts = _http_json(f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}", ua, 10)
@@ -5190,51 +5208,86 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
             stations_url = props.get("observationStations")
             hourly_url = props.get("forecastHourly")
 
-            # 1a) Latest observation from nearest stations
             if stations_url:
                 try:
                     stn = _http_json(stations_url, ua, 10)
-                    features = (stn.get("features") or [])[:5]
+                    features = (stn.get("features") or [])[:15]
+                    station_rows = []
                     for feat in features:
-                        stn_id = (feat.get("properties") or {}).get("stationIdentifier")
-                        if not stn_id:
-                            # fallback: id from feature id URL
-                            fid = feat.get("id") or ""
-                            stn_id = fid.rstrip("/").split("/")[-1] if fid else None
-                        if not stn_id:
-                            continue
-                        obs_url = f"https://api.weather.gov/stations/{stn_id}/observations/latest"
+                        fp = feat.get("properties") or {}
+                        stn_id = fp.get("stationIdentifier")
+                        st_name = str(fp.get("name") or stn_id or "")
+                        coords = (feat.get("geometry") or {}).get("coordinates") or [None, None]
                         try:
-                            obs = _http_json(obs_url, ua, 8)
+                            slon, slat = float(coords[0]), float(coords[1])
+                            d_km = _dist_km(lat, lon, slat, slon)
+                        except Exception:
+                            d_km = 999.0
+                        if not stn_id or d_km > 40.0:
+                            continue
+                        try:
+                            obs = _http_json(
+                                f"https://api.weather.gov/stations/{stn_id}/observations/latest",
+                                ua,
+                                8,
+                            )
                         except Exception:
                             continue
-                        oprops = obs.get("properties") or {}
-                        temp_obj = oprops.get("temperature") or {}
+                        op = obs.get("properties") or {}
+                        temp_obj = op.get("temperature") or {}
                         val = temp_obj.get("value")
                         if val is None:
                             continue
-                        # NWS observations are Celsius
                         unit = str(temp_obj.get("unitCode") or "").lower()
                         t = float(val)
-                        if "degc" in unit or "celsius" in unit or unit.endswith(":c") or unit == "":
-                            # default observation unit is C when unitCode is unit:degC
-                            if "degf" not in unit and "fahrenheit" not in unit:
-                                t = t * 9.0 / 5.0 + 32.0
-                        name = (oprops.get("station") or stn_id)
-                        observed = str(oprops.get("timestamp") or "")
-                        return _pack(
-                            t,
-                            f"NWS observation ({stn_id})",
-                            observed=observed,
-                            extra={
-                                "short_forecast": (oprops.get("textDescription") or ""),
-                                "station": stn_id,
-                            },
+                        if "degf" not in unit and "fahrenheit" not in unit:
+                            t = t * 9.0 / 5.0 + 32.0
+                        is_airport = any(
+                            k in st_name.lower()
+                            for k in ("airport", "air field", "airfield", "afb", "airstrip")
+                        ) or any(
+                            k in stn_id.upper()
+                            for k in ()  # ids alone unreliable
                         )
+                        # Heuristic: ICAO-like 4-letter starting with K often airports
+                        if len(stn_id) == 4 and stn_id.startswith("K"):
+                            is_airport = True
+                        station_rows.append(
+                            {
+                                "id": stn_id,
+                                "name": st_name,
+                                "temp_f": t,
+                                "d_km": d_km,
+                                "airport": is_airport,
+                                "observed": str(op.get("timestamp") or ""),
+                                "text": op.get("textDescription") or "",
+                            }
+                        )
+
+                    # Prefer non-airport within 25km; else any within 40km
+                    non_apt = [r for r in station_rows if (not r["airport"]) and r["d_km"] <= 25]
+                    pool = non_apt if len(non_apt) >= 1 else station_rows
+                    pool = sorted(pool, key=lambda r: r["d_km"])[:5]
+                    if pool:
+                        med = _median([r["temp_f"] for r in pool])
+                        closest = pool[0]
+                        samples.append(
+                            (
+                                med,
+                                f"NWS local median ({len(pool)} stn)",
+                                closest["observed"],
+                                2.0,  # higher weight
+                            )
+                        )
+                        # also keep closest non-airport as a sample if different
+                        for r in pool[:2]:
+                            w = 1.5 if not r["airport"] else 0.6
+                            samples.append(
+                                (r["temp_f"], f"NWS {r['id']}", r["observed"], w)
+                            )
                 except Exception as e:
                     errors.append(f"NWS obs: {e}")
 
-            # 1b) Hourly forecast as backup
             if hourly_url:
                 try:
                     fc = _http_json(hourly_url, ua, 10)
@@ -5247,11 +5300,13 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
                             t = float(t)
                             if unit == "C":
                                 t = t * 9.0 / 5.0 + 32.0
-                            return _pack(
-                                t,
-                                "NWS hourly forecast",
-                                observed=str(p0.get("startTime") or ""),
-                                extra={"short_forecast": p0.get("shortForecast") or ""},
+                            samples.append(
+                                (
+                                    t,
+                                    "NWS hourly",
+                                    str(p0.get("startTime") or ""),
+                                    1.0,
+                                )
                             )
                 except Exception as e:
                     errors.append(f"NWS hourly: {e}")
@@ -5259,7 +5314,7 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
             errors.append(f"NWS points: {nws_err}")
             st.session_state["_wx_nws_error"] = str(nws_err)
 
-    # --- 2) Open-Meteo current (global, explicit Fahrenheit) ---
+    # --- Open-Meteo ---
     try:
         url = (
             "https://api.open-meteo.com/v1/forecast"
@@ -5271,7 +5326,7 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
         )
         payload = _http_json(
             url,
-            {"User-Agent": "ScentedDeadGirl/1.3", "Accept": "application/json"},
+            {"User-Agent": "ScentedDeadGirl/1.4", "Accept": "application/json"},
             12,
         )
         cur = payload.get("current") or {}
@@ -5279,29 +5334,42 @@ def fetch_live_temp_f(lat: float = None, lon: float = None, label: str = None, f
         if temp is None:
             cw = payload.get("current_weather") or {}
             temp = cw.get("temperature")
-            # current_weather is Celsius unless unit set on older API - we requested fahrenheit on current=
-        if temp is None:
-            detail = "No temperature in weather response"
-            if errors:
-                detail += " | " + "; ".join(errors[:2])
-            return {"ok": False, "detail": detail, "label": label, "lat": lat, "lon": lon}
-        return _pack(
-            float(temp),
-            "Open-Meteo",
-            observed=str(cur.get("time") or ""),
-            extra={"timezone": str(payload.get("timezone") or "")},
-        )
+        if temp is not None:
+            samples.append(
+                (float(temp), "Open-Meteo", str(cur.get("time") or ""), 1.4)
+            )
     except Exception as e:
-        detail = f"Weather fetch failed: {e}"
+        errors.append(f"Open-Meteo: {e}")
+
+    if not samples:
+        detail = "No temperature sources available"
         if errors:
-            detail += " | " + "; ".join(errors[:2])
-        return {
-            "ok": False,
-            "detail": detail,
-            "label": label,
-            "lat": lat,
-            "lon": lon,
-        }
+            detail += " | " + "; ".join(errors[:3])
+        return {"ok": False, "detail": detail, "label": label, "lat": lat, "lon": lon}
+
+    # Weighted median-ish: expand by weight buckets then median
+    expanded = []
+    for temp_f, src, observed, w in samples:
+        reps = max(1, int(round(w * 2)))
+        expanded.extend([temp_f] * reps)
+    final = _median(expanded)
+    # Primary source label = highest-weight sample
+    samples_sorted = sorted(samples, key=lambda x: -x[3])
+    top_src = samples_sorted[0][1]
+    top_obs = samples_sorted[0][2]
+    src_bits = ", ".join(f"{int(round(t))}F {s}" for t, s, _, _ in samples_sorted[:4])
+    return _pack(
+        final,
+        f"Blend ({top_src})",
+        observed=top_obs,
+        extra={
+            "short_forecast": src_bits,
+            "samples": [
+                {"temp_f": round(t, 1), "source": s, "weight": w}
+                for t, s, _, w in samples_sorted
+            ],
+        },
+    )
 
 
 
