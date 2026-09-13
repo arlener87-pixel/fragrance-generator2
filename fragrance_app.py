@@ -13554,15 +13554,25 @@ with tab_layer:
                 st.caption(
                     "Missing from vault: " + ", ".join(ev["missing"])
                 )
-            rb1, rb2 = st.columns(2)
+            _rkey = abs(hash(tuple(bottles) + (str(nm),))) % 10_000_000
+            rb1, rb2, rb3 = st.columns(3)
             with rb1:
-                if st.button("Use in SOTD", key=f"recipe_use_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}"):
+                if st.button("Use in SOTD", key=f"recipe_use_{ri}_{_rkey}"):
                     log_sotd_immediate(bottles, notes="Saved recipe")
                     st.rerun()
             with rb2:
-                if st.button("Delete", key=f"recipe_del_{ri}_{recipe.get('name','')}"):
+                if st.button("Rename", key=f"recipe_rename_btn_{ri}_{_rkey}"):
+                    st.session_state[f"_renaming_recipe_{_rkey}"] = True
+                    try:
+                        st.session_state[f"_rename_recipe_val_{_rkey}"] = suggest_recipe_name_from_notes(
+                            list(bottles), randomize=False
+                        )
+                    except Exception:
+                        st.session_state[f"_rename_recipe_val_{_rkey}"] = nm or "Untitled layer"
+                    st.rerun()
+            with rb3:
+                if st.button("Delete", key=f"recipe_del_{ri}_{_rkey}"):
                     full = st.session_state.get("layer_recipes") or []
-                    # delete by identity, not filtered index
                     for j, r in enumerate(full):
                         if r is recipe or (
                             r.get("name") == recipe.get("name")
@@ -13574,7 +13584,6 @@ with tab_layer:
                     save_persisted_data()
                     st.rerun()
 
-            # Inline rename form (note-based name)
             if st.session_state.get(f"_renaming_recipe_{_rkey}"):
                 suggested = st.session_state.get(f"_rename_recipe_val_{_rkey}") or nm
                 new_name = st.text_input(
@@ -13735,9 +13744,10 @@ with tab_recipes:
                 st.caption("Spray order: " + " > ".join(str(x) for x in rating["spray_order"]))
             if r.get("notes"):
                 st.caption(str(r.get("notes"))[:220])
-            c1, c2, c3, c4 = st.columns(4)
+            _trk = abs(hash(tuple(list(bottles)) + (str(nm),))) % 10_000_000
+            c1, c2, c3, c4, c5 = st.columns(5)
             with c1:
-                if st.button("Add to SOTD", key=f"recipe_sotd_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}", type="primary"):
+                if st.button("Add to SOTD", key=f"recipe_sotd_{ri}_{_trk}", type="primary"):
                     try:
                         send_to_sotd(list(bottles), notes=nm)
                     except Exception:
@@ -13749,7 +13759,17 @@ with tab_recipes:
                         st.success(f"Logged SOTD: **{nm}**")
                         st.rerun()
             with c2:
-                if st.button("Layer check", key=f"recipe_layer_{ri}_{abs(hash(tuple(bottles)))%10000000}"):
+                if st.button("Rename", key=f"recipe_rn_btn_{ri}_{_trk}"):
+                    st.session_state[f"_renaming_recipe_{_trk}"] = True
+                    try:
+                        st.session_state[f"_rename_recipe_val_{_trk}"] = suggest_recipe_name_from_notes(
+                            list(bottles), randomize=False
+                        )
+                    except Exception:
+                        st.session_state[f"_rename_recipe_val_{_trk}"] = nm or "Untitled layer"
+                    st.rerun()
+            with c3:
+                if st.button("Layer check", key=f"recipe_layer_{ri}_{_trk}"):
                     st.session_state["_pending_layer_pick"] = list(bottles)
                     st.session_state["_locked_layer_pair"] = list(bottles)
                     st.session_state["_locked_recipe_name"] = nm
