@@ -12271,22 +12271,30 @@ with tab_discover:
             st.caption(
                 "Recipes from your vault that fit the current season/format filters."
             )
+            seen_titles = {}
             for ri, rec in enumerate(recipe_recs, 1):
-                names = rec.get("bottles") or []
-                title = rec.get("name") or " + ".join(names)
+                names = [str(n).strip() for n in (rec.get("bottles") or []) if n]
+                base_title = (rec.get("name") or "").strip() or " + ".join(names[:3])
+                # Disambiguate duplicate recipe names
+                count = seen_titles.get(base_title, 0) + 1
+                seen_titles[base_title] = count
+                title = base_title if count == 1 else f"{base_title} ({count})"
+                bottle_line = " > ".join(names) if names else "—"
                 st.markdown(
                     f"**{ri}. {title}**  \n"
-                    f"Bottles: {' > '.join(names)}"
+                    f"Bottles: {bottle_line}"
                 )
                 if rec.get("notes"):
                     st.caption(str(rec.get("notes"))[:200])
+                # Unique keys so Recommend never clashes with Recipes tab
+                _rk = f"recpick_{ri}_" + str(abs(hash(tuple(names) + (base_title,))) % 10_000_000)
                 rb1, rb2 = st.columns(2)
                 with rb1:
-                    if st.button("Wear recipe", key=f"recipe_sotd_{ri}"):
+                    if st.button("Wear recipe", key=f"rec_sotd_{_rk}"):
                         send_to_sotd(list(names), notes=f"Recipe: {title}")
                         st.rerun()
                 with rb2:
-                    if st.button("Check in Layer", key=f"recipe_layer_{ri}"):
+                    if st.button("Check in Layer", key=f"rec_layer_{_rk}"):
                         st.session_state["_pending_layer_pick"] = list(names)
                         try:
                             st.session_state["last_layer_check"] = evaluate_layer_recipe(list(names))
@@ -13525,7 +13533,7 @@ with tab_layer:
                     "Share text",
                     value=format_recipe_share_text(recipe=recipe, ev=ev, bottles=bottles),
                     height=200,
-                    key=f"recipe_share_{ri}",
+                    key=f"recipe_share_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}",
                 )
             # Verdict banner
             if ev["label"] in ("Strong layer", "Good layer"):
@@ -13548,7 +13556,7 @@ with tab_layer:
                 )
             rb1, rb2 = st.columns(2)
             with rb1:
-                if st.button("Use in SOTD", key=f"recipe_use_{ri}"):
+                if st.button("Use in SOTD", key=f"recipe_use_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}"):
                     log_sotd_immediate(bottles, notes="Saved recipe")
                     st.rerun()
             with rb2:
@@ -13659,7 +13667,7 @@ with tab_recipes:
                 st.caption(str(r.get("notes"))[:220])
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                if st.button("Add to SOTD", key=f"recipe_sotd_{ri}", type="primary"):
+                if st.button("Add to SOTD", key=f"recipe_sotd_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}", type="primary"):
                     try:
                         send_to_sotd(list(bottles), notes=nm)
                     except Exception:
@@ -13671,7 +13679,7 @@ with tab_recipes:
                         st.success(f"Logged SOTD: **{nm}**")
                         st.rerun()
             with c2:
-                if st.button("Layer check", key=f"recipe_layer_{ri}"):
+                if st.button("Layer check", key=f"recipe_layer_{ri}_{abs(hash(tuple(bottles)))%10000000}"):
                     st.session_state["_pending_layer_pick"] = list(bottles)
                     st.session_state["_locked_layer_pair"] = list(bottles)
                     st.session_state["_locked_recipe_name"] = nm
@@ -13685,11 +13693,11 @@ with tab_recipes:
                     st.success("Open the **Layer** tab.")
                     st.rerun()
             with c3:
-                if st.button("Refresh rating", key=f"recipe_rate_{ri}"):
+                if st.button("Refresh rating", key=f"recipe_rate_{ri}_{abs(hash(tuple(bottles)))%10000000}"):
                     # force recompute by clearing nothing - next render recalculates
                     st.rerun()
             with c4:
-                if st.button("Delete", key=f"recipe_del_{ri}"):
+                if st.button("Delete", key=f"recipe_del_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}"):
                     # delete matching entry from full list
                     full = list(st.session_state.get("layer_recipes") or [])
                     target_key = (nm, tuple(bottles))
