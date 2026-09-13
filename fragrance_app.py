@@ -8485,47 +8485,65 @@ def note_char_count(f: dict) -> int:
 
 
 def is_incomplete_notes(f: dict) -> bool:
-    """True if notes are missing, very short, vague, or lack a clear Top/Heart/Base pyramid."""
+    """True only when notes are missing, tiny, vague placeholders, or have no pyramid at all.
+
+    Accepts common formats once fixed:
+      Top - X / Heart - Y / Base - Z
+      Top Notes: X | Heart Notes: Y | Base Notes: Z
+      Top: X / Middle: Y / Base: Z
+    """
     notes = (f.get("notes") or "").strip()
-    if not notes or len(notes) < 40:
+    if not notes or len(notes) < 25:
         return True
     low = notes.lower()
+    # Only flag true placeholders — not normal descriptive text
     vague = (
-        "limited public data", "not specified", "likely ", "typically ",
-        "or oriental", "or floral", "deeper/intensified", "fruity-woody-oriental",
-        "spicy-sweet (", "dulce de leche / caramel",
+        "limited public data",
+        "not specified",
+        "notes not available",
+        "no notes listed",
+        "deeper/intensified version",
+        "fruity-woody-oriental (",
+        "spicy-sweet (date",
+        "dulce de leche / caramel-vanilla gourmand",
     )
     if any(v in low for v in vague):
         return True
-    # Require a recognizable pyramid structure
-    has_top = bool(re.search(r"(?i)\btop\s*[-–:]|\btop\s*notes?\s*:", notes))
-    has_heart = bool(re.search(r"(?i)\b(heart|middle)\s*[-–:]|\b(heart|middle)\s*notes?\s*:", notes))
-    has_base = bool(re.search(r"(?i)\bbase\s*[-–:]|\bbase\s*notes?\s*:|\bdry\s*-?\s*down\s*:", notes))
-    if not (has_top and has_heart and has_base):
-        return True
-    return False
+    # Flexible pyramid detection (dash, colon, optional "notes"/"note")
+    has_top = bool(re.search(
+        r"(?i)\btop(\s*notes?)?\s*[-–:]", notes
+    ))
+    has_heart = bool(re.search(
+        r"(?i)\b(heart|middle|mid)(\s*notes?)?\s*[-–:]", notes
+    ))
+    has_base = bool(re.search(
+        r"(?i)\b(base|dry\s*-?\s*down)(\s*notes?)?\s*[-–:]", notes
+    ))
+    if has_top and has_heart and has_base:
+        return False
+    # Also accept slash-separated mini pyramids without labels if long enough
+    # e.g. still prefer labels — without labels keep flagged
+    return True
+
 
 
 def short_notes_bottles(max_chars: int = 40) -> list:
-    """Bottles whose notes are short or vague, sorted shortest first."""
+    """Bottles whose notes are still incomplete — sorted shortest first.
+
+    Uses is_incomplete_notes so once a bottle has a real Top/Heart/Base
+    pyramid it leaves this list and stays off it.
+    """
     rows = []
     for f in st.session_state.get("fragrances_db") or []:
+        if not is_incomplete_notes(f):
+            continue
         n = (f.get("notes") or "").strip()
-        low = n.lower()
-        vague = any(
-            v in low
-            for v in (
-                "not specified",
-                "limited public data",
-                "likely ",
-                "typically ",
-            )
-        )
         chars = len(n)
-        if chars < max_chars or vague or is_incomplete_notes(f):
-            rows.append({"frag": f, "chars": chars, "preview": n[:80] or "(empty)"})
+        rows.append({"frag": f, "chars": chars, "preview": n[:80] or "(empty)"})
     rows.sort(key=lambda r: (r["chars"], (r["frag"].get("name") or "").lower()))
     return rows
+
+
 
 
 def profile_gaps(f: dict) -> list:
