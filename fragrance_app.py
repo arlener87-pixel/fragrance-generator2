@@ -802,7 +802,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Winter",
-    "notes": "Fruity-woody-oriental (pineapple/rose/oud-leaning)",
+    "notes": "Top - Fruity Notes (Bergamot, Lychee, Apple) / Heart - Rose, Jasmine / Base - Vanilla, Musk, Amber, Cedarwood",
     "category": [
       "Oriental",
       "Woody",
@@ -1623,7 +1623,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Le Chameau",
     "gender": "Male",
     "season": "Fall, Evening",
-    "notes": "Deeper/intensified version of Espada Prime",
+    "notes": "Top - Saffron, Orange, Jasmine / Heart - Caramel, Cotton Candy / Base - Amber, Oakmoss",
     "category": [
       "Woody",
       "Spicy"
@@ -1659,7 +1659,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Sara Debai",
     "gender": "Female",
     "season": "Spring-Summer",
-    "notes": "Top - Heliotrope, orchid, tangerine / Heart - Gourmand accord, tropical fruits / Base - Vanilla, musk, sandalwood",
+    "notes": "Top - Heliotrope, Orchid, Tangerine / Heart - Gourmand Accord, Tropical Fruits / Base - Vanilla, Musk, Sandalwood",
     "category": [
       "Floral",
       "Gourmand",
@@ -2160,7 +2160,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Armaf",
     "gender": "Unisex",
     "season": "Spring, Summer",
-    "notes": "Top - Tropical Fruits, Coconut / Heart - Sweet / Base - Musk",
+    "notes": "Top - Wild Berries, Green Notes / Heart - Coconut, Orange Blossom, Water Lily, Lactones / Base - Vanilla, Tonka Bean, Musk",
     "category": [
       "Fruity",
       "Fresh",
@@ -2257,7 +2257,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Fall-Winter",
-    "notes": "Spicy-sweet (date, cinnamon, vanilla family)",
+    "notes": "Top - Bergamot, Juniper, Yuzu, Ginger / Heart - Cucumber, Sea Salt, Sage, Iris / Base - Vanilla, Ambroxan, Akigalawood, Musk, Tonka Bean",
     "category": [
       "Oriental",
       "Spicy",
@@ -2476,7 +2476,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Paris Corner",
     "gender": "Female/Unisex",
     "season": "Fall, Winter",
-    "notes": "Top - Marshmallow, Sweet / Heart - Fruity / Base - Vanilla, Musk",
+    "notes": "Top - Strawberry, Raspberry, Lemon / Heart - Ambroxan, Orange Blossom, Whipped Cream / Base - Musk, Marshmallow, Vanilla",
     "category": [
       "Gourmand",
       "Sweet",
@@ -2691,7 +2691,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Mayar",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top - Sweet Gourmand / Heart - Vanilla / Base - Musk",
+    "notes": "Top - Coconut Water, Fig, Green Tangerine, Melon / Heart - Jasmine, Water Lily, Lotus / Base - Ambroxan, Sandalwood, Vanilla, Musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -3126,7 +3126,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Lattafa",
     "gender": "Male/Unisex",
     "season": "Spring, Fall",
-    "notes": "Top - Apple, Citrus / Heart - Floral / Base - Sweet, Woody",
+    "notes": "Top - Cinnamon, Cardamom, Mandarin, Nutmeg / Heart - Caramel, Lavender, Geranium, Clary Sage, Cypress / Base - Labdanum, Olibanum, Amber, Cedarwood, Vetiver",
     "category": [
       "Fruity",
       "Woody",
@@ -3165,7 +3165,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Lattafa",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top - Fruity, Sweet / Heart - Floral / Base - Vanilla, Musk",
+    "notes": "Top - Dragon Fruit (Pitahaya), Pear, Mandarin Orange / Heart - Jasmine, Freesia, Orange Blossom / Base - Musk, Vanilla, Tonka Bean, Amber",
     "category": [
       "Floral",
       "Fruity",
@@ -3245,7 +3245,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Baraja",
     "gender": "Unisex/Male",
     "season": "Fall, Winter",
-    "notes": "Top - Red Fruits, Spices / Heart - Sweet Notes / Base - Woody, Musk",
+    "notes": "Top - Saffron, Jasmine / Heart - Amberwood, Ambergris, Hedione / Base - Fir Resin, Cedar, Sugar, Ambroxan, Oakmoss",
     "category": [
       "Fruity",
       "Woody",
@@ -3404,7 +3404,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Al Rehab",
     "gender": "Unisex/Male",
     "season": "Spring, Summer",
-    "notes": "Top - Fresh Citrus, Metallic / Heart - Floral / Base - Musk, Sweet",
+    "notes": "Top - Mandarin, Bergamot / Heart - Green Tea, Blackcurrant, Green Notes / Base - Sandalwood, Galbanum, Musk, Woody Notes",
     "category": [
       "Fresh",
       "Citrus",
@@ -3520,7 +3520,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Maison Alhambra",
     "gender": "Unisex/Female",
     "season": "Fall-Winter",
-    "notes": "Dulce de leche / caramel-vanilla gourmand",
+    "notes": "Top - Dulce de Leche, Sweet Caramel, Creamy Milk / Heart - Fine Caramel, Vanilla, Condensed Milk / Base - Tonka Bean, Roasted Almonds, Brown Sugar",
     "category": [
       "Gourmand",
       "Sweet",
@@ -3833,7 +3833,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Maison Asrar",
     "gender": "Female/Unisex",
     "season": "Fall, Winter",
-    "notes": "Top - Vanilla / Heart - Creamy Sweet / Base - Vanilla, Musk",
+    "notes": "Top - Bergamot, Lily of the Valley, Lemon / Heart - Vanilla, Chocolate, Caramel / Base - Sandalwood, Amber, Vanilla, Tonka",
     "category": [
       "Gourmand",
       "Sweet",
@@ -4122,7 +4122,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Lattafa",
     "gender": "Female",
     "season": "Spring-Summer",
-    "notes": "Top - Orchid, heliotrope, tangerine / Heart - Gourmand accord, tropical fruits / Base - Vanilla, musk, sandalwood",
+    "notes": "Top - Orchid, Heliotrope, Tangerine / Heart - Gourmand Accord, Tropical Fruits / Base - Vanilla, Musk, Sandalwood",
     "category": [
       "Floral",
       "Gourmand",
