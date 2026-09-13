@@ -4887,9 +4887,9 @@ def matches_gender(fragrance: dict, preferred: str) -> bool:
 
 
 def matches_weather(fragrance: dict, weather: str) -> bool:
-    """Strict season matching. 'versatile' alone is NOT enough for Hot or Cold."""
+    """Season matching for filters / suggestions. Opposite extremes are excluded."""
     season = (fragrance.get("season") or "").lower()
-    if weather == "Any":
+    if not weather or weather == "Any":
         return True
 
     has_summer = "summer" in season
@@ -4899,36 +4899,36 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
     has_cooler = "cooler" in season
     has_mild = "mild" in season
     has_year = "year-round" in season or "year round" in season
-    # "versatile" only counts if not locked to the opposite extreme
-    has_versatile = "versatile" in season
+    has_versatile = "versatile" in season or season in ("", "any", "all")
 
-    is_summer_target = "summer" in weather.lower() or "hot" in weather.lower()
-    is_winter_target = "winter" in weather.lower() or "cold" in weather.lower()
+    winter_locked = has_winter and not (has_summer or has_spring)
+    summer_locked = has_summer and not (has_winter or has_fall)
 
-    if is_summer_target:
-        # Must explicitly mention summer, spring, mild, or year-round.
-        # Pure fall/winter (even with "versatile to cooler") is out.
-        if has_summer or has_spring or has_mild or has_year:
-            return True
-        # versatile without cooler/winter-only lock
-        if has_versatile and not has_winter and not has_cooler and not (has_fall and not has_spring):
-            return True
-        return False
+    w = weather.lower()
+    is_hot = "hot" in w or ( "summer" in w and "warm" not in w and "mild" not in w)
+    is_cold = "cold" in w or ("winter" in w and "cool" not in w)
+    is_warm = "warm" in w or "mild" in w
+    is_cool = "cool" in w or "autumn" in w
 
-    if is_winter_target:
-        if has_winter or has_fall or has_cooler:
-            return True
-        if has_versatile and not has_summer:
-            return True
-        if has_year:
-            return True
-        return False
+    if is_hot:
+        # Exclude pure fall/winter bottles
+        if winter_locked:
+            return False
+        return bool(has_summer or has_spring or has_mild or has_year or (has_versatile and not has_winter))
 
-    if weather == "Warm / Mild":
-        return has_spring or has_fall or has_mild or has_versatile or has_year or has_summer
+    if is_cold:
+        # Exclude pure summer bottles
+        if summer_locked:
+            return False
+        return bool(has_winter or has_fall or has_cooler or has_year or (has_versatile and not has_summer))
 
-    if weather == "Cool / Autumn":
-        return has_fall or has_winter or has_cooler or has_versatile or has_year
+    if is_warm:
+        return bool(has_spring or has_summer or has_fall or has_mild or has_versatile or has_year)
+
+    if is_cool:
+        if summer_locked and not has_spring:
+            return False
+        return bool(has_fall or has_winter or has_spring or has_cooler or has_versatile or has_year)
 
     return True
 
@@ -5497,24 +5497,46 @@ def score_fragrance(
         score += 5
     elif "summer" in weather.lower() or "hot" in weather.lower():
         if "summer" in season:
-            score += 15
-        elif any(x in season for x in ["spring", "versatile", "year-round"]):
+            score += 22
+        elif "spring" in season:
+            score += 14
+        elif any(x in season for x in ["versatile", "year-round", "year round"]):
             score += 10
+        elif "winter" in season and "summer" not in season:
+            score -= 20  # pure winter in heat
+        elif "fall" in season and "summer" not in season and "spring" not in season:
+            score -= 12
     elif weather == "Warm / Mild":
         if any(x in season for x in ["spring", "fall", "autumn", "mild"]):
-            score += 15
-        elif any(x in season for x in ["versatile", "year-round"]):
+            score += 18
+        elif "summer" in season:
             score += 12
+        elif any(x in season for x in ["versatile", "year-round", "year round"]):
+            score += 12
+        elif "winter" in season and "fall" not in season and "spring" not in season:
+            score -= 8
     elif weather == "Cool / Autumn":
         if any(x in season for x in ["fall", "autumn"]):
-            score += 15
+            score += 22
         elif any(x in season for x in ["winter", "cooler"]):
-            score += 12
+            score += 14
+        elif "spring" in season:
+            score += 10
+        elif any(x in season for x in ["versatile", "year-round", "year round"]):
+            score += 10
+        elif "summer" in season and "fall" not in season and "winter" not in season:
+            score -= 14
     elif "winter" in weather.lower() or "cold" in weather.lower():
         if "winter" in season:
-            score += 15
+            score += 22
         elif any(x in season for x in ["fall", "autumn", "cooler"]):
-            score += 12
+            score += 14
+        elif any(x in season for x in ["versatile", "year-round", "year round"]):
+            score += 10
+        elif "summer" in season and "winter" not in season and "fall" not in season:
+            score -= 20  # pure summer in cold
+        elif "spring" in season and "fall" not in season and "winter" not in season:
+            score -= 10
 
     if not category or category == "Any":
         score += 5
@@ -6355,6 +6377,29 @@ def layer_score(f1: dict, f2: dict) -> int:
 
     # Stable-ish variation from names
     score += _stable_tiebreak(f1["name"] + f2["name"]) % 5 + 1
+    
+    # Season compatibility: prefer partners that share a season band
+    s1 = (f1.get("season") or "").lower()
+    s2 = (f2.get("season") or "").lower()
+    bands1 = set()
+    bands2 = set()
+    for label, keys in (("hot", ("summer",)), ("warm", ("spring", "mild")), ("cool", ("fall", "autumn", "cooler")), ("cold", ("winter",))):
+        if any(k in s1 for k in keys):
+            bands1.add(label)
+        if any(k in s2 for k in keys):
+            bands2.add(label)
+    if "versatile" in s1 or "year-round" in s1:
+        bands1.update(("hot", "warm", "cool", "cold"))
+    if "versatile" in s2 or "year-round" in s2:
+        bands2.update(("hot", "warm", "cool", "cold"))
+    shared_bands = bands1 & bands2
+    if shared_bands:
+        score += 8
+    elif bands1 and bands2 and not shared_bands:
+        # opposite extremes only
+        if (bands1 <= {"hot"} and bands2 <= {"cold"}) or (bands1 <= {"cold"} and bands2 <= {"hot"}):
+            score -= 12
+
     return score
 
 
