@@ -1718,7 +1718,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top - Dark Fruits, Spices / Heart - Woody / Base - Vanilla, Musk",
+    "notes": "Top - Apple, Bergamot, Ginger / Heart - Lavender, Sage, Juniper Berries, Geranium / Base - Tonka Bean, Cedar, Amberwood, Vetiver",
     "category": [
       "Fruity",
       "Woody",
