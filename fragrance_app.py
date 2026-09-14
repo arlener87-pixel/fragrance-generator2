@@ -77,18 +77,7 @@ def save_persisted_data(force: bool = False):
         "play_stats": st.session_state.get("play_stats", {}),
         "last_export_date": st.session_state.get("last_export_date"),
         "last_saved_at": now,
-        "chart": {
-            "sun": st.session_state.get("chart_sun"),
-            "moon": st.session_state.get("chart_moon"),
-            "rising": st.session_state.get("chart_rising"),
-            "venus": st.session_state.get("chart_venus"),
-            "full": st.session_state.get("birth_calc_full"),
-            "his_sun": st.session_state.get("chart_his_sun"),
-            "his_moon": st.session_state.get("chart_his_moon"),
-            "his_rising": st.session_state.get("chart_his_rising"),
-            "his_venus": st.session_state.get("chart_his_venus"),
-            "his_full": st.session_state.get("birth_calc_his_full"),
-        },
+        
         "wishlist": st.session_state.get("wishlist", []),
         "try_recipes": st.session_state.get("try_recipes", []),
         "vault_log": st.session_state.get("vault_log", []),
@@ -190,18 +179,7 @@ def vault_fingerprint() -> str:
         "wishlist": st.session_state.get("wishlist"),
         "try_recipes": st.session_state.get("try_recipes"),
         "vault_log": st.session_state.get("vault_log"),
-        "chart": {
-            "sun": st.session_state.get("chart_sun"),
-            "moon": st.session_state.get("chart_moon"),
-            "rising": st.session_state.get("chart_rising"),
-            "venus": st.session_state.get("chart_venus"),
-            "full": st.session_state.get("birth_calc_full"),
-            "his_sun": st.session_state.get("chart_his_sun"),
-            "his_moon": st.session_state.get("chart_his_moon"),
-            "his_rising": st.session_state.get("chart_his_rising"),
-            "his_venus": st.session_state.get("chart_his_venus"),
-            "his_full": st.session_state.get("birth_calc_his_full"),
-        },
+        
         "last_export_date": st.session_state.get("last_export_date"),
     }
     try:
@@ -4531,22 +4509,7 @@ def init_session_states():
     # Only set vault if disk actually has bottles (else leave for seed block)
     if "fragrances_db" not in st.session_state and disk_db:
         st.session_state["fragrances_db"] = disk_db
-    # Chart keys
-    chart = data.get("chart") if isinstance(data.get("chart"), dict) else {}
-    for ck, sk in [
-        ("sun", "chart_sun"),
-        ("moon", "chart_moon"),
-        ("rising", "chart_rising"),
-        ("venus", "chart_venus"),
-        ("full", "birth_calc_full"),
-        ("his_sun", "chart_his_sun"),
-        ("his_moon", "chart_his_moon"),
-        ("his_rising", "chart_his_rising"),
-        ("his_venus", "chart_his_venus"),
-        ("his_full", "birth_calc_his_full"),
-    ]:
-        if sk not in st.session_state and chart.get(ck) is not None:
-            st.session_state[sk] = chart.get(ck)
+
     return data
 
 
@@ -4659,27 +4622,6 @@ try:
 except Exception:
     st.session_state["_vault_fp_run_start"] = ""
 st.session_state.setdefault("_vault_dirty", False)
-
-# Restore persisted birth-chart signs (Stars tab)
-_chart = _persisted.get("chart") or {}
-if "chart_sun" not in st.session_state and _chart.get("sun"):
-    st.session_state["chart_sun"] = _chart["sun"]
-if "chart_moon" not in st.session_state and _chart.get("moon"):
-    st.session_state["chart_moon"] = _chart["moon"]
-if "chart_rising" not in st.session_state and _chart.get("rising"):
-    st.session_state["chart_rising"] = _chart["rising"]
-if "chart_venus" not in st.session_state and _chart.get("venus"):
-    st.session_state["chart_venus"] = _chart["venus"]
-if "chart_his_sun" not in st.session_state and _chart.get("his_sun"):
-    st.session_state["chart_his_sun"] = _chart["his_sun"]
-if "chart_his_moon" not in st.session_state and _chart.get("his_moon"):
-    st.session_state["chart_his_moon"] = _chart["his_moon"]
-if "chart_his_rising" not in st.session_state and _chart.get("his_rising"):
-    st.session_state["chart_his_rising"] = _chart["his_rising"]
-if "chart_his_venus" not in st.session_state and _chart.get("his_venus"):
-    st.session_state["chart_his_venus"] = _chart["his_venus"]
-if "birth_calc_his_full" not in st.session_state and _chart.get("his_full"):
-    st.session_state["birth_calc_his_full"] = _chart["his_full"]
 
 
 # Session states for clearing inputs explicitly
@@ -6080,344 +6022,6 @@ def get_top_fragrances(
     _remember_shown("recommend", [f.get("name") for f in picks])
     return picks
 
-
-
-# --- Astrology / scent mapping (interpretive, for fun) ---
-SIGN_SCENT_PROFILE = {
-    "Aries": {
-        "element": "Fire",
-        "vibe": "Bold, spicy, energetic",
-        "categories": ["Spicy", "Fresh", "Citrus", "Woody"],
-        "notes_keywords": ["pepper", "ginger", "citrus", "cedar", "cardamom"],
-    },
-    "Taurus": {
-        "element": "Earth",
-        "vibe": "Sensual, creamy, grounded",
-        "categories": ["Gourmand", "Floral", "Sweet", "Woody"],
-        "notes_keywords": ["vanilla", "rose", "sandalwood", "tonka", "caramel"],
-    },
-    "Gemini": {
-        "element": "Air",
-        "vibe": "Light, playful, changeable",
-        "categories": ["Fresh", "Citrus", "Fruity", "Floral"],
-        "notes_keywords": ["citrus", "bergamot", "pear", "tea", "light musk"],
-    },
-    "Cancer": {
-        "element": "Water",
-        "vibe": "Soft, milky, nostalgic",
-        "categories": ["Gourmand", "Floral", "Sweet", "Fresh"],
-        "notes_keywords": ["milk", "coconut", "white flower", "musk", "powder"],
-    },
-    "Leo": {
-        "element": "Fire",
-        "vibe": "Warm, radiant, dramatic",
-        "categories": ["Gourmand", "Floral", "Sweet", "Oriental"],
-        "notes_keywords": ["vanilla", "orange blossom", "honey", "amber", "cinnamon"],
-    },
-    "Virgo": {
-        "element": "Earth",
-        "vibe": "Clean, green, precise",
-        "categories": ["Fresh", "Floral", "Woody", "Aromatic"],
-        "notes_keywords": ["green", "herbal", "iris", "cedar", "clean musk"],
-    },
-    "Libra": {
-        "element": "Air",
-        "vibe": "Balanced, elegant, rose-kissed",
-        "categories": ["Floral", "Sweet", "Fruity", "Fresh"],
-        "notes_keywords": ["rose", "iris", "pear", "musk", "soft floral"],
-    },
-    "Scorpio": {
-        "element": "Water",
-        "vibe": "Dark, magnetic, intense",
-        "categories": ["Oriental", "Woody", "Oud", "Spicy"],
-        "notes_keywords": ["oud", "incense", "patchouli", "dark fruit", "amber"],
-    },
-    "Sagittarius": {
-        "element": "Fire",
-        "vibe": "Adventurous, warm, expansive",
-        "categories": ["Oriental", "Spicy", "Woody", "Fresh"],
-        "notes_keywords": ["cinnamon", "tobacco", "pineapple", "cedar", "saffron"],
-    },
-    "Capricorn": {
-        "element": "Earth",
-        "vibe": "Polished, structured, amber-wood",
-        "categories": ["Woody", "Oriental", "Gourmand", "Spicy"],
-        "notes_keywords": ["amber", "vanilla", "cedar", "leather", "tonka"],
-    },
-    "Aquarius": {
-        "element": "Air",
-        "vibe": "Unusual, airy, modern",
-        "categories": ["Fresh", "Aromatic", "Woody", "Citrus"],
-        "notes_keywords": ["ozonic", "metallic", "violet", "ambroxan", "tea"],
-    },
-    "Pisces": {
-        "element": "Water",
-        "vibe": "Dreamy, soft, aquatic-sweet",
-        "categories": ["Floral", "Gourmand", "Sweet", "Fresh"],
-        "notes_keywords": ["vanilla", "aquatic", "powdery", "lilac", "musk"],
-    },
-}
-
-# Default chart for sanctuary owner (Fontana CA, 1987-09-30 3:10 AM PDT)
-DEFAULT_CHART = {
-    "name": "Sanctuary chart",
-    "birth_date": "1987-09-30",
-    "birth_time": "3:10 AM PDT",
-    "birth_place": "Fontana, CA",
-    "sun": "Libra",
-    "moon": "Capricorn",
-    "rising": "Leo",
-    "venus": "Libra",
-    "notes": "Sun + Venus in Libra (beauty, balance). Moon in Capricorn (structure, amber-wood depth). Leo rising (warm radiance).",
-}
-
-
-def is_female_or_unisex(f: dict) -> bool:
-    g = normalize_gender(f.get("gender", ""))
-    return g in ("Female", "Female-leaning", "Unisex")
-
-
-def score_fragrance_for_day(
-    f: dict, day: str, sun: str, moon: str, rising: str, venus: str = None
-) -> int:
-    if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-        return -999
-    if not is_female_or_unisex(f):
-        return -999
-
-    score = 0
-    if st.session_state["user_reactions"].get(f["name"]) == "fav":
-        score += 30
-
-    # Day ruler categories / notes (primary)
-    day_prof = DAY_RULER.get(day, {})
-    for c in f.get("category", []):
-        if c in day_prof.get("categories", []):
-            score += 18
-            if f.get("category") and f["category"][0] == c:
-                score += 6
-
-    notes_l = f.get("notes", "").lower()
-    for kw in day_prof.get("notes_keywords", []):
-        if kw.lower() in notes_l:
-            score += 8
-
-    # Chart Big Three + Venus (beauty planet  -  strong for fragrance)
-    venus = venus or sun
-    cat_weights = chart_category_weights(sun, moon, rising)
-    # Venus categories get an extra nudge
-    for c in SIGN_SCENT_PROFILE.get(venus, {}).get("categories", []):
-        cat_weights[c] = cat_weights.get(c, 0) + 2
-
-    for c in f.get("category", []):
-        score += cat_weights.get(c, 0) * 3
-
-    for sign in (sun, moon, rising, venus):
-        for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
-            if kw.lower() in notes_l:
-                score += 5
-
-    # Prefer Female over pure Unisex slightly for this feature
-    g = normalize_gender(f.get("gender", ""))
-    if g == "Female":
-        score += 8
-    elif g == "Female-leaning":
-        score += 6
-    elif g == "Unisex":
-        score += 3
-
-    score += _stable_tiebreak(f["name"] + day)
-    return score
-
-
-def explain_day_match(f: dict, day: str, sun: str, moon: str, rising: str, venus: str = None) -> str:
-    """Short why-this-bottle line for Stars results."""
-    bits = []
-    day_prof = DAY_RULER.get(day, {})
-    cats = set(f.get("category", []))
-    day_hits = [c for c in day_prof.get("categories", []) if c in cats]
-    if day_hits:
-        bits.append(f"{day_prof.get('planet', day)} day  -  {', '.join(day_hits[:2])}")
-    notes_l = (f.get("notes") or "").lower()
-    kw_hits = [kw for kw in day_prof.get("notes_keywords", []) if kw.lower() in notes_l]
-    venus = venus or sun
-    for sign, label in ((sun, "Sun"), (moon, "Moon"), (rising, "Rising"), (venus, "Venus")):
-        for kw in SIGN_SCENT_PROFILE.get(sign, {}).get("notes_keywords", []):
-            if kw.lower() in notes_l and kw not in kw_hits:
-                kw_hits.append(kw)
-                bits.append(f"{label} {sign}  -  {kw}")
-                break
-    if kw_hits and not any(" - " in b and "day" not in b for b in bits):
-        bits.append("notes: " + ", ".join(kw_hits[:3]))
-    return "  -  ".join(bits[:3]) if bits else "chart + day blend"
-
-
-def get_day_fragrances(
-    day: str, sun: str, moon: str, rising: str, top_n: int = 5, venus: str = None
-) -> list:
-    scored = []
-    for f in st.session_state["fragrances_db"]:
-        s = score_fragrance_for_day(f, day, sun, moon, rising, venus=venus)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
-
-
-
-def bottles_for_sign(sign: str, top_n: int = 5) -> list:
-    """Rank vault bottles for a zodiac sign scent profile."""
-    prof = SIGN_SCENT_PROFILE.get(sign) or {}
-    prefer_cats = set(prof.get("categories") or [])
-    prefer_notes = [k.lower() for k in (prof.get("notes_keywords") or [])]
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
-            continue
-        cats = set(f.get("category") or [])
-        notes = (f.get("notes") or "").lower()
-        score = 1 + 4 * len(cats & prefer_cats)
-        score += sum(3 for kw in prefer_notes if kw in notes)
-        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
-            score += 5
-        scored.append((score, f))
-    scored.sort(key=lambda x: -x[0])
-    return [f for _, f in scored[:top_n]]
-
-
-def bottles_for_element(element: str, top_n: int = 5) -> list:
-    element = (element or "").title()
-    elem_map = {
-        "Fire": ["Spicy", "Oriental", "Citrus", "Woody"],
-        "Earth": ["Gourmand", "Woody", "Sweet", "Musky", "Vanilla"],
-        "Air": ["Fresh", "Floral", "Powdery", "Citrus", "Aromatic"],
-        "Water": ["Floral", "Aquatic", "Sweet", "Musky", "Oriental"],
-    }
-    prefer = set(elem_map.get(element, []))
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        cats = set(f.get("category") or [])
-        score = 1 + 5 * len(cats & prefer)
-        scored.append((score, f))
-    scored.sort(key=lambda x: -x[0])
-    return [f for _, f in scored[:top_n]]
-
-
-def moon_phase_name(d=None) -> str:
-    """Approximate moon phase name for a date (Pacific today if None)."""
-    from datetime import date
-    d = d or pacific_today()
-    # simple known new moon reference approx cycle 29.53 days
-    # ref: 2000-01-06 was near new moon
-    ref = date(2000, 1, 6)
-    age = (d - ref).days % 29.53058867
-    if age < 1.85:
-        return "New Moon"
-    if age < 7.38:
-        return "Waxing Crescent"
-    if age < 9.23:
-        return "First Quarter"
-    if age < 14.77:
-        return "Waxing Gibbous"
-    if age < 16.61:
-        return "Full Moon"
-    if age < 22.15:
-        return "Waning Gibbous"
-    if age < 23.99:
-        return "Last Quarter"
-    return "Waning Crescent"
-
-
-def moon_phase_scent_profile(phase: str) -> dict:
-    phase = phase or ""
-    if "New" in phase:
-        return {
-            "blurb": "Soft reset - skin scents, clean musk, quiet florals.",
-            "categories": ["Musky", "Fresh", "Floral", "Powdery"],
-        }
-    if "Full" in phase:
-        return {
-            "blurb": "High volume - projection, spice, oud, date-night intensity.",
-            "categories": ["Oriental", "Spicy", "Oud", "Gourmand", "Leather"],
-        }
-    if "Waxing" in phase:
-        return {
-            "blurb": "Building energy - fruity, sweet, bright florals.",
-            "categories": ["Fruity", "Sweet", "Floral", "Gourmand"],
-        }
-    if "Waning" in phase or "Last" in phase:
-        return {
-            "blurb": "Release - woody, green, incense, less sugar.",
-            "categories": ["Woody", "Green", "Smoky", "Aromatic", "Fresh"],
-        }
-    return {
-        "blurb": "Balanced middle path.",
-        "categories": ["Floral", "Woody", "Musky"],
-    }
-
-
-def bottles_for_moon_phase(phase: str = None, top_n: int = 5) -> list:
-    phase = phase or moon_phase_name()
-    prof = moon_phase_scent_profile(phase)
-    prefer = set(prof.get("categories") or [])
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        cats = set(f.get("category") or [])
-        score = 1 + 5 * len(cats & prefer)
-        scored.append((score, f))
-    scored.sort(key=lambda x: -x[0])
-    return [f for _, f in scored[:top_n]]
-
-
-def compatibility_blurb(her: dict, him: dict) -> str:
-    """Fun scent-compatibility text from two charts."""
-    bits = []
-    hs, hm, hr, hv = her.get("sun"), her.get("moon"), her.get("rising"), her.get("venus")
-    xs, xm, xr, xv = him.get("sun"), him.get("moon"), him.get("rising"), him.get("venus")
-    if hs and xs:
-        he = (SIGN_SCENT_PROFILE.get(hs) or {}).get("element")
-        xe = (SIGN_SCENT_PROFILE.get(xs) or {}).get("element")
-        if he and xe:
-            if he == xe:
-                bits.append(f"Same firepower element ({he}) on the Suns - layer shared families.")
-            else:
-                bits.append(f"Sun elements {he} + {xe} - contrast layers (his strength, your softness or reverse).")
-    if hm and xm:
-        bits.append(f"Moon {hm} meets Moon {xm} - comfort scents should overlap at least one family.")
-    if hv and xv:
-        bits.append(f"Venus {hv} + Venus {xv} - date-night blend lives here.")
-    if hr and xr:
-        bits.append(f"Rising {hr} / {xr} - first-impression scents when you walk in together.")
-    if not bits:
-        bits.append("Set both charts to unlock a fuller match read.")
-    return " ".join(bits)
-
-
-def compatibility_bottles(her: dict, him: dict, top_n: int = 4) -> list:
-    """Bottles that bridge both charts."""
-    signs = [her.get("sun"), her.get("venus"), him.get("sun"), him.get("venus"),
-             her.get("moon"), him.get("moon")]
-    prefer = set()
-    for s in signs:
-        if s:
-            prefer |= set((SIGN_SCENT_PROFILE.get(s) or {}).get("categories") or [])
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        cats = set(f.get("category") or [])
-        score = 1 + 3 * len(cats & prefer)
-        scored.append((score, f))
-    scored.sort(key=lambda x: -x[0])
-    picks = []
-    seen = set()
-    for sc, f in scored:
-        b = (f.get("brand") or "").lower()
-        if b in seen:
-            continue
-        picks.append(f)
-        seen.add(b)
-        if len(picks) >= top_n:
-            break
-    return picks
 
 
 def _note_tokens(f: dict) -> set:
@@ -9166,29 +8770,20 @@ def find_antipodes(base: dict, top_n: int = 5) -> list:
 
 
 def suggest_right_now(weather: str = "Any", favorites_only: bool = False, top_n: int = 3) -> list:
-    """Quick pick blending today weekday + weather + reactions."""
-    day = pacific_today().strftime("%A")
-    sun = st.session_state.get("chart_sun", DEFAULT_CHART["sun"])
-    moon = st.session_state.get("chart_moon", DEFAULT_CHART["moon"])
-    rising = st.session_state.get("chart_rising", DEFAULT_CHART["rising"])
-    venus = st.session_state.get("chart_venus", DEFAULT_CHART.get("venus", sun))
-    day_picks = get_day_fragrances(day, sun, moon, rising, top_n=15, venus=venus)
-    # re-score with weather preference
-    scored = []
-    for f in day_picks:
-        if favorites_only and st.session_state["user_reactions"].get(f["name"]) != "fav":
-            continue
-        if not matches_weather(f, weather):
-            continue
-        s = score_fragrance_for_day(f, day, sun, moon, rising, venus=venus)
-        if weather != "Any":
-            s += 10 if matches_weather(f, weather) else 0
-        scored.append((s, f))
-    if not scored:
-        # fallback to regular top
-        return get_top_fragrances("Any", weather, "Any", "Any", top_n, favorites_only=favorites_only)
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [f for _, f in scored[:top_n]]
+    """Quick pick from vault using weather + reactions (no astrology)."""
+    return get_top_fragrances(
+        "Any",
+        weather or "Any",
+        "Any",
+        "Any",
+        top_n,
+        favorites_only=favorites_only,
+        shuffle=True,
+        concentration="Any",
+        projection="Any",
+    )
+
+
 
 
 def get_weekly_recipe():
@@ -10197,368 +9792,6 @@ def build_sotd_week_pdf(week_key: str = None) -> bytes:
         lines.append("")
     return build_simple_pdf("ScentedDeadGirl SOTD - Weekly", lines)
 
-
-
-def sun_sign_from_date(month: int, day: int) -> str:
-    """Tropical sun sign from month/day (no birth time needed)."""
-    md = (month, day)
-    ranges = [
-        (1, 19, "Capricorn"),
-        (2, 18, "Aquarius"),
-        (3, 20, "Pisces"),
-        (4, 19, "Aries"),
-        (5, 20, "Taurus"),
-        (6, 20, "Gemini"),
-        (7, 22, "Cancer"),
-        (8, 22, "Leo"),
-        (9, 22, "Virgo"),
-        (10, 22, "Libra"),
-        (11, 21, "Scorpio"),
-        (12, 21, "Sagittarius"),
-        (12, 31, "Capricorn"),
-    ]
-    for em, ed, sign in ranges:
-        if md <= (em, ed):
-            return sign
-    return "Capricorn"
-
-
-_SIGN_ABBREV = {
-    "ari": "Aries",
-    "tau": "Taurus",
-    "gem": "Gemini",
-    "can": "Cancer",
-    "leo": "Leo",
-    "vir": "Virgo",
-    "lib": "Libra",
-    "sco": "Scorpio",
-    "sag": "Sagittarius",
-    "cap": "Capricorn",
-    "aqu": "Aquarius",
-    "pis": "Pisces",
-}
-
-
-def normalize_sign_name(sign: str) -> str:
-    if not sign:
-        return ""
-    s = str(sign).strip()
-    if s in SIGN_SCENT_PROFILE:
-        return s
-    key = s[:3].lower()
-    return _SIGN_ABBREV.get(key, s.title())
-
-
-def geocode_birth_place(city: str, country: str = "United States") -> dict:
-    """Resolve city to lat/lon via Open-Meteo geocoding (no API key)."""
-    import json as _json
-    import urllib.request
-
-    city = (city or "").strip()
-    if not city:
-        return {"ok": False, "detail": "City is required"}
-    q = urllib.parse.quote_plus(f"{city}")
-    url = (
-        "https://geocoding-api.open-meteo.com/v1/search"
-        f"?name={q}&count=5&language=en&format=json"
-    )
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "ScentedDeadGirl/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            payload = _json.loads(resp.read().decode("utf-8"))
-        results = payload.get("results") or []
-        if not results:
-            return {"ok": False, "detail": f"No location found for '{city}'"}
-        # Prefer matching country name when possible
-        country_l = (country or "").strip().lower()
-        chosen = results[0]
-        if country_l:
-            for r in results:
-                ctry = (r.get("country") or "").lower()
-                if country_l in ctry or ctry in country_l:
-                    chosen = r
-                    break
-        lat = float(chosen["latitude"])
-        lon = float(chosen["longitude"])
-        label = ", ".join(
-            p
-            for p in [
-                chosen.get("name"),
-                chosen.get("admin1"),
-                chosen.get("country"),
-            ]
-            if p
-        )
-        # Simple US timezone guess by longitude bands (good enough for chart calc input)
-        tz = "UTC"
-        ctry = (chosen.get("country") or "").lower()
-        if "united states" in ctry or ctry == "usa":
-            if lon <= -115:
-                tz = "America/Los_Angeles"
-            elif lon <= -100:
-                tz = "America/Denver"
-            elif lon <= -85:
-                tz = "America/Chicago"
-            else:
-                tz = "America/New_York"
-        elif "canada" in ctry:
-            tz = "America/Toronto"
-        elif "united kingdom" in ctry or ctry == "uk":
-            tz = "Europe/London"
-        return {
-            "ok": True,
-            "lat": lat,
-            "lon": lon,
-            "label": label,
-            "tz_str": tz,
-            "country": chosen.get("country") or country,
-        }
-    except Exception as ex:
-        return {"ok": False, "detail": str(ex)}
-
-
-def _norm360(x: float) -> float:
-    return x % 360.0
-
-
-def _longitude_to_sign(lon: float) -> str:
-    signs = [
-        "Aries",
-        "Taurus",
-        "Gemini",
-        "Cancer",
-        "Leo",
-        "Virgo",
-        "Libra",
-        "Scorpio",
-        "Sagittarius",
-        "Capricorn",
-        "Aquarius",
-        "Pisces",
-    ]
-    return signs[int(_norm360(lon) // 30) % 12]
-
-
-def _julian_day_utc(year, month, day, hour, minute, second=0.0) -> float:
-    """Julian Day for a UTC datetime."""
-    y = year
-    m = month
-    if m <= 2:
-        y -= 1
-        m += 12
-    A = int(y / 100)
-    B = 2 - A + int(A / 4)
-    day_frac = (hour + minute / 60.0 + second / 3600.0) / 24.0
-    return (
-        int(365.25 * (y + 4716))
-        + int(30.6001 * (m + 1))
-        + day
-        + day_frac
-        + B
-        - 1524.5
-    )
-
-
-def _local_to_jd_utc(year, month, day, hour, minute, tz_str: str) -> float:
-    """Convert local civil time in tz_str to Julian Day (UTC)."""
-    try:
-        tz = ZoneInfo(tz_str) if tz_str else ZoneInfo("UTC")
-    except Exception:
-        tz = ZoneInfo("UTC")
-    local_dt = datetime.datetime(
-        int(year), int(month), int(day), int(hour), int(minute), 0, tzinfo=tz
-    )
-    utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
-    return _julian_day_utc(
-        utc_dt.year,
-        utc_dt.month,
-        utc_dt.day,
-        utc_dt.hour,
-        utc_dt.minute,
-        utc_dt.second,
-    )
-
-
-def _sun_longitude(jd: float) -> float:
-    """Approximate apparent Sun longitude (degrees), good to ~0.01 deg."""
-    import math
-
-    T = (jd - 2451545.0) / 36525.0
-    L0 = _norm360(280.46646 + 36000.76983 * T + 0.0003032 * T * T)
-    M = math.radians(
-        _norm360(357.52911 + 35999.05029 * T - 0.0001537 * T * T)
-    )
-    C = (
-        (1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M)
-        + (0.019993 - 0.000101 * T) * math.sin(2 * M)
-        + 0.000289 * math.sin(3 * M)
-    )
-    true_long = L0 + C
-    # omega / nutation simplified (aberation-ish)
-    omega = math.radians(_norm360(125.04 - 1934.136 * T))
-    lam = true_long - 0.00569 - 0.00478 * math.sin(omega)
-    return _norm360(lam)
-
-
-def _moon_longitude(jd: float) -> float:
-    """Approximate Moon ecliptic longitude (degrees). Sign-level accuracy."""
-    import math
-
-    T = (jd - 2451545.0) / 36525.0
-    Lp = math.radians(
-        _norm360(218.3164477 + 481267.88123421 * T - 0.0015786 * T * T)
-    )
-    D = math.radians(
-        _norm360(297.8501921 + 445267.1114034 * T - 0.0018819 * T * T)
-    )
-    M = math.radians(
-        _norm360(357.5291092 + 35999.0502909 * T - 0.0001536 * T * T)
-    )
-    Mp = math.radians(
-        _norm360(134.9633964 + 477198.8675055 * T + 0.0087414 * T * T)
-    )
-    F = math.radians(
-        _norm360(93.2720950 + 483202.0175233 * T - 0.0036539 * T * T)
-    )
-    # Major periodic terms (degrees)
-    lon = (
-        6.288774 * math.sin(Mp)
-        + 1.274027 * math.sin(2 * D - Mp)
-        + 0.658314 * math.sin(2 * D)
-        + 0.213618 * math.sin(2 * Mp)
-        - 0.185116 * math.sin(M)
-        - 0.114332 * math.sin(2 * F)
-        + 0.058793 * math.sin(2 * D - 2 * Mp)
-        + 0.057212 * math.sin(2 * D - M - Mp)
-        + 0.053320 * math.sin(2 * D + Mp)
-        + 0.045874 * math.sin(2 * D - M)
-        + 0.041024 * math.sin(Mp - M)
-        - 0.034718 * math.sin(D)
-        - 0.030465 * math.sin(M + Mp)
-    )
-    return _norm360(math.degrees(Lp) + lon)
-
-
-def _helio_planet_longitude(jd: float, L0, nL, M0, nM, e_c1, e_c2=0.0) -> float:
-    """Very simplified mean heliocentric longitude + equation of center."""
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(L0 + nL * T)
-    M = math.radians(_norm360(M0 + nM * T))
-    C = e_c1 * math.sin(M) + e_c2 * math.sin(2 * M)
-    return _norm360(L + C)
-
-
-def _venus_longitude(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(181.979801 + 58517.8156760 * T)
-    M = math.radians(_norm360(50.4161 + 58517.803863 * T))
-    C = 0.775 * math.sin(M) + 0.003 * math.sin(2 * M)
-    earth_L = _norm360(100.46435 + 35999.37297 * T)
-    helio = L + C
-    return _norm360(helio + 1.2 * math.sin(math.radians(helio - earth_L)))
-
-
-def _mercury_longitude(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(252.250906 + 149472.6746358 * T)
-    M = math.radians(_norm360(174.7948 + 149472.5153 * T))
-    C = 23.4400 * math.sin(M) + 2.9818 * math.sin(2 * M)
-    earth_L = _norm360(100.46435 + 35999.37297 * T)
-    helio = L + C
-    return _norm360(helio + 3.0 * math.sin(math.radians(helio - earth_L)))
-
-
-def _mars_longitude(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    L = _norm360(355.433 + 19140.3023 * T)
-    M = math.radians(_norm360(19.3730 + 19140.2993 * T))
-    C = 10.691 * math.sin(M) + 0.623 * math.sin(2 * M)
-    earth_L = _norm360(100.46435 + 35999.37297 * T)
-    helio = L + C
-    return _norm360(helio + 1.5 * math.sin(math.radians(earth_L - helio)))
-
-
-def _jupiter_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 34.351519, 3034.9057, 19.8950, 3034.6920, 5.555, 0.168)
-
-
-def _saturn_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 50.0774, 1222.1138, 317.0207, 1221.5515, 6.406, 0.223)
-
-
-def _uranus_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 314.0550, 428.4669, 141.0498, 428.4952, 5.347, 0.0)
-
-
-def _neptune_longitude(jd: float) -> float:
-    return _helio_planet_longitude(jd, 304.3487, 218.4862, 256.2250, 218.4862, 1.024, 0.0)
-
-
-def _pluto_longitude(jd: float) -> float:
-    # Very rough mean motion for sign-level only
-    return _helio_planet_longitude(jd, 238.958, 145.178, 14.862, 145.178, 10.0, 0.0)
-
-
-def _lilith_longitude(jd: float) -> float:
-    """Mean Black Moon Lilith (lunar apogee) approximation, degrees."""
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    # Mean longitude of lunar apogee (Meeus-style approx)
-    return _norm360(
-        83.353 + 4069.0137 * T - 0.01032 * T * T
-        - 0.00015 * T * T * T
-    )
-
-
-def _obliquity(jd: float) -> float:
-    import math
-    T = (jd - 2451545.0) / 36525.0
-    return math.radians(23.439291 - 0.0130042 * T)
-
-
-def _gmst_degrees(jd: float) -> float:
-    T = (jd - 2451545.0) / 36525.0
-    gmst = (
-        280.46061837
-        + 360.98564736629 * (jd - 2451545.0)
-        + 0.000387933 * T * T
-        - T * T * T / 38710000.0
-    )
-    return _norm360(gmst)
-
-
-def _ascendant_longitude(jd: float, lat_deg: float, lon_deg: float) -> float:
-    import math
-    eps = _obliquity(jd)
-    lst = math.radians(_norm360(_gmst_degrees(jd) + lon_deg))
-    lat = math.radians(lat_deg)
-    y = math.cos(lst)
-    x = -(math.sin(lst) * math.cos(eps) + math.tan(lat) * math.sin(eps))
-    return _norm360(math.degrees(math.atan2(y, x)))
-
-
-def _equal_houses_from_asc(asc_lon: float) -> dict:
-    """Equal house system: House 1 cusp = Ascendant, each house +30 deg."""
-    houses = {}
-    for n in range(1, 13):
-        cusp = _norm360(asc_lon + (n - 1) * 30.0)
-        houses[n] = {
-            "cusp": round(cusp, 2),
-            "sign": _longitude_to_sign(cusp),
-        }
-    return houses
-
-
-def _planet_block(lon: float) -> dict:
-    return {
-        "lon": round(_norm360(lon), 2),
-        "sign": _longitude_to_sign(lon),
-        "deg_in_sign": round(_norm360(lon) % 30.0, 2),
-    }
 
 
 def _show_brand_logo():
@@ -16329,7 +15562,7 @@ with tab_vault:
         st.caption(
             "Best protection against Cloud redeploys wiping your vault. "
             "Export after every session of edits. Restore loads your full bottle list, "
-            "reactions, SOTD, wishlist, and chart."
+            "reactions, SOTD, and wishlist."
         )
         export_data = {
             "fragrances_db": st.session_state["fragrances_db"],
@@ -16339,18 +15572,7 @@ with tab_vault:
             "play_stats": st.session_state.get("play_stats", {}),
             "last_export_date": st.session_state.get("last_export_date"),
             "last_saved_at": st.session_state.get("last_saved_at"),
-            "chart": {
-                "sun": st.session_state.get("chart_sun"),
-                "moon": st.session_state.get("chart_moon"),
-                "rising": st.session_state.get("chart_rising"),
-                "venus": st.session_state.get("chart_venus"),
-                "full": st.session_state.get("birth_calc_full"),
-                "his_sun": st.session_state.get("chart_his_sun"),
-                "his_moon": st.session_state.get("chart_his_moon"),
-                "his_rising": st.session_state.get("chart_his_rising"),
-                "his_venus": st.session_state.get("chart_his_venus"),
-                "his_full": st.session_state.get("birth_calc_his_full"),
-            },
+            
             "wishlist": st.session_state.get("wishlist", []),
             "try_recipes": st.session_state.get("try_recipes", []),
             "vault_log": st.session_state.get("vault_log", []),
@@ -16398,9 +15620,6 @@ with tab_vault:
                         st.session_state["play_stats"] = imported_data["play_stats"]
                     if "last_export_date" in imported_data:
                         st.session_state["last_export_date"] = imported_data["last_export_date"]
-                    if "chart" in imported_data and isinstance(imported_data["chart"], dict):
-                        # Defer chart_* keys  -  Stars widgets already ran this script cycle
-                        st.session_state["_pending_chart_restore"] = imported_data["chart"]
                     if "wishlist" in imported_data:
                         st.session_state["wishlist"] = imported_data["wishlist"]
                     if "try_recipes" in imported_data:
@@ -16422,7 +15641,7 @@ with tab_vault:
 # AUTO-SAVE (any vault change this run)
 # ==========================================
 # AUTO-SAVE: runs at the end of every script run.
-# Catches fragrances, edits, reactions, wishlist, recipes, SOTD, chart, etc.
+# Catches fragrances, edits, reactions, wishlist, recipes, SOTD, etc.
 # Any change to the vault fingerprint triggers a save to disk + .bak + /tmp.
 # This protects against Streamlit Cloud redeploys wiping memory.
 # even if a specific button forgot to call save_persisted_data().
