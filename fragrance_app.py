@@ -8238,22 +8238,23 @@ def suggest_partners_for(
 ) -> list:
     """Best layering partners for a single selected fragrance.
 
-    Gender is strict by default (Female = female only; no pure Unisex unless
-    include_unisex=True). Season filters with matches_weather.
+    Ranked by pyramid formula:
+      Layering Score = (Top×0.5)+(Middle×1.5)+(Base×3.0)+Density Modifier
+    Highest score first. Gender/season filters apply; brand diversity is soft
+    so true top matches are never dropped.
     """
     if not base:
         return []
-    pool = st.session_state["fragrances_db"]
+    pool = st.session_state.get("fragrances_db") or []
     candidates = []
     for f in pool:
-        if f["name"] == base["name"]:
+        if (f.get("name") or "") == (base.get("name") or ""):
             continue
-        if exclude_dislikes and st.session_state.get("user_reactions", {}).get(f["name"]) == "dislike":
+        if exclude_dislikes and st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
             continue
         if gender and gender != "Any":
             fg = normalize_gender(f.get("gender", ""))
             if gender == "Female":
-                # Strict: Female + Female-leaning only (no pure Unisex unless opted in)
                 ok = fg in ("Female", "Female-leaning") or (
                     include_unisex and fg == "Unisex"
                 )
@@ -8275,54 +8276,79 @@ def suggest_partners_for(
                     continue
             except Exception:
                 pass
-        s = layer_score(base, f)
-        if s <= -50:
+
+        detail = layering_score_pyramid(base, f)
+        raw = float(detail.get("score_raw") or 0)
+        display = int(detail.get("score") or 0)
+        # Favorites boost
+        _rx = st.session_state.get("user_reactions") or {}
+        if _rx.get(f.get("name")) == "fav":
+            raw += 3.0
+            display = min(100, display + 5)
+        if raw <= -40:
             continue
+
         wb = fragrance_weight_score(base)
         wp = fragrance_weight_score(f)
         if wb >= wp + 8:
             order = (
-                f"Order: **{base.get('name')}** first (heavier base, weight {wb}), "
-                f"then **{f.get('name')}** on top (lighter, weight {wp})."
+                f"Order: **{base.get('name')}** first (heavier, {wb}), "
+                f"then **{f.get('name')}** ({wp})."
             )
         elif wp >= wb + 8:
             order = (
-                f"Order: **{f.get('name')}** first (heavier base, weight {wp}), "
-                f"then **{base.get('name')}** on top (lighter, weight {wb})."
+                f"Order: **{f.get('name')}** first (heavier, {wp}), "
+                f"then **{base.get('name')}** ({wb})."
             )
         else:
-            order = (
-                f"Similar weight ({wb} vs {wp}) - use fewer sprays of the denser one; "
-                f"skin-test order."
-            )
-        cats_b = ", ".join((base.get("category") or [])[:3]) or "ÂÂ"
-        cats_p = ", ".join((f.get("category") or [])[:3]) or "ÂÂ"
-        reason = f"{order} Families: {cats_b} + {cats_p}."
-        candidates.append((s, f, reason))
-    candidates.sort(key=lambda x: (-x[0], (x[1].get("name") or "").lower()))
-    # Stable ranking - no random reshuffle
+            order = f"Similar weight ({wb} vs {wp}) — fewer sprays of the denser one."
+
+        cats_b = ", ".join((base.get("category") or [])[:3]) or "—"
+        cats_p = ", ".join((f.get("category") or [])[:3]) or "—"
+        formula = detail.get("formula") or ""
+        bridges = []
+        if detail.get("shared_base"):
+            bridges.append("base: " + ", ".join(detail["shared_base"][:4]))
+        if detail.get("shared_middle"):
+            bridges.append("heart: " + ", ".join(detail["shared_middle"][:4]))
+        if detail.get("shared_top"):
+            bridges.append("top: " + ", ".join(detail["shared_top"][:3]))
+        bridge_txt = (" · " + " · ".join(bridges)) if bridges else ""
+        reason = (
+            f"**Layer score {display}/100** — {formula}{bridge_txt}. "
+            f"{order} Families: {cats_b} + {cats_p}."
+        )
+        candidates.append((raw, display, f, reason, detail))
+
+    # Best pyramid score first
+    candidates.sort(key=lambda x: (-x[0], -x[1], (x[2].get("name") or "").lower()))
+
     out = []
     used_brands = set()
     used_names = set()
-    for s, f, reason in candidates:
+    # First pass: soft brand diversity while filling
+    for raw, display, f, reason, detail in candidates:
         name = f.get("name") or ""
         brand = (f.get("brand") or "").strip().lower()
-        if name in used_names:
+        if not name or name in used_names:
             continue
-        if brand and brand in used_brands:
+        # Only skip same brand if we already have plenty of strong picks
+        if brand and brand in used_brands and len(out) >= max(3, num // 3):
             continue
         used_names.add(name)
         if brand:
             used_brands.add(brand)
-        out.append((f, reason, s))
+        out.append((f, reason, display))
         if len(out) >= num:
             return out
-    for s, f, reason in candidates:
+
+    # Second pass: fill remaining slots with pure best scores
+    for raw, display, f, reason, detail in candidates:
         name = f.get("name") or ""
-        if name in used_names:
+        if not name or name in used_names:
             continue
         used_names.add(name)
-        out.append((f, reason, s))
+        out.append((f, reason, display))
         if len(out) >= num:
             break
     return out
@@ -12862,13 +12888,13 @@ with tab_layer:
                     partners = [x for x in partners if not is_oil_fragrance(x[0])]
                 if _oil_mode == "Oils only":
                     partners = [x for x in partners if is_oil_fragrance(x[0])]
-                # Refresh: reshuffle / rotate after filters
+                # Refresh: rotate deeper into the ranked list (still score-ordered)
                 if st.session_state.get("_layer_partner_nonce"):
-                    random.shuffle(partners)
                     _ri = int(st.session_state.get("_layer_partner_refresh_i") or 0)
-                    if _ri and partners:
-                        _k = _ri % max(1, len(partners))
-                        partners = partners[_k:] + partners[:_k]
+                    if _ri and len(partners) > show_n:
+                        # Show next window of top-ranked partners
+                        start = (_ri * max(1, show_n // 2)) % max(1, len(partners))
+                        partners = partners[start:] + partners[:start]
                 if base_f and is_oil_fragrance(base_f):
                     st.info(
                         "Base is an **oil** — apply oil first, then a spray partner on top."
@@ -12912,6 +12938,13 @@ with tab_layer:
                         except Exception:
                             pass
                     _strict.append(item)
+                # Keep best pyramid scores first after filters
+                def _partner_score(it):
+                    try:
+                        return float(it[2]) if len(it) >= 3 else 0.0
+                    except Exception:
+                        return 0.0
+                _strict.sort(key=_partner_score, reverse=True)
                 partners = _strict[: int(show_n)]
                 if not partners:
                     st.warning(
@@ -12925,9 +12958,12 @@ with tab_layer:
                         else ""
                     )
                     st.markdown(
-                        f"**Top {len(partners)} partners for {base_name}** "
-                        f"(gender: {layer_partner_gender}{uni_note}"
+                        f"**Top {len(partners)} layering partners for {base_name}** "
+                        f"(ranked by pyramid score · gender: {layer_partner_gender}{uni_note}"
                         f" | season: {layer_partner_season})"
+                    )
+                    st.caption(
+                        "Layering Score = (Top×0.5)+(Middle×1.5)+(Base×3.0)+Density Modifier"
                     )
                     for pi, item in enumerate(partners, 1):
                         if len(item) >= 3:
@@ -12935,19 +12971,18 @@ with tab_layer:
                         else:
                             pf, reason = item[0], item[1]
                             score = None
-                        # Simple match label instead of long float scores
                         if score is not None:
                             sc = int(round(float(score)))
-                            if sc >= 100:
-                                match_lbl = "Match: Excellent"
-                            elif sc >= 70:
-                                match_lbl = "Match: Strong"
-                            elif sc >= 40:
-                                match_lbl = "Match: Good"
+                            if sc >= 75:
+                                match_lbl = f"#{pi} · {sc}/100 Excellent"
+                            elif sc >= 55:
+                                match_lbl = f"#{pi} · {sc}/100 Strong"
+                            elif sc >= 35:
+                                match_lbl = f"#{pi} · {sc}/100 Good"
                             else:
-                                match_lbl = "Match: Okay"
+                                match_lbl = f"#{pi} · {sc}/100 Okay"
                         else:
-                            match_lbl = ""
+                            match_lbl = f"#{pi}"
                         _wb = fragrance_weight_score(base_f)
                         _wp = fragrance_weight_score(pf)
                         if _wb >= _wp + 8:
