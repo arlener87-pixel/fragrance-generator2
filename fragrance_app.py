@@ -7695,6 +7695,10 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     empty = {
         "score": 0,
         "score_raw": 0,
+        "formula": "",
+        "formula_explain": (
+            "Layering Score = (Top×0.5)+(Middle×1.5)+(Base×3.0)+Density Modifier"
+        ),
         "selected_names": selected_names,
         "spray_order": spray_order,
         "verdict": "Need at least two bottles still in the vault.",
@@ -7750,6 +7754,13 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
 
     # Pyramid formula already returns meaningful magnitude; map avg into 0-100
     display_score = int(max(0, min(100, round(avg * 3.2))))
+    best_formula = ""
+    if pairs:
+        try:
+            best = max(pairs, key=lambda p: p.get("score", 0))
+            best_formula = best.get("formula") or ""
+        except Exception:
+            best_formula = ""
     guide = layer_application_guide(frags)
     why = explain_layer_combo(frags)
     # Brand tags for clarity
