@@ -6151,12 +6151,70 @@ def density_modifier(f: dict) -> float:
     return mod
 
 
+def _normalize_note_token(tok: str) -> str:
+    """Collapse common note synonyms so vanilla/vanille etc. match."""
+    t = (tok or "").lower().strip()
+    aliases = {
+        "vanille": "vanilla", "vanila": "vanilla",
+        "muscs": "musk", "musky": "musk", "white-musk": "musk",
+        "woods": "wood", "woody": "wood", "sandal": "sandalwood",
+        "cedre": "cedar", "cèdre": "cedar", "cedarwood": "cedar",
+        "bergamote": "bergamot",
+        "rose-de-mai": "rose", "roses": "rose",
+        "jasmin": "jasmine",
+        "ambers": "amber", "ambroxan": "amber", "ambrox": "amber",
+        "patchouly": "patchouli",
+        "cacao": "cocoa", "chocolat": "chocolate",
+        "caramelized": "caramel",
+        "strawberries": "strawberry", "raspberries": "raspberry",
+        "peaches": "peach", "pears": "pear",
+        "oranges": "orange", "lemons": "lemon", "limes": "lime",
+        "flowers": "floral", "flower": "floral",
+        "spices": "spice", "spicy": "spice",
+        "incense": "incense", "frankincence": "frankincense",
+        "tonka-bean": "tonka", "tonka bean": "tonka",
+        "sea": "marine", "ocean": "marine", "aquatic": "marine",
+        "marshmellow": "marshmallow",
+    }
+    return aliases.get(t, t)
+
+
+def _norm_note_set(notes: set) -> set:
+    return {_normalize_note_token(n) for n in (notes or []) if n}
+
+
+# Note families: shared family counts as a soft bridge even without exact token match
+_NOTE_FAMILIES = [
+    {"vanilla", "tonka", "caramel", "praline", "marshmallow", "sugar", "benzoin", "cream", "milk", "honey"},
+    {"rose", "jasmine", "peony", "violet", "iris", "orange-blossom", "tuberose", "ylang", "floral", "geranium"},
+    {"strawberry", "raspberry", "cherry", "berry", "peach", "pear", "apple", "fruity", "blackcurrant"},
+    {"bergamot", "lemon", "orange", "grapefruit", "mandarin", "citrus", "lime", "neroli"},
+    {"sandalwood", "cedar", "wood", "vetiver", "oakmoss", "guaiac", "cypress"},
+    {"amber", "oud", "incense", "myrrh", "frankincense", "labdanum", "resin"},
+    {"musk", "powder", "iris", "violet", "rice", "soap"},
+    {"coconut", "tiare", "pineapple", "mango", "tropical", "monoi"},
+    {"coffee", "cocoa", "chocolate", "almond", "hazelnut", "praline"},
+    {"lavender", "mint", "herbal", "aromatic", "sage", "rosemary"},
+]
+
+
+def _family_bridge_score(set_a: set, set_b: set) -> float:
+    """How many note families are represented on both sides (soft bridges)."""
+    if not set_a or not set_b:
+        return 0.0
+    hits = 0.0
+    for fam in _NOTE_FAMILIES:
+        if (set_a & fam) and (set_b & fam):
+            hits += 1.0
+    return hits
+
+
 def layering_score_pyramid(f1: dict, f2: dict) -> dict:
     """
     Layering Score = (Top Notes × 0.5) + (Middle Notes × 1.5) + (Base Notes × 3.0) + Density Modifier
 
-    Note counts are shared (and complementary) pyramid tokens between the two bottles.
-    Returns detail dict with raw score and 0-100 display score.
+    Note counts are shared / complementary pyramid tokens (with synonym + family soft matches).
+    Display score is calibrated so solid pairs land ~70-90, excellent ~90-100.
     """
     if not f1 or not f2 or f1.get("name") == f2.get("name"):
         return {
@@ -6171,18 +6229,18 @@ def layering_score_pyramid(f1: dict, f2: dict) -> dict:
 
     p1 = parse_pyramid_notes(f1.get("notes") or "")
     p2 = parse_pyramid_notes(f2.get("notes") or "")
+    # Normalize synonyms
+    for key in ("top", "middle", "base"):
+        p1[key] = _norm_note_set(p1[key])
+        p2[key] = _norm_note_set(p2[key])
 
-    # Shared notes at each stage (true layering bridges)
     shared_top = p1["top"] & p2["top"]
     shared_mid = p1["middle"] & p2["middle"]
     shared_base = p1["base"] & p2["base"]
 
-    # Complementary bridges: base of one + heart/top of the other still counts
-    # (half weight vs true shared stage)
     comp_top = (p1["top"] & (p2["middle"] | p2["base"])) | (p2["top"] & (p1["middle"] | p1["base"]))
     comp_mid = (p1["middle"] & (p2["top"] | p2["base"])) | (p2["middle"] & (p1["top"] | p1["base"]))
     comp_base = (p1["base"] & (p2["top"] | p2["middle"])) | (p2["base"] & (p1["top"] | p1["middle"]))
-    # Don't double-count notes already in shared_*
     comp_top -= shared_top
     comp_mid -= shared_mid
     comp_base -= shared_base
@@ -6191,31 +6249,61 @@ def layering_score_pyramid(f1: dict, f2: dict) -> dict:
     mid_n = len(shared_mid) + 0.5 * len(comp_mid)
     base_n = len(shared_base) + 0.5 * len(comp_base)
 
-    # If pyramids are empty (no structured notes), fall back to flat token overlap
+    all1 = p1["top"] | p1["middle"] | p1["base"]
+    all2 = p2["top"] | p2["middle"] | p2["base"]
+    if not all1:
+        all1 = _norm_note_set(_note_tokens(f1))
+    if not all2:
+        all2 = _norm_note_set(_note_tokens(f2))
+
+    # Flat overlap fallback when pyramid stages empty
     if top_n == 0 and mid_n == 0 and base_n == 0:
-        n1 = _note_tokens(f1)
-        n2 = _note_tokens(f2)
-        shared = n1 & n2
-        # Treat unstructured overlap as mostly heart + some base
+        shared = all1 & all2
         mid_n = len(shared) * 0.7
         base_n = len(shared) * 0.3
 
+    # Soft family bridges (vanilla family, floral family, etc.)
+    fam_hits = _family_bridge_score(all1, all2)
+    # Distribute family bridges into middle/base weights
+    mid_n += fam_hits * 0.6
+    base_n += fam_hits * 0.8
+
+    # Category family synergy
+    cats1 = {str(c) for c in (f1.get("category") or [])}
+    cats2 = {str(c) for c in (f2.get("category") or [])}
+    cat_bonus = 0.0
+    if cats1 & cats2:
+        cat_bonus += 2.5 * len(cats1 & cats2)
+    for a, b in (
+        ("Gourmand", "Vanilla"), ("Gourmand", "Sweet"), ("Gourmand", "Floral"),
+        ("Gourmand", "Fruity"), ("Vanilla", "Floral"), ("Vanilla", "Woody"),
+        ("Floral", "Fruity"), ("Floral", "Musky"), ("Fresh", "Citrus"),
+        ("Woody", "Oriental"), ("Amber", "Vanilla"), ("Sweet", "Fruity"),
+        ("Creamy", "Fruity"), ("Creamy", "Vanilla"),
+    ):
+        if (a in cats1 and b in cats2) or (b in cats1 and a in cats2):
+            cat_bonus += 2.0
+
     dens = density_modifier(f1) + density_modifier(f2)
-    # Reward density contrast (heavy + light stacks better than two heavies)
     w1 = fragrance_weight_score(f1)
     w2 = fragrance_weight_score(f2)
     gap = abs(w1 - w2)
     if gap >= 25:
         dens += 4.0
     elif gap >= 15:
-        dens += 2.0
+        dens += 2.5
+    elif gap >= 8:
+        dens += 1.0
     elif gap < 8 and w1 >= 75 and w2 >= 75:
-        dens -= 3.0  # two dense juices fight
+        dens -= 2.0
+
+    dens += cat_bonus
 
     raw = (top_n * 0.5) + (mid_n * 1.5) + (base_n * 3.0) + dens
 
-    # Map raw onto 0-100 for UI (soft ceiling)
-    display = int(max(0, min(100, round(raw * 4.0))))
+    # Calibrated display: solid pairs ~70-90, excellent ~90-100
+    # Baseline 58 for any filtered partner + scaled formula contribution
+    display = int(max(0, min(100, round(58 + raw * 2.8))))
 
     formula = (
         f"({top_n:.1f}×0.5)+({mid_n:.1f}×1.5)+({base_n:.1f}×3.0)"
@@ -7347,17 +7435,17 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     # Thresholds tuned for pyramid formula raw values
     if any(s <= -50 for s in scores):
         label, verdict = "Risky", "One pair looks weak - test on skin first."
-    elif avg >= 18:
+    elif avg >= 12:
         label, verdict = "Strong layer", "Base-weighted notes lock together — worth wearing."
-    elif avg >= 10:
+    elif avg >= 7:
         label, verdict = "Good layer", "Solid pyramid bridge — a little contrast works."
-    elif avg >= 4:
+    elif avg >= 3:
         label, verdict = "Mixed", "Wearable, but may compete — fewer sprays of the louder one."
     else:
         label, verdict = "Risky", "Weak base bridge — skin test before a full wear."
 
     # Pyramid formula already returns meaningful magnitude; map avg into 0-100
-    display_score = int(max(0, min(100, round(avg * 3.2))))
+    display_score = int(max(0, min(100, round(58 + avg * 2.8))))
     best_formula = ""
     if pairs:
         try:
@@ -12206,11 +12294,11 @@ with tab_layer:
                             score = None
                         if score is not None:
                             sc = int(round(float(score)))
-                            if sc >= 75:
+                            if sc >= 90:
                                 match_lbl = f"#{pi} · {sc}/100 Excellent"
-                            elif sc >= 55:
+                            elif sc >= 80:
                                 match_lbl = f"#{pi} · {sc}/100 Strong"
-                            elif sc >= 35:
+                            elif sc >= 70:
                                 match_lbl = f"#{pi} · {sc}/100 Good"
                             else:
                                 match_lbl = f"#{pi} · {sc}/100 Okay"
