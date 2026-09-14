@@ -6467,91 +6467,199 @@ BAD_LAYER_PAIRS = [
     ("Fresh", "Oud"), ("Green", "Gourmand"), ("Aquatic", "Gourmand"),
 ]
 
+
+def parse_pyramid_notes(raw: str) -> dict:
+    """Split notes text into top / middle / base token sets."""
+    text = str(raw or "")
+    if not text.strip():
+        return {"top": set(), "middle": set(), "base": set()}
+
+    # Normalize common labels
+    t = text
+    t = re.sub(r"(?i)middle\s*\(\s*heart\s*\)\s*notes?\s*[-–:]*", "HEART_SPLIT:", t)
+    t = re.sub(r"(?i)heart\s*\(\s*middle\s*\)\s*notes?\s*[-–:]*", "HEART_SPLIT:", t)
+    t = re.sub(r"(?i)\b(top)\s*notes?\s*[-–:]*", "TOP_SPLIT:", t)
+    t = re.sub(r"(?i)\b(heart|middle|mid)\s*notes?\s*[-–:]*", "HEART_SPLIT:", t)
+    t = re.sub(r"(?i)\b(base|dry\s*down)\s*notes?\s*[-–:]*", "BASE_SPLIT:", t)
+
+    sections = {"top": "", "middle": "", "base": ""}
+    if "TOP_SPLIT:" in t or "HEART_SPLIT:" in t or "BASE_SPLIT:" in t:
+        # Pull text after each marker until next marker
+        for key, marker in (("top", "TOP_SPLIT:"), ("middle", "HEART_SPLIT:"), ("base", "BASE_SPLIT:")):
+            if marker not in t:
+                continue
+            after = t.split(marker, 1)[1]
+            for other in ("TOP_SPLIT:", "HEART_SPLIT:", "BASE_SPLIT:"):
+                if other in after:
+                    after = after.split(other, 1)[0]
+            sections[key] = after
+    else:
+        # No pyramid labels — put everything in middle so it still counts lightly
+        sections["middle"] = t
+
+    stop = {
+        "top", "heart", "middle", "mid", "base", "notes", "note", "and", "with",
+        "the", "from", "for", "into", "style", "absolute", "oil", "extract",
+        "leaning", "dry", "down", "accord", "blend", "composition",
+    }
+
+    def _tokens(chunk: str) -> set:
+        toks = set(re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}", chunk.lower()))
+        return {x for x in toks if x not in stop}
+
+    return {
+        "top": _tokens(sections["top"]),
+        "middle": _tokens(sections["middle"]),
+        "base": _tokens(sections["base"]),
+    }
+
+
+def density_modifier(f: dict) -> float:
+    """
+    Density class bonus/penalty for layering.
+    Light sprays layer up; very dense oils need restraint.
+    """
+    if not f:
+        return 0.0
+    w = fragrance_weight_score(f)
+    conc = (f.get("concentration") or "").strip().lower()
+    mod = 0.0
+    # Concentration class
+    if "oil" in conc or "attar" in conc:
+        mod += 4.0   # dense — strong base presence
+    elif "extrait" in conc or "pure" in conc or "parfum" in conc and "eau" not in conc:
+        mod += 3.0
+    elif "edp" in conc or "eau de parfum" in conc:
+        mod += 1.5
+    elif "edt" in conc or "eau de toilette" in conc:
+        mod += 0.5
+    elif "edc" in conc or "cologne" in conc:
+        mod += 0.0
+    # Weight bands
+    if w >= 85:
+        mod += 3.0
+    elif w >= 65:
+        mod += 1.5
+    elif w >= 45:
+        mod += 0.5
+    else:
+        mod -= 0.5  # very light — less anchoring power alone
+    return mod
+
+
+def layering_score_pyramid(f1: dict, f2: dict) -> dict:
+    """
+    Layering Score = (Top Notes × 0.5) + (Middle Notes × 1.5) + (Base Notes × 3.0) + Density Modifier
+
+    Note counts are shared (and complementary) pyramid tokens between the two bottles.
+    Returns detail dict with raw score and 0-100 display score.
+    """
+    if not f1 or not f2 or f1.get("name") == f2.get("name"):
+        return {
+            "score": 0,
+            "score_raw": -100.0,
+            "top": 0,
+            "middle": 0,
+            "base": 0,
+            "density_mod": 0.0,
+            "formula": "invalid pair",
+        }
+
+    p1 = parse_pyramid_notes(f1.get("notes") or "")
+    p2 = parse_pyramid_notes(f2.get("notes") or "")
+
+    # Shared notes at each stage (true layering bridges)
+    shared_top = p1["top"] & p2["top"]
+    shared_mid = p1["middle"] & p2["middle"]
+    shared_base = p1["base"] & p2["base"]
+
+    # Complementary bridges: base of one + heart/top of the other still counts
+    # (half weight vs true shared stage)
+    comp_top = (p1["top"] & (p2["middle"] | p2["base"])) | (p2["top"] & (p1["middle"] | p1["base"]))
+    comp_mid = (p1["middle"] & (p2["top"] | p2["base"])) | (p2["middle"] & (p1["top"] | p1["base"]))
+    comp_base = (p1["base"] & (p2["top"] | p2["middle"])) | (p2["base"] & (p1["top"] | p1["middle"]))
+    # Don't double-count notes already in shared_*
+    comp_top -= shared_top
+    comp_mid -= shared_mid
+    comp_base -= shared_base
+
+    top_n = len(shared_top) + 0.5 * len(comp_top)
+    mid_n = len(shared_mid) + 0.5 * len(comp_mid)
+    base_n = len(shared_base) + 0.5 * len(comp_base)
+
+    # If pyramids are empty (no structured notes), fall back to flat token overlap
+    if top_n == 0 and mid_n == 0 and base_n == 0:
+        n1 = _note_tokens(f1)
+        n2 = _note_tokens(f2)
+        shared = n1 & n2
+        # Treat unstructured overlap as mostly heart + some base
+        mid_n = len(shared) * 0.7
+        base_n = len(shared) * 0.3
+
+    dens = density_modifier(f1) + density_modifier(f2)
+    # Reward density contrast (heavy + light stacks better than two heavies)
+    w1 = fragrance_weight_score(f1)
+    w2 = fragrance_weight_score(f2)
+    gap = abs(w1 - w2)
+    if gap >= 25:
+        dens += 4.0
+    elif gap >= 15:
+        dens += 2.0
+    elif gap < 8 and w1 >= 75 and w2 >= 75:
+        dens -= 3.0  # two dense juices fight
+
+    raw = (top_n * 0.5) + (mid_n * 1.5) + (base_n * 3.0) + dens
+
+    # Map raw onto 0-100 for UI (soft ceiling)
+    display = int(max(0, min(100, round(raw * 4.0))))
+
+    formula = (
+        f"({top_n:.1f}×0.5)+({mid_n:.1f}×1.5)+({base_n:.1f}×3.0)"
+        f"+({dens:.1f}) = {raw:.1f}"
+    )
+    return {
+        "score": display,
+        "score_raw": round(raw, 2),
+        "top": round(top_n, 2),
+        "middle": round(mid_n, 2),
+        "base": round(base_n, 2),
+        "density_mod": round(dens, 2),
+        "formula": formula,
+        "shared_top": sorted(shared_top)[:8],
+        "shared_middle": sorted(shared_mid)[:8],
+        "shared_base": sorted(shared_base)[:8],
+    }
+
+
 def layer_score(f1: dict, f2: dict) -> int:
+    """
+    Pair score used by evaluate_layer_recipe / recipe ratings.
+    Implements:
+      Layering Score = (Top×0.5) + (Middle×1.5) + (Base×3.0) + Density Modifier
+    Returns a signed raw-ish value compatible with existing thresholds
+    (evaluate_layer_recipe scales avg * 0.55 into 0-100 — we return values
+    already in a similar numeric range by using display score / 2).
+    """
     if not f1 or not f2 or f1.get("name") == f2.get("name"):
         return -100
     _rx = st.session_state.get("user_reactions") or {}
     if _rx.get(f1.get("name")) == "dislike" or _rx.get(f2.get("name")) == "dislike":
         return -100
 
-    cats1 = set(f1.get("category") or [])
-    cats2 = set(f2.get("category") or [])
-    score = 0
-
+    detail = layering_score_pyramid(f1, f2)
+    # Favorites still nudge the stack
+    bonus = 0
     if _rx.get(f1.get("name")) == "fav":
-        score += 10
+        bonus += 5
     if _rx.get(f2.get("name")) == "fav":
-        score += 10
+        bonus += 5
 
-    for a, b in GOOD_LAYER_PAIRS:
-        if (a in cats1 and b in cats2) or (b in cats1 and a in cats2):
-            score += 15
+    # Return value that evaluate_layer_recipe can average:
+    # display is 0-100; divide so avg*0.55 still lands reasonably
+    # Prefer returning score_raw so the pyramid math stays visible in score_raw field
+    return int(round(detail["score_raw"] + bonus))
 
-    if cats1 & cats2:
-        score += 5
 
-    # Notes-based synergy
-    n1 = _note_tokens(f1)
-    n2 = _note_tokens(f2)
-    shared = n1 & n2
-    if shared:
-        score += min(12, 3 * len(shared))
-    for family, pts in _NOTE_SYNERGY:
-        if (n1 & family) and (n2 & family):
-            score += pts
-        elif (n1 & family) and (n2 - family) and (cats2 & {"Gourmand", "Sweet", "Woody", "Oriental", "Fresh"}):
-            # bridge note on one side still helps a little
-            score += max(2, pts // 3)
-    for fam_a, fam_b, pen in _NOTE_CLASH:
-        if (n1 & fam_a and n2 & fam_b) or (n2 & fam_a and n1 & fam_b):
-            score += pen
-
-    # Weight balance: reward clear heavy + light (better layering stack)
-    w1 = fragrance_weight_score(f1)
-    w2 = fragrance_weight_score(f2)
-    gap = abs(w1 - w2)
-    if gap >= 25:
-        score += 12  # clear base vs top
-    elif gap >= 15:
-        score += 8
-    elif gap >= 8:
-        score += 4
-    else:
-        score -= 6  # two similar weights can muddle / fight for space
-
-    # Soft penalty when both are very heavy
-    if w1 >= 80 and w2 >= 80:
-        score -= 10
-    # Soft penalty when both are very light (nothing anchors)
-    if w1 <= 40 and w2 <= 40:
-        score -= 6
-
-    # Stable-ish variation from names
-    score += _stable_tiebreak(f1["name"] + f2["name"]) % 5 + 1
-    
-    # Season compatibility: prefer partners that share a season band
-    s1 = (f1.get("season") or "").lower()
-    s2 = (f2.get("season") or "").lower()
-    bands1 = set()
-    bands2 = set()
-    for label, keys in (("hot", ("summer",)), ("warm", ("spring", "mild")), ("cool", ("fall", "autumn", "cooler")), ("cold", ("winter",))):
-        if any(k in s1 for k in keys):
-            bands1.add(label)
-        if any(k in s2 for k in keys):
-            bands2.add(label)
-    if "versatile" in s1 or "year-round" in s1:
-        bands1.update(("hot", "warm", "cool", "cold"))
-    if "versatile" in s2 or "year-round" in s2:
-        bands2.update(("hot", "warm", "cool", "cold"))
-    shared_bands = bands1 & bands2
-    if shared_bands:
-        score += 8
-    elif bands1 and bands2 and not shared_bands:
-        # opposite extremes only
-        if (bands1 <= {"hot"} and bands2 <= {"cold"}) or (bands1 <= {"cold"} and bands2 <= {"hot"}):
-            score -= 12
-
-    return score
 
 
 def layer_note_reasons(f1: dict, f2: dict) -> list:
@@ -7607,6 +7715,7 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     scores = []
     for i in range(len(frags)):
         for j in range(i + 1, len(frags)):
+            detail = layering_score_pyramid(frags[i], frags[j])
             s = layer_score(frags[i], frags[j])
             scores.append(s)
             pairs.append(
@@ -7614,6 +7723,12 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
                     "a": frags[i].get("name"),
                     "b": frags[j].get("name"),
                     "score": int(round(s)),
+                    "display": detail.get("score", 0),
+                    "formula": detail.get("formula", ""),
+                    "top": detail.get("top", 0),
+                    "middle": detail.get("middle", 0),
+                    "base": detail.get("base", 0),
+                    "density_mod": detail.get("density_mod", 0),
                     "cats": ", ".join((frags[i].get("category") or [])[:3])
                     + " + "
                     + ", ".join((frags[j].get("category") or [])[:3]),
@@ -7621,18 +7736,20 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
                 }
             )
     avg = sum(scores) / max(1, len(scores))
+    # Thresholds tuned for pyramid formula raw values
     if any(s <= -50 for s in scores):
         label, verdict = "Risky", "One pair looks weak - test on skin first."
-    elif avg >= 40:
-        label, verdict = "Strong layer", "Categories support each other - worth wearing together."
-    elif avg >= 20:
-        label, verdict = "Good layer", "Solid pairing - a little contrast works."
-    elif avg >= 8:
-        label, verdict = "Mixed", "Wearable, but may compete - fewer sprays of the louder one."
+    elif avg >= 18:
+        label, verdict = "Strong layer", "Base-weighted notes lock together — worth wearing."
+    elif avg >= 10:
+        label, verdict = "Good layer", "Solid pyramid bridge — a little contrast works."
+    elif avg >= 4:
+        label, verdict = "Mixed", "Wearable, but may compete — fewer sprays of the louder one."
     else:
-        label, verdict = "Risky", "Families may clash - skin test before a full wear."
+        label, verdict = "Risky", "Weak base bridge — skin test before a full wear."
 
-    display_score = int(max(0, min(100, round(avg * 0.55))))
+    # Pyramid formula already returns meaningful magnitude; map avg into 0-100
+    display_score = int(max(0, min(100, round(avg * 3.2))))
     guide = layer_application_guide(frags)
     why = explain_layer_combo(frags)
     # Brand tags for clarity
@@ -7649,6 +7766,10 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     _result = {
         "score": display_score,
         "score_raw": round(avg, 1),
+        "formula": best_formula,
+        "formula_explain": (
+            "Layering Score = (Top×0.5)+(Middle×1.5)+(Base×3.0)+Density Modifier"
+        ),
         "selected_names": selected_names,
         "spray_order": spray_order,
         "checked_line": " + ".join(checked_bits),
@@ -13951,6 +14072,14 @@ with tab_recipes:
                 st.warning(f"Layer rating: **{score}/100** — skin-test first")
             else:
                 st.caption("Layer rating: n/a (need 2+ bottles in vault)")
+            if rating.get("formula"):
+                st.caption(
+                    "Pyramid: "
+                    + str(rating.get("formula_explain")
+                    or "Layering Score=(Top×0.5)+(Middle×1.5)+(Base×3.0)+Density")
+                    + " → "
+                    + str(rating.get("formula"))
+                )
             if rating.get("spray_order"):
                 st.caption("Spray order: " + " > ".join(str(x) for x in rating["spray_order"]))
             if r.get("notes"):
@@ -14089,6 +14218,8 @@ with tab_try:
                     _sc = int(_ev.get("score") or 0)
                     if _sc >= 75:
                         st.success(f"Layer rating: **{_sc}/100** — good combo")
+                    if _ev.get("formula"):
+                        st.caption("Pyramid: " + str(_ev.get("formula")))
                     else:
                         st.warning(f"Layer rating: **{_sc}/100** — skin-test first")
                     if _ev.get("spray_order"):
