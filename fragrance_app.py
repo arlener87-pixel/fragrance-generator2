@@ -7939,10 +7939,22 @@ def suggest_partners_for(
         return []
     pool = st.session_state.get("fragrances_db") or []
     candidates = []
+    _rx = st.session_state.get("user_reactions") or {}
+    base_name = base.get("name") or ""
+    wb = fragrance_weight_score(base)
+    # Pre-parse base pyramid once (big speed win vs per-partner re-parse)
+    try:
+        _base_pyr = parse_pyramid_notes(base.get("notes") or "")
+        for _k in ("top", "middle", "base"):
+            _base_pyr[_k] = _norm_note_set(_base_pyr[_k])
+    except Exception:
+        _base_pyr = None
+
     for f in pool:
-        if (f.get("name") or "") == (base.get("name") or ""):
+        fname = f.get("name") or ""
+        if not fname or fname == base_name:
             continue
-        if exclude_dislikes and st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+        if exclude_dislikes and _rx.get(fname) == "dislike":
             continue
         if gender and gender != "Any":
             fg = normalize_gender(f.get("gender", ""))
@@ -7972,25 +7984,22 @@ def suggest_partners_for(
         detail = layering_score_pyramid(base, f)
         raw = float(detail.get("score_raw") or 0)
         display = int(detail.get("score") or 0)
-        # Favorites boost
-        _rx = st.session_state.get("user_reactions") or {}
-        if _rx.get(f.get("name")) == "fav":
+        if _rx.get(fname) == "fav":
             raw += 3.0
             display = min(100, display + 5)
         if raw <= -40:
             continue
 
-        wb = fragrance_weight_score(base)
         wp = fragrance_weight_score(f)
         if wb >= wp + 8:
             order = (
-                f"Order: **{base.get('name')}** first (heavier, {wb}), "
-                f"then **{f.get('name')}** ({wp})."
+                f"Order: **{base_name}** first (heavier, {wb}), "
+                f"then **{fname}** ({wp})."
             )
         elif wp >= wb + 8:
             order = (
-                f"Order: **{f.get('name')}** first (heavier, {wp}), "
-                f"then **{base.get('name')}** ({wb})."
+                f"Order: **{fname}** first (heavier, {wp}), "
+                f"then **{base_name}** ({wb})."
             )
         else:
             order = f"Similar weight ({wb} vs {wp}) — fewer sprays of the denser one."
@@ -7998,16 +8007,8 @@ def suggest_partners_for(
         cats_b = ", ".join((base.get("category") or [])[:3]) or "—"
         cats_p = ", ".join((f.get("category") or [])[:3]) or "—"
         formula = detail.get("formula") or ""
-        bridges = []
-        if detail.get("shared_base"):
-            bridges.append("base: " + ", ".join(detail["shared_base"][:4]))
-        if detail.get("shared_middle"):
-            bridges.append("heart: " + ", ".join(detail["shared_middle"][:4]))
-        if detail.get("shared_top"):
-            bridges.append("top: " + ", ".join(detail["shared_top"][:3]))
-        bridge_txt = (" · " + " · ".join(bridges)) if bridges else ""
         reason = (
-            f"**Layer score {display}/100** — {formula}{bridge_txt}. "
+            f"**Layer score {display}/100** — {formula}. "
             f"{order} Families: {cats_b} + {cats_p}."
         )
         candidates.append((raw, display, f, reason, detail))
@@ -12155,31 +12156,22 @@ with tab_layer:
             base_labels.append(label)
 
         base_options = ["- select a bottle -"] + base_labels
-        # Keep selection stable across reruns by bottle NAME (labels can shift)
-        saved_name = (st.session_state.get("layer_base_name") or "").strip()
+        # Only repair invalid labels — never override a valid user selection
         cur = st.session_state.get("layer_base_select")
-        if saved_name:
-            matched = next(
-                (
-                    lab
-                    for lab in base_labels
-                    if lab == f"{saved_name} - {(label_to_frag.get(lab) or {}).get('brand') or ''}"
-                    or lab.startswith(saved_name + " -")
-                ),
-                None,
-            )
-            if matched:
-                st.session_state["layer_base_select"] = matched
         if cur and cur not in base_options:
-            matched = next(
-                (lab for lab in base_labels if lab.startswith(str(cur).split(" -")[0] + " -")),
-                None,
-            )
-            if not matched and saved_name:
+            # Label shifted (brand rename etc.) — recover by bottle name
+            saved_name = (st.session_state.get("layer_base_name") or "").strip()
+            stem = str(cur).split(" -")[0].strip() if cur else ""
+            matched = None
+            for cand in (saved_name, stem):
+                if not cand:
+                    continue
                 matched = next(
-                    (lab for lab in base_labels if lab.startswith(saved_name + " -")),
+                    (lab for lab in base_labels if lab.startswith(cand + " -")),
                     None,
                 )
+                if matched:
+                    break
             st.session_state["layer_base_select"] = matched or "- select a bottle -"
         if st.session_state.get("layer_base_select") not in base_options:
             st.session_state["layer_base_select"] = "- select a bottle -"
@@ -12189,13 +12181,17 @@ with tab_layer:
             base_options,
             key="layer_base_select",
         )
-        # Persist the chosen bottle name for the next run
+        # Track name for recovery only (does not drive the selectbox)
         if base_choice and base_choice != "- select a bottle -":
             _bf = label_to_frag.get(base_choice) or {}
-            st.session_state["layer_base_name"] = (_bf.get("name") or "").strip()
-        elif base_choice == "- select a bottle -":
-            # Only clear name if user explicitly selected the placeholder
-            pass
+            _new_name = (_bf.get("name") or "").strip()
+            _old_name = (st.session_state.get("layer_base_name") or "").strip()
+            st.session_state["layer_base_name"] = _new_name
+            # If user switched base, drop partner-list rotation offset
+            if _new_name and _new_name != _old_name:
+                st.session_state.pop("_layer_partner_nonce", None)
+                st.session_state["_layer_partner_refresh_i"] = 0
+                st.session_state.pop("_layer_partner_cache", None)
 
         if base_choice != "- select a bottle -":
             base_f = label_to_frag.get(base_choice)
@@ -12213,15 +12209,35 @@ with tab_layer:
                     value=min(12, max_partners),
                     key="layer_partner_count",
                 )
-                partners = suggest_partners_for(
-                    base_f,
-                    num=max(int(show_n) * 3, 12),
-                    gender=layer_partner_gender,
-                    include_unisex=include_unisex,
-                    projection=st.session_state.get("layer_projection") or "Any",
-                    occasion=st.session_state.get("layer_occasion") or "Any",
-                    season=layer_partner_season,
+                _cache_key = (
+                    base_f.get("name"),
+                    layer_partner_gender,
+                    bool(include_unisex),
+                    layer_partner_season,
+                    st.session_state.get("layer_oil_mode") or "Any format",
+                    len(st.session_state.get("fragrances_db") or []),
                 )
+                _pcache = st.session_state.get("_layer_partner_cache") or {}
+                if (
+                    isinstance(_pcache, dict)
+                    and _pcache.get("key") == _cache_key
+                    and _pcache.get("partners")
+                ):
+                    partners = list(_pcache["partners"])
+                else:
+                    partners = suggest_partners_for(
+                        base_f,
+                        num=min(60, max(int(show_n) * 3, 18)),
+                        gender=layer_partner_gender,
+                        include_unisex=include_unisex,
+                        projection=st.session_state.get("layer_projection") or "Any",
+                        occasion=st.session_state.get("layer_occasion") or "Any",
+                        season=layer_partner_season,
+                    )
+                    st.session_state["_layer_partner_cache"] = {
+                        "key": _cache_key,
+                        "partners": list(partners),
+                    }
                 _oil_mode = st.session_state.get("layer_oil_mode") or "Any format"
                 # Strict format filter (always applied, independent of refresh)
                 if _oil_mode == "Oils only":
