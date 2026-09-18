@@ -12073,6 +12073,7 @@ with tab_layer:
         st.session_state["layer_partner_season"] = "Any"
         st.session_state["layer_oil_mode"] = "Any format"
         st.session_state["layer_base_select"] = "- select a bottle -"
+        st.session_state.pop("layer_base_name", None)
         st.session_state.pop("_layer_partner_nonce", None)
         st.session_state["layer_gender"] = "Any"
         st.session_state["layer_season"] = "Any"
@@ -12154,14 +12155,31 @@ with tab_layer:
             base_labels.append(label)
 
         base_options = ["- select a bottle -"] + base_labels
-        # Migrate old name-only session values to a matching label
+        # Keep selection stable across reruns by bottle NAME (labels can shift)
+        saved_name = (st.session_state.get("layer_base_name") or "").strip()
         cur = st.session_state.get("layer_base_select")
-        if cur and cur not in base_options:
-            # try match by name prefix
+        if saved_name:
             matched = next(
-                (lab for lab in base_labels if lab.startswith(str(cur) + " -")),
+                (
+                    lab
+                    for lab in base_labels
+                    if lab == f"{saved_name} - {(label_to_frag.get(lab) or {}).get('brand') or ''}"
+                    or lab.startswith(saved_name + " -")
+                ),
                 None,
             )
+            if matched:
+                st.session_state["layer_base_select"] = matched
+        if cur and cur not in base_options:
+            matched = next(
+                (lab for lab in base_labels if lab.startswith(str(cur).split(" -")[0] + " -")),
+                None,
+            )
+            if not matched and saved_name:
+                matched = next(
+                    (lab for lab in base_labels if lab.startswith(saved_name + " -")),
+                    None,
+                )
             st.session_state["layer_base_select"] = matched or "- select a bottle -"
         if st.session_state.get("layer_base_select") not in base_options:
             st.session_state["layer_base_select"] = "- select a bottle -"
@@ -12171,6 +12189,13 @@ with tab_layer:
             base_options,
             key="layer_base_select",
         )
+        # Persist the chosen bottle name for the next run
+        if base_choice and base_choice != "- select a bottle -":
+            _bf = label_to_frag.get(base_choice) or {}
+            st.session_state["layer_base_name"] = (_bf.get("name") or "").strip()
+        elif base_choice == "- select a bottle -":
+            # Only clear name if user explicitly selected the placeholder
+            pass
 
         if base_choice != "- select a bottle -":
             base_f = label_to_frag.get(base_choice)
@@ -12333,80 +12358,110 @@ with tab_layer:
                             + "\n\n" + family_line
                         )
                         st.markdown(_card)
-                        b1, b2, b3 = st.columns(3)
+                        _bn = str((base_f or {}).get("name") or base_name or "").strip()
+                        _pn = str((pf or {}).get("name") or "").strip()
+                        _pkey = abs(hash((_bn, _pn, pi))) % 10_000_000
+                        b1, b2, b3, b4 = st.columns(4)
                         with b1:
-                            if st.button("Layer check", key=f"layer_base_check_{pi}"):
-                                # Exact bottles from this row only
-                                _bn = str((base_f or {}).get("name") or base_name or "").strip()
-                                _pn = str((pf or {}).get("name") or "").strip()
+                            if st.button("Layer check", key=f"layer_base_check_{_pkey}"):
                                 _pair = [n for n in (_bn, _pn) if n]
-                                # Resolve to vault names (guarantees picker options match)
                                 _resolved = []
                                 for n in _pair:
                                     rf = resolve_frag_by_name(n)
                                     _resolved.append(rf.get("name") if rf else n)
-                                _pair = list(dict.fromkeys(_resolved))  # dedupe, keep order
+                                _pair = list(dict.fromkeys(_resolved))
+                                st.session_state["layer_base_name"] = _bn
                                 st.session_state["_pending_layer_pick"] = list(_pair)
                                 st.session_state["_locked_layer_pair"] = list(_pair)
                                 st.session_state["roulette_layer_pick"] = list(_pair)
-                                _ev = evaluate_layer_recipe(list(_pair))
+                                try:
+                                    _ev = evaluate_layer_recipe(list(_pair))
+                                except Exception as _e:
+                                    _ev = {"score": 0, "selected_names": list(_pair), "error": str(_e)}
                                 _ev["selected_names"] = list(_pair)
                                 _ev["checked_line"] = " + ".join(_pair)
                                 _ev["spray_order"] = list(_ev.get("spray_order") or _pair)
                                 st.session_state["last_layer_check"] = _ev
-                                _ag = recipe_gender_from_frags(_ev.get("frags") or [])
-                                st.session_state["roulette_layer_recipe_gender"] = (
-                                    _ag if _ag in ("Any", "Female", "Male", "Unisex") else "Any"
-                                )
-                                st.session_state["_recipe_gender_fp"] = tuple(_pair)
-                                st.session_state["_scroll_to_layer_result"] = True
                                 st.session_state["_open_layer_check"] = True
-                                st.session_state["_seed_roulette_recipe_name"] = True
+                                st.session_state["_layer_studio_flash"] = (
+                                    f"Layer check ready: **{' + '.join(_pair)}**"
+                                )
                                 st.rerun()
                         with b2:
-                            if st.button("Try it", key=f"layer_base_try_{pi}"):
-                                _bn = str((base_f or {}).get("name") or base_name or "").strip()
-                                _pn = str((pf or {}).get("name") or "").strip()
+                            if st.button("Try it", key=f"layer_base_try_{_pkey}"):
                                 _pair = [n for n in (_bn, _pn) if n]
-                                ok = add_try_recipe(
-                                    f"{_bn} + {_pn}",
-                                    _pair,
-                                    notes="Layer studio partner",
-                                    source="Layer",
-                                )
-                                save_persisted_data()
-                                st.success("On Try list" if ok else "Already listed")
+                                st.session_state["layer_base_name"] = _bn
+                                try:
+                                    ok = add_try_recipe(
+                                        f"{_bn} + {_pn}",
+                                        _pair,
+                                        notes="Layer studio partner",
+                                        source="Layer",
+                                    )
+                                    mark_vault_dirty()
+                                    save_persisted_data(force=True)
+                                    st.session_state["_layer_studio_flash"] = (
+                                        f"Added to **Try** list: {_bn} + {_pn}"
+                                        if ok
+                                        else f"Already on Try list: {_bn} + {_pn}"
+                                    )
+                                except Exception as _e:
+                                    st.session_state["_layer_studio_flash"] = f"Try list failed: {_e}"
                                 st.rerun()
                         with b3:
-                            if st.button("Save recipe", key=f"layer_base_recipe_{pi}"):
-                                names = process_layering_order([base_name, pf["name"]])
-                                ev = evaluate_layer_recipe(names)
-                                final_name = (ev.get("suggested_name") or f"{base_name} x {pf['name']}")
-                                st.session_state.setdefault("layer_recipes", []).insert(
-                                    0,
-                                    {
-                                        "name": final_name,
-                                        "bottles": names,
-                                        "season_label": (ev.get("season") or {}).get("label", ""),
-                                        "season_detail": (ev.get("season") or {}).get("detail", ""),
-                                        "bands": list((ev.get("season") or {}).get("bands") or []),
-                                        "application": ev.get("application") or {},
-                                        "score": ev.get("score"),
-                                        "label": ev.get("label"),
-                                        "verdict": ev.get("verdict"),
-                                        "why": ev.get("why") or "",
-                                        "gender": st.session_state.get("roulette_layer_recipe_gender")
-                                        or recipe_gender_from_frags(ev.get("frags") or [])
-                                        or "Any",
-                                    },
-                                )
-                                mark_vault_dirty()
-                                save_persisted_data(force=False)
-                                st.session_state["_vault_fp"] = vault_fingerprint()
-                                st.success(f"Saved recipe: {final_name}")
-                        with b3:
-                            if st.button("SOTD", key=f"layer_base_use_{pi}"):
-                                log_sotd_immediate([base_name, pf["name"]], notes="Layer studio")
+                            if st.button("Save recipe", key=f"layer_base_recipe_{_pkey}"):
+                                st.session_state["layer_base_name"] = _bn
+                                try:
+                                    names = process_layering_order([_bn, _pn])
+                                    if not names or len(names) < 2:
+                                        names = [n for n in (_bn, _pn) if n]
+                                    ev = evaluate_layer_recipe(names)
+                                    final_name = (
+                                        (ev.get("suggested_name") or "").strip()
+                                        or f"{_bn} + {_pn}"
+                                    )
+                                    recipes = list(st.session_state.get("layer_recipes") or [])
+                                    # Avoid exact duplicate bottle sets
+                                    key = tuple(sorted(names))
+                                    recipes = [
+                                        r for r in recipes
+                                        if tuple(sorted(r.get("bottles") or [])) != key
+                                    ]
+                                    recipes.insert(
+                                        0,
+                                        {
+                                            "name": final_name,
+                                            "bottles": list(names),
+                                            "season_label": (ev.get("season") or {}).get("label", ""),
+                                            "season_detail": (ev.get("season") or {}).get("detail", ""),
+                                            "bands": list((ev.get("season") or {}).get("bands") or []),
+                                            "application": ev.get("application") or {},
+                                            "score": ev.get("score"),
+                                            "label": ev.get("label"),
+                                            "verdict": ev.get("verdict"),
+                                            "why": ev.get("why") or "",
+                                            "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
+                                        },
+                                    )
+                                    st.session_state["layer_recipes"] = recipes[:80]
+                                    mark_vault_dirty()
+                                    save_persisted_data(force=True)
+                                    st.session_state["_layer_studio_flash"] = (
+                                        f"Saved recipe: **{final_name}**"
+                                    )
+                                except Exception as _e:
+                                    st.session_state["_layer_studio_flash"] = f"Save failed: {_e}"
+                                st.rerun()
+                        with b4:
+                            if st.button("SOTD", key=f"layer_base_use_{_pkey}"):
+                                st.session_state["layer_base_name"] = _bn
+                                try:
+                                    log_sotd_immediate([_bn, _pn], notes="Layer studio")
+                                    st.session_state["_layer_studio_flash"] = (
+                                        f"Logged SOTD: **{_bn} + {_pn}**"
+                                    )
+                                except Exception as _e:
+                                    st.session_state["_layer_studio_flash"] = f"SOTD failed: {_e}"
                                 st.rerun()
 
 
