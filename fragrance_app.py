@@ -9792,37 +9792,63 @@ def build_wishlist_pdf(items: list) -> bytes:
 
 
 def build_recipes_pdf(recipes: list) -> bytes:
-    """PDF of saved layer recipes."""
+    """Readable PDF of saved layer recipes with full spray instructions."""
     lines = [
-        "Scented Dead Girl - Layer recipes",
+        "ScentedDeadGirl — Layer Recipe Book",
         "Exported " + str(pacific_today().isoformat()) + " (Pacific)",
+        "Spray heavy bases on skin first; wait 30-60 seconds; lighter juices on top.",
         "",
     ]
     if not recipes:
-        lines.append("No saved recipes.")
+        lines.append("No saved recipes yet.")
     for i, r in enumerate(recipes, 1):
         name = r.get("name") or ("Recipe " + str(i))
-        bottles = r.get("bottles") or []
-        lines.append(str(i) + ". " + str(name))
+        bottles = list(r.get("bottles") or r.get("names") or [])
+        lines.append("=" * 42)
+        lines.append(f"{i}. {name}")
+        lines.append("=" * 42)
         if bottles:
-            lines.append("   Bottles: " + " + ".join(str(b) for b in bottles))
+            lines.append("Bottles: " + " + ".join(str(b) for b in bottles))
         g = r.get("gender")
         if g and g != "Any":
-            lines.append("   Gender: " + str(g))
+            lines.append("Gender: " + str(g))
         season = r.get("season_label") or r.get("season_detail") or ""
         if season:
-            lines.append("   Season: " + str(season))
-        if r.get("label"):
-            lines.append("   Match: " + str(r.get("label")))
+            lines.append("Season: " + str(season))
         if r.get("score") is not None:
-            lines.append("   Score: " + str(r.get("score")))
+            lab = r.get("label") or ""
+            lines.append(f"Score: {r.get('score')}/100" + (f" ({lab})" if lab else ""))
         why = (r.get("why") or "").strip()
         if why:
-            lines.append("   Why: " + why[:220])
+            lines.append("Why: " + why[:240])
+
         app = r.get("application") or {}
-        order = app.get("order_names") or bottles
-        if order:
-            lines.append("   Spray order: " + " > ".join(str(x) for x in order))
+        steps = app.get("steps") or []
+        order = r.get("spray_order") or app.get("order_names") or bottles
+
+        lines.append("")
+        lines.append("HOW TO SPRAY (heavy to light):")
+        if steps:
+            for s in steps:
+                lines.append(
+                    f"  {s.get('order', '?')}. {s.get('name')} — "
+                    f"{s.get('sprays', 1)} spray(s) — {s.get('role', '')}"
+                )
+                where = (s.get("where") or "").strip()
+                if where:
+                    lines.append(f"      {where}")
+        elif order:
+            for n, b in enumerate(order, 1):
+                lines.append(f"  {n}. {b}")
+            lines.append("  Apply heaviest first on skin; wait 30-60s; finish with the lightest.")
+        else:
+            lines.append("  (No spray steps saved — re-save from Layer to refresh.)")
+
+        tips = app.get("tips") or []
+        if tips:
+            lines.append("Tips:")
+            for t in tips[:4]:
+                lines.append(f"  - {t}")
         lines.append("")
     return build_simple_pdf("ScentedDeadGirl Layer Recipes", lines)
 
@@ -12192,9 +12218,7 @@ with tab_layer:
             st.warning(_studio_flash)
         else:
             st.success(_studio_flash)
-        _guide = st.session_state.get("_last_saved_recipe_guide") or ""
-        if _guide and "Saved recipe" in str(_studio_flash):
-            st.info(_guide)
+        # Spray instructions live on the Recipes tab / PDF — not here
 
     if st.session_state.pop("_clear_layer", False):
         st.session_state["layer_partner_gender"] = "Any"
@@ -12557,11 +12581,9 @@ with tab_layer:
                                 try:
                                     result = save_layer_recipe([_bn, _pn])
                                     msg = result.get("message") or ""
-                                    guide = result.get("spray_guide") or ""
-                                    if guide:
-                                        msg = msg + "\n\n" + guide
+                                    if result.get("ok"):
+                                        msg = msg + " — open **Recipes** for spray steps."
                                     st.session_state["_layer_studio_flash"] = msg
-                                    st.session_state["_last_saved_recipe_guide"] = guide
                                     st.session_state["_last_saved_recipe"] = result.get("recipe")
                                 except Exception as _e:
                                     st.session_state["_layer_studio_flash"] = f"Save failed: {_e}"
@@ -13352,13 +13374,15 @@ with tab_layer:
             try:
                 _pdf_bytes = build_recipes_pdf(_all_recipes)
                 st.download_button(
-                    "Download recipes PDF",
+                    "Download recipe book (PDF)",
                     data=_pdf_bytes,
-                    file_name=f"sdg_layer_recipes_{pacific_today().isoformat()}.pdf",
+                    file_name=f"scented_dead_girl_recipes_{pacific_today().isoformat()}.pdf",
                     mime="application/pdf",
                     key="download_recipes_pdf",
+                    type="primary",
                     use_container_width=True,
                 )
+                st.caption("PDF includes spray order and skin placement for each recipe.")
             except Exception as _pdf_ex:
                 st.caption(f"PDF unavailable: {_pdf_ex}")
         for ri, recipe in enumerate(recipes_view):
@@ -13384,7 +13408,7 @@ with tab_layer:
             app = recipe.get("application") or ev.get("application") or {}
             steps = app.get("steps") or []
             if steps:
-                with st.expander("How to wear", expanded=False):
+                with st.expander("How to spray (step by step)", expanded=True):
                     st.caption("Heaviest first, lightest last.")
                     for s in steps:
                         st.markdown(
@@ -13541,25 +13565,35 @@ with tab_recipes:
                 lines.append("")
             return "\n".join(lines)
 
-        dl1, dl2, dl3 = st.columns(3)
-        with dl1:
+        st.markdown("#### Recipe book")
+        st.caption("PDF includes every saved recipe with **how to spray** steps.")
+        try:
+            _pdf_bytes = build_recipes_pdf(recipes)
             st.download_button(
-                "Download recipes (JSON)",
+                "Download recipes PDF",
+                data=_pdf_bytes,
+                file_name=f"scented_dead_girl_recipes_{pacific_today().isoformat()}.pdf",
+                mime="application/pdf",
+                key="download_recipes_pdf_main",
+                type="primary",
+            )
+        except Exception as _pdf_ex:
+            st.warning(f"PDF unavailable: {_pdf_ex}")
+        with st.expander("Other formats"):
+            st.download_button(
+                "Download JSON backup",
                 data=json.dumps(recipes, indent=2, ensure_ascii=False),
                 file_name="scented_dead_girl_recipes.json",
                 mime="application/json",
                 key="download_recipes_json",
             )
-        with dl2:
             st.download_button(
-                "Download recipes (Markdown)",
+                "Download Markdown",
                 data=_recipes_markdown(recipes),
                 file_name="scented_dead_girl_recipes.md",
                 mime="text/markdown",
                 key="download_recipes_md",
             )
-        with dl3:
-            pass
         if st.button(
             "Rename all from notes",
             key="recipe_bulk_rename_notes",
@@ -13663,21 +13697,43 @@ with tab_recipes:
                     + " → "
                     + str(rating.get("formula"))
                 )
-            # Prefer saved spray guide on the recipe itself
+            # Spray instructions (Recipes tab)
             _app = r.get("application") or {}
-            _steps = _app.get("steps") or []
-            _order = r.get("spray_order") or rating.get("spray_order") or bottles
+            _steps = list(_app.get("steps") or [])
+            _order = list(r.get("spray_order") or rating.get("spray_order") or bottles or [])
+            # Live-fill guide if older recipes lack application steps
+            if not _steps and len(bottles) >= 2:
+                try:
+                    _live = evaluate_layer_recipe(list(bottles))
+                    _app = _live.get("application") or _app
+                    _steps = list((_app or {}).get("steps") or [])
+                    _order = list(_live.get("spray_order") or _order)
+                except Exception:
+                    pass
+            st.markdown("**How to spray** (heavy → light)")
             if _steps:
-                st.markdown("**How to spray** (heavy → light):")
                 for s in _steps:
-                    st.caption(
-                        f"{s.get('order', '?')}. **{s.get('name')}** — "
-                        f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
-                        f"{s.get('where', '')}"
+                    line1 = (
+                        str(s.get("order", "?"))
+                        + ". **"
+                        + str(s.get("name") or "")
+                        + "** — "
+                        + str(s.get("sprays", 1))
+                        + " spray(s), "
+                        + str(s.get("role") or "")
                     )
+                    where = str(s.get("where") or "").strip()
+                    if where:
+                        st.markdown(line1 + "  \n" + where)
+                    else:
+                        st.markdown(line1)
+                for t in (_app.get("tips") or [])[:2]:
+                    st.caption("Tip: " + str(t))
             elif _order:
-                st.caption("Spray order: " + " → ".join(str(x) for x in _order))
+                st.markdown(" → ".join(f"**{x}**" for x in _order))
                 st.caption("Apply heaviest first on skin; wait 30–60s; lighter on top.")
+            else:
+                st.caption("Save again from Layer to attach spray steps.")
             if r.get("notes"):
                 st.caption(str(r.get("notes"))[:220])
             _trk = abs(hash(tuple(list(bottles)) + (str(nm),))) % 10_000_000
