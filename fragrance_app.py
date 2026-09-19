@@ -11015,6 +11015,127 @@ def _dessert_layer_tip(frags: list) -> str:
 
 
 
+
+def recipe_combo_key(bottles) -> tuple:
+    """Canonical key for a recipe combo (order-independent)."""
+    names = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+    return tuple(sorted(names))
+
+
+def recipe_combo_exists(bottles) -> dict:
+    """Return existing recipe dict if same bottle set already saved, else {}."""
+    key = recipe_combo_key(bottles)
+    if len(key) < 2:
+        return {}
+    for r in (st.session_state.get("layer_recipes") or []):
+        if recipe_combo_key(r.get("bottles") or r.get("names") or []) == key:
+            return r
+    return {}
+
+
+def format_spray_guide(ev: dict) -> str:
+    """Human-readable spray order from evaluate_layer_recipe result."""
+    if not ev:
+        return ""
+    lines = []
+    app = ev.get("application") or {}
+    steps = app.get("steps") or []
+    if steps:
+        lines.append("**How to spray** (heavy → light):")
+        for s in steps:
+            lines.append(
+                f"{s.get('order', '?')}. **{s.get('name')}** — "
+                f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
+                f"{s.get('where', '')}"
+            )
+        if app.get("tips"):
+            for t in (app.get("tips") or [])[:3]:
+                lines.append(f"• {t}")
+    else:
+        order = ev.get("spray_order") or ev.get("selected_names") or []
+        if order:
+            lines.append("**Spray order:** " + " → ".join(str(x) for x in order))
+            lines.append("Apply heaviest first on skin; wait 30–60s; lighter on top.")
+    return "\n\n".join(lines)
+
+
+def save_layer_recipe(bottle_names: list, *, allow_duplicate: bool = False) -> dict:
+    """
+    Save a layer recipe. Blocks duplicate combos unless allow_duplicate=True.
+    Returns {ok, message, recipe, duplicate, spray_guide}.
+    """
+    names = process_layering_order(
+        [str(n).strip() for n in (bottle_names or []) if n and str(n).strip()]
+    )
+    if len(names) < 2:
+        return {
+            "ok": False,
+            "message": "Need at least 2 bottles to save a recipe.",
+            "recipe": None,
+            "duplicate": False,
+            "spray_guide": "",
+        }
+    existing = recipe_combo_exists(names)
+    if existing and not allow_duplicate:
+        try:
+            ev = evaluate_layer_recipe(names)
+        except Exception:
+            ev = {}
+        guide = format_spray_guide(ev) or format_spray_guide(
+            {"spray_order": existing.get("bottles") or names,
+             "application": existing.get("application") or {}}
+        )
+        return {
+            "ok": False,
+            "message": (
+                f"Already saved as **{existing.get('name') or 'recipe'}** "
+                f"({' + '.join(names)}). Same combo can't be saved twice."
+            ),
+            "recipe": existing,
+            "duplicate": True,
+            "spray_guide": guide,
+        }
+    try:
+        ev = evaluate_layer_recipe(names)
+    except Exception as e:
+        ev = {"score": 0, "selected_names": names, "spray_order": names, "error": str(e)}
+    final_name = (ev.get("suggested_name") or "").strip() or " + ".join(names)
+    recipe = {
+        "name": final_name,
+        "bottles": list(names),
+        "season_label": (ev.get("season") or {}).get("label", ""),
+        "season_detail": (ev.get("season") or {}).get("detail", ""),
+        "bands": list((ev.get("season") or {}).get("bands") or []),
+        "application": ev.get("application") or {},
+        "spray_order": list(ev.get("spray_order") or names),
+        "score": ev.get("score"),
+        "label": ev.get("label"),
+        "verdict": ev.get("verdict"),
+        "why": ev.get("why") or "",
+        "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
+        "formula": ev.get("formula") or "",
+    }
+    recipes = list(st.session_state.get("layer_recipes") or [])
+    # Remove any exact combo match then insert fresh
+    key = recipe_combo_key(names)
+    recipes = [
+        r for r in recipes
+        if recipe_combo_key(r.get("bottles") or r.get("names") or []) != key
+    ]
+    recipes.insert(0, recipe)
+    st.session_state["layer_recipes"] = recipes[:80]
+    mark_vault_dirty()
+    save_persisted_data(force=True)
+    guide = format_spray_guide(ev)
+    return {
+        "ok": True,
+        "message": f"Saved recipe: **{final_name}**",
+        "recipe": recipe,
+        "duplicate": False,
+        "spray_guide": guide,
+    }
+
+
 def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Dessert") -> bool:
     """Add a layer idea to the Try list (deduped by bottles)."""
     bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
@@ -12067,7 +12188,13 @@ with tab_layer:
     st.caption("Pick a base → filter partners → refresh for new matches. Oil first, spray second.")
     _studio_flash = st.session_state.pop("_layer_studio_flash", None)
     if _studio_flash:
-        st.success(_studio_flash)
+        if "Already saved" in str(_studio_flash):
+            st.warning(_studio_flash)
+        else:
+            st.success(_studio_flash)
+        _guide = st.session_state.get("_last_saved_recipe_guide") or ""
+        if _guide and "Saved recipe" in str(_studio_flash):
+            st.info(_guide)
 
     if st.session_state.pop("_clear_layer", False):
         st.session_state["layer_partner_gender"] = "Any"
@@ -12428,43 +12555,14 @@ with tab_layer:
                             if st.button("Save recipe", key=f"layer_base_recipe_{_pkey}"):
                                 st.session_state["layer_base_name"] = _bn
                                 try:
-                                    names = process_layering_order([_bn, _pn])
-                                    if not names or len(names) < 2:
-                                        names = [n for n in (_bn, _pn) if n]
-                                    ev = evaluate_layer_recipe(names)
-                                    final_name = (
-                                        (ev.get("suggested_name") or "").strip()
-                                        or f"{_bn} + {_pn}"
-                                    )
-                                    recipes = list(st.session_state.get("layer_recipes") or [])
-                                    # Avoid exact duplicate bottle sets
-                                    key = tuple(sorted(names))
-                                    recipes = [
-                                        r for r in recipes
-                                        if tuple(sorted(r.get("bottles") or [])) != key
-                                    ]
-                                    recipes.insert(
-                                        0,
-                                        {
-                                            "name": final_name,
-                                            "bottles": list(names),
-                                            "season_label": (ev.get("season") or {}).get("label", ""),
-                                            "season_detail": (ev.get("season") or {}).get("detail", ""),
-                                            "bands": list((ev.get("season") or {}).get("bands") or []),
-                                            "application": ev.get("application") or {},
-                                            "score": ev.get("score"),
-                                            "label": ev.get("label"),
-                                            "verdict": ev.get("verdict"),
-                                            "why": ev.get("why") or "",
-                                            "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
-                                        },
-                                    )
-                                    st.session_state["layer_recipes"] = recipes[:80]
-                                    mark_vault_dirty()
-                                    save_persisted_data(force=True)
-                                    st.session_state["_layer_studio_flash"] = (
-                                        f"Saved recipe: **{final_name}**"
-                                    )
+                                    result = save_layer_recipe([_bn, _pn])
+                                    msg = result.get("message") or ""
+                                    guide = result.get("spray_guide") or ""
+                                    if guide:
+                                        msg = msg + "\n\n" + guide
+                                    st.session_state["_layer_studio_flash"] = msg
+                                    st.session_state["_last_saved_recipe_guide"] = guide
+                                    st.session_state["_last_saved_recipe"] = result.get("recipe")
                                 except Exception as _e:
                                     st.session_state["_layer_studio_flash"] = f"Save failed: {_e}"
                                 st.rerun()
@@ -13415,6 +13513,53 @@ with tab_recipes:
         st.info("No saved recipes yet. Save from **Layer check** or the **Try** tab.")
     else:
         st.write(f"**{len(recipes)}** recipe(s).")
+        # Downloadable recipe book
+        def _recipes_markdown(recs):
+            lines = ["# ScentedDeadGirl Layer Recipes", ""]
+            for i, r in enumerate(recs, 1):
+                bottles = r.get("bottles") or r.get("names") or []
+                order = r.get("spray_order") or bottles
+                lines.append(f"## {i}. {r.get('name') or 'Untitled'}")
+                lines.append(f"- **Bottles:** {' + '.join(bottles)}")
+                lines.append(f"- **Spray order:** {' → '.join(str(x) for x in order)}")
+                if r.get("score") is not None:
+                    lines.append(f"- **Score:** {r.get('score')}/100 ({r.get('label') or ''})")
+                if r.get("season_label"):
+                    lines.append(f"- **Season:** {r.get('season_label')}")
+                app = r.get("application") or {}
+                steps = app.get("steps") or []
+                if steps:
+                    lines.append("- **How to spray:**")
+                    for s in steps:
+                        lines.append(
+                            f"  {s.get('order', '?')}. {s.get('name')} — "
+                            f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
+                            f"{s.get('where', '')}"
+                        )
+                if r.get("why"):
+                    lines.append(f"- **Why:** {r.get('why')}")
+                lines.append("")
+            return "\n".join(lines)
+
+        dl1, dl2, dl3 = st.columns(3)
+        with dl1:
+            st.download_button(
+                "Download recipes (JSON)",
+                data=json.dumps(recipes, indent=2, ensure_ascii=False),
+                file_name="scented_dead_girl_recipes.json",
+                mime="application/json",
+                key="download_recipes_json",
+            )
+        with dl2:
+            st.download_button(
+                "Download recipes (Markdown)",
+                data=_recipes_markdown(recipes),
+                file_name="scented_dead_girl_recipes.md",
+                mime="text/markdown",
+                key="download_recipes_md",
+            )
+        with dl3:
+            pass
         if st.button(
             "Rename all from notes",
             key="recipe_bulk_rename_notes",
@@ -13518,8 +13663,21 @@ with tab_recipes:
                     + " → "
                     + str(rating.get("formula"))
                 )
-            if rating.get("spray_order"):
-                st.caption("Spray order: " + " > ".join(str(x) for x in rating["spray_order"]))
+            # Prefer saved spray guide on the recipe itself
+            _app = r.get("application") or {}
+            _steps = _app.get("steps") or []
+            _order = r.get("spray_order") or rating.get("spray_order") or bottles
+            if _steps:
+                st.markdown("**How to spray** (heavy → light):")
+                for s in _steps:
+                    st.caption(
+                        f"{s.get('order', '?')}. **{s.get('name')}** — "
+                        f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
+                        f"{s.get('where', '')}"
+                    )
+            elif _order:
+                st.caption("Spray order: " + " → ".join(str(x) for x in _order))
+                st.caption("Apply heaviest first on skin; wait 30–60s; lighter on top.")
             if r.get("notes"):
                 st.caption(str(r.get("notes"))[:220])
             _trk = abs(hash(tuple(list(bottles)) + (str(nm),))) % 10_000_000
@@ -13632,6 +13790,15 @@ with tab_try:
         "Ideas you marked **Try it** from Layer or Discover. "
         "Mark **Tried**, then **Save recipe** to keep it and remove it from this list."
     )
+    _tf = st.session_state.pop("_try_flash", None)
+    if _tf:
+        if "Already saved" in str(_tf):
+            st.warning(_tf)
+        else:
+            st.success(_tf)
+        _tg = st.session_state.pop("_try_spray_guide", None)
+        if _tg:
+            st.info(_tg)
     tries = list(st.session_state.get("try_recipes") or [])
     if not tries:
         st.info("No try items yet. Use **Try it** on a Layer check or recommendation.")
@@ -13674,21 +13841,18 @@ with tab_try:
                     st.rerun()
             with b2:
                 if st.button("Save recipe", key=f"try_tab_save_{ti}", type="primary"):
-                    recipe = {
-                        "name": nm,
-                        "bottles": list(bottles),
-                        "notes": item.get("notes") or "",
-                        "gender": item.get("gender") or "",
-                        "season": recipe_season_label(list(bottles)),
-                        "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
-                    }
-                    lr = list(st.session_state.get("layer_recipes") or [])
-                    lr.insert(0, recipe)
-                    st.session_state["layer_recipes"] = lr[:80]
-                    st.session_state["try_recipes"] = [x for j, x in enumerate(tries) if j != ti]
-                    mark_vault_dirty()
-                    save_persisted_data()
-                    st.success(f"Saved **{nm}** and removed from Try list.")
+                    result = save_layer_recipe(list(bottles))
+                    if result.get("ok"):
+                        st.session_state["try_recipes"] = [
+                            x for j, x in enumerate(tries) if j != ti
+                        ]
+                        mark_vault_dirty()
+                        save_persisted_data(force=True)
+                        st.session_state["_try_flash"] = result.get("message") or "Saved."
+                        st.session_state["_try_spray_guide"] = result.get("spray_guide") or ""
+                    else:
+                        st.session_state["_try_flash"] = result.get("message") or "Could not save."
+                        st.session_state["_try_spray_guide"] = result.get("spray_guide") or ""
                     st.rerun()
             with b3:
                 if st.button("Layer check", key=f"try_tab_layer_{ti}"):
