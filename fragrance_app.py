@@ -14165,9 +14165,6 @@ with tab_collection:
 
 
 
-    if badges:
-        st.caption("Badges: " + "  -  ".join(badges))
-
     # ----- Browse by season -----
     with st.expander("Browse by season", expanded=True):
         st.caption(
