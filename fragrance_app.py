@@ -13749,8 +13749,6 @@ with tab_sotd:
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
     if _ready2:
         st.success(_ready2)
-    if streak:
-        st.caption(f"Current log streak: **{streak}** day(s)")
     all_frag_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
 
     # Clear form on next run AFTER log (must happen before widgets are created)
