@@ -252,13 +252,6 @@ def clean_display_text(s) -> str:
 
 
 
-# --- stubs (play/stars removed) ---
-def compute_badges(*a, **k):
-    return []
-def brand_stats(*a, **k):
-    return {}
-def sotd_streak(*a, **k):
-    return 0
 def weekly_wishlist_suggestions(n: int = 5):
     """Suggest Middle Eastern / Arabic-house bottles not already owned or wishlisted.
     Rotates weekly based on the ISO week number so the list feels fresh.
@@ -9163,10 +9156,6 @@ def export_journal_markdown() -> str:
     lines.append("")
     lines.append(f"- Bottles in vault: **{len(st.session_state['fragrances_db'])}**")
     lines.append(f"- SOTD logs: **{len(st.session_state.get('sotd_history') or [])}**")
-    lines.append(f"- Current streak: **{sotd_streak()}** day(s)")
-    badges = compute_badges()
-    if badges:
-        lines.append(f"- Badges: {', '.join(badges)}")
     fav_notes = get_favorite_notes(8)
     if fav_notes:
         lines.append(f"- Favorite notes: {', '.join(f'{n} ({c})' for n, c in fav_notes)}")
@@ -13307,222 +13296,44 @@ with tab_layer:
             ):
                 st.session_state["_apply_recipe_name"] = True
                 st.rerun()
+        
         with rn2:
             save_clicked = st.button("Save recipe", key="save_recipe_btn")
 
         if save_clicked:
             final_name = (rec_name or "").strip() or suggested or "Untitled layer"
             if len(rec_pick) >= 2:
-                season = (preview or {}).get("season") or {}
-                _ev_save = preview if preview else evaluate_layer_recipe(list(rec_pick))
-                st.session_state["layer_recipes"].insert(
-                    0,
-                    {
-                        "name": final_name,
-                        "bottles": list(rec_pick),
-                        "season_label": season.get("label", "") or (_ev_save or {}).get("season", {}).get("label", ""),
-                        "season_detail": season.get("detail", "") or (_ev_save or {}).get("season", {}).get("detail", ""),
-                        "bands": list(((_ev_save or {}).get("season") or {}).get("bands") or season.get("bands") or []),
-                        "suggested_name": suggested,
-                        "application": (_ev_save or {}).get("application") or {},
-                        "score": (_ev_save or {}).get("score"),
-                        "label": (_ev_save or {}).get("label"),
-                        "verdict": (_ev_save or {}).get("verdict"),
-                        "why": (_ev_save or {}).get("why") or "",
-                    },
-                )
-                save_persisted_data()
-                st.session_state["_recipe_save_flash"] = (
-                    f"Saved **{final_name}** - best season: {season.get('label', '?')}"
-                )
+                result = save_layer_recipe(list(rec_pick))
+                if result.get("ok"):
+                    if final_name and final_name not in ("Untitled layer",):
+                        recipes = list(st.session_state.get("layer_recipes") or [])
+                        if recipes:
+                            recipes[0]["name"] = final_name
+                            st.session_state["layer_recipes"] = recipes
+                            mark_vault_dirty()
+                            save_persisted_data(force=True)
+                    st.session_state["_recipe_save_flash"] = (
+                        (result.get("message") or "Saved.")
+                        + " Open the **Recipes** tab for spray steps and PDF."
+                    )
+                else:
+                    st.session_state["_recipe_save_flash"] = (
+                        result.get("message") or "Could not save."
+                    )
                 st.rerun()
             else:
                 st.warning("Need at least two bottles.")
 
         _rsf = st.session_state.pop("_recipe_save_flash", None)
         if _rsf:
-            st.success(_rsf)
-
-        rf1, rf2 = st.columns(2)
-        with rf1:
-            recipe_band_filter = st.selectbox(
-                "Show recipes for season / temp",
-                ["Any", "Hot / Summer", "Warm / Mild", "Cool / Autumn", "Cold / Winter"],
-                key="recipe_band_filter",
-            )
-        with rf2:
-            recipe_gender_filter = st.selectbox(
-                "Recipe gender",
-                ["Any", "Female", "Male", "Unisex"],
-                key="recipe_gender_filter",
-            )
-        recipes_view = st.session_state.get("layer_recipes") or []
-        if recipe_band_filter != "Any":
-            recipes_view = recipes_for_band(
-                recipe_band_filter,
-                gender=recipe_gender_filter,
-                limit=50,
-            )
-        elif recipe_gender_filter != "Any":
-            recipes_view = [
-                r for r in recipes_view
-                if (r.get("gender") or "Any") in ("Any", recipe_gender_filter)
-            ]
-        st.caption(f"{len(recipes_view)} recipe(s) shown")
-        _all_recipes = st.session_state.get("layer_recipes") or []
-        if _all_recipes:
-            try:
-                _pdf_bytes = build_recipes_pdf(_all_recipes)
-                st.download_button(
-                    "Download recipe book (PDF)",
-                    data=_pdf_bytes,
-                    file_name=f"scented_dead_girl_recipes_{pacific_today().isoformat()}.pdf",
-                    mime="application/pdf",
-                    key="download_recipes_pdf",
-                    type="primary",
-                    use_container_width=True,
-                )
-                st.caption("PDF includes spray order and skin placement for each recipe.")
-            except Exception as _pdf_ex:
-                st.caption(f"PDF unavailable: {_pdf_ex}")
-        for ri, recipe in enumerate(recipes_view):
-            bottles = list(recipe.get("bottles") or [])
-            st.markdown(f"**{recipe.get('name', 'Recipe')}**")
-            st.caption(
-                " + ".join(bottles)
-                + (f" | Best: {recipe.get('season_label')}" if recipe.get("season_label") else "")
-                + (f" | Gender: {recipe.get('gender')}" if recipe.get("gender") else "")
-            )
-            ev = evaluate_layer_recipe(bottles)
-            why = recipe.get("why") or ev.get("why")
-            if why:
-                st.info("**Why this layer:** " + str(why))
-            season = ev.get("season") or {}
-            saved_season = recipe.get("season_label") or season.get("label")
-            if saved_season:
-                st.caption(
-                    f"Season: **{saved_season}** - "
-                    f"{recipe.get('season_detail') or season.get('detail', '')}"
-                )
-            # Wear guidance (saved with recipe, or rebuilt from bottles)
-            app = recipe.get("application") or ev.get("application") or {}
-            steps = app.get("steps") or []
-            if steps:
-                with st.expander("How to spray (step by step)", expanded=True):
-                    st.caption("Heaviest first, lightest last.")
-                    for s in steps:
-                        st.markdown(
-                            f"**{s.get('order')}. {s.get('name')}** - "
-                            f"{s.get('role')} | **{s.get('sprays')}** spray(s)  \n"
-                            f"{s.get('where')}"
-                        )
-                    if app.get("order_names"):
-                        st.caption("Order: " + " > ".join(app.get("order_names") or []))
-                    for t in app.get("tips") or []:
-                        st.caption("- " + t)
-            with st.expander("Copy to share", expanded=False):
-                st.text_area(
-                    "Share text",
-                    value=format_recipe_share_text(recipe=recipe, ev=ev, bottles=bottles),
-                    height=200,
-                    key=f"recipe_share_{ri}_{abs(hash(tuple(bottles)+(nm,)))%10000000}",
-                )
-            # Verdict banner
-            if ev["label"] in ("Strong layer", "Good layer"):
-                st.success(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
-            elif ev["label"] == "Mixed":
-                st.warning(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
+            if "Already saved" in str(_rsf):
+                st.warning(_rsf)
             else:
-                st.info(f"{ev['label']} (score {ev['score']}) - {ev['verdict']}")
-            # Notes for each bottle
-            for f in ev.get("frags") or []:
-                cats = ", ".join(f.get("category") or [])
-                st.markdown(
-                    f"**{f.get('name')}** ({f.get('brand', '?')})  \n"
-                    f"*{f.get('gender', '')} | {f.get('season', '')} | {cats}*  \n"
-                    f"Notes: {f.get('notes') or 'Not specified'}"
-                )
-            if ev.get("missing"):
-                st.caption(
-                    "Missing from vault: " + ", ".join(ev["missing"])
-                )
-            _rkey = abs(hash(tuple(bottles) + (str(nm),))) % 10_000_000
-            rb1, rb2, rb3 = st.columns(3)
-            with rb1:
-                if st.button("Use in SOTD", key=f"recipe_use_{ri}_{_rkey}"):
-                    log_sotd_immediate(bottles, notes="Saved recipe")
-                    st.rerun()
-            with rb2:
-                if st.button("Rename", key=f"recipe_rename_btn_{ri}_{_rkey}"):
-                    st.session_state[f"_renaming_recipe_{_rkey}"] = True
-                    try:
-                        st.session_state[f"_rename_recipe_val_{_rkey}"] = suggest_recipe_name_from_notes(
-                            list(bottles), randomize=False
-                        )
-                    except Exception:
-                        st.session_state[f"_rename_recipe_val_{_rkey}"] = nm or "Untitled layer"
-                    st.rerun()
-            with rb3:
-                if st.button("Delete", key=f"recipe_del_{ri}_{_rkey}"):
-                    full = st.session_state.get("layer_recipes") or []
-                    for j, r in enumerate(full):
-                        if r is recipe or (
-                            r.get("name") == recipe.get("name")
-                            and list(r.get("bottles") or []) == list(bottles)
-                        ):
-                            full.pop(j)
-                            break
-                    st.session_state["layer_recipes"] = full
-                    save_persisted_data()
-                    st.rerun()
+                st.success(_rsf)
 
-            if st.session_state.get(f"_renaming_recipe_{_rkey}"):
-                suggested = st.session_state.get(f"_rename_recipe_val_{_rkey}") or nm
-                new_name = st.text_input(
-                    "New name (from notes)",
-                    value=suggested,
-                    key=f"recipe_rename_input_{ri}_{_rkey}",
-                    help="Suggested from shared notes on the bottles. Edit freely.",
-                )
-                rn1, rn2, rn3 = st.columns(3)
-                with rn1:
-                    if st.button("Save name", key=f"recipe_rename_save_{ri}_{_rkey}", type="primary"):
-                        clean = (new_name or "").strip() or suggested
-                        full = st.session_state.get("layer_recipes") or []
-                        for j, r in enumerate(full):
-                            if r is recipe or (
-                                r.get("name") == recipe.get("name")
-                                and list(r.get("bottles") or []) == list(bottles)
-                            ):
-                                full[j]["name"] = clean
-                                break
-                        st.session_state["layer_recipes"] = full
-                        st.session_state.pop(f"_renaming_recipe_{_rkey}", None)
-                        st.session_state.pop(f"_rename_recipe_val_{_rkey}", None)
-                        mark_vault_dirty()
-                        save_persisted_data()
-                        st.success(f"Renamed → **{clean}**")
-                        st.rerun()
-                with rn2:
-                    if st.button("Suggest from notes", key=f"recipe_rename_sug_{ri}_{_rkey}"):
-                        try:
-                            st.session_state[f"_rename_recipe_val_{_rkey}"] = suggest_recipe_name_from_notes(
-                                list(bottles), randomize=True
-                            )
-                        except Exception:
-                            pass
-                        st.rerun()
-                with rn3:
-                    if st.button("Cancel", key=f"recipe_rename_cancel_{ri}_{_rkey}"):
-                        st.session_state.pop(f"_renaming_recipe_{_rkey}", None)
-                        st.session_state.pop(f"_rename_recipe_val_{_rkey}", None)
-                        st.rerun()
-
-            st.markdown("---")
-
-
-# ===== ROULETTE =====
-
+        st.caption(
+            "View, download PDF, and see **How to spray** for every combo in the **Recipes** tab."
+        )
 
 
 
@@ -13938,7 +13749,6 @@ with tab_sotd:
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
     if _ready2:
         st.success(_ready2)
-    streak = sotd_streak()
     if streak:
         st.caption(f"Current log streak: **{streak}** day(s)")
     all_frag_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
@@ -14357,7 +14167,6 @@ with tab_collection:
 
 
 
-    badges = compute_badges()
     if badges:
         st.caption("Badges: " + "  -  ".join(badges))
 
