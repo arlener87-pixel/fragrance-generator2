@@ -13156,20 +13156,15 @@ with tab_collection:
 
 
 
-    # ----- Browse by season -----
+    # ----- Browse by season (High Desert) -----
     with st.expander("Browse by season", expanded=True):
         st.caption(
-            "All vault bottles grouped by weather band. "
-            "A bottle can appear in more than one season if its tags fit."
+            "**High Desert wear guide** (Victorville / Mojave). "
+            "Bottles are grouped by the season tags on each entry. "
+            "A bottle can show in more than one list (e.g. Spring, Summer)."
         )
-        season_bands = [
-            ("Hot / Summer", "Hot / Summer"),
-            ("Warm / Mild", "Warm / Mild"),
-            ("Cool / Autumn", "Cool / Autumn"),
-            ("Cold / Winter", "Cold / Winter"),
-        ]
         show_gender = st.selectbox(
-            "Gender filter for season lists",
+            "Gender",
             ["Any", "Female", "Male", "Unisex"],
             key="collection_season_gender",
         )
@@ -13177,62 +13172,116 @@ with tab_collection:
         if show_gender != "Any":
             pool = [f for f in pool if matches_gender(f, show_gender)]
 
-        # Bottles with weak/empty season tags
-        unclear = []
-        for f in pool:
-            s = (f.get("season") or "").strip()
-            if not s or s.lower() in ("versatile", "any", "year-round", "year round"):
-                # still may match bands via matches_weather - track for "flexible" list
-                pass
+        def _season_flags(f):
+            s = (f.get("season") or "").lower()
+            return {
+                "spring": "spring" in s,
+                "summer": "summer" in s,
+                "fall": "fall" in s or "autumn" in s,
+                "winter": "winter" in s,
+                "versatile": (
+                    "versatile" in s
+                    or "year-round" in s
+                    or "year round" in s
+                    or s.strip() in ("", "any", "all")
+                ),
+            }
 
-        for band_label, band_key in season_bands:
+        # High Desert groups: map clearly to local weather + existing tags
+        desert_groups = [
+            {
+                "label": "Hot days (Summer heat)",
+                "hint": "95°F+ dry heat — lighter fresh, citrus, soft florals. Heavy gourmands struggle midday.",
+                "match": lambda fl: fl["summer"] or (fl["spring"] and fl["summer"]),
+            },
+            {
+                "label": "Mild / Spring",
+                "hint": "Pleasant desert spring and mild days — spring & spring-summer bottles.",
+                "match": lambda fl: fl["spring"],
+            },
+            {
+                "label": "Cool / Fall",
+                "hint": "Cooling nights, windy fall — when gourmands and woods come back.",
+                "match": lambda fl: fl["fall"],
+            },
+            {
+                "label": "Cold nights / Winter",
+                "hint": "Cold desert nights and winter days — amber, vanilla, dense layers.",
+                "match": lambda fl: fl["winter"],
+            },
+        ]
+
+        for grp in desert_groups:
             matched = []
             for f in pool:
+                fl = _season_flags(f)
+                if fl["versatile"] and not (
+                    fl["spring"] or fl["summer"] or fl["fall"] or fl["winter"]
+                ):
+                    # truly untagged / versatile — skip main lists (shown below)
+                    continue
                 try:
-                    if matches_weather(f, band_key):
+                    if grp["match"](fl):
                         matched.append(f)
                 except Exception:
                     continue
-            matched.sort(key=lambda x: (x.get("brand") or "").lower() + (x.get("name") or "").lower())
+            matched.sort(
+                key=lambda x: (
+                    (x.get("brand") or "").lower(),
+                    (x.get("name") or "").lower(),
+                )
+            )
             with st.expander(
-                f"{band_label}  -  {len(matched)} bottle(s)",
+                f"{grp['label']} — {len(matched)} bottle(s)",
                 expanded=False,
             ):
+                st.caption(grp["hint"])
                 if not matched:
-                    st.caption("No bottles match this band with the current gender filter.")
+                    st.caption("No bottles match with the current gender filter.")
                 else:
                     for f in matched:
                         cats = ", ".join((f.get("category") or [])[:4])
                         conc = f.get("concentration") or ""
                         conc_bit = f" | {conc}" if conc else ""
-                        line1 = "**" + str(f.get("name") or "") + "** - *" + str(f.get("brand") or "") + "*"
-                        line2 = str(f.get("gender") or "?") + " | Season tags: " + str(f.get("season") or "?") + conc_bit
-                        st.markdown(line1 + "\n\n" + line2 + "\n\n" + cats)
-                        st.caption((f.get("notes") or "")[:160])
+                        st.markdown(
+                            "**"
+                            + str(f.get("name") or "")
+                            + "** - *"
+                            + str(f.get("brand") or "")
+                            + "*"
+                        )
+                        st.caption(
+                            str(f.get("gender") or "")
+                            + " | Season tags: "
+                            + str(f.get("season") or "?")
+                            + conc_bit
+                        )
+                        if cats:
+                            st.caption(cats)
+                        notes = (f.get("notes") or "").strip()
+                        if notes:
+                            st.caption(notes[:220] + ("…" if len(notes) > 220 else ""))
 
-        # Flexible / versatile list
+        # Untagged / versatile only
         flexible = []
         for f in pool:
-            s = (f.get("season") or "").lower()
-            if (
-                "versatile" in s
-                or "year-round" in s
-                or "year round" in s
-                or not (f.get("season") or "").strip()
+            fl = _season_flags(f)
+            if fl["versatile"] and not (
+                fl["spring"] or fl["summer"] or fl["fall"] or fl["winter"]
             ):
                 flexible.append(f)
         flexible.sort(key=lambda x: (x.get("name") or "").lower())
         with st.expander(
-            f"Versatile / flexible  -  {len(flexible)} bottle(s)",
+            f"No clear season tag — {len(flexible)} bottle(s)",
             expanded=False,
         ):
-            st.caption("Tagged versatile, year-round, or missing a clear season.")
+            st.caption("Empty, versatile, or year-round with no Spring/Summer/Fall/Winter tag.")
             if not flexible:
-                st.caption("None.")
+                st.caption("None — every bottle has a season tag.")
             else:
                 for f in flexible:
                     st.markdown(
-                        f"**{f.get('name')}**  -  *{f.get('brand')}* | "
+                        f"**{f.get('name')}** - *{f.get('brand')}* | "
                         f"{f.get('season') or 'no season tag'}"
                     )
 
