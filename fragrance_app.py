@@ -339,12 +339,6 @@ def clean_notes_text(raw: str) -> str:
 
 
 
-def format_notes_pyramid(raw: str) -> str:
-    """If notes already have Top/Heart/Base, return cleaned; else return cleaned text."""
-    t = clean_notes_text(raw)
-    return t
-
-
 CAT_OPTIONS = [
     "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
     "Fruity", "Spicy", "Citrus", "Musky", "Vanilla", "Creamy",
@@ -4555,10 +4549,6 @@ def temp_f_to_band(temp_f: float) -> str:
     return "Cold / Winter"
 
 
-def temp_c_to_f(temp_c: float) -> float:
-    return temp_c * 9.0 / 5.0 + 32.0
-
-
 def temp_band_label(temp_f: float) -> str:
     band = temp_f_to_band(temp_f)
     tips = {
@@ -6364,121 +6354,6 @@ def recipes_for_band(band: str, gender: str = "Any", limit: int = 5) -> list:
 
 
 
-def _parse_note_sections(notes: str) -> dict:
-    """Split freeform notes into top / heart / base when labeled; else all unknown."""
-    text = (notes or "").strip()
-    out = {"top": "", "heart": "", "base": "", "all": text.lower()}
-    if not text:
-        return out
-    low = text.lower()
-    # Common patterns: Top: ... Heart: ... Base: ... | Opens ... heart ... dries ...
-    import re as _re
-    patterns = [
-        ("top", r"(?:^|[;|/]|\n)\s*(?:top(?:\s*notes?)?|opens?|opening)\s*[:\-–]\s*"),
-        ("heart", r"(?:^|[;|/]|\n)\s*(?:heart(?:\s*notes?)?|middle(?:\s*notes?)?|mid)\s*[:\-–]\s*"),
-        ("base", r"(?:^|[;|/]|\n)\s*(?:base(?:\s*notes?)?|dry\s*down|dries?\s*down)\s*[:\-–]\s*"),
-    ]
-    # Simpler split on keywords
-    chunks = {"top": [], "heart": [], "base": []}
-    # Try structured "Top: x | Heart: y | Base: z"
-    m_top = _re.search(r"top(?:\s*notes?)?\s*[:\-]\s*([^|\n]+)", low)
-    m_heart = _re.search(r"(?:heart|middle)(?:\s*notes?)?\s*[:\-]\s*([^|\n]+)", low)
-    m_base = _re.search(r"(?:base(?:\s*notes?)?|dry\s*down)\s*[:\-]\s*([^|\n]+)", low)
-    if m_top:
-        out["top"] = m_top.group(1).strip()
-    if m_heart:
-        out["heart"] = m_heart.group(1).strip()
-    if m_base:
-        out["base"] = m_base.group(1).strip()
-    # opens X, heart Y, dries Z narrative
-    if not out["top"]:
-        m = _re.search(r"opens?\s+([a-z0-9 ,\-/]+?)(?:[,.]|\s+heart|\s+dries|$)", low)
-        if m:
-            out["top"] = m.group(1).strip()
-    if not out["heart"]:
-        m = _re.search(r"heart\s+([a-z0-9 ,\-/]+?)(?:[,.]|\s+dries|$)", low)
-        if m:
-            out["heart"] = m.group(1).strip()
-    if not out["base"]:
-        m = _re.search(r"dries?(?:\s+down)?\s+([a-z0-9 ,\-/]+)", low)
-        if m:
-            out["base"] = m.group(1).strip()
-    return out
-
-
-def _note_density_points(blob: str) -> float:
-    """Weight contribution of ingredients before position multiplier.
-
-    Defensive cleaning: strip parentheticals, normalize spaces, try singular forms
-    so "Cooked Sugar (Caramel)" and "vanillas" still match.
-    """
-    if not blob:
-        return 0.0
-    import re as _re
-    t = str(blob).lower()
-    # Remove anything in parentheses
-    t = _re.sub(r"\([^)]*\)", " ", t)
-    # Normalize separators to spaces
-    t = _re.sub(r"[,;/|+]+", " ", t)
-    t = " ".join(t.split())
-    if not t:
-        return 0.0
-
-    class4 = [
-        "butter", "caramel", "cooked sugar", "honey", "oud", "leather", "civet",
-        "labdanum", "tar", "castoreum", "styrax", "resin", "benzoin", "myrrh",
-        "praline", "toffee", "butterscotch", "molasses",
-    ]
-    class3 = [
-        "vanilla", "amber", "sandalwood", "musk", "patchouli", "whipped cream",
-        "cream", "tonka", "cedar", "tobacco", "chocolate", "cocoa", "coffee",
-        "incense", "cashmere", "boozy", "rum", "whiskey",
-    ]
-    class2 = [
-        "strawberry", "jasmine", "orange blossom", "citrus", "bergamot", "lemon",
-        "lime", "green", "tea", "mint", "aquatic", "ozonic", "pear", "apple",
-        "peach", "berry", "raspberry", "cherry", "pineapple", "coconut",
-        "neroli", "freesia", "peony", "lily",
-    ]
-
-    def _variants(word: str):
-        w = (word or "").strip().lower()
-        if not w:
-            return []
-        out = {w}
-        # singularize trailing s for longer words
-        if len(w) > 4 and w.endswith("s") and not w.endswith("ss"):
-            out.add(w[:-1])
-        return out
-
-    def _hit(keyword: str) -> bool:
-        keys = _variants(keyword)
-        # multi-word keyword
-        for k in list(keys):
-            if " " in k:
-                if k in t:
-                    return True
-            else:
-                # word-boundary-ish match
-                if k in t.split() or f" {k} " in f" {t} ":
-                    return True
-                if k in t:
-                    return True
-        return False
-
-    pts = 0.0
-    for k in class4:
-        if _hit(k):
-            pts += 8.0
-    for k in class3:
-        if _hit(k):
-            pts += 4.0
-    for k in class2:
-        if _hit(k):
-            pts += 1.5
-    return pts
-
-
 def fragrance_weight_score(f: dict) -> int:
     """Higher = denser on skin (spray first). Simple category + keyword score."""
     if not f:
@@ -6522,11 +6397,6 @@ def order_names_heavy_to_light(bottle_names: list) -> list:
         if n not in ordered:
             ordered.append(n)
     return ordered
-
-
-def calculate_fragrance_weight(f: dict) -> int:
-    """Alias for fragrance_weight_score (density + note position)."""
-    return fragrance_weight_score(f)
 
 
 def process_layering_order(frags_or_names) -> list:
@@ -6633,101 +6503,6 @@ def _extract_note_phrases(notes: str) -> dict:
             tokens.append(t)
     out["all"] = tokens[:12]
     return out
-
-
-def describe_layer_scent(frags: list) -> str:
-    """What you are likely to smell after layering - from combined notes."""
-    if not frags:
-        return ""
-    tops, hearts, bases, loose = [], [], [], []
-    for f in frags:
-        parsed = _extract_note_phrases(f.get("notes") or "")
-        tops.extend(parsed["top"])
-        hearts.extend(parsed["heart"])
-        bases.extend(parsed["base"])
-        loose.extend(parsed["all"])
-        # also pull from category for vibe words
-        for c in f.get("category") or []:
-            loose.append(c)
-
-    def _uniq(seq, limit=5):
-        seen = set()
-        out = []
-        for x in seq:
-            k = x.lower().strip()
-            if not k or k in seen or len(k) < 2:
-                continue
-            # skip section labels
-            if k in ("top", "heart", "middle", "base", "notes", "note"):
-                continue
-            seen.add(k)
-            out.append(x.strip())
-            if len(out) >= limit:
-                break
-        return out
-
-    tops_u = _uniq(tops, 4)
-    hearts_u = _uniq(hearts, 4)
-    bases_u = _uniq(bases, 4)
-
-    # Keyword buckets from all note text
-    blob = " ".join((f.get("notes") or "") for f in frags).lower()
-    opening_kw = [
-        k for k in [
-            "citrus", "bergamot", "orange", "lemon", "grapefruit", "raspberry",
-            "strawberry", "apple", "pear", "peach", "plum", "pineapple", "mango",
-            "mint", "green", "ozone", "aquatic",
-        ] if k in blob
-    ]
-    heart_kw = [
-        k for k in [
-            "rose", "jasmine", "orange blossom", "lavender", "iris", "peony",
-            "orchid", "ylang", "cinnamon", "saffron", "cardamom", "coffee",
-            "chocolate", "pistachio", "coconut",
-        ] if k in blob
-    ]
-    base_kw = [
-        k for k in [
-            "vanilla", "caramel", "tonka", "amber", "musk", "oud", "sandalwood",
-            "cedar", "patchouli", "incense", "leather", "tobacco", "praline",
-            "sugar", "cream", "benzoin", "labdanum",
-        ] if k in blob
-    ]
-
-    if not tops_u and opening_kw:
-        tops_u = opening_kw[:4]
-    if not hearts_u and heart_kw:
-        hearts_u = heart_kw[:4]
-    if not bases_u and base_kw:
-        bases_u = base_kw[:4]
-
-    if not tops_u and not hearts_u and not bases_u:
-        # last resort from loose phrases
-        loose_u = _uniq(loose, 6)
-        if not loose_u:
-            return "On skin the blend will follow the shared DNA of both bottles - give it 20 minutes to settle."
-        return (
-            "What you might smell: a mix of "
-            + ", ".join(loose_u)
-            + " as the layer settles on skin."
-        )
-
-    parts = ["What you might smell after layering:"]
-    if tops_u:
-        parts.append("first hit - " + ", ".join(tops_u))
-    if hearts_u:
-        parts.append("as it settles - " + ", ".join(hearts_u))
-    if bases_u:
-        parts.append("dry-down - " + ", ".join(bases_u))
-    # One line vibe
-    if any(k in blob for k in ("vanilla", "caramel", "sugar", "praline", "tonka")):
-        parts.append("overall edible-sweet warmth with whatever bright notes ride on top")
-    elif any(k in blob for k in ("oud", "incense", "leather", "smoke")):
-        parts.append("overall deeper, denser trail once the top softens")
-    elif any(k in blob for k in ("citrus", "bergamot", "aquatic", "green")):
-        parts.append("overall fresher open that should stay lighter in the trail")
-
-    return ". ".join(parts) + "."
 
 
 def explain_layer_combo(frags: list) -> str:
@@ -7128,6 +6903,27 @@ def evaluate_layer_recipe(bottle_names: list) -> dict:
     return _result
 
 
+def evaluate_layer_recipe_cached(bottles) -> dict:
+    """Session-cached evaluate_layer_recipe (keyed by sorted bottle names)."""
+    names = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+    if len(names) < 1:
+        return evaluate_layer_recipe(names)
+    key = tuple(sorted(names))
+    cache = st.session_state.setdefault("_layer_eval_cache", {})
+    hit = cache.get(key)
+    if isinstance(hit, dict):
+        return hit
+    result = evaluate_layer_recipe(names)
+    if not isinstance(cache, dict):
+        cache = {}
+        st.session_state["_layer_eval_cache"] = cache
+    if len(cache) > 100:
+        cache.clear()
+    cache[key] = result
+    return result
+
+
+
 
 def suggest_layering_combos(pool: list, num_combos: int = 3) -> list:
     source_pool = (
@@ -7192,16 +6988,6 @@ HALLOWEEN_EMOJI = {
     "Vampire soiree": "skull",
 }
 
-
-def emoji_html(*keys: str) -> str:
-    """Return HTML entity string for one or more emoji keys."""
-    out = []
-    for k in keys:
-        if k in EMOJI:
-            out.append(EMOJI[k])
-        elif k in HALLOWEEN_EMOJI:
-            out.append(EMOJI.get(HALLOWEEN_EMOJI[k], ""))
-    return " ".join(x for x in out if x)
 
 HALLOWEEN_PROFILES = {
     "Pumpkin patch": {
@@ -7481,71 +7267,6 @@ def parse_bulk_fragrance_lines(text_block: str, default_brand: str = "") -> list
         seen.add(key)
         rows.append({"name": name, "brand": brand})
     return rows
-
-
-def bulk_add_fragrances(
-    text_block: str,
-    default_brand: str = "",
-    default_gender: str = "Unisex",
-    default_season: str = "Versatile",
-    skip_duplicates: bool = True,
-) -> dict:
-    """Add many bottles by name + brand only. Details can be edited later in Vault."""
-    rows = parse_bulk_fragrance_lines(text_block, default_brand=default_brand)
-    added = []
-    skipped = []
-    if "fragrances_db" not in st.session_state:
-        st.session_state["fragrances_db"] = []
-    for row in rows:
-        name, brand = row["name"], row["brand"]
-        dups = find_duplicate_fragrances(name, brand)
-        if dups.get("exact") or dups.get("same_name"):
-            if skip_duplicates:
-                reason = "already in vault"
-                if dups.get("exact"):
-                    reason = f"exact match: {dups['exact'][0].get('name')}"
-                elif dups.get("same_name"):
-                    reason = f"same name exists ({dups['same_name'][0].get('brand')})"
-                skipped.append({"name": name, "brand": brand, "reason": reason})
-                continue
-        frag = {
-            "name": name,
-            "brand": brand,
-            "gender": default_gender or "Unisex",
-            "season": default_season or "Versatile",
-            "notes": "Not specified  -  edit later",
-            "category": ["Gourmand"],
-            "dupe_of": "",
-            "shelf_status": "Own",
-            "size_ml": None,
-            "price": None,
-        }
-        st.session_state["fragrances_db"].append(frag)
-        try:
-            log_vault_action("added", name, f"bulk|{brand}")
-        except Exception:
-            pass
-        added.append(frag)
-    if added:
-        try:
-            save_persisted_data()
-        except Exception:
-            pass
-        mark_vault_dirty()
-    return {"added": added, "skipped": skipped, "parsed": len(rows)}
-
-
-
-def least_worn(top_n: int = 5) -> list:
-    counts = get_wear_counts()
-    items = []
-    for f in st.session_state["fragrances_db"]:
-        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-            continue
-        items.append((counts.get(f["name"], 0), f))
-    items.sort(key=lambda x: (x[0], x[1]["name"].lower()))
-    return items[:top_n]
-
 
 
 def suggest_partners_for(
@@ -8041,49 +7762,6 @@ def send_to_sotd(names, notes: str = "", log_now: bool = True) -> None:
     )
 
 
-def render_fragrance_card(f: dict, key_prefix: str, show_actions: bool = True):
-    """Consistent card display with YAY / DEL / Wear actions."""
-    current_reaction = st.session_state["user_reactions"].get(f["name"])
-    status_badge = (
-        " YAY"
-        if current_reaction == "fav"
-        else (" NAH" if current_reaction == "dislike" else "")
-    )
-
-    st.info(f"**{f['name']}** by *{f['brand']}*{status_badge}")
-    st.write(f"**Gender:** {f['gender']}  |  **Season:** {f['season']}")
-    st.write(f"**Category:** {', '.join(f['category'])}")
-    st.caption(f"Notes: {f['notes']}")
-    bits = []
-    if f.get("shelf_status"):
-        bits.append(str(f["shelf_status"]))
-    if f.get("concentration"):
-        bits.append(str(f["concentration"]))
-    if f.get("size_ml"):
-        bits.append(f"{f['size_ml']} ml")
-    if bits:
-        st.caption(" | ".join(bits))
-
-    if show_actions:
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
-        with col1:
-            if st.button("YAY", key=f"{key_prefix}_fav_{f['name']}"):
-                st.session_state["user_reactions"][f["name"]] = "fav"
-                save_persisted_data()
-                st.rerun()
-        with col2:
-            if st.button("DEL", key=f"{key_prefix}_dislike_{f['name']}"):
-                st.session_state["user_reactions"][f["name"]] = "dislike"
-                save_persisted_data()
-                st.rerun()
-        with col3:
-            if st.button("Log SOTD", key=f"{key_prefix}_wear_{f['name']}"):
-                send_to_sotd([f["name"]])
-                st.rerun()
-    st.markdown("---")
-
-
-
 def get_last_worn_dates() -> dict:
     """Most recent wear date (YYYY-MM-DD) per fragrance name."""
     last = {}
@@ -8240,10 +7918,6 @@ def search_rank_key(f: dict) -> tuple:
     return (dislike, yay, incomplete, wears, name.lower())
 
 
-def rank_search_results(matches: list) -> list:
-    return sorted(matches, key=search_rank_key)
-
-
 def _search_normalize(s: str) -> str:
     s = (s or "").lower()
     s = re.sub(r"[^a-z0-9\s]+", " ", s)
@@ -8332,10 +8006,6 @@ def fragrance_search_score(f: dict, query: str) -> int:
     return score
 
 
-def fragrance_search_match(f: dict, query: str) -> bool:
-    return fragrance_search_score(f, query) > 0
-
-
 def search_fragrances_by_name_brand(query: str, exact_only: bool = False) -> list:
     """
     Return vault bottles matching name/brand.
@@ -8420,20 +8090,6 @@ def fragrance_notes_score(f: dict, query: str) -> int:
     return score
 
 
-def search_fragrances_by_notes(query: str) -> list:
-    """Return all vault bottles whose notes/categories match the query."""
-    q = (query or "").strip()
-    if not q:
-        return []
-    scored = []
-    for f in st.session_state.get("fragrances_db") or []:
-        s = fragrance_notes_score(f, q)
-        if s > 0:
-            scored.append((s, f))
-    scored.sort(key=lambda x: (-x[0], search_rank_key(x[1])))
-    return [f for _, f in scored]
-
-
 def get_favorite_notes(top_n: int = 12) -> list:
     """Ranked note keywords from YAY bottles."""
     from collections import Counter
@@ -8451,92 +8107,6 @@ def get_favorite_notes(top_n: int = 12) -> list:
             if t not in stop:
                 c[t] += 1
     return c.most_common(top_n)
-
-
-def find_antipodes(base: dict, top_n: int = 5) -> list:
-    """Bottles most different from base (opposite families / gender lean)."""
-    if not base:
-        return []
-    base_cats = set(base.get("category", []))
-    base_g = normalize_gender(base.get("gender", ""))
-    scored = []
-    for f in st.session_state["fragrances_db"]:
-        if f["name"] == base["name"]:
-            continue
-        if st.session_state["user_reactions"].get(f["name"]) == "dislike":
-            continue
-        score = 0
-        cats = set(f.get("category", []))
-        # reward zero overlap
-        score += max(0, 30 - len(base_cats & cats) * 15)
-        # reward opposite lean
-        g = normalize_gender(f.get("gender", ""))
-        if base_g in ("Female", "Female-leaning") and g in ("Male", "Male-leaning"):
-            score += 12
-        elif base_g in ("Male", "Male-leaning") and g in ("Female", "Female-leaning"):
-            score += 12
-        # note token divergence
-        t1 = set(re.findall(r"[a-zA-Z]{3,}", base.get("notes", "").lower()))
-        t2 = set(re.findall(r"[a-zA-Z]{3,}", f.get("notes", "").lower()))
-        stop = {"top", "heart", "base", "and", "with", "notes", "the", "from"}
-        shared = (t1 - stop) & (t2 - stop)
-        score += max(0, 15 - len(shared) * 3)
-        score += _stable_tiebreak(base["name"] + f["name"]) % 4
-        if score > 10:
-            scored.append((score, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return scored[:top_n]
-
-
-def suggest_right_now(weather: str = "Any", favorites_only: bool = False, top_n: int = 3) -> list:
-    """Quick pick from vault using weather + reactions (no astrology)."""
-    return get_top_fragrances(
-        "Any",
-        weather or "Any",
-        "Any",
-        "Any",
-        top_n,
-        favorites_only=favorites_only,
-        shuffle=True,
-        concentration="Any",
-        projection="Any",
-    )
-
-
-
-
-def get_weekly_recipe():
-    """Stable layering recipe for the current ISO week."""
-    today = pacific_today()
-    week_key = f"{today.isocalendar()[0]}-W{today.isocalendar()[1]:02d}"
-    cached = st.session_state.get("_weekly_recipe_cache")
-    if cached and cached.get("week") == week_key:
-        return cached
-
-    # Prefer saved recipes first
-    recipes = st.session_state.get("layer_recipes") or []
-    if recipes:
-        idx = int(hashlib.md5(week_key.encode()).hexdigest()[:6], 16) % len(recipes)
-        rec = recipes[idx]
-        out = {"week": week_key, "name": rec.get("name", "Weekly layer"), "bottles": list(rec.get("bottles") or [])}
-        st.session_state["_weekly_recipe_cache"] = out
-        return out
-
-    # Generate one
-    pool = get_top_fragrances("Any", "Any", "Any", "Any", 30, favorites_only=False)
-    combos = suggest_layering_combos(pool, num_combos=5)
-    if not combos:
-        return None
-    idx = int(hashlib.md5(week_key.encode()).hexdigest()[:6], 16) % len(combos)
-    f1, f2, reason = combos[idx]
-    out = {
-        "week": week_key,
-        "name": f"{f1['name']} + {f2['name']}",
-        "bottles": [f1["name"], f2["name"]],
-        "reason": reason,
-    }
-    st.session_state["_weekly_recipe_cache"] = out
-    return out
 
 
 CHALLENGE_DECK = [
@@ -8641,127 +8211,6 @@ def _challenge_personal_pool() -> list:
         extras.append(f"Underused family in your vault: lean into **{rare}** today.")
 
     return extras
-
-
-def draw_challenge() -> str:
-    """Daily challenge - rotates by date; salt lets you reroll the same day."""
-    today = pacific_today().isoformat()
-    salt = st.session_state.get("challenge_salt", 0)
-    deck = list(CHALLENGE_DECK) + _challenge_personal_pool()
-    if not deck:
-        return "Wear something that feels like High Desert night air."
-    seed = int(hashlib.md5(f"challenge-{today}-{salt}".encode()).hexdigest()[:8], 16)
-    return deck[seed % len(deck)]
-
-
-
-def suggest_for_challenge(challenge: str, top_n: int = 3, salt: int = 0) -> list:
-    """Pick bottles that fit the challenge. salt rotates so redraws are not identical."""
-    db = st.session_state.get("fragrances_db") or []
-    if not db:
-        return []
-    text = (challenge or "").lower()
-
-    prefer_cats = set()
-    prefer_notes = set()
-    ban_cats = set()
-    gender_want = None
-    ban_brand = None
-
-    if "no gourmand" in text or "gourmands are banned" in text or "no vanilla" in text:
-        ban_cats.update(["Gourmand", "Sweet", "Vanilla"])
-    if "no lattafa" in text:
-        ban_brand = "lattafa"
-    if "only male" in text or "male or male-leaning" in text or "male-leaning" in text:
-        gender_want = "male"
-    if "only female" in text or "female or female-leaning" in text or "female-leaning" in text:
-        gender_want = "female"
-    if "horror" in text or "smoky" in text or "incense" in text or "gothic" in text:
-        prefer_cats.update(["Smoky", "Oriental", "Leather", "Oud", "Woody"])
-        prefer_notes.update(["smoke", "incense", "leather", "oud", "amber"])
-    if "coffee" in text or "desk" in text or "soft" in text or "creamy" in text or "skin-scent" in text:
-        prefer_cats.update(["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla"])
-        prefer_notes.update(["vanilla", "cream", "milk", "musk", "coffee", "soft"])
-    if "fresh" in text or "airiest" in text or "heat" in text or "summer" in text:
-        prefer_cats.update(["Fresh", "Citrus", "Aquatic"])
-        prefer_notes.update(["fresh", "citrus", "bergamot", "light"])
-    if "floral" in text or "powdery" in text:
-        prefer_cats.update(["Floral", "Powdery"])
-        prefer_notes.update(["rose", "jasmine", "iris", "powder"])
-    if "lazy" in text or "stay home" in text or "cozy" in text:
-        prefer_cats.update(["Gourmand", "Sweet", "Creamy", "Musky", "Vanilla"])
-        prefer_notes.update(["vanilla", "cream", "musk", "soft", "cozy"])
-
-    scored = []
-    for f in db:
-        name = (f.get("name") or "").lower()
-        brand = (f.get("brand") or "").lower()
-        cats = set(f.get("category") or [])
-        notes = (f.get("notes") or "").lower()
-        gender = (f.get("gender") or "").lower()
-
-        if ban_brand and ban_brand in brand:
-            continue
-        if ban_cats and cats & ban_cats and not (prefer_cats and cats & prefer_cats):
-            if not (cats & prefer_cats):
-                continue
-        if gender_want == "male" and not any(x in gender for x in ["male", "masculine"]):
-            continue
-        if gender_want == "female" and not any(x in gender for x in ["female", "feminine"]):
-            continue
-
-        score = 1
-        if prefer_cats:
-            score += 3 * len(cats & prefer_cats)
-        if prefer_notes:
-            score += sum(2 for kw in prefer_notes if kw in notes or kw in name)
-        if not gender_want and "unisex" in gender:
-            score += 0.5
-        # tiny name hash so ties don't always sort the same way alphabetically
-        score += (_stable_tiebreak(name + brand + str(salt)) % 100) / 1000.0
-        scored.append((score, f))
-
-    scored.sort(key=lambda x: (-x[0], x[1].get("name") or ""))
-    ranked = [f for _, f in scored]
-    if not ranked:
-        return []
-    window = ranked[: max(top_n * 5, 15)]
-    if len(window) <= top_n:
-        return window
-    start = (int(salt) * top_n) % len(window)
-    # Exclude recently shown names if provided via session
-    recent = set()
-    try:
-        for n in (st.session_state.get("_challenge_last_picks") or []):
-            if n:
-                recent.add(str(n).lower())
-    except Exception:
-        recent = set()
-    picks = []
-    seen_brands = set()
-    i = 0
-    guard = 0
-    while len(picks) < top_n and guard < len(window) * 3:
-        f = window[(start + i) % len(window)]
-        i += 1
-        guard += 1
-        nm = (f.get("name") or "").lower()
-        b = (f.get("brand") or "").lower()
-        if nm in recent and len(window) > top_n + len(recent):
-            continue
-        if b in seen_brands and len(window) > top_n:
-            continue
-        picks.append(f)
-        seen_brands.add(b)
-    # fill if needed (allow recent / same brand)
-    if len(picks) < top_n:
-        for f in window:
-            if f not in picks:
-                picks.append(f)
-            if len(picks) >= top_n:
-                break
-    return picks[:top_n]
-
 
 
 def average_performance(name: str) -> dict:
@@ -9039,65 +8488,6 @@ def log_vault_action(action: str, name: str, detail: str = "") -> None:
     log = st.session_state.setdefault("vault_log", [])
     log.insert(0, entry)
     st.session_state["vault_log"] = log[:200]  # cap
-
-
-def collection_value_summary(db: list) -> dict:
-    """Rough totals from optional size_ml / price fields."""
-    total_ml = 0.0
-    total_price = 0.0
-    priced = 0
-    sized = 0
-    by_shelf = {}
-    for f in db:
-        shelf = f.get("shelf_status") or "Own"
-        by_shelf[shelf] = by_shelf.get(shelf, 0) + 1
-        try:
-            ml = float(f.get("size_ml") or 0)
-            if ml > 0:
-                total_ml += ml
-                sized += 1
-        except (TypeError, ValueError):
-            pass
-        try:
-            px = float(f.get("price") or 0)
-            if px > 0:
-                total_price += px
-                priced += 1
-        except (TypeError, ValueError):
-            pass
-    return {
-        "total_ml": total_ml,
-        "total_price": total_price,
-        "priced": priced,
-        "sized": sized,
-        "by_shelf": by_shelf,
-    }
-
-
-def build_fragrance_sheet_pdf(frag: dict, title: str = None) -> bytes:
-    """One-page PDF summary for a single bottle (add receipt / share sheet)."""
-    title = title or "ScentedDeadGirl - Bottle sheet"
-    lines = [
-        f"Exported {pacific_today().isoformat()} (Pacific)",
-        "",
-        f"Name: {frag.get('name', '?')}",
-        f"Brand: {frag.get('brand', '?')}",
-        f"Gender: {frag.get('gender', '?')}",
-        f"Season: {frag.get('season', '?')}",
-        f"Categories: {', '.join(frag.get('category') or [])}",
-        f"Shelf: {frag.get('shelf_status') or 'Own'}",
-        f"Format: {frag.get('concentration') or 'EDP'}",
-    ]
-    if frag.get("size_ml"):
-        lines.append(f"Size: {frag.get('size_ml')} ml")
-    if frag.get("price"):
-        lines.append(f"Price: ${frag.get('price')}")
-    lines.append("")
-    lines.append("Notes:")
-    notes = frag.get("notes") or "Not specified"
-    # soft-wrap long notes
-    lines.append(notes)
-    return build_simple_pdf(title, lines)
 
 
 # Popular clone / inspired-by map (name lowercase -> original). Not exhaustive.
@@ -10405,7 +9795,7 @@ if not st.session_state.get("_seasons_normalized"):
         st.session_state["_seasons_normalized"] = True
 
 
-def _dessert_score_bottle(f: dict) -> float:
+def _layer_score_bottle(f: dict) -> float:
     """How dessert-like a bottle is (female-leaning vault picks)."""
     if not f:
         return -1.0
@@ -10446,7 +9836,7 @@ def _dessert_score_bottle(f: dict) -> float:
     return pts
 
 
-def _dessert_name_from_frags(frags: list) -> str:
+def _layer_display_name_from_frags(frags: list) -> str:
     """Dessert name driven by the strongest notes in the stack (not random flavor)."""
     text = " ".join(
         ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
@@ -10582,7 +9972,7 @@ def _dessert_name_from_frags(frags: list) -> str:
 
 
 
-def _clean_dessert_label(name: str) -> str:
+def _clean_layer_label(name: str) -> str:
     """Drop repeated words (e.g. Cream Cream) and extra spaces."""
     if not name:
         return "Sweet Layer"
@@ -10595,9 +9985,9 @@ def _clean_dessert_label(name: str) -> str:
     return " ".join(out) or "Sweet Layer"
 
 
-def _unique_dessert_name(frags: list, used: set) -> str:
+def _unique_layer_display_name(frags: list, used: set) -> str:
     """Note-based dessert name unique within this menu."""
-    base = _clean_dessert_label(_dessert_name_from_frags(frags))
+    base = _clean_layer_label(_layer_display_name_from_frags(frags))
     if base not in used:
         used.add(base)
         return base
@@ -10621,7 +10011,7 @@ def _unique_dessert_name(frags: list, used: set) -> str:
         alts += ["Berry Cream Stack", "Fruit Cream Tart"]
     alts += [base + " Duo", base + " Soft", "Gourmand " + base, "Layered " + base]
     for a in alts:
-        a = _clean_dessert_label(a)
+        a = _clean_layer_label(a)
         if a not in used:
             used.add(a)
             return a
@@ -10634,7 +10024,7 @@ def _unique_dessert_name(frags: list, used: set) -> str:
         n += 1
 
 
-def _dessert_season_tip(frags: list) -> str:
+def _layer_season_tip(frags: list) -> str:
     text = " ".join((f.get("season") or "").lower() for f in frags)
     notes = " ".join((f.get("notes") or "").lower() for f in frags)
     if any(k in notes for k in ("vanilla", "caramel", "chocolate", "tonka", "amber")):
@@ -10646,7 +10036,7 @@ def _dessert_season_tip(frags: list) -> str:
     return "Versatile — lighter sprays for warm days, richer base for cool nights."
 
 
-def _dessert_layer_tip(frags: list) -> str:
+def _layer_combo_tip(frags: list) -> str:
     if not frags:
         return "Pick two sweet bottles and apply the richer one first."
     ordered = process_layering_order(list(frags))
@@ -10788,7 +10178,7 @@ def save_layer_recipe(bottle_names: list, *, allow_duplicate: bool = False) -> d
     }
 
 
-def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Dessert") -> bool:
+def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Layer") -> bool:
     """Add a layer idea to the Try list (deduped by bottles)."""
     bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
     if len(bottles) < 2:
@@ -10810,156 +10200,6 @@ def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Des
     st.session_state["try_recipes"] = st.session_state["try_recipes"][:60]
     mark_vault_dirty()
     return True
-
-def build_dessert_suggestions(num: int = 5, min_layer_score: int = 75, gender_mode: str = "Female + Unisex") -> list:
-    """Female-leaning dessert stacks that pass Layer check (>= min_layer_score).
-
-    Enumerates strong pairs systematically so "4 ideas" can actually fill.
-    """
-    db = st.session_state.get("fragrances_db") or []
-    scored = []
-    for f in db:
-        pts = float(_dessert_score_bottle(f))
-        if pts < 4:
-            continue
-        g = normalize_gender(f.get("gender") or "")
-        if gender_mode == "Female":
-            if g not in ("Female", "Female-leaning"):
-                continue
-        else:
-            # Female + Unisex — rotate a larger female-leaning pool
-            if g not in ("Female", "Female-leaning", "Unisex"):
-                continue
-            if g in ("Female", "Female-leaning"):
-                pts += 3.0
-        scored.append((pts, f))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    pool = [f for _, f in scored[:40]]
-    if len(pool) < 2:
-        return []
-
-    # Skip combos already on Try list or saved as recipes (same bottles, any name)
-    def _combo_key(names):
-        return tuple(sorted(str(n).strip() for n in (names or []) if n and str(n).strip()))
-
-    blocked = set()
-    for item in st.session_state.get("try_recipes") or []:
-        k = _combo_key(item.get("bottles") or [])
-        if len(k) >= 2:
-            blocked.add(k)
-        elif len(k) == 1:
-            blocked.add(k)
-    for item in st.session_state.get("layer_recipes") or []:
-        bottles = item.get("bottles") or item.get("names") or []
-        k = _combo_key(bottles)
-        if len(k) >= 1:
-            blocked.add(k)
-
-    for k in (st.session_state.get("_dessert_exclude") or []):
-        try:
-            blocked.add(tuple(sorted(str(x) for x in k if x)))
-        except Exception:
-            pass
-
-    # Build candidate pairs: top x top, then oil+spray
-    candidates = []
-    n = len(pool)
-    # Systematic pairs among top bottles (best dessert affinity first)
-    for i in range(n):
-        for j in range(i + 1, n):
-            a, b = pool[i], pool[j]
-            dessert_pts = (_dessert_score_bottle(a) + _dessert_score_bottle(b)) / 2.0
-            candidates.append((dessert_pts, [a, b]))
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    # Mix mid-tier dessert bottles into the eval window so menus rotate
-    head = candidates[:12]
-    rest = candidates[12:]
-    random.shuffle(rest)
-    candidates = head + rest
-
-    stacks = []
-    used = set()
-    menu_names = set()
-    # Cap evaluations for speed on mobile
-    max_eval = min(30, len(candidates))
-    for dessert_pts, frags in candidates[:max_eval]:
-        if len(stacks) >= num:
-            break
-        names = [f.get("name") for f in frags if f.get("name")]
-        key = tuple(sorted(str(n).strip() for n in names if n))
-        if len(names) < 2 or key in used or key in blocked:
-            continue
-        try:
-            ev = evaluate_layer_recipe(list(names))
-            layer_sc = int(round(float(ev.get("score") or 0)))
-        except Exception:
-            continue
-        if layer_sc < int(min_layer_score):
-            continue
-        used.add(key)
-        stacks.append({
-            "dessert_name": _unique_dessert_name(frags, menu_names),
-            "names": names,
-            "frags": frags,
-            "score": layer_sc,
-            "dessert_pts": round(dessert_pts, 1),
-            "season_tip": _dessert_season_tip(frags),
-            "layer_tip": _dessert_layer_tip(frags),
-            "verdict": clean_display_text(str(ev.get("verdict") or "")),
-            "why": clean_display_text(str(ev.get("why") or ""))[:220]
-                or ("Sweet " + ", ".join(
-                    sorted({c for f in frags for c in (f.get("category") or []) if c})[:4]
-                )),
-        })
-
-    # If still short, try a few 3-bottle stacks from winning pairs + light top
-    if len(stacks) < num and stacks:
-        tops = pool[:20]
-        for base in list(stacks[:4]):
-            if len(stacks) >= num:
-                break
-            base_names = set(base.get("names") or [])
-            for f in tops[:8]:
-                if len(stacks) >= num:
-                    break
-                if f.get("name") in base_names:
-                    continue
-                names = list(base["names"]) + [f.get("name")]
-                key = tuple(sorted(str(n).strip() for n in names if n))
-                if key in used or key in blocked:
-                    continue
-                try:
-                    ev = evaluate_layer_recipe(list(names))
-                    layer_sc = int(round(float(ev.get("score") or 0)))
-                except Exception:
-                    continue
-                if layer_sc < int(min_layer_score):
-                    continue
-                used.add(key)
-                frags = list(base["frags"]) + [f]
-                stacks.append({
-                    "dessert_name": _unique_dessert_name(frags, menu_names),
-                    "names": names,
-                    "frags": frags,
-                    "score": layer_sc,
-                    "dessert_pts": round(
-                        sum(_dessert_score_bottle(x) for x in frags) / len(frags), 1
-                    ),
-                    "season_tip": _dessert_season_tip(frags),
-                    "layer_tip": _dessert_layer_tip(frags),
-                    "verdict": clean_display_text(str(ev.get("verdict") or "")),
-                    "why": clean_display_text(str(ev.get("why") or ""))[:220],
-                })
-
-    stacks.sort(key=lambda s: (s.get("score") or 0, s.get("dessert_pts") or 0), reverse=True)
-    # Shuffle among top scores so Fresh menu feels new
-    top = stacks[: max(num * 2, num)]
-    random.shuffle(top)
-    top.sort(key=lambda s: s.get("score") or 0, reverse=True)
-    return top[:num]
-
-
-
 
 # Drop score caches when vault size changes (edits / restore)
 try:
@@ -11575,7 +10815,7 @@ with tab_discover:
                         st.session_state["last_layer_check"] = evaluate_layer_recipe(
                             list(names_all)
                         )
-                        st.session_state["_seed_roulette_recipe_name"] = True
+                        st.session_state["_seed_layer_recipe_name"] = True
                         st.session_state["_open_layer_check"] = True
                         st.success("Loaded in Layer check - open the Layer tab.")
                         st.rerun()
@@ -11709,7 +10949,7 @@ with tab_discover:
                                     st.session_state["last_layer_check"] = (
                                         evaluate_layer_recipe(pair)
                                     )
-                                    st.session_state["_seed_roulette_recipe_name"] = True
+                                    st.session_state["_seed_layer_recipe_name"] = True
                                     st.session_state["_open_layer_check"] = True
                                     st.success(
                                         f"**{f['name']}** + **{pf['name']}** in Layer check."
@@ -11830,7 +11070,7 @@ with tab_discover:
     if not search_query and not note_query and last_recs is None and last_temp is None:
         st.info(
             "Use the sidebar to search, filter, or **Generate** recommendations. "
-            "Roulette, SOTD, and vault tools live in the other tabs."
+            "Layer, SOTD, and vault tools live in the other tabs."
         )
 
 
@@ -11969,6 +11209,7 @@ with tab_layer:
                 st.session_state.pop("_layer_partner_nonce", None)
                 st.session_state["_layer_partner_refresh_i"] = 0
                 st.session_state.pop("_layer_partner_cache", None)
+                st.session_state.pop("_layer_eval_cache", None)
 
         if base_choice != "- select a bottle -":
             base_f = label_to_frag.get(base_choice)
@@ -12166,7 +11407,7 @@ with tab_layer:
                                 st.session_state["layer_base_name"] = _bn
                                 st.session_state["_pending_layer_pick"] = list(_pair)
                                 st.session_state["_locked_layer_pair"] = list(_pair)
-                                st.session_state["roulette_layer_pick"] = list(_pair)
+                                st.session_state["layer_check_pick"] = list(_pair)
                                 try:
                                     _ev = evaluate_layer_recipe(list(_pair))
                                 except Exception as _e:
@@ -12390,7 +11631,7 @@ with tab_layer:
                                 st.session_state["last_layer_check"] = evaluate_layer_recipe(
                                     list(names)
                                 )
-                                st.session_state["_seed_roulette_recipe_name"] = True
+                                st.session_state["_seed_layer_recipe_name"] = True
                                 st.success("Loaded in Layer check below.")
                                 st.rerun()
                         with c2:
@@ -12443,8 +11684,8 @@ with tab_layer:
     )
     # Clear multiselect BEFORE the widget is created (Streamlit forbids writing
     # to a widget key after that widget has been instantiated).
-    if st.session_state.pop("_clear_roulette_layer_pick", False):
-        st.session_state["roulette_layer_pick"] = []
+    if st.session_state.pop("_clear_layer_check_pick", False):
+        st.session_state["layer_check_pick"] = []
         st.session_state.pop("last_layer_check", None)
         st.session_state.pop("_locked_layer_pair", None)
         st.session_state.pop("_pending_layer_pick", None)
@@ -12462,12 +11703,12 @@ with tab_layer:
             rf = resolve_frag_by_name(str(n).strip())
             _clean.append((rf.get("name") if rf else str(n).strip()))
         _clean = list(dict.fromkeys([x for x in _clean if x]))
-        st.session_state["roulette_layer_pick"] = list(_clean)
+        st.session_state["layer_check_pick"] = list(_clean)
         st.session_state["_locked_layer_pair"] = list(_clean)
         _pv = int(st.session_state.get("_layer_pick_ver") or 0)
-        st.session_state[f"roulette_layer_pick_{_pv}"] = list(_clean)
+        st.session_state[f"layer_check_pick_{_pv}"] = list(_clean)
 
-    current_pick = list(st.session_state.get("roulette_layer_pick") or [])
+    current_pick = list(st.session_state.get("layer_check_pick") or [])
     must_keep = set(n for n in current_pick if n)
 
     all_names_layer = []
@@ -12492,29 +11733,29 @@ with tab_layer:
 
     st.caption(f"{len(all_names_layer)} bottle(s) in picker")
     _pick_ver = int(st.session_state.get("_layer_pick_ver") or 0)
-    _pick_key = f"roulette_layer_pick_{_pick_ver}"
+    _pick_key = f"layer_check_pick_{_pick_ver}"
     # Seed versioned widget once (never use default= with key=)
     if _pick_key not in st.session_state:
-        st.session_state[_pick_key] = list(st.session_state.get("roulette_layer_pick") or [])
+        st.session_state[_pick_key] = list(st.session_state.get("layer_check_pick") or [])
     layer_pick = st.multiselect(
         "Bottles to layer",
         all_names_layer,
         key=_pick_key,
         placeholder="Choose 2+ fragrances...",
     )
-    st.session_state["roulette_layer_pick"] = list(layer_pick or [])
+    st.session_state["layer_check_pick"] = list(layer_pick or [])
     lc1, lc2 = st.columns(2)
     with lc1:
         run_layer = st.button(
-            "Check layer", type="primary", key="roulette_layer_check", use_container_width=True
+            "Check layer", type="primary", key="layer_check_run", use_container_width=True
         )
     with lc2:
-        if st.button("Clear picks", key="roulette_layer_clear", use_container_width=True):
-            st.session_state["_clear_roulette_layer_pick"] = True
+        if st.button("Clear picks", key="layer_check_clear", use_container_width=True):
+            st.session_state["_clear_layer_check_pick"] = True
             st.session_state["_layer_pick_ver"] = int(st.session_state.get("_layer_pick_ver") or 0) + 1
             st.session_state.pop("_locked_recipe_name", None)
-            st.session_state["roulette_layer_pick"] = []
-            st.session_state[f"roulette_layer_pick_{st.session_state['_layer_pick_ver']}"] = []
+            st.session_state["layer_check_pick"] = []
+            st.session_state[f"layer_check_pick_{st.session_state['_layer_pick_ver']}"] = []
             st.session_state.pop("last_layer_check", None)
             st.session_state.pop("_locked_layer_pair", None)
             st.session_state.pop("_pending_layer_pick", None)
@@ -12540,7 +11781,7 @@ with tab_layer:
             _now_pair = tuple(sorted(str(x) for x in picks_now if x))
             if _locked_nm and _locked_pair and _locked_pair == _now_pair:
                 result["suggested_name"] = _locked_nm
-                result["dessert_name"] = _locked_nm
+                result["layer_display_name"] = _locked_nm
             else:
                 result["suggested_name"] = suggest_recipe_name_from_notes(
                     picks_now, randomize=True
@@ -12548,11 +11789,11 @@ with tab_layer:
                 st.session_state["_locked_recipe_name"] = result["suggested_name"]
             st.session_state["last_layer_check"] = result
             _ag = recipe_gender_from_frags(result.get("frags") or [])
-            st.session_state["roulette_layer_recipe_gender"] = (
+            st.session_state["layer_recipe_gender"] = (
                 _ag if _ag in ("Any", "Female", "Male", "Unisex") else "Any"
             )
             st.session_state["_recipe_gender_fp"] = tuple(picks_now)
-            st.session_state["_seed_roulette_recipe_name"] = True
+            st.session_state["_seed_layer_recipe_name"] = True
             st.session_state["_scroll_to_layer_result"] = True
             st.rerun()
 
@@ -12607,7 +11848,7 @@ with tab_layer:
         if _why:
             st.caption(_why[:360])
 
-    _rl_save_flash = st.session_state.pop("_roulette_recipe_save_flash", None)
+    _rl_save_flash = st.session_state.pop("_layer_recipe_save_flash", None)
     if _rl_save_flash:
         st.success(_rl_save_flash)
 
@@ -12699,7 +11940,7 @@ with tab_layer:
             recipe={
                 "name": ev.get("suggested_name"),
                 "bottles": [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")],
-                "gender": st.session_state.get("roulette_layer_recipe_gender")
+                "gender": st.session_state.get("layer_recipe_gender")
                 or recipe_gender_from_frags(ev.get("frags") or []),
                 "season_label": (ev.get("season") or {}).get("label"),
                 "why": ev.get("why"),
@@ -12799,26 +12040,26 @@ with tab_layer:
                 st.markdown("---")
 
         names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
-        # Prefer dessert name / locked name so Layer matches the Dessert card
+        # Prefer generated / locked layer name
         suggested = (
-            (ev.get("dessert_name") or ev.get("suggested_name") or st.session_state.get("_locked_recipe_name") or "")
+            (ev.get("layer_display_name") or ev.get("suggested_name") or st.session_state.get("_locked_recipe_name") or "")
         ).strip()
         # Seed name once when a new layer check appears (avoid value= + key conflict)
-        if st.session_state.pop("_seed_roulette_recipe_name", False) or (
-            "roulette_layer_recipe_name" not in st.session_state and suggested
+        if st.session_state.pop("_seed_layer_recipe_name", False) or (
+            "layer_recipe_name" not in st.session_state and suggested
         ):
-            st.session_state["roulette_layer_recipe_name"] = suggested
+            st.session_state["layer_recipe_name"] = suggested
         # Reroll before the text input so the new name is applied this run
         if st.session_state.pop("_reroll_layer_name", False) and names:
             new_nm = suggest_recipe_name_from_notes(names, randomize=True)
             st.session_state["_locked_recipe_name"] = new_nm
-            st.session_state["roulette_layer_recipe_name"] = new_nm
+            st.session_state["layer_recipe_name"] = new_nm
             if isinstance(st.session_state.get("last_layer_check"), dict):
                 st.session_state["last_layer_check"]["suggested_name"] = new_nm
             suggested = new_nm
         save_name = st.text_input(
             "Save as recipe name",
-            key="roulette_layer_recipe_name",
+            key="layer_recipe_name",
             placeholder=suggested or "e.g. Coconut vanilla night",
         )
         # Auto gender from bottles; seed selectbox when layer result is new
@@ -12830,18 +12071,18 @@ with tab_layer:
         ])
         _prev_fp = st.session_state.get("_recipe_gender_fp")
         if _sel_fp and _sel_fp != _prev_fp:
-            st.session_state["roulette_layer_recipe_gender"] = (
+            st.session_state["layer_recipe_gender"] = (
                 _auto_g if _auto_g in _opts_g else "Any"
             )
             st.session_state["_recipe_gender_fp"] = _sel_fp
-        elif st.session_state.get("roulette_layer_recipe_gender") not in _opts_g:
-            st.session_state["roulette_layer_recipe_gender"] = (
+        elif st.session_state.get("layer_recipe_gender") not in _opts_g:
+            st.session_state["layer_recipe_gender"] = (
                 _auto_g if _auto_g in _opts_g else "Any"
             )
         recipe_gender = st.selectbox(
             "Gender for this recipe (auto from bottles)",
             _opts_g,
-            key="roulette_layer_recipe_gender",
+            key="layer_recipe_gender",
             help="Auto-fills from the bottles when you check a new pair. Change only if you want a different lean.",
         )
         st.caption(
@@ -12854,17 +12095,17 @@ with tab_layer:
                 else " - will save as this"
             )
         )
-        if st.button("Reroll name from notes", key="roulette_layer_reroll_name"):
+        if st.button("Reroll name from notes", key="layer_reroll_name"):
             st.session_state["_reroll_layer_name"] = True
             st.rerun()
         rb1, rb2 = st.columns(2)
         with rb1:
-            if st.button("Wear this layer on SOTD", key="roulette_layer_to_sotd"):
+            if st.button("Wear this layer on SOTD", key="layer_to_sotd"):
                 if names:
                     send_to_sotd(names, notes=suggested or "Layer check")
                     st.rerun()
         with rb2:
-            if st.button("Save recipe", type="primary", key="roulette_layer_save_recipe"):
+            if st.button("Save recipe", type="primary", key="layer_save_recipe_btn"):
                 if len(names) < 2:
                     st.warning("Need at least two bottles to save a recipe.")
                 else:
@@ -12878,7 +12119,7 @@ with tab_layer:
                         for r in existing
                     )
                     if already:
-                        st.session_state["_roulette_recipe_save_flash"] = (
+                        st.session_state["_layer_recipe_save_flash"] = (
                             f"Recipe **{final_name}** already saved."
                         )
                     else:
@@ -12896,13 +12137,13 @@ with tab_layer:
                                 "label": (_ev_r or {}).get("label"),
                                 "verdict": (_ev_r or {}).get("verdict"),
                                 "why": (_ev_r or {}).get("why") or "",
-                                "gender": st.session_state.get("roulette_layer_recipe_gender", "Any"),
+                                "gender": st.session_state.get("layer_recipe_gender", "Any"),
                             },
                         )
                         mark_vault_dirty()
                         save_persisted_data(force=False)
                         st.session_state["_vault_fp"] = vault_fingerprint()
-                        st.session_state["_roulette_recipe_save_flash"] = (
+                        st.session_state["_layer_recipe_save_flash"] = (
                             f"Saved **{final_name}** "
                             f"(season: {season.get('label', '?')}). "
                             "See Layer tab -> Saved layer recipes."
@@ -13227,7 +12468,7 @@ with tab_recipes:
             # Live-fill guide if older recipes lack application steps
             if not _steps and len(bottles) >= 2:
                 try:
-                    _live = evaluate_layer_recipe(list(bottles))
+                    _live = evaluate_layer_recipe_cached(list(bottles))
                     _app = _live.get("application") or _app
                     _steps = list((_app or {}).get("steps") or [])
                     _order = list(_live.get("spray_order") or _order)
@@ -13289,7 +12530,7 @@ with tab_recipes:
                     st.session_state["_locked_layer_pair"] = list(bottles)
                     st.session_state["_locked_recipe_name"] = nm
                     try:
-                        ev = evaluate_layer_recipe(list(bottles))
+                        ev = evaluate_layer_recipe_cached(list(bottles))
                         ev["selected_names"] = list(bottles)
                         ev["suggested_name"] = nm
                         st.session_state["last_layer_check"] = ev
