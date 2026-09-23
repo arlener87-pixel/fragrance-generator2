@@ -813,29 +813,28 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Ajwad",
     "brand": "Lattafa",
     "gender": "Unisex",
-    "season": "Winter",
-    "notes": "Top - Fruity Notes (Bergamot, Lychee, Apple) / Heart - Rose, Jasmine / Base - Vanilla, Musk, Amber, Cedarwood",
+    "season": "Fall, Winter",
+    "notes": "Top - Fruity notes, bergamot, and litchi.Heart - Jasmine, roses, and cinnamon.Base - Cedar, sandalwood, amber, musk, and vanilla.",
     "category": [
       "Oriental",
       "Woody",
       "Fruity",
       "Floral",
-      "Oud"
+      "Oud",
+      "Citrus",
+      "Gourmand",
+      "Chypre",
+      "Creamy"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Angham",
@@ -851,10 +850,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Ansaam Gold",
@@ -870,10 +866,7 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Asad",
@@ -890,10 +883,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Badee Al Oud Noble Blush",
@@ -910,31 +900,26 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Bahiya Garnet",
     "brand": "Arabiyat Prestige",
-    "gender": "Female-leaning",
-    "season": "Fall, Winter",
-    "notes": "Top - Cherry, Mandarin, Mango, Pear, Bergamot / Heart - Amber, Fig, Jasmine / Base - Amber, Vanilla, Sandalwood, Musk",
+    "gender": "Female",
+    "season": "Spring, Summer",
+    "notes": "Top - Cherry, Mango, Pear, Bergamot, and Mandarin. Heart - Fig, Coconut, Jasmine, and Marine Amber (or Marin Amber)Base - Dry Amber, Vanilla, Musk, and Sandalwood",
     "category": [
       "Fruity",
       "Oriental",
       "Sweet",
       "Citrus",
       "Woody",
-      "Chypre",
-      "Creamy"
+      "Aquatic",
+      "Chypre"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Banat Dubai",
@@ -951,36 +936,32 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
     "name": "Berries Cream Macaron",
     "brand": "Arabiyat Sugar",
     "gender": "Female",
-    "season": "Spring-Fall",
-    "notes": "Top Notes: Juicy lycheeHeart (Middle) Notes: Raspberry, maltol (confectionary sweetness), and jasmineBase Notes: Ambroxan, ambergris (or dry amber), and evernyl",
+    "season": "Spring, Summer, Fall, Winter",
+    "notes": "Top - Lychee. Heart - Raspberry, Jasmine, and Maltol (for a sugary, caramelized confectionary sweetness)Base - Ambergris, Ambroxan, and Evernyl",
     "category": [
       "Gourmand",
       "Fruity",
       "Sweet",
-      "Amber",
       "Floral",
-      "Oriental"
+      "Oriental",
+      "Amber"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Bint Hooran",
     "brand": "Ard Al Zaafaran",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top - Almond, Coffee, Ylang Ylang / Heart - Jasmine, Rose, Tuberose / Base - Vanilla, Musk, Tonka, Woody/Cacao",
+    "notes": "Top - Almond, Coffee, Ylang Ylang / Heart - Jasmine, Rose, Tuberose / Base - Vanilla, Musk, Tonka, Woody / Cacao",
     "category": [
       "Gourmand",
       "Floral",
@@ -990,10 +971,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Boulevard of New York",
@@ -1009,10 +987,7 @@ SANCTUARY_SEED_DB = [
       "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Cafe Bliss",
@@ -1028,10 +1003,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Cafe Latte",
@@ -1047,29 +1019,24 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Caramel Chocolate Macaron",
     "brand": "Arabiyat Sugar",
-    "gender": "Female/Unisex",
-    "season": "Fall-Winter",
-    "notes": "Top Notes: Caramel, Coumarin (providing a sweet, warm, almond-vanilla nuance)Middle / Heart Notes: Honey, Soft Floral NotesBase Notes: Musk",
+    "gender": "Unisex",
+    "season": "Fall, Winter",
+    "notes": "Top - Caramel and Coumarin (which adds a soft, vanilla-almond nuance).Heart - Honey and Light Floral Notes.Base - Musk (providing a velvety, skin-like finish",
     "category": [
       "Gourmand",
       "Sweet",
       "Fougere",
-      "Vanilla",
-      "Animalic"
+      "Musky",
+      "Vanilla"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Caramello",
@@ -1085,10 +1052,7 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Chocomusk",
@@ -1104,10 +1068,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Chocomusk Marshmallow",
@@ -1123,10 +1084,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Chocomusk Vanilla",
@@ -1142,17 +1100,14 @@ SANCTUARY_SEED_DB = [
       "Musky"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Club De Nuit Women",
     "brand": "Armaf",
     "gender": "Female",
     "season": "Spring, Fall",
-    "notes": "Top - Apple, Citrus / Heart - Rose, Jasmine / Base - Vanilla, Musk",
+    "notes": "Top - Orange, bergamot, grapefruit, and peach. Heart - Rose, jasmine, litchi (lychee), and geranium. Base - Patchouli, musk, vanilla, and vetiver",
     "category": [
       "Floral",
       "Fruity",
@@ -1160,40 +1115,37 @@ SANCTUARY_SEED_DB = [
       "Citrus",
       "Gourmand",
       "Sweet",
-      "Vanilla"
+      "Woody",
+      "Chypre"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Coconut Chiffon",
     "brand": "Arabiyat Sugar",
-    "gender": "Female/Unisex",
-    "season": "Spring-Summer",
-    "notes": "Top Notes: CoconutMiddle (Heart) Notes: Coconut, JasmineBase Notes: Vanilla, Butter, Cooked Sugar (Caramel), Musk",
+    "gender": "Unisex",
+    "season": "Spring, Summer",
+    "notes": "Top - Coconut. Heart - Coconut and Jasmine. Base - Butter, Sugar (or Cooked / Burnt Sugar), Caramel, Vanilla, and Musk",
     "category": [
       "Gourmand",
       "Sweet",
       "Fresh",
-      "Creamy",
       "Floral",
-      "Fruity"
+      "Fruity",
+      "Creamy"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Confections",
     "brand": "Paris Corner",
     "gender": "Female/Unisex",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Pear and Whipped CreamHeart (Middle) Notes: Cashmeran, Jasmine, and Ylang-YlangBase Notes: Marshmallow, Vanilla, and Sandalwood",
+    "notes": "Top - Pear, Whipped Cream / Heart - Cashmeran, Jasmine, Ylang-Ylang / Base - Marshmallow, Vanilla, Sandalwood",
     "category": [
       "Gourmand",
       "Sweet",
@@ -1203,8 +1155,6 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -1221,10 +1171,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Coral (Ana Abiyedh Coral)",
@@ -1241,17 +1188,14 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Cotton Blush",
     "brand": "Arabiyat Sugar",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Strawberry, Raspberry, CoconutHeart (Middle) Notes: Marshmallow, Peony, RoseBase Notes: Vanilla, Amber, Musk",
+    "notes": "Top - Strawberry, Raspberry, Coconut / Heart - Marshmallow, Peony, Rose / Base - Vanilla, Amber, Musk",
     "category": [
       "Floral",
       "Fruity",
@@ -1260,17 +1204,14 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Cotton Candy Delicacy",
     "brand": "Armaf",
     "gender": "Unisex",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Raspberry, Pink Pepper, and CocoaHeart (Middle) Notes: Jasmine and RoseBase Notes: Vanilla, Benzoin Resinoid, and Cedarwood",
+    "notes": "Top - Raspberry, Pink Pepper, Cocoa / Heart - Jasmine, Rose / Base - Vanilla, Benzoin, Cedarwood",
     "category": [
       "Gourmand",
       "Fruity",
@@ -1279,17 +1220,14 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Cream Velvet",
     "brand": "Khadlaj",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Creamy Butter and Golden CaramelMiddle (Heart) Notes: Honey, Tonka Bean, and JasmineBase Notes: Smooth Vanilla, Amber, and Soft Musk",
+    "notes": "Top - Creamy Butter, Golden Caramel / Heart - Honey, Tonka Bean, Jasmine / Base - Smooth Vanilla, Amber, Soft Musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -1298,17 +1236,14 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Creme of Clouds",
     "brand": "Fragrance World",
     "gender": "Unisex",
     "season": "Spring, Fall, Winter",
-    "notes": "Top Notes: Coconut milk, Creamy milk, Burnt sugarHeart (Middle) Notes: Whipped cream, Vanilla, ChocolateBase Notes: Vanilla, White musk, Burnt sugar",
+    "notes": "Top - Coconut milk, Creamy milk, Burnt sugar / Heart - Whipped cream, Vanilla, Chocolate / Base - Vanilla, White musk, Burnt sugar",
     "category": [
       "Gourmand",
       "Sweet",
@@ -1317,10 +1252,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Creme Caramel",
@@ -1336,10 +1268,7 @@ SANCTUARY_SEED_DB = [
       "Musky"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Cup Cake",
@@ -1355,10 +1284,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Dalal",
@@ -1376,29 +1302,24 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Dulzura",
     "brand": "Paris Corner",
     "gender": "Female",
     "season": "Fall-Winter",
-    "notes": "Top - Black pepper, buttermilk / Heart - Cake, vanilla, cream / Base - Amber, musk",
+    "notes": "Top - Buttermilk, Black Pepper. Heart - Cake, Vanilla, Whipped Cream. Base - Amber, Musk",
     "category": [
       "Gourmand",
       "Sweet",
-      "Creamy",
       "Spicy",
+      "Creamy",
       "Vanilla"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Eclaire",
@@ -1414,17 +1335,14 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Eclaire Banoffi",
     "brand": "Lattafa",
     "gender": "Unisex/Female",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Banana Cream, Dulce de LecheHeart (Middle) Notes: Whipped Cream, VanillaBase Notes: Praline, Biscuit, Musk",
+    "notes": "Top - Banana Cream, Dulce de Leche / Heart - Whipped Cream, Vanilla / Base - Praline, Biscuit, Musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -1433,10 +1351,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Elyssia Aura",
@@ -1452,10 +1367,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Elyssia Scarlet",
@@ -1472,10 +1384,7 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Emaan",
@@ -1492,10 +1401,7 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Emir Pear Potion",
@@ -1511,10 +1417,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Empire Najm by Risala",
@@ -1532,17 +1435,14 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Empire Victor",
     "brand": "Khadlaj",
     "gender": "Unisex",
     "season": "Spring, Fall, Winter",
-    "notes": "Top Notes: Lemon, BergamotMiddle (Heart) Notes: Caramel, JasmineBase Notes: Vanilla, Musk (some variations also list sandalwood)",
+    "notes": "Top - Lemon, Bergamot / Heart - Caramel, Jasmine / Base - Vanilla, Musk",
     "category": [
       "Gourmand",
       "Floral",
@@ -1553,10 +1453,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Energize",
@@ -1573,17 +1470,14 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Entice Extrait",
     "brand": "Vurv",
     "gender": "Female",
     "season": "Fall, Evening",
-    "notes": "Top Notes: Citrus and fresh floral elements (including aromatic nuances like lilac and bergamot)Heart / Middle Notes: Rich bouquet of floral accordsBase Notes: Warm amber, sensual musk, and woody elements",
+    "notes": "Top - Citrus, Lilac, Bergamot / Heart - Floral Notes / Base - Amber, Musk, Woods",
     "category": [
       "Oriental",
       "Sweet",
@@ -1592,20 +1486,18 @@ SANCTUARY_SEED_DB = [
       "Aromatic",
       "Chypre",
       "Amber",
-      "Animalic"
+      "Animalic",
+      "Musky"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Entice Ruby",
     "brand": "Vurv",
     "gender": "Female",
     "season": "Spring-Summer",
-    "notes": "Top Notes: Red fruits, Bergamot, MandarinHeart (Middle) Notes: Roses, Jasmine, White flowersBase Notes: Amber, Musk, Soft woods, Vanilla",
+    "notes": "Top - Red fruits, Bergamot, Mandarin / Heart - Roses, Jasmine, White flowers / Base - Amber, Musk, Soft woods, Vanilla",
     "category": [
       "Fruity",
       "Floral",
@@ -1615,17 +1507,14 @@ SANCTUARY_SEED_DB = [
       "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Eshal Vanilla",
     "brand": "Paris Corner",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Sugar, Sweet NotesHeart (Middle) Notes: Jasmine, RoseBase Notes: Vanilla, Caramel, Musk",
+    "notes": "Top - Sugar, Sweet Notes / Heart - Jasmine, Rose / Base - Vanilla, Caramel, Musk",
     "category": [
       "Gourmand",
       "Floral",
@@ -1634,10 +1523,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Espada Intense",
@@ -1647,33 +1533,35 @@ SANCTUARY_SEED_DB = [
     "notes": "Top - Saffron, Orange, Jasmine / Heart - Caramel, Cotton Candy / Base - Amber, Oakmoss",
     "category": [
       "Woody",
-      "Spicy"
+      "Spicy",
+      "Sweet",
+      "Oriental",
+      "Chypre",
+      "Citrus",
+      "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Espada Prime",
     "brand": "Le Chameau",
     "gender": "Male",
     "season": "Spring-Summer",
-    "notes": "Top Notes (Head): Ruby, mandarin orange, grapefruit, and peppermint (mint)Middle Notes (Heart): Rose absolute, cinnamon, and mixed spicesBase Notes: Leather, patchouli, whitewoods, and amber",
+    "notes": "Top - Ruby, Mandarin Orange, Grapefruit, Peppermint / Heart - Rose Absolute, Cinnamon, Floral Notes / Base - Vanilla, Amber, Woods",
     "category": [
       "Fresh",
       "Woody",
       "Spicy",
       "Citrus",
       "Leather",
-      "Amber"
+      "Amber",
+      "Gourmand",
+      "Sweet",
+      "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Essences",
@@ -1690,10 +1578,7 @@ SANCTUARY_SEED_DB = [
       "Powdery"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Eternal Vanille",
@@ -1709,30 +1594,26 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Fakhama",
     "brand": "Amaran",
     "gender": "Unisex/Male",
     "season": "Fall",
-    "notes": "Top Notes: Cinnamon, nutmeg, and vanillaMiddle (Heart) Notes: Dates, tuberose, praline, and mahonialBase Notes: Musk, tonka bean, amberwood, myrrh, benzoin, and akigalawood",
+    "notes": "Top - Cinnamon, Nutmeg, Vanilla / Heart - Dates, Tuberose, Praline, Mahonial / Base - Musk, Amber, Woods",
     "category": [
       "Oriental",
       "Woody",
       "Gourmand",
       "Spicy",
       "Sweet",
-      "Amber"
+      "Amber",
+      "Floral",
+      "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Fakhar Black",
@@ -1748,39 +1629,39 @@ SANCTUARY_SEED_DB = [
       "Sweet",
       "Vanilla",
       "Animalic",
-      "Musky"
+      "Musky",
+      "Amber",
+      "Aromatic",
+      "Chypre",
+      "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Fakhar Gold",
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top - Tuberose, Salt / Heart - Amber, Tonka / Base - Cedarwood, Vetiver, Labdanum",
+    "notes": "Top - Grapefruit, Pink Pepper, and Cardamom. Heart - Tuberose, Solar Accord, and Artemisia. Base - Cashmeran, Leather, Amber, and Labdanum",
     "category": [
       "Floral",
       "Woody",
       "Oriental",
+      "Spicy",
       "Chypre",
-      "Amber"
+      "Citrus"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Fakhar Silver",
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Apple, Bergamot, GingerHeart (Middle) Notes: Lavender, Sage, Juniper Berries, GeraniumBase Notes: Tonka Bean, Amberwood, Cedar, Vetiver",
+    "notes": "Top - Apple, Bergamot, Ginger / Heart - Lavender, Sage, Juniper Berries, Geranium / Base - Tonka Bean, Cedar, Amberwood, Vetiver",
     "category": [
       "Gourmand",
       "Woody",
@@ -1790,10 +1671,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Falak",
@@ -1809,10 +1687,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Fatima Pink",
@@ -1830,29 +1705,25 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Fire on Ice",
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Black raspberry, cinnamon, cognac (liquor)Middle (Heart) Notes: Frozen rose petals, caramel, mossBase Notes: Oakwood, myrrh, cedarwood, ambroxan",
+    "notes": "Top - Black Raspberry, Cinnamon, Cognac / Heart - Frozen Rose Petals, Caramel, Moss / Base - Vanilla, Musk, Woods",
     "category": [
       "Gourmand",
       "Boozy",
       "Fruity",
       "Woody",
-      "Amber"
+      "Amber",
+      "Sweet",
+      "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "French Vanilla",
@@ -1868,10 +1739,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "French Vanilla Latte",
@@ -1889,17 +1757,14 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Ghaliya",
     "brand": "Zakat",
     "gender": "Unisex/Female",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Orange, Lemon, Apple, and BergamotMiddle (Heart) Notes: Caramel, Muguet (Lily of the Valley), Cedarwood, Jasmine Sambac, Bulgarian Rose, and TuberoseBase Notes: Tonka Bean, Amber, Musk, Cocoa, Sandalwood, and Patchouli",
+    "notes": "Top - Orange, Lemon, Apple, Bergamot / Heart - Caramel, Muguet, Cedar / Base - Vanilla, Musk, Amber",
     "category": [
       "Oriental",
       "Floral",
@@ -1907,13 +1772,11 @@ SANCTUARY_SEED_DB = [
       "Woody",
       "Citrus",
       "Gourmand",
-      "Chypre"
+      "Chypre",
+      "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Ghubar Al Dhahab",
@@ -1929,10 +1792,7 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Habik (Women's Version)",
@@ -1950,10 +1810,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Hareem Al Sultan Gold",
@@ -1971,8 +1828,6 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -1980,7 +1835,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Rasasi",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Red Fruits, Rhubarb, and LycheeMiddle (Heart) Notes: Rose, Frankincense, and CedarBase Notes: Vanilla, Musk, and Ambergris",
+    "notes": "Top - Red Fruits, Rhubarb, Lychee / Heart - Rose, Frankincense, Cedar / Base - Vanilla, Musk, Amber",
     "category": [
       "Fruity",
       "Floral",
@@ -1988,13 +1843,11 @@ SANCTUARY_SEED_DB = [
       "Oriental",
       "Gourmand",
       "Smoky",
-      "Amber"
+      "Amber",
+      "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Hawas Elixir",
@@ -2012,10 +1865,7 @@ SANCTUARY_SEED_DB = [
       "Fougere"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Hawas Ice",
@@ -2033,10 +1883,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Hawas London",
@@ -2054,17 +1901,14 @@ SANCTUARY_SEED_DB = [
       "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Hawas Pink",
     "brand": "Rasasi",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Egyptian Neroli, Cinnamon, and NutmegMiddle (Heart) Notes: Golden Marshmallow, Tuberose, and Orange FlowerBase Notes: Cotton Candy, Vanilla, and Tonka Bean AbsoluteScent Profile: Fluffy white florals wrapped in a sugary, cozy, and highly addictive spun-sugar sweetness.",
+    "notes": "Top - Egyptian Neroli, Cinnamon, Nutmeg / Heart - Golden Marshmallow, Tuberose, Orange Flower / Base - Vanilla, Musk, Amber",
     "category": [
       "Gourmand",
       "Floral",
@@ -2073,10 +1917,7 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Hawwa Red",
@@ -2093,10 +1934,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Haya",
@@ -2113,10 +1951,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Heavy Cream",
@@ -2132,10 +1967,7 @@ SANCTUARY_SEED_DB = [
       "Fruity"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Her Confessions",
@@ -2151,10 +1983,7 @@ SANCTUARY_SEED_DB = [
       "Smoky"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "His Confessions",
@@ -2171,10 +2000,7 @@ SANCTUARY_SEED_DB = [
       "Fougere"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Island Bliss",
@@ -2187,13 +2013,13 @@ SANCTUARY_SEED_DB = [
       "Fresh",
       "Sweet",
       "Animalic",
-      "Musky"
+      "Musky",
+      "Floral",
+      "Citrus",
+      "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Khair Men",
@@ -2210,10 +2036,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Khamrah Dukhan",
@@ -2230,10 +2053,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Khamrah Original",
@@ -2249,10 +2069,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Khamrah Qahwa",
@@ -2268,10 +2085,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Khamrah Waha",
@@ -2284,94 +2098,90 @@ SANCTUARY_SEED_DB = [
       "Spicy",
       "Sweet",
       "Gourmand",
-      "Vanilla"
+      "Vanilla",
+      "Amber",
+      "Chypre",
+      "Citrus",
+      "Fresh"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Kiaana Angel",
     "brand": "Afnan",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Pistachio Gelato (or Ice Cream), Italian BergamotMiddle (Heart) Notes: Jasmine, Raspberry, White Peach, PearBase Notes: Cedarwood, Sandalwood, Tonka Bean",
+    "notes": "Top - Pistachio Gelato, Italian Bergamot / Heart - Jasmine, Raspberry, White Flowers / Base - Vanilla, Musk, Woods",
     "category": [
       "Gourmand",
       "Floral",
       "Fruity",
       "Woody",
       "Creamy",
-      "Chypre"
+      "Chypre",
+      "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
-    "name": "Le Parfum",
-    "brand": "Blue for Men",
-    "gender": "Male/Unisex",
+    "name": "Blue for Men  Le Parfum",
+    "brand": "",
+    "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top - Cardamom / Heart - Lavender, Iris / Base - Vanilla, Oriental Woods",
+    "notes": "Top - Cardamom\nHeart - Lavender, Iris, and Violet\nBase - Vanilla, Oriental Notes, and Woodsy Notes",
     "category": [
       "Woody",
       "Oriental",
       "Spicy",
       "Aromatic",
-      "Fougere",
-      "Gourmand"
+      "Gourmand",
+      "Floral",
+      "Powdery",
+      "Fougere"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Lemon Sorbet",
     "brand": "Arabiyat Sugar",
     "gender": "Unisex",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Zesty lemon and a subtle nuance of rumMiddle/Heart Notes: Sweet gourmand and sorbet cream accordBase Notes: Creamy vanilla and soft musk",
+    "notes": "Top - Lemon, sparkling citrus sugar, and a subtle touch of rum. Heart - Rich gourmand accord, sorbet cream, and soft florals. Base - Creamy vanilla and clean musk",
     "category": [
       "Gourmand",
       "Fruity",
       "Oriental",
-      "Creamy",
       "Sweet",
-      "Vanilla",
-      "Animalic"
+      "Boozy",
+      "Citrus",
+      "Creamy",
+      "Musky"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
-    "name": "Love & Peace",
+    "name": "Peace & Love",
     "brand": "Lattafa",
-    "gender": "Unisex/Female",
+    "gender": "Unisex",
     "season": "Spring-Fall",
-    "notes": "Top Notes: Almond, Black Currant, and BergamotMiddle (Heart) Notes: Rose and TuberoseBase Notes: Sandalwood, Vanilla, and Heliotrope",
+    "notes": "Top - Almond, Black Currant, Bergamot / Heart - Rose, Tuberose / Base - Sandalwood, Vanilla,",
     "category": [
       "Floral",
       "Sweet",
       "Gourmand",
       "Woody",
-      "Chypre",
-      "Citrus"
+      "Citrus",
+      "Chypre"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Luxe Chic",
@@ -2388,10 +2198,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Maitha Oil (Attar)",
@@ -2408,8 +2215,6 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -2426,30 +2231,27 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Malika",
     "brand": "Nusuk",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Ozonic notes, apple, aldehydic notes, tarragon, bergamot, and orangeHeart Notes: Lily of the valley, jasmine, rose, carnation, orchid, and honeysuckleBase Notes: Musk, amber, vanilla, sandalwood, cedarwood, and orris",
+    "notes": "Top - Ozonic Notes, Apple, Aldehydes, Tarragon, Bergamot, Orange / Heart - Lily of the Valley, Jasmine, Rose / Base - Musk, Amber, Woods",
     "category": [
       "Floral",
       "Oriental",
       "Citrus",
       "Woody",
       "Gourmand",
-      "Sweet"
+      "Sweet",
+      "Aquatic",
+      "Chypre",
+      "Fresh"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Mango Affogato",
@@ -2466,17 +2268,14 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Mango Ice",
     "brand": "Gulf Orchid",
     "gender": "Unisex",
     "season": "Spring-Summer",
-    "notes": "Top Notes: Mango, Lemon, Ginger, RhubarbHeart (Middle) Notes: White Flowers, Amber, LicoriceBase Notes: Musk, Vanilla, Caramel, Chestnut",
+    "notes": "Top - Mango, Lemon, Ginger, Rhubarb / Heart - White Flowers, Amber, Licorice / Base - Musk, Vanilla, Caramel, Chestnut",
     "category": [
       "Fruity",
       "Fresh",
@@ -2487,10 +2286,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Marshmallow Blush",
@@ -2503,39 +2299,37 @@ SANCTUARY_SEED_DB = [
       "Sweet",
       "Fruity",
       "Vanilla",
-      "Animalic"
+      "Animalic",
+      "Citrus",
+      "Amber",
+      "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Marshmallow Dreams",
     "brand": "NatureWell",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Lemon Sugar & MarshmallowMid Notes: Coconut CreamBase Notes: Vanilla Mousse & Whipped Cream",
+    "notes": "Top - Lemon Sugar, Marshmallow / Heart - Coconut Cream / Base - Vanilla Mousse, White Musk",
     "category": [
       "Gourmand",
       "Sweet",
       "Fruity",
       "Vanilla",
-      "Citrus"
+      "Citrus",
+      "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Marshmallows Kiss",
     "brand": "Mamlakat Al Oud",
     "gender": "Unisex",
     "season": "Spring, Fall, Winter",
-    "notes": "Top - Strawberry, Blackberry (or Caramel/Milk) / Heart - Jasmine, Rose, Marshmallow, Vanilla, Honey / Base - Vanilla, Musk, Praline, Tonka",
+    "notes": "Top - Strawberry, Blackberry (or Caramel / Milk) / Heart - Jasmine, Rose, Marshmallow, Vanilla, Honey / Base - Vanilla, Musk, Praline, Tonka",
     "category": [
       "Gourmand",
       "Floral",
@@ -2544,10 +2338,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Mayar",
@@ -2564,10 +2355,7 @@ SANCTUARY_SEED_DB = [
       "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Mayar Cherry Intense",
@@ -2583,10 +2371,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Milano",
@@ -2603,30 +2388,26 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Momento",
     "brand": "Riiffs",
     "gender": "Unisex",
     "season": "Winter",
-    "notes": "Top Notes: Sugar, Saffron, and Mandarin give a sweet and citrus opening.Heart (Middle) Notes: Tonka Bean, Damask Rose, and Agarwood (Oud) create a floral and rich center.Base Notes: Caramel, Amberwood, and Cedar leave a warm and woody finish.",
+    "notes": "Top - Sugar, Saffron, Mandarin / Heart - Tonka Bean, Damask Rose / Base - Vanilla, Amber, Musk",
     "category": [
       "Aromatic",
       "Citrus",
       "Oriental",
       "Oud",
       "Sweet",
-      "Amber"
+      "Amber",
+      "Gourmand",
+      "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Mystique",
@@ -2642,17 +2423,14 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Mystique Charm",
     "brand": "Dorall Collection",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Clementine, Cappuccino, Cactus, Pepper, and BlackberryMiddle (Heart) Notes: Mimosa, Hortensia (Hydrangea), Camellia, and OrchidBase Notes: Woody Notes, Blackberry, Musk, Amber, and Red Berries",
+    "notes": "Top - Clementine, Cappuccino, Cactus, Pepper, Blackberry / Heart - Mimosa, Hortensia / Base - Vanilla, Musk, Woods",
     "category": [
       "Sweet",
       "Floral",
@@ -2660,32 +2438,30 @@ SANCTUARY_SEED_DB = [
       "Fruity",
       "Spicy",
       "Amber",
-      "Animalic"
+      "Animalic",
+      "Gourmand",
+      "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nagham",
     "brand": "Atyaab",
     "gender": "Unisex",
     "season": "Winter",
-    "notes": "Top Notes: Rose, Jasmine, and BergamotMiddle (Heart) Notes: Amber, Vetiver, and Candied Fruit (such as sweet strawberries and cherries)Base Notes: Vanilla, Cedarwood, and Sandalwood",
+    "notes": "Top - Rose, Jasmine, Bergamot / Heart - Amber, Vetiver, Candied Fruit / Base - Musk, Vanilla, Woods",
     "category": [
       "Floral",
       "Woody",
       "Oriental",
       "Sweet",
       "Citrus",
-      "Chypre"
+      "Chypre",
+      "Gourmand"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -2702,29 +2478,7 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
-  },
-  {
-    "name": "Natural Intense Body Spray",
-    "brand": "Mayar",
-    "gender": "Female",
-    "season": "Fall, Winter",
-    "notes": "Top - Coconut Water, Fig, Green Tangerine, Melon / Heart - Jasmine, Water Lily, Lotus / Base - Ambroxan, Sandalwood, Vanilla, Musk",
-    "category": [
-      "Gourmand",
-      "Sweet",
-      "Vanilla",
-      "Animalic",
-      "Musky"
-    ],
-    "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nebras",
@@ -2741,10 +2495,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nebras Elixir",
@@ -2760,10 +2511,7 @@ SANCTUARY_SEED_DB = [
       "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nero Xtravagant",
@@ -2780,17 +2528,14 @@ SANCTUARY_SEED_DB = [
       "Gourmand"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Noor",
     "brand": "Riiffs",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Caramel and milkMiddle (Heart) Notes: Gourmand accord and lily of the valleyBase Notes: Vanilla, musk, and praline",
+    "notes": "Top - Caramel, Milk / Heart - Gourmand Accord, Lily of the Valley / Base - Vanilla, Musk",
     "category": [
       "Gourmand",
       "Floral",
@@ -2800,10 +2545,7 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nuha Vanilla Pearl",
@@ -2819,17 +2561,14 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nyla",
     "brand": "Arabiyat Prestige",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Coconut, Peach, Bergamot, and Mandarin (offering a fresh, sun-kissed fruit opening)Heart Notes: Tiare Flower, White Flowers, Jasmine, and Rose (providing an exotic and romantic floral bouquet)Base Notes: White Musk, Patchouli, Sandalwood, and Heliotrope (delivering a creamy, soft, and sensual woody finish)",
+    "notes": "Top - Coconut, Peach, Bergamot, and Mandarin (offering a fresh, sun-kissed fruit opening)Heart - Tiare Flower, White Flowers, Jasmine, and Rose (providing an exotic and romantic floral bouquet)Base - White Musk, Patchouli, Sandalwood, and Heliotrope (delivering a creamy, soft, and sensual woody finish)",
     "category": [
       "Floral",
       "Fruity",
@@ -2839,15 +2578,12 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Nyla Vanielle",
     "brand": "Arabiyat Prestige",
-    "gender": "Female",
+    "gender": "Unisex",
     "season": "Fall, Winter",
     "notes": "Top - Jasmine, Vanilla Bean / Heart - Caramel, Amber / Base - Musk, Tonka Bean, Vanilla",
     "category": [
@@ -2859,30 +2595,7 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
-  },
-  {
-    "name": "Obsidian",
-    "brand": "French Avenue",
-    "gender": "Unisex/Male",
-    "season": "Fall-Winter",
-    "notes": "Top Notes: Aldehydes, Grapefruit, BergamotHeart Notes: Myrrh, Jasmine, LabdanumBase Notes: Vanilla, Amber, Tonka Bean",
-    "category": [
-      "Woody",
-      "Oriental",
-      "Smoky",
-      "Chypre",
-      "Citrus",
-      "Floral",
-      "Gourmand"
-    ],
-    "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Odyssey Candee",
@@ -2899,10 +2612,7 @@ SANCTUARY_SEED_DB = [
       "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Odyssey Marshmallow",
@@ -2918,10 +2628,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Opulent Dubai",
@@ -2939,10 +2646,7 @@ SANCTUARY_SEED_DB = [
       "Oriental"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Oud Mood",
@@ -2958,17 +2662,14 @@ SANCTUARY_SEED_DB = [
       "Smoky"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Panache Angel Dust",
     "brand": "Khadlaj",
     "gender": "Female",
     "season": "Spring, Fall, Winter",
-    "notes": "Top Notes: Vanilla, Mandarin, and Red CurrantMiddle (Heart) Notes: Tuberose, Sandalwood, and RumBase Notes: Vanilla, Whipped Cream, Musk, and Benzoin",
+    "notes": "Top - Vanilla, Mandarin, Red Currant / Heart - Tuberose, Sandalwood, Rum / Base - Vanilla, Whipped Cream, Musk, Benzoin",
     "category": [
       "Floral",
       "Sweet",
@@ -2979,10 +2680,7 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Peach Velvet",
@@ -2999,10 +2697,7 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Pecan Butter Cookie",
@@ -3018,17 +2713,14 @@ SANCTUARY_SEED_DB = [
       "Fruity"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Petra",
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Plum, RumHeart (Middle) Notes: Tuberose, CoconutBase Notes: Praline, Musk, Vanilla",
+    "notes": "Top - Plum, Rum / Heart - Tuberose, Coconut / Base - Praline, Musk, Vanilla",
     "category": [
       "Gourmand",
       "Fruity",
@@ -3037,58 +2729,34 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Pink Velvet",
     "brand": "Maison Alhambra",
     "gender": "Female",
-    "season": "Spring-Fall",
-    "notes": "Top Notes: Bulgarian Rose and May RoseMiddle/Heart Notes: Turkish Rose and SaffronBase Notes: Patchouli, Tonka Bean, and Vanilla",
+    "season": "Spring, Fall, Winter",
+    "notes": "Top - Bulgarian Rose, May Rose (Some retail breakdowns also note minor accents of Sichuan Pepper and Turmeric)Heart - Turkish Rose, Saffron. Base - Patchouli, Tonka Bean, Vanilla",
     "category": [
       "Floral",
       "Sweet",
       "Powdery",
       "Gourmand",
       "Oriental",
-      "Vanilla",
-      "Woody"
+      "Woody",
+      "Spicy",
+      "Vanilla"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
-    "name": "PiÃÂ±a Colada Musk Collection Body Spray",
-    "brand": "Gulf Orchid",
-    "gender": "Unisex",
-    "season": "Spring, Summer",
-    "notes": "Top - Pineapple, Coconut / Heart - Tropical / Base - Musk",
-    "category": [
-      "Fruity",
-      "Fresh",
-      "Sweet",
-      "Animalic",
-      "Musky",
-      "Woody"
-    ],
-    "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
-  },
-  {
-    "name": "Prive Rose",
-    "brand": "Ameerat Al Arab",
+    "name": "Prive Rose Ameerat Al arab",
+    "brand": "Lattafa",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Strawberry, Grapes, and OrangeMiddle (Heart) Notes: Rose, White Musk, Jasmine, Gardenia, Ylang-Ylang, and LilyBase Notes: Tonka Bean, Amber, and Sandalwood",
+    "notes": "Top - Strawberry, Grapes, Orange / Heart - Rose, White Musk, Jasmine, Gardenia, Ylang-Ylang, Lily / Base - Tonka Bean, Amber, Sandalwood",
     "category": [
       "Floral",
       "Sweet",
@@ -3100,9 +2768,7 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Qaed Al Fursan (Original)",
@@ -3118,10 +2784,7 @@ SANCTUARY_SEED_DB = [
       "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Qaed Al Fursan Unlimited",
@@ -3137,10 +2800,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Qaed Al Fursan Untamed",
@@ -3153,20 +2813,21 @@ SANCTUARY_SEED_DB = [
       "Woody",
       "Fresh",
       "Citrus",
-      "Sweet"
+      "Sweet",
+      "Spicy",
+      "Aromatic",
+      "Oriental",
+      "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Raheeq",
     "brand": "Nusuk",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Honey, Blood Orange, Apricot, and LemonMiddle (Heart) Notes: Caramel, Coconut, and MagnoliaBase Notes: Vanilla Absolute, Musk, and Sandalwood",
+    "notes": "Top - Honey, Blood Orange, Apricot, Lemon / Heart - Caramel, Coconut, Magnolia / Base - Vanilla Absolute, Musk, Sandalwood",
     "category": [
       "Floral",
       "Sweet",
@@ -3176,10 +2837,7 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Raneen",
@@ -3193,13 +2851,11 @@ SANCTUARY_SEED_DB = [
       "Sweet",
       "Gourmand",
       "Vanilla",
-      "Animalic"
+      "Animalic",
+      "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Rave Now (for Women)",
@@ -3216,10 +2872,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Rave Now Intense",
@@ -3235,10 +2888,7 @@ SANCTUARY_SEED_DB = [
       "Leather"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Rave Rage",
@@ -3256,10 +2906,7 @@ SANCTUARY_SEED_DB = [
       "Oriental"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Red 500",
@@ -3273,13 +2920,14 @@ SANCTUARY_SEED_DB = [
       "Spicy",
       "Animalic",
       "Musky",
-      "Sweet"
+      "Sweet",
+      "Amber",
+      "Oriental",
+      "Chypre",
+      "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Red Velvet Delicacy",
@@ -3295,10 +2943,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Royal Men",
@@ -3317,10 +2962,7 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Safa",
@@ -3336,10 +2978,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sakeena",
@@ -3356,28 +2995,25 @@ SANCTUARY_SEED_DB = [
       "Aquatic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Samiya",
     "brand": "Khadlaj",
     "gender": "Female",
     "season": "Spring, Fall",
-    "notes": "Top/Head Notes: Jasmine, Lily of the ValleyMiddle/Heart Notes: Amber, VioletBase Notes: Oud, Saffron, Sandalwood",
+    "notes": "Top - Jasmine, Lily of the Valley / Heart - Amber, Violet / Base - Oud, Musk, Woods",
     "category": [
       "Floral",
       "Oriental",
       "Woody",
       "Powdery",
-      "Creamy"
+      "Creamy",
+      "Amber",
+      "Animalic"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -3395,17 +3031,14 @@ SANCTUARY_SEED_DB = [
       "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sensual Vanilla",
     "brand": "Maison Alhambra",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Note: Bitter AlmondMiddle Notes: Vanilla, Floral NotesBase Notes: Vanilla Absolute, Tonka Bean, Sandalwood",
+    "notes": "Top - Bitter Almond / Heart - Vanilla, Floral Notes / Base - Vanilla Absolute, Tonka Bean, Sandalwood",
     "category": [
       "Oriental",
       "Gourmand",
@@ -3415,10 +3048,7 @@ SANCTUARY_SEED_DB = [
       "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Silver",
@@ -3431,13 +3061,14 @@ SANCTUARY_SEED_DB = [
       "Citrus",
       "Metallic",
       "Animalic",
-      "Musky"
+      "Musky",
+      "Green",
+      "Woody",
+      "Chypre",
+      "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Soft",
@@ -3453,10 +3084,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Spectre Original",
@@ -3473,17 +3101,14 @@ SANCTUARY_SEED_DB = [
       "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Strawberries & Cream",
     "brand": "Royal Apothic",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Raspberry and plum (or juicy brightness like strawberry, raspberry, apple, and nectarine)Heart / Middle Notes: Strawberry and whipped creamBase Notes: Sugar cubes, caramel, tonka vanilla, and soft amber",
+    "notes": "Top - Raspberry, plum / Heart - Strawberry, whipped cream / Base - Sugar cubes, caramel, tonka vanilla, soft amber",
     "category": [
       "Gourmand",
       "Fruity",
@@ -3492,17 +3117,14 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Strawberry Tres Leches",
     "brand": "Arabiyat Sugar",
     "gender": "Female",
     "season": "Spring-Summer",
-    "notes": "Top Notes: Strawberry, Milk, Nectarine, FreesiaHeart / Middle Notes: Marshmallow, Milk Candy, Caramel, Orange BlossomBase Notes: Vanilla, White Musk, Ambergris",
+    "notes": "Top - Strawberry, Milk, Nectarine, FreesiaHeart / / Heart - Marshmallow, Milk Candy, Caramel, Orange Blossom / Base - Vanilla, White Musk, Ambergris",
     "category": [
       "Gourmand",
       "Fruity",
@@ -3511,30 +3133,25 @@ SANCTUARY_SEED_DB = [
       "Amber"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sugar Crown",
     "brand": "Lattafa",
     "gender": "Female/Unisex",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Bitter orange, lemon, and candied fruitsMiddle Notes (Heart): Bubble gum, blueberry, peach, peach blossom, Bulgarian rose, ginger, and cinnamonBase Notes: Ambroxan, musk, and cedar",
+    "notes": "Top - Bitter Orange, Lemon, Candied Fruits / Heart - Bubble Gum, Blueberry, Peach / Base - Vanilla, Musk, Woods",
     "category": [
       "Gourmand",
       "Sweet",
       "Spicy",
       "Citrus",
       "Amber",
-      "Fruity"
+      "Fruity",
+      "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sugar Me Dulce De Leche",
@@ -3545,41 +3162,38 @@ SANCTUARY_SEED_DB = [
     "category": [
       "Gourmand",
       "Sweet",
-      "Vanilla"
+      "Vanilla",
+      "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sugarcane Vanilla",
     "brand": "Arabiyat Prestige",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Raspberry, Cherry, MandarinMiddle/Heart Notes: Lactones (milky/creamy notes), Vanilla, White FlowersBase Notes: Sandalwood, Musk",
+    "notes": "Top - Cedarwood and Amber. Heart - Caramel and Oakmoss. Base - Vanilla and Tonka Bean",
     "category": [
       "Sweet",
       "Gourmand",
       "Fruity",
       "Floral",
-      "Creamy",
       "Woody",
-      "Citrus"
+      "Citrus",
+      "Chypre",
+      "Fougere"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Supremacy Only Intense",
     "brand": "Afnan",
     "gender": "Male",
     "season": "Spring, Fall",
-    "notes": "Top Notes: Black Currant, Bergamot, and AppleMiddle (Heart) Notes: Oakmoss, Patchouli, and LavenderBase Notes: Ambergris, Musk, and Saffron",
+    "notes": "Top - Black Currant, Bergamot, Apple / Heart - Oakmoss, Patchouli / Base - Ambergris, Musk, Woods",
     "category": [
       "Woody",
       "Fruity",
@@ -3587,20 +3201,18 @@ SANCTUARY_SEED_DB = [
       "Chypre",
       "Fougere",
       "Amber",
-      "Oriental"
+      "Oriental",
+      "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sweet Surrender",
     "brand": "Mahajan",
     "gender": "Female",
     "season": "Fall-Winter",
-    "notes": "Top Note: CaramelMiddle Notes: Coumarin (sweet, vanilla-like scent) and HoneyBase Notes: White Musk and Vanilla",
+    "notes": "Top - Caramel / Heart - Coumarin, Honey / Base - Woods, Vanilla, Musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -3609,17 +3221,14 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Sweet Surrender Pink Parfait",
     "brand": "Mahajan",
     "gender": "Female",
     "season": "Spring-Summer",
-    "notes": "Top Notes: Graham Crackers, Marshmallow, Strawberry, Blackcurrant, and Chocolate (Strawberry S'mores)Middle (Heart) Notes: Marshmallow, Orange Blossom, and JasmineBase Notes: Vanilla, Whipped Cream, Sandalwood, Amber, and Musk",
+    "notes": "Top - Graham Crackers, Marshmallow, Strawberry, Blackcurrant, Chocolate (Strawberry S'mores) / Heart - Marshmallow, Orange Blossom, Jasmine / Base - Vanilla, Whipped Cream, Sandalwood, Amber, Musk",
     "category": [
       "Gourmand",
       "Fruity",
@@ -3629,30 +3238,25 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Tahira",
     "brand": "Riiffs",
     "gender": "Female",
     "season": "Spring, Summer, Fall",
-    "notes": "Top Notes: Almond and Dragon fruitMiddle (Heart) Notes: Rose de Mai, Gardenia, and Praline (often listed as Rose de Mai and Gardenia with praline accents in the blend)Base Notes: Vanilla Absolute, Tonka Bean, and Patchouli",
+    "notes": "Top - Almond, Dragon Fruit / Heart - Rose de Mai, Gardenia, Praline / Base - Vanilla Absolute, Musk",
     "category": [
       "Floral",
       "Oriental",
       "Gourmand",
       "Sweet",
       "Woody",
-      "Vanilla"
+      "Vanilla",
+      "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Taif",
@@ -3669,10 +3273,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Teriaq",
@@ -3689,10 +3290,7 @@ SANCTUARY_SEED_DB = [
       "Leather"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Teriaq Intense",
@@ -3709,37 +3307,34 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "The King",
     "brand": "Ali",
     "gender": "Male",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Plum, Ozonic notes, Grapefruit, BergamotMiddle (Heart) Notes: Hazelnut, Honey, Cedar, Cashmere Wood, Orange Blossom, JasmineBase Notes: Amberwood, Patchouli, Oakmoss, Vetiver",
+    "notes": "Top - Plum, Ozonic Notes, Grapefruit, Bergamot / Heart - Hazelnut, Honey, Cedar, Cashmere Wood / Base - Vanilla, Amber, Musk",
     "category": [
       "Woody",
       "Oriental",
       "Citrus",
       "Chypre",
       "Floral",
-      "Amber"
+      "Amber",
+      "Gourmand",
+      "Sweet",
+      "Aquatic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Tiramisu Candy",
     "brand": "Rizz",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Note: BergamotMiddle Notes: Black Currant, Strawberry, and MilkBase Notes: Musk and Vanilla",
+    "notes": "Top - Bergamot / Heart - Black Currant, Strawberry, Milk / Base - Musk, Vanilla",
     "category": [
       "Gourmand",
       "Fruity",
@@ -3748,67 +3343,58 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Tiramisu Coco",
     "brand": "Zimaya",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Amaretto and CoffeeMiddle Notes: Ice cream, Biscuit, and VanillaBase Notes: Vanilla, Brown sugar, and Amber",
+    "notes": "Top - Amaretto, Coffee / Heart - Ice Cream, Biscuit, Vanilla / Base - Vanilla, Musk",
     "category": [
       "Gourmand",
       "Oriental",
       "Sweet",
       "Vanilla",
       "Amber",
-      "Creamy"
+      "Creamy",
+      "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Toffee Ganache",
     "brand": "Arabiyat Sugar",
     "gender": "Unisex",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Hazelnut, Clove, Milk (or Vanilla Cream), and VanillaMiddle (Heart) Notes: Cinnamon, Toffee, and White FlowersBase Notes: Gourmand Accord, Milk, Biscuit (Speculoos/Biscoff), and Spices",
+    "notes": "Top - Hazelnut, Clove, Milk, Vanilla / Heart - Cinnamon, Toffee, White Flowers / Base - Caramel, Musk, Woods",
     "category": [
       "Gourmand",
       "Sweet",
       "Spicy",
       "Creamy",
-      "Vanilla"
+      "Vanilla",
+      "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Tubbees Tres Leches",
     "brand": "Grandeur",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Vanilla bean, cold milk accord, sweet notes, spicy notes, and caramelMiddle Notes (Heart): Milk, chocolate, and floral notes",
+    "notes": "Top - Vanilla Bean, Cold Milk Accord, Sweet Notes, Spicy Notes, Caramel / Heart - Condensed Milk, Cream / Base - Vanilla, Musk, Woods",
     "category": [
       "Gourmand",
       "Sweet",
       "Vanilla",
-      "Creamy"
+      "Creamy",
+      "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla",
@@ -3824,30 +3410,25 @@ SANCTUARY_SEED_DB = [
       "Powdery"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Addiction",
     "brand": "Gulf Orchid",
     "gender": "Unisex/Female",
     "season": "Fall-Winter",
-    "notes": "Top Notes: Coconut, Lavender, and Lily of the ValleyHeart (Middle) Notes: Tonka Bean, Jasmine, Rose, and PatchouliBase Notes: Vanilla, Amber, and Musk",
+    "notes": "Top - Coconut, Lavender, Lily of the Valley / Heart - Tonka Bean, Jasmine, Rose, Patchouli / Base - Vanilla, Musk, Woods",
     "category": [
       "Gourmand",
       "Sweet",
       "Floral",
       "Aromatic",
       "Fougere",
-      "Fruity"
+      "Fruity",
+      "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Aura",
@@ -3860,20 +3441,20 @@ SANCTUARY_SEED_DB = [
       "Sweet",
       "Creamy",
       "Vanilla",
-      "Animalic"
+      "Animalic",
+      "Citrus",
+      "Woody",
+      "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Ayelet",
     "brand": "Khayali",
     "gender": "Unisex",
     "season": "Fall-Winter",
-    "notes": "Vanilla orchid, jasmine / Brown sugar, tonka / Amber, musk, patchouli (Kayali-inspired)",
+    "notes": "Top - Vanilla Orchid, Jasmine / Heart - Brown Sugar, Tonka / Base - Amber, Musk, Patchouli",
     "category": [
       "Gourmand",
       "Floral",
@@ -3882,29 +3463,24 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Cream Macaron",
     "brand": "Arabiyat Sugar",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Note: Ripe BananaMiddle Note: Chantilly CreamBase Note: Custard Sauce (or Vanilla/Vanilla Musk)",
+    "notes": "Top - Ripe Banana / Heart - Chantilly Cream / Base - Custard Sauce, Vanilla",
     "category": [
       "Gourmand",
       "Fruity",
       "Sweet",
       "Vanilla",
-      "Animalic"
+      "Animalic",
+      "Creamy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Dunes",
@@ -3920,17 +3496,14 @@ SANCTUARY_SEED_DB = [
       "Sweet"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Freak (Give Me Gourmand)",
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Spring, Fall",
-    "notes": "Top Note: Cupcake accord Middle Notes: Sugar, frosting, almond, and cinnamon Base Notes: Butter/buttercream, vanilla, and musk ",
+    "notes": "Top - Cupcake accord Heart - Sugar, frosting, almond, and cinnamon Base - Butter / buttercream, vanilla, and musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -3940,8 +3513,6 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "EDP"
   },
   {
@@ -3958,17 +3529,14 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Milkshake",
     "brand": "Snack House",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Vanilla Orchid and JasmineMiddle (Heart) Notes: Brown Sugar and Tonka BeanBase Notes: Amber, Amberwood, Musk, and Patchouli",
+    "notes": "Top - Vanilla Orchid, Jasmine / Heart - Brown Sugar, Tonka Bean / Base - Amber, Amberwood, Musk, Patchouli",
     "category": [
       "Gourmand",
       "Oriental",
@@ -3978,17 +3546,14 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Musk",
     "brand": "NatureWell",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Sugared Petals & Mandarin MuskMid Notes: Vanilla Cream & SpiceBase Notes: Sleek Woods & Tonka",
+    "notes": "Top - Sugared Petals, Mandarin Musk / Heart - Vanilla Cream, Spice / Base - Soft Woods, Musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -3997,10 +3562,7 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Seduction",
@@ -4016,10 +3578,7 @@ SANCTUARY_SEED_DB = [
       "Woody"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vanilla Skin",
@@ -4035,10 +3594,7 @@ SANCTUARY_SEED_DB = [
       "Oud"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Velvet Breeze",
@@ -4055,10 +3611,7 @@ SANCTUARY_SEED_DB = [
       "Spicy"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Vulcan Baie",
@@ -4075,10 +3628,7 @@ SANCTUARY_SEED_DB = [
       "Chypre"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Whipped Pleasure (Give Me Gourmand)",
@@ -4094,29 +3644,26 @@ SANCTUARY_SEED_DB = [
       "Animalic"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Yara Candy",
     "brand": "Lattafa",
     "gender": "Female",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Black currant and green tangerine (or green mandarin)Middle Notes: Strawberry fizz candy and gardeniaBase Notes: Vanilla, musk, amber, and sandalwood",
+    "notes": "Top - Black Currant, Green Tangerine / Heart - Strawberry Fizz Candy, Floral Notes / Base - Vanilla, Musk, Amber",
     "category": [
       "Gourmand",
       "Sweet",
       "Fruity",
       "Woody",
       "Citrus",
-      "Creamy"
+      "Creamy",
+      "Vanilla",
+      "Amber"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -4133,10 +3680,7 @@ SANCTUARY_SEED_DB = [
       "Citrus"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Yara Original",
@@ -4153,30 +3697,26 @@ SANCTUARY_SEED_DB = [
       "Powdery"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Yara Tous",
     "brand": "Lattafa",
     "gender": "Female",
     "season": "Summer",
-    "notes": "Top Notes: Mango, coconut, passion fruitMiddle Notes: Jasmine, orange blossom, heliotropeBase Notes: Vanilla, cashmeran, musk",
+    "notes": "Top - Mango, Coconut, Passionfruit. Heart - Jasmine, Orange Blossom, Heliotrope. Base - Vanilla, Musk, Cashmeran",
     "category": [
       "Floral",
       "Fruity",
       "Sweet",
       "Gourmand",
       "Citrus",
-      "Powdery"
+      "Powdery",
+      "Woody"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Zainab Oil",
@@ -4193,8 +3733,6 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "Concentrated oil"
   },
   {
@@ -4202,7 +3740,7 @@ SANCTUARY_SEED_DB = [
     "brand": "Riiffs",
     "gender": "Unisex",
     "season": "Spring, Summer, Winter",
-    "notes": "Top Notes: Coconut, Vanilla, Creamy AccordsHeart (Middle) Notes: Fruity Notes, Jasmine, Powdery AccordsBase Notes: Vanilla, Musk, Woody Notes",
+    "notes": "Top - Coconut, Vanilla, Creamy Accords / Heart - Fruity Notes, Jasmine, Powdery Accords / Base - Musk, Vanilla, Woods",
     "category": [
       "Gourmand",
       "Sweet",
@@ -4212,36 +3750,32 @@ SANCTUARY_SEED_DB = [
       "Floral"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Zukhruf Pink",
     "brand": "Zimaya",
     "gender": "Unisex",
-    "season": "Winter",
-    "notes": "Top Notes: Orchid, Heliotrope, and VanillaHeart (Middle) Notes: Musk, Marshmallow, and Almond MilkBase Notes: Amber, Vanilla, and Sandalwood",
+    "season": "Spring, Fall",
+    "notes": "Top - Vanilla, Heliotrope, Orchid\nHeart - Marshmallow, Almond Milk, Musk\nBase - Vanilla, Sandalwood, Amber",
     "category": [
       "Gourmand",
       "Floral",
-      "Creamy",
       "Woody",
-      "Powdery"
+      "Powdery",
+      "Sweet",
+      "Creamy"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Victoria",
     "brand": "Lattafa",
     "gender": "Unisex",
     "season": "Spring, Summer",
-    "notes": "Top Notes: Lemon Meringue Pie (offering a bright, zesty, and sweet citrus opening)Middle (Heart) Notes: Neroli (lending a delicate, sophisticated, and clean floral touch)Base Notes: Vanilla (providing a smooth, creamy, and comforting warm finish)",
+    "notes": "Top - Lemon Meringue Pie / Heart - Neroli, Floral Notes / Base - Vanilla, Musk, Creamy Notes",
     "category": [
       "Gourmand",
       "Floral",
@@ -4253,16 +3787,14 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
+    "concentration": "EDP"
   },
   {
     "name": "Qimmah",
     "brand": "Lattafa",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Almond, CoffeeHeart (Middle) Notes: Jasmine, Tuberose, Tonka BeanBase Notes: Vanilla, Cacao, Sandalwood",
+    "notes": "Top - Almond, Coffee / Heart - Jasmine, Tuberose, Tonka Bean / Base - Cocoa, Vanilla, Sandalwood",
     "category": [
       "Gourmand",
       "Floral",
@@ -4272,35 +3804,31 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
+    "concentration": "EDP"
   },
   {
     "name": "Tiramisu S’mores",
     "brand": "Zimaya",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Marshmallow, Chocolate, Coffee, Bergamot, and Nectarine Blossom.Middle (Heart) Notes: Biscuit, Vanilla, Milk, Almond, and Musk.Base Notes: Sugar, Caramel, Creamy Notes, Amber, and Musk.",
+    "notes": "Top - Marshmallow, Chocolate, Coffee, Bergamot, Nectarine Blossom / Heart - Biscuit, Vanilla / Base - Musk, Woods",
     "category": [
       "Gourmand",
       "Sweet",
       "Creamy",
       "Chypre",
-      "Citrus"
+      "Citrus",
+      "Vanilla"
     ],
     "dupe_of": "",
-    "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "shelf_status": "Own"
   },
   {
     "name": "Tiramisu caramel",
     "brand": "Zimaya",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Note: CaramelMiddle (Heart) Notes: Honey, Coumarin, and Woody NotesBase Notes: Vanilla, Whiskey, and Musk",
+    "notes": "Top - Caramel. Heart - Honey, Coumarin, Woody Notes. Base - Vanilla Bean Extract, Whiskey Accord, Musk",
     "category": [
       "Gourmand",
       "Sweet",
@@ -4310,94 +3838,88 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
-    "concentration": ""
+    "concentration": "EDP"
   },
   {
     "name": "Orhan",
     "brand": "Nusuk",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Blackberry, BlueberryMiddle Notes: Freesia, Lavender, RoseBase Notes: Vanilla, Raspberry, Oakmoss, Patchouli",
+    "notes": "Top - Blackberry, Blueberry / Heart - Freesia, Lavender, Rose / Base - Vanilla, Musk, Woods",
     "category": [
       "Gourmand",
       "Fougere",
       "Floral",
       "Fruity",
       "Woody",
-      "Aromatic"
-    ],
-    "dupe_of": "",
-    "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
-  },
-  {
-    "name": "Nisma",
-    "brand": "Arabiyat prestige",
-    "gender": "Female",
-    "season": "Spring, Summer",
-    "notes": "Top Notes: Pistachio, Hazelnut, and Cassis (Blackcurrant bud)Middle (Heart) Notes: Raspberry, Lily of the Valley, Jasmine, and PeonyBase Notes: Sandalwood, Vanilla, Tonka Bean, Maltol, and Lactonic notes",
-    "category": [
-      "Gourmand",
-      "Fruity",
-      "Creamy",
-      "Floral",
-      "Woody"
-    ],
-    "dupe_of": "",
-    "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
-  },
-  {
-    "name": "Lady glamour",
-    "brand": "Arabiyat prestige",
-    "gender": "Female",
-    "season": "Spring, Summer",
-    "notes": "Top Notes: BergamotMiddle (Heart) Notes: Orange, Limonene, and RoseBase Notes: Coconut, Vanilla, White Musk, Dry Wood, and Gourmand notes",
-    "category": [
-      "Gourmand",
-      "Citrus",
-      "Chypre",
-      "Fruity",
+      "Aromatic",
       "Sweet"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
+    "concentration": "EDP"
+  },
+  {
+    "name": "Nisma",
+    "brand": "Arabiyat Prestige",
+    "gender": "Female",
+    "season": "Spring, Summer",
+    "notes": "Top - Pistachio, Forest Hazelnut, and Cassis (Blackcurrant) BudsHeart / Heart - Raspberry, Peony, Lily of the Valley, and Jasmine. Base - Lactonic (creamy) notes, Vanilla, Tonka Beans, Maltol (sweet / cotton candy), and Sandalwood",
+    "category": [
+      "Gourmand",
+      "Fruity",
+      "Floral",
+      "Woody",
+      "Sweet",
+      "Creamy"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
+  },
+  {
+    "name": "Lady glamour",
+    "brand": "Arabiyat Prestige",
+    "gender": "Female",
+    "season": "Fall, Winter",
+    "notes": "Top - BergamotHeart / Heart - Orange, limonene, and rose. Base - White musk, coconut, vanilla, and gourmand notes",
+    "category": [
+      "Gourmand",
+      "Citrus",
+      "Fruity",
+      "Sweet",
+      "Chypre"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
   },
   {
     "name": "Ajwaa roses",
     "brand": "Nusuk",
     "gender": "Female",
     "season": "Spring, Fall",
-    "notes": "Top Notes: Litchi (lychee), rhubarb, and nutmeg (or bergamot variations)Heart/Middle Notes: Turkish rose, peony, vanilla, musk, and petaliaBase Notes: Cashmere wood (cashmeran), black pepper, and Haitian vetiver",
+    "notes": "Top - Lychee, Rhubarb, Nutmeg / Heart - Turkish Rose, Peony / Base - Vanilla, Musk, Amber",
     "category": [
       "Floral",
       "Fruity",
       "Woody",
       "Spicy",
       "Chypre",
-      "Citrus"
+      "Citrus",
+      "Gourmand",
+      "Sweet"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
+    "concentration": "EDP"
   },
   {
     "name": "Chocolate Ganache",
     "brand": "Arabiyat Sugar",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Banana, Mandarin Orange, and Water FlowersHeart Notes: Butter, Coconut Milk, and CedarwoodBase Notes: Toasted Coconut, Vanilla, Tonka Bean, and Musk [1] (https://www.fragrantica.com/perfume/Arabiyat-Sugar/Chocolate-Ganache-118606.html)",
+    "notes": "Top - Banana, Mandarin Orange, Water Flowers / Heart - Butter, Coconut Milk, Cedarwood / Base - Chocolate, Vanilla, Musk",
     "category": [
       "Gourmand",
       "Citrus",
@@ -4407,47 +3929,44 @@ SANCTUARY_SEED_DB = [
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
+    "concentration": "EDP"
   },
   {
     "name": "Matcha Latte",
     "brand": "Arabiyat Sugar",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Coconut, Peach, and Lily of the ValleyHeart Notes: Warm Milk, Rice Milk, Caramel, and Orange BlossomBase Notes: Tonka Bean, Sandalwood, and Musk ",
+    "notes": "Top - Coconut, Peach, Lily of the Valley / Heart - Warm Milk, Rice Milk, Caramel, Orange Blossom / Base - Matcha, Vanilla, Musk",
     "category": [
       "Gourmand",
       "Creamy",
       "Floral",
       "Fruity",
-      "Woody"
+      "Woody",
+      "Sweet",
+      "Citrus"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "EDP",
-    "size_ml": None,
-    "price": None
+    "concentration": "EDP"
   },
   {
     "name": "Nashwa Noir",
     "brand": "Arabiyat Prestige",
     "gender": "Unisex",
     "season": "Fall, Winter",
-    "notes": "Top Notes: Bergamot, Cinnamon Bark, Nutmeg, and Raw Wood BarkHeart Notes: Nagarmotha (Cypriol Oil) and GeraniumBase Notes: Black Musk, Leather, Oud, Patchouli, and Saffron",
+    "notes": "Top - Bergamot, Cinnamon Bark, Nutmeg, Raw Wood Bark / Heart - Nagarmotha (Cypriol), Rose, Spices / Base - Oud, Amber, Musk, Woods",
     "category": [
       "Gourmand",
       "Spicy",
       "Oriental",
       "Woody",
       "Citrus",
-      "Chypre"
+      "Chypre",
+      "Oud"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "size_ml": None,
-    "price": None,
     "concentration": "EDP"
   },
   {
@@ -4455,20 +3974,138 @@ SANCTUARY_SEED_DB = [
     "brand": "Emper",
     "gender": "Female",
     "season": "Fall, Winter",
-    "notes": "Top Notes (Initial Spray/Dab): Fresh Lemon, Sweet Orange, and crisp Bergamot.Heart Notes (The Middle/Core): Delicate Rose, Jasmine, and soft Powdery notes.Base Notes (The Dry Down): Warm Vanilla, Tonka Bean, smooth Amber, and a hint of White Musk.",
+    "notes": "Top - Lemon, Sweet Orange, Bergamot / Heart - Jasmine, Rose, Ylang-Ylang / Base - Vanilla, Musk, Sandalwood",
     "category": [
       "Gourmand",
       "Citrus",
       "Powdery",
       "Floral",
       "Sweet",
-      "Chypre"
+      "Chypre",
+      "Woody"
     ],
     "dupe_of": "",
     "shelf_status": "Own",
-    "concentration": "Concentrated oil",
-    "size_ml": None,
-    "price": None
+    "concentration": "Concentrated oil"
+  },
+  {
+    "name": "Sugar Mallow Pink Cloud",
+    "brand": "Atralia",
+    "gender": "Female",
+    "season": "Fall, Winter",
+    "notes": "Top - Strawberry, Blackcurrant, Bergamot, and Pear.Heart - Wild Strawberry, Orange Blossom, Melon, and Violet.Base - Caramel, Jasmine, Ambroxan, Dry Woods, and Moss",
+    "category": [
+      "Floral",
+      "Fruity",
+      "Citrus",
+      "Amber",
+      "Chypre"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own"
+  },
+  {
+    "name": "Qissa Delicious",
+    "brand": "Paris Corner",
+    "gender": "Female",
+    "season": "Fall, Winter",
+    "notes": "Top - Dark chocolate, orange, whipped cream. Heart - Coconut, marshmallow, jasmine. Base - Vanilla, soft woods, white musk",
+    "category": [
+      "Gourmand",
+      "Citrus",
+      "Floral",
+      "Fruity",
+      "Sweet"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
+  },
+  {
+    "name": "Qissa Gala",
+    "brand": "Paris Corner",
+    "gender": "Female",
+    "season": "Spring, Summer",
+    "notes": "Top - Gardenia, Ylang-Ylang, Violet Leaf, and Almond. Heart - Tuberose, Coconut, Muguet (Lily of the Valley), and Plum. Base - Vanilla, Sweet Notes, Musk, and Moss",
+    "category": [
+      "Gourmand",
+      "Floral",
+      "Fruity",
+      "Sweet",
+      "Powdery"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
+  },
+  {
+    "name": "Sugar Mallow",
+    "brand": "Atralia",
+    "gender": "Female",
+    "season": "Spring, Fall",
+    "notes": "Top - Orange, Marshmallow, and Strawberry. Heart - Whipped Cream, Vanilla, and Coconut Blossoms (with additional soft floral notes)Base - Candy Sugar, Musk, and Raspberry)",
+    "category": [
+      "Gourmand",
+      "Fruity",
+      "Sweet",
+      "Citrus",
+      "Vanilla"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
+  },
+  {
+    "name": "Cookie dough",
+    "brand": "Arabiyat Sugar",
+    "gender": "Female",
+    "season": "Spring, Fall, Winter",
+    "notes": "Top - Butter, coconut milk, and cocoa (cocoa butter)Heart - Orchid. Base - Vanilla, sandalwood, and musk",
+    "category": [
+      "Gourmand",
+      "Creamy",
+      "Woody",
+      "Floral",
+      "Fruity"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
+  },
+  {
+    "name": "Nuha",
+    "brand": "Khadlaj",
+    "gender": "Female",
+    "season": "Spring, summer",
+    "notes": "Top - Apple, Coconut. Heart - Heliotrope, Jasmine, Rose. Base - Vanilla, Cashmeran, Sandalwood",
+    "category": [
+      "Gourmand",
+      "Floral",
+      "Fruity",
+      "Woody",
+      "Creamy"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
+  },
+  {
+    "name": "Supremacy Pink",
+    "brand": "Afnan",
+    "gender": "Female",
+    "season": "Spring, summer ",
+    "notes": "Top - Pink Pepper, Violet. Heart - Rose, Peony, Lily-of-the-Valley (Muguet)Base - Musk, Amber",
+    "category": [
+      "Gourmand",
+      "Floral",
+      "Powdery",
+      "Spicy",
+      "Amber",
+      "Animalic"
+    ],
+    "dupe_of": "",
+    "shelf_status": "Own",
+    "concentration": "EDP"
   }
 ]
 
@@ -13080,11 +12717,86 @@ with tab_layer:
             )
 
         with st.expander("Notes side by side", expanded=False):
-            for fr in ev.get("frags") or []:
-                st.markdown(
-                    "**" + str(fr.get("name")) + "** (*" + str(fr.get("brand")) + "*)"
+            st.caption("Copy notes, or edit and save without leaving Layer.")
+            for _ni, fr in enumerate(ev.get("frags") or []):
+                _fname = str(fr.get("name") or "").strip()
+                _fbrand = str(fr.get("brand") or "").strip()
+                _fnotes = str(fr.get("notes") or "")
+                st.markdown("**" + _fname + "** (*" + _fbrand + "*)")
+                _nkey = abs(hash((_fname, _ni, "notes_sbs"))) % 10_000_000
+                # Keep widget in sync when notes change
+                _view_key = f"sbs_notes_view_{_nkey}"
+                st.session_state[_view_key] = _fnotes
+                st.text_area(
+                    "Notes (select all to copy)",
+                    height=110,
+                    key=_view_key,
+                    label_visibility="visible",
+                    disabled=st.session_state.get(f"_sbs_editing_{_nkey}", False),
                 )
-                st.caption(str(fr.get("notes") or "(no notes)"))
+                c_copy, c_edit, c_save = st.columns(3)
+                with c_copy:
+                    st.download_button(
+                        "Download notes",
+                        data=_fnotes or "",
+                        file_name=f"{(_fname or 'notes').replace(' ', '_')}_notes.txt",
+                        mime="text/plain",
+                        key=f"sbs_dl_{_nkey}",
+                        help="Save notes as a .txt file.",
+                    )
+                _edit_flag = f"_sbs_editing_{_nkey}"
+                with c_edit:
+                    if st.button(
+                        "Edit" if not st.session_state.get(_edit_flag) else "Cancel edit",
+                        key=f"sbs_edit_btn_{_nkey}",
+                    ):
+                        if st.session_state.get(_edit_flag):
+                            st.session_state.pop(_edit_flag, None)
+                            st.session_state.pop(f"sbs_notes_edit_{_nkey}", None)
+                        else:
+                            st.session_state[_edit_flag] = True
+                            st.session_state[f"sbs_notes_edit_{_nkey}"] = _fnotes
+                        st.rerun()
+                if st.session_state.get(_edit_flag):
+                    st.text_area(
+                        "Edit notes (Top / Heart / Base)",
+                        key=f"sbs_notes_edit_{_nkey}",
+                        height=140,
+                    )
+                    with c_save:
+                        if st.button("Save notes", type="primary", key=f"sbs_save_{_nkey}"):
+                            new_notes = st.session_state.get(f"sbs_notes_edit_{_nkey}") or ""
+                            try:
+                                new_notes = clean_notes_text(new_notes)
+                            except Exception:
+                                new_notes = str(new_notes).strip()
+                            updated = False
+                            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
+                                if (f.get("name") or "").strip() == _fname:
+                                    st.session_state["fragrances_db"][i]["notes"] = new_notes
+                                    updated = True
+                                    break
+                            if updated:
+                                mark_vault_dirty()
+                                save_persisted_data(force=True)
+                                st.session_state.pop(_edit_flag, None)
+                                st.session_state.pop(f"sbs_notes_view_{_nkey}", None)
+                                st.session_state.pop(f"sbs_notes_edit_{_nkey}", None)
+                                st.session_state.pop("_layer_partner_cache", None)
+                                st.session_state["_layer_studio_flash"] = (
+                                    f"Updated notes for **{_fname}**"
+                                )
+                                # Refresh layer check frags if present
+                                _lc = st.session_state.get("last_layer_check") or {}
+                                if isinstance(_lc, dict) and _lc.get("frags"):
+                                    for j, ff in enumerate(_lc["frags"]):
+                                        if (ff.get("name") or "").strip() == _fname:
+                                            _lc["frags"][j]["notes"] = new_notes
+                                    st.session_state["last_layer_check"] = _lc
+                                st.rerun()
+                            else:
+                                st.warning(f"Could not find **{_fname}** in vault.")
+                st.markdown("---")
 
         names = [fr.get("name") for fr in (ev.get("frags") or []) if fr.get("name")]
         # Prefer dessert name / locked name so Layer matches the Dessert card
