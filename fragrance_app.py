@@ -4455,7 +4455,14 @@ def matches_gender(fragrance: dict, preferred: str) -> bool:
 
 
 def matches_weather(fragrance: dict, weather: str) -> bool:
-    """Season matching for filters / suggestions. Opposite extremes are excluded."""
+    """Season matching for filters / suggestions.
+
+    Band design:
+      Hot / Summer  -> summer, spring-summer (not pure fall/winter)
+      Warm / Mild   -> spring, summer, mild (not pure fall/winter)
+      Cool / Autumn -> fall, spring-fall, fall-winter
+      Cold / Winter -> winter, fall-winter (not pure summer)
+    """
     season = (fragrance.get("season") or "").lower()
     if not weather or weather == "Any":
         return True
@@ -4469,41 +4476,60 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
     has_year = "year-round" in season or "year round" in season
     has_versatile = "versatile" in season or season in ("", "any", "all")
 
+    cold_season_only = (has_winter or has_fall) and not (has_summer or has_spring)
     winter_locked = has_winter and not (has_summer or has_spring)
     summer_locked = has_summer and not (has_winter or has_fall)
+    pure_summer = has_summer and not (has_fall or has_winter or has_spring)
 
     w = weather.lower()
-    is_hot = "hot" in w or ( "summer" in w and "warm" not in w and "mild" not in w)
+    is_hot = "hot" in w or ("summer" in w and "warm" not in w and "mild" not in w)
     is_cold = "cold" in w or ("winter" in w and "cool" not in w)
     is_warm = "warm" in w or "mild" in w
     is_cool = "cool" in w or "autumn" in w
 
     if is_hot:
-        # Exclude pure fall/winter bottles
-        if winter_locked:
+        if cold_season_only or winter_locked:
             return False
-        return bool(has_summer or has_spring or has_mild or has_year or (has_versatile and not has_winter))
+        return bool(
+            has_summer or has_spring or has_mild or has_year
+            or (has_versatile and not has_winter)
+        )
 
     if is_cold:
-        # Exclude pure summer bottles
-        if summer_locked:
+        if pure_summer or (summer_locked and not has_fall):
             return False
-        return bool(has_winter or has_fall or has_cooler or has_year or (has_versatile and not has_summer))
+        return bool(
+            has_winter or has_fall or has_cooler or has_year
+            or (has_versatile and not has_summer)
+        )
 
     if is_warm:
-        return bool(has_spring or has_summer or has_fall or has_mild or has_versatile or has_year)
+        # No pure fall / fall+winter bottles in mild weather
+        if cold_season_only or winter_locked:
+            return False
+        return bool(
+            has_spring or has_summer or has_mild or has_year or has_versatile
+        )
 
     if is_cool:
+        if pure_summer:
+            return False
         if summer_locked and not has_spring:
             return False
-        return bool(has_fall or has_winter or has_spring or has_cooler or has_versatile or has_year)
+        return bool(
+            has_fall or has_winter or has_spring or has_cooler
+            or has_versatile or has_year
+        )
 
     return True
 
 
 
 def matches_weather_strict(fragrance: dict, weather: str) -> bool:
-    """Harder season filter for Layer partners — list changes when band changes."""
+    """Harder season filter for Layer partners and band lists.
+
+    Same band design as matches_weather — pure fall/winter never lands in Warm/Mild.
+    """
     if not weather or weather == "Any":
         return True
     season = (fragrance.get("season") or "").lower().strip()
@@ -4518,24 +4544,36 @@ def matches_weather_strict(fragrance: dict, weather: str) -> bool:
         or "year round" in season
         or season in ("", "any", "all")
     )
+    cold_season_only = (has_winter or has_fall) and not (has_summer or has_spring)
     winter_locked = has_winter and not (has_summer or has_spring)
     summer_locked = has_summer and not (has_winter or has_fall)
+    pure_summer = has_summer and not (has_fall or has_winter or has_spring)
 
     if "hot" in w or ("summer" in w and "warm" not in w and "mild" not in w):
-        if winter_locked and not has_fall:
+        if cold_season_only or winter_locked:
             return False
         return bool(has_summer or has_spring or has_versatile)
+
     if "warm" in w or "mild" in w:
-        return bool(has_spring or has_summer or has_fall or has_versatile or (has_winter and has_fall))
+        if cold_season_only or winter_locked:
+            return False
+        return bool(has_spring or has_summer or has_versatile)
+
     if "cool" in w or "autumn" in w:
+        if pure_summer:
+            return False
         if summer_locked and not has_spring:
             return False
         return bool(has_fall or has_winter or has_spring or has_versatile)
-    if "cold" in w or "winter" in w:
-        if summer_locked and not has_fall:
+
+    if "cold" in w or ("winter" in w and "cool" not in w):
+        if pure_summer or (summer_locked and not has_fall):
             return False
         return bool(has_winter or has_fall or has_versatile)
+
     return True
+
+
 
 
 def temp_f_to_band(temp_f: float) -> str:
