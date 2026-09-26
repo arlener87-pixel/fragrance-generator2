@@ -10410,8 +10410,265 @@ tab_discover, tab_layer, tab_recipes, tab_try, tab_sotd, tab_collection, tab_vau
 )
 
 # ===== DISCOVER =====
+
+# ==========================================
+# HOROSCOPE / LIBRA PROFILE (user chart)
+# Birth: 1987-09-30 03:10 Fontana, CA — Sun in Libra (Venus-ruled)
+# Suggestions: Female + Unisex only; season + occasion aware
+# ==========================================
+USER_CHART = {
+    "sun": "Libra",
+    "ruler": "Venus",
+    "birth": "1987-09-30 03:10 Fontana, CA",
+    "gender_pref": ("Female", "Female-leaning", "Unisex"),
+}
+
+# Note / category tokens that align with Libra + Venus (harmony, florals, polish)
+_LIBRA_LOVE = {
+    "rose", "peony", "jasmine", "violet", "iris", "magnolia", "orange blossom",
+    "bergamot", "pear", "peach", "apple", "berry", "raspberry", "strawberry",
+    "vanilla", "musk", "white musk", "sandalwood", "cedar", "amber", "powder",
+    "powdery", "floral", "fruity", "creamy", "soft", "clean", "fresh", "citrus",
+    "lily", "freesia", "heliotrope", "tonka", "caramel", "coconut", "marshmallow",
+    "cashmere", "suede", "honey", "fig", "tea", "green",
+}
+_LIBRA_SOFT_GOURMAND = {
+    "vanilla", "caramel", "marshmallow", "cream", "praline", "coconut", "tonka",
+    "chocolate", "coffee", "almond", "pistachio",
+}
+_LIBRA_AVOID = {
+    "oud", "tar", "smoke", "smoky", "gasoline", "animalic", "civet", "castoreum",
+    "heavy leather", "asphalt", "metallic", "harsh",
+}
+
+
+def libra_chart_score(frag: dict, occasion: str = "Daily", season_key: str = "") -> float:
+    """Score a bottle for Libra Sun / Venus-ruled taste + occasion + season."""
+    if not frag:
+        return -1.0
+    g = normalize_gender(frag.get("gender") or "")
+    if g not in ("Female", "Female-leaning", "Unisex"):
+        return -1.0  # user: female + unisex only
+
+    notes = (frag.get("notes") or "").lower()
+    cats = " ".join(str(c).lower() for c in (frag.get("category") or []))
+    blob = notes + " " + cats + " " + (frag.get("name") or "").lower()
+
+    score = 40.0  # baseline for allowed gender
+
+    # Positive note/family hits
+    for tok in _LIBRA_LOVE:
+        if tok in blob:
+            score += 3.5
+    for tok in _LIBRA_SOFT_GOURMAND:
+        if tok in blob:
+            score += 2.5
+    for tok in _LIBRA_AVOID:
+        if tok in blob:
+            score -= 6.0
+
+    # Category bonuses
+    cat_set = {str(c).lower() for c in (frag.get("category") or [])}
+    if "floral" in cat_set:
+        score += 8
+    if "fruity" in cat_set:
+        score += 5
+    if "gourmand" in cat_set or "sweet" in cat_set or "vanilla" in cat_set:
+        score += 4  # soft Libra gourmands OK
+    if "fresh" in cat_set or "citrus" in cat_set:
+        score += 5
+    if "powdery" in cat_set or "musky" in cat_set:
+        score += 4
+    if "oud" in cat_set or "smoky" in cat_set:
+        score -= 8
+
+    # Occasion shaping
+    occ = (occasion or "Daily").lower()
+    if occ == "daily":
+        if any(x in cat_set for x in ("fresh", "citrus", "floral", "fruity", "musky")):
+            score += 6
+        if "oud" in blob or "boozy" in cat_set:
+            score -= 4
+    elif occ in ("date night", "date"):
+        if any(x in cat_set for x in ("floral", "gourmand", "vanilla", "oriental", "amber", "sweet")):
+            score += 8
+        if "rose" in blob or "vanilla" in blob:
+            score += 4
+    elif occ == "work":
+        if any(x in cat_set for x in ("fresh", "citrus", "clean", "musky", "powdery", "green")):
+            score += 7
+        if "boozy" in cat_set or "oud" in blob:
+            score -= 5
+    elif occ == "evening":
+        if any(x in cat_set for x in ("oriental", "amber", "gourmand", "woody", "vanilla", "spicy")):
+            score += 7
+        if "fresh" in cat_set and "floral" not in cat_set:
+            score -= 2
+
+    # Season alignment (High Desert aware)
+    if season_key and season_key != "any":
+        try:
+            if matches_weather(frag, season_key):
+                score += 10
+            else:
+                # Soft penalty — still show if strongly Libra
+                score -= 8
+        except Exception:
+            pass
+
+    # Fav boost
+    try:
+        react = (st.session_state.get("user_reactions") or {}).get(frag.get("name") or "")
+        if react == "fav":
+            score += 6
+        elif react == "dislike":
+            score -= 20
+    except Exception:
+        pass
+
+    return score
+
+
+def get_libra_suggestions(
+    n: int = 5,
+    occasion: str = "Daily",
+    season_key: str = "any",
+    shuffle_salt: str = "",
+) -> list:
+    """Top Libra-aligned bottles (Female + Unisex), season + occasion aware."""
+    db = list(st.session_state.get("fragrances_db") or [])
+    scored = []
+    for f in db:
+        s = libra_chart_score(f, occasion=occasion, season_key=season_key)
+        if s < 0:
+            continue
+        scored.append((s, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    if shuffle_salt and len(scored) > n:
+        # Light shuffle among top pool for variety on Refresh
+        import random as _rnd
+        top = scored[: max(n * 3, n)]
+        _rnd.Random(str(shuffle_salt)).shuffle(top)
+        scored = top + scored[len(top):]
+    return [f for _, f in scored[:n]]
+
+
 with tab_discover:
     st.caption("Search, temp picks, and generated recommendations from the sidebar.")
+
+    # --- Libra / horoscope suggestions (user chart) ---
+    with st.expander("Libra chart picks", expanded=True):
+        st.caption(
+            "Based on your chart: **Sun in Libra** (Venus-ruled) · "
+            "Born 9/30/87 · Fontana, CA. "
+            "Female + unisex only. Tuned for season, occasion, and balance — florals, soft fruit, "
+            "clean musk, polished gourmands."
+        )
+        lc1, lc2 = st.columns(2)
+        with lc1:
+            libra_occ = st.selectbox(
+                "Occasion",
+                ["Daily", "Date night", "Work", "Evening"],
+                key="libra_occasion",
+            )
+        with lc2:
+            libra_season = st.selectbox(
+                "Season / weather",
+                [
+                    "Any",
+                    "Hot days (Summer heat)",
+                    "Mild / Spring",
+                    "Cool / Fall",
+                    "Cold nights / Winter",
+                ],
+                key="libra_season",
+            )
+        # Map UI labels to matches_weather keys
+        _season_map = {
+            "Any": "any",
+            "Hot days (Summer heat)": "Hot / Summer",
+            "Mild / Spring": "Warm / Mild",
+            "Cool / Fall": "Cool / Autumn",
+            "Cold nights / Winter": "Cold / Winter",
+        }
+        _sk = _season_map.get(libra_season, "any")
+
+        lb1, lb2 = st.columns(2)
+        with lb1:
+            libra_go = st.button(
+                "Show Libra picks",
+                type="primary",
+                use_container_width=True,
+                key="libra_show",
+            )
+        with lb2:
+            libra_refresh = st.button(
+                "Refresh",
+                use_container_width=True,
+                key="libra_refresh",
+            )
+
+        if libra_go or libra_refresh or st.session_state.get("_libra_results"):
+            salt = ""
+            if libra_refresh:
+                import time as _t
+                salt = str(_t.time())
+            if libra_go or libra_refresh:
+                picks = get_libra_suggestions(
+                    n=5,
+                    occasion=libra_occ,
+                    season_key=_sk,
+                    shuffle_salt=salt,
+                )
+                st.session_state["_libra_results"] = picks
+                st.session_state["_libra_meta"] = {
+                    "occasion": libra_occ,
+                    "season": libra_season,
+                }
+            picks = st.session_state.get("_libra_results") or []
+            meta = st.session_state.get("_libra_meta") or {}
+            if not picks:
+                st.info("No matching bottles — try another season or occasion.")
+            else:
+                st.markdown(
+                    f"**{len(picks)} picks** · {meta.get('occasion', libra_occ)} · "
+                    f"{meta.get('season', libra_season)}"
+                )
+                for i, f in enumerate(picks, 1):
+                    cats = ", ".join((f.get("category") or [])[:4])
+                    sc = libra_chart_score(
+                        f,
+                        occasion=meta.get("occasion") or libra_occ,
+                        season_key=_sk,
+                    )
+                    st.markdown(
+                        f"**{i}. {f.get('name')}** — *{f.get('brand') or '?'}* "
+                        f"· {f.get('gender') or '?'} · score {int(sc)}"
+                    )
+                    st.caption(
+                        f"Season tags: {f.get('season') or '?'} · {cats}"
+                    )
+                    if f.get("notes"):
+                        st.caption(str(f.get("notes"))[:200])
+                    # Quick actions
+                    a1, a2 = st.columns(2)
+                    with a1:
+                        if st.button(
+                            "Log SOTD",
+                            key=f"libra_sotd_{i}_{f.get('name')}",
+                        ):
+                            try:
+                                log_sotd_immediate([f.get("name")], notes="Libra chart pick")
+                                st.rerun()
+                            except Exception as ex:
+                                st.warning(str(ex))
+                    with a2:
+                        if st.button(
+                            "Layer with…",
+                            key=f"libra_layer_{i}_{f.get('name')}",
+                        ):
+                            st.session_state["layer_base_name"] = f.get("name")
+                            st.info(f"Base set to **{f.get('name')}** — open the Layer tab.")
 
     # --- Top 5 by calendar season + gender ---
     with st.expander("Top 5 by season", expanded=True):
