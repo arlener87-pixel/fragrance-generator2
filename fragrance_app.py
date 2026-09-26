@@ -410,6 +410,23 @@ def weekly_wishlist_suggestions(n: int = 5):
     return rotated[: max(1, min(n, len(rotated)))]
 
 
+
+def format_notes_for_display(raw: str) -> str:
+    """Put Top / Heart / Base on separate lines for readable full notes."""
+    t = clean_notes_text(raw or "")
+    if not t:
+        return "(no notes)"
+    t = re.sub(r"\s*/\s*Heart\s*-", chr(10) + "Heart -", t, flags=re.I)
+    t = re.sub(r"\s*/\s*Base\s*-", chr(10) + "Base -", t, flags=re.I)
+    t = re.sub(r"(?i)(?<!\n)\s*(Top\s*-)", lambda m: (chr(10) if m.start() else "") + m.group(1), t)
+    # Simpler approach: force line breaks before section labels
+    t = re.sub(r"(?i)\s*(Top\s*-)", lambda m: chr(10) + "Top -", t, count=1)
+    t = re.sub(r"(?i)(?<!^)\s*(Heart\s*-)", chr(10) + "Heart -", t)
+    t = re.sub(r"(?i)(?<!^)\s*(Base\s*-)", chr(10) + "Base -", t)
+    lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
+    return chr(10).join(lines)
+
+
 def clean_notes_text(raw: str) -> str:
     """Normalize fragrance notes: spacing, punctuation, Top/Heart/Base labels."""
     if raw is None:
@@ -12416,12 +12433,24 @@ with tab_layer:
                 _fnotes = str(fr.get("notes") or "")
                 st.markdown("**" + _fname + "** (*" + _fbrand + "*)")
                 _nkey = abs(hash((_fname, _ni, "notes_sbs"))) % 10_000_000
-                # Keep widget in sync when notes change
+                _pretty = format_notes_for_display(_fnotes)
+                # Full notes visible as markdown (no truncation)
+                st.markdown(
+                    '<div style="white-space:pre-wrap;line-height:1.45;color:#c5d0e4;'
+                    'font-size:0.92rem;padding:0.55rem 0.7rem;border:1px solid #1a2740;'
+                    'border-radius:8px;background:rgba(8,13,22,0.9);margin:0.35rem 0 0.5rem 0;">'
+                    + _pretty.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                      .replace(chr(10), "<br/>")
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                # Also keep a selectable full text area for copy
                 _view_key = f"sbs_notes_view_{_nkey}"
-                st.session_state[_view_key] = _fnotes
+                st.session_state[_view_key] = _pretty
+                _lines = max(4, min(14, _pretty.count(chr(10)) + 3))
                 st.text_area(
-                    "Notes (select all to copy)",
-                    height=110,
+                    "Select all to copy",
+                    height=max(120, _lines * 22),
                     key=_view_key,
                     label_visibility="visible",
                     disabled=st.session_state.get(f"_sbs_editing_{_nkey}", False),
@@ -12453,7 +12482,7 @@ with tab_layer:
                     st.text_area(
                         "Edit notes (Top / Heart / Base)",
                         key=f"sbs_notes_edit_{_nkey}",
-                        height=140,
+                        height=220,
                     )
                     with c_save:
                         if st.button("Save notes", type="primary", key=f"sbs_save_{_nkey}"):
