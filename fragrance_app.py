@@ -20,6 +20,11 @@ DATA_BAK = Path(__file__).parent / "scented_dead_girl_data.bak.json"
 # Secondary path survives some process restarts on the same container
 DATA_TMP = Path("/tmp") / "scented_dead_girl_data.json"
 
+# Social — change to your handle (opens in browser / TikTok app on phone)
+TIKTOK_URL = "https://www.tiktok.com/@scenteddeadgirl"
+TIKTOK_UPLOAD_URL = "https://www.tiktok.com/upload?lang=en"
+
+
 
 def _safe_json_load(path: Path) -> dict:
     try:
@@ -98,6 +103,15 @@ def save_persisted_data(force: bool = False):
             if len(disk_lr) > 0 and len(sess_lr) == 0:
                 data["layer_recipes"] = disk_lr
                 st.session_state["layer_recipes"] = list(disk_lr)
+            disk_sotd = on_disk_pre.get("sotd_history") or []
+            sess_sotd = data.get("sotd_history") or []
+            if len(disk_sotd) > 0 and len(sess_sotd) == 0:
+                data["sotd_history"] = disk_sotd
+                st.session_state["sotd_history"] = list(disk_sotd)
+            elif len(disk_sotd) > len(sess_sotd):
+                # Prefer longer history if session lost entries after Cloud sleep
+                data["sotd_history"] = disk_sotd
+                st.session_state["sotd_history"] = list(disk_sotd)
         except Exception:
             pass
 
@@ -187,6 +201,66 @@ def vault_fingerprint() -> str:
     except Exception:
         raw = str(payload)
     return hashlib.md5(raw.encode("utf-8", errors="replace")).hexdigest()
+
+
+
+def build_vault_export_dict() -> dict:
+    """Full vault payload for JSON download (includes SOTD)."""
+    return {
+        "fragrances_db": st.session_state.get("fragrances_db") or [],
+        "user_reactions": st.session_state.get("user_reactions") or {},
+        "sotd_history": st.session_state.get("sotd_history") or [],
+        "layer_recipes": st.session_state.get("layer_recipes") or [],
+        "play_stats": st.session_state.get("play_stats") or {},
+        "last_export_date": st.session_state.get("last_export_date"),
+        "last_saved_at": st.session_state.get("last_saved_at"),
+        "wishlist": st.session_state.get("wishlist") or [],
+        "try_recipes": st.session_state.get("try_recipes") or [],
+        "vault_log": st.session_state.get("vault_log") or [],
+    }
+
+
+def build_vault_export_json() -> str:
+    return json.dumps(build_vault_export_dict(), indent=2, ensure_ascii=False)
+
+
+
+def format_sotd_tiktok_caption(entry: dict = None, names=None, notes: str = "") -> str:
+    """Build a short SOTD caption ready to paste into TikTok."""
+    if entry and isinstance(entry, dict):
+        names = entry.get("scents") or []
+        if not names and entry.get("scent"):
+            names = [entry.get("scent")]
+        notes = entry.get("notes") or notes or ""
+        when = entry.get("date") or ""
+    else:
+        names = names or []
+        when = ""
+    names = [str(n).strip() for n in names if n and str(n).strip()]
+    # Pull brands from vault when possible
+    brand_bits = []
+    db = {
+        (f.get("name") or "").strip().lower(): f
+        for f in (st.session_state.get("fragrances_db") or [])
+    }
+    for n in names:
+        f = db.get(n.lower())
+        if f and f.get("brand"):
+            brand_bits.append(f"{n} ({f.get('brand')})")
+        else:
+            brand_bits.append(n)
+    body = " + ".join(brand_bits) if brand_bits else (names[0] if names else "Today's scent")
+    note_line = ""
+    if notes and str(notes).strip() and str(notes).strip().lower() not in ("layered combo",):
+        note_line = str(notes).strip()[:140]
+    date_bit = f" · {when}" if when else ""
+    lines = [f"SOTD{date_bit}", body]
+    if note_line:
+        lines.append(note_line)
+    lines.append("")
+    lines.append("#SOTD #FragranceTok #Perfume #ScentOfTheDay #MiddleEasternFragrance #ScentedDeadGirl")
+    return "\n".join(lines)
+
 
 
 def mark_vault_dirty():
@@ -7765,7 +7839,8 @@ def log_sotd_immediate(names, notes: str = "", when=None) -> bool:
         mark_vault_dirty()
     except Exception:
         pass
-    save_persisted_data(force=False)
+    # force=True so SOTD is not blocked by vault-size guards
+    save_persisted_data(force=True)
     try:
         st.session_state["_vault_fp"] = vault_fingerprint()
     except Exception:
@@ -9010,6 +9085,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# TikTok + quick backup (survives Cloud sleep only if you download)
+_hb1, _hb2 = st.columns(2)
+with _hb1:
+    st.link_button("Open TikTok", TIKTOK_URL, use_container_width=True)
+with _hb2:
+    try:
+        _n_sotd = len(st.session_state.get("sotd_history") or [])
+        st.download_button(
+            f"Backup JSON ({_n_sotd} SOTD)",
+            data=build_vault_export_json(),
+            file_name="scented_dead_girl_backup.json",
+            mime="application/json",
+            key="hero_backup_json",
+            use_container_width=True,
+            help="Download full vault + SOTD. Keep this file — Cloud sleep can wipe server data.",
+        )
+    except Exception:
+        pass
+
 # ---------- SIDEBAR ----------
 with st.sidebar:
     _add_flash = st.session_state.pop("_add_flash", None)
@@ -9029,6 +9123,35 @@ with st.sidebar:
     _logged_sb = st.session_state.get("_sotd_logged_flash")
     if _logged_sb:
         st.success(_logged_sb)
+        st.caption("Cloud can wipe server data when the app sleeps. Download a backup:")
+        try:
+            st.download_button(
+                "Download vault + SOTD backup",
+                data=build_vault_export_json(),
+                file_name="scented_dead_girl_backup.json",
+                mime="application/json",
+                key="sidebar_sotd_backup_json",
+                type="primary",
+            )
+        except Exception:
+            pass
+        # Share last SOTD to TikTok
+        _hist = st.session_state.get("sotd_history") or []
+        if _hist:
+            _cap = format_sotd_tiktok_caption(_hist[0])
+            st.text_area(
+                "TikTok caption (select all → copy)",
+                value=_cap,
+                height=120,
+                key="sidebar_sotd_tiktok_caption",
+            )
+            st.link_button(
+                "Open TikTok to post",
+                TIKTOK_UPLOAD_URL,
+                key="sidebar_tiktok_upload",
+                help="Paste the caption into your TikTok post.",
+            )
+        st.link_button("My TikTok profile", TIKTOK_URL, key="sidebar_tiktok_profile")
 
     with st.expander("Quick SOTD (any tab)", expanded=False):
         st.caption("Log what you are wearing right now - saves immediately.")
@@ -13005,6 +13128,59 @@ with tab_sotd:
         except Exception as ex:
             st.caption(f"PDF unavailable: {ex}")
 
+    with st.expander("Share SOTD to TikTok", expanded=True):
+        st.caption(
+            "TikTok does not allow auto-posting from web apps. "
+            "Copy the caption, then open TikTok and paste it on your video or photo."
+        )
+        hist0 = list(st.session_state.get("sotd_history") or [])
+        if not hist0:
+            st.info("Log an SOTD first, then share it here.")
+        else:
+            pick_labels = []
+            for i, e in enumerate(hist0[:14]):
+                pick_labels.append(
+                    f"{i+1}. {e.get('date', '?')} — {e.get('scent', '?')}"
+                )
+            pick = st.selectbox(
+                "Which log?",
+                pick_labels,
+                key="sotd_tiktok_pick",
+            )
+            try:
+                pi = int(str(pick).split(".", 1)[0]) - 1
+            except Exception:
+                pi = 0
+            entry = hist0[pi] if 0 <= pi < len(hist0) else hist0[0]
+            cap = format_sotd_tiktok_caption(entry)
+            st.text_area(
+                "Caption — select all, copy, paste into TikTok",
+                value=cap,
+                height=150,
+                key="sotd_tiktok_caption_main",
+            )
+            c1, c2 = st.columns(2)
+            with c1:
+                st.link_button(
+                    "Open TikTok upload",
+                    TIKTOK_UPLOAD_URL,
+                    use_container_width=True,
+                    help="Create a post, then paste the caption.",
+                )
+            with c2:
+                st.link_button(
+                    "My TikTok profile",
+                    TIKTOK_URL,
+                    use_container_width=True,
+                )
+            st.download_button(
+                "Download caption as .txt",
+                data=cap,
+                file_name="sotd_tiktok_caption.txt",
+                mime="text/plain",
+                key="sotd_tiktok_caption_dl",
+            )
+
     with st.expander("Journal history", expanded=False):
         st.caption("Edit a log if the wrong bottle or date was saved. Changes autosave.")
         all_names_sotd = sorted(
@@ -14787,20 +14963,7 @@ with tab_vault:
             "Export after every session of edits. Restore loads your full bottle list, "
             "reactions, SOTD, and wishlist."
         )
-        export_data = {
-            "fragrances_db": st.session_state["fragrances_db"],
-            "user_reactions": st.session_state["user_reactions"],
-            "sotd_history": st.session_state["sotd_history"],
-            "layer_recipes": st.session_state.get("layer_recipes", []),
-            "play_stats": st.session_state.get("play_stats", {}),
-            "last_export_date": st.session_state.get("last_export_date"),
-            "last_saved_at": st.session_state.get("last_saved_at"),
-            
-            "wishlist": st.session_state.get("wishlist", []),
-            "try_recipes": st.session_state.get("try_recipes", []),
-            "vault_log": st.session_state.get("vault_log", []),
-        }
-        json_string = json.dumps(export_data, indent=2, ensure_ascii=False)
+        json_string = build_vault_export_json()
         if st.download_button(
             label="Export vault as JSON",
             data=json_string,
