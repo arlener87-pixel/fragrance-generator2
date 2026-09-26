@@ -226,39 +226,71 @@ def build_vault_export_json() -> str:
 
 
 def format_sotd_tiktok_caption(entry: dict = None, names=None, notes: str = "") -> str:
-    """Build a short SOTD caption ready to paste into TikTok."""
+    """Build a short SOTD caption ready to paste into TikTok.
+
+    Includes bottle + brand, layer blurb, and a short notes/pyramid snippet.
+    """
     if entry and isinstance(entry, dict):
         names = entry.get("scents") or []
         if not names and entry.get("scent"):
-            names = [entry.get("scent")]
+            names = [
+                p.strip()
+                for p in str(entry.get("scent")).split(" + ")
+                if p.strip()
+            ]
         notes = entry.get("notes") or notes or ""
         when = entry.get("date") or ""
+        is_layer = bool(entry.get("is_layering")) or len(names) > 1
     else:
         names = names or []
         when = ""
-    names = [str(n).strip() for n in names if n and str(n).strip()]
-    # Pull brands from vault when possible
-    brand_bits = []
+        is_layer = len([n for n in (names or []) if n]) > 1
+
+    names = [str(n).strip() for n in (names or []) if n and str(n).strip()]
     db = {
         (f.get("name") or "").strip().lower(): f
         for f in (st.session_state.get("fragrances_db") or [])
     }
+
+    brand_bits = []
+    note_snips = []
     for n in names:
         f = db.get(n.lower())
         if f and f.get("brand"):
             brand_bits.append(f"{n} ({f.get('brand')})")
         else:
             brand_bits.append(n)
+        if f and (f.get("notes") or "").strip():
+            # Short pyramid / notes line for this bottle
+            raw = re.sub(r"\s+", " ", str(f.get("notes")).strip())
+            if len(raw) > 90:
+                raw = raw[:87].rstrip() + "..."
+            note_snips.append(f"{n}: {raw}")
+
     body = " + ".join(brand_bits) if brand_bits else (names[0] if names else "Today's scent")
-    note_line = ""
-    if notes and str(notes).strip() and str(notes).strip().lower() not in ("layered combo",):
-        note_line = str(notes).strip()[:140]
+
+    # Layer description
+    layer_line = ""
+    journal_note = str(notes or "").strip()
+    if journal_note and journal_note.lower() not in ("layered combo", "layering", ""):
+        layer_line = journal_note[:160]
+    elif is_layer and len(names) >= 2:
+        layer_line = f"Layered {len(names)} bottles — spray densest base first, then lighter on top."
+    elif is_layer:
+        layer_line = "Layered combo"
+
     date_bit = f" · {when}" if when else ""
     lines = [f"SOTD{date_bit}", body]
-    if note_line:
-        lines.append(note_line)
+    if layer_line:
+        lines.append(layer_line)
+    # Bottle notes (keep short for TikTok)
+    for sn in note_snips[:3]:
+        lines.append(sn)
     lines.append("")
-    lines.append("#SOTD #FragranceTok #Perfume #ScentOfTheDay #MiddleEasternFragrance #ScentedDeadGirl")
+    lines.append(
+        "#SOTD #FragranceTok #Perfume #ScentOfTheDay "
+        "#MiddleEasternFragrance #ScentedDeadGirl"
+    )
     return "\n".join(lines)
 
 
@@ -9139,11 +9171,12 @@ with st.sidebar:
         _hist = st.session_state.get("sotd_history") or []
         if _hist:
             _cap = format_sotd_tiktok_caption(_hist[0])
+            _sb_key = "sidebar_sotd_tiktok_caption_" + str((_hist[0] or {}).get("date", "")) + "_" + str((_hist[0] or {}).get("scent", ""))
+            st.session_state[_sb_key] = _cap
             st.text_area(
                 "TikTok caption (select all → copy)",
-                value=_cap,
-                height=120,
-                key="sidebar_sotd_tiktok_caption",
+                height=130,
+                key=_sb_key,
             )
             st.link_button(
                 "Open TikTok to post",
@@ -13151,13 +13184,17 @@ with tab_sotd:
                 pi = int(str(pick).split(".", 1)[0]) - 1
             except Exception:
                 pi = 0
-            entry = hist0[pi] if 0 <= pi < len(hist0) else hist0[0]
+            if pi < 0 or pi >= len(hist0):
+                pi = 0
+            entry = hist0[pi]
             cap = format_sotd_tiktok_caption(entry)
+            # Unique widget key per selection so caption always refreshes
+            _cap_key = f"sotd_tiktok_caption_{pi}_{entry.get('date')}_{entry.get('scent')}"
             st.text_area(
                 "Caption — select all, copy, paste into TikTok",
                 value=cap,
-                height=150,
-                key="sotd_tiktok_caption_main",
+                height=180,
+                key=_cap_key,
             )
             c1, c2 = st.columns(2)
             with c1:
@@ -13178,7 +13215,7 @@ with tab_sotd:
                 data=cap,
                 file_name="sotd_tiktok_caption.txt",
                 mime="text/plain",
-                key="sotd_tiktok_caption_dl",
+                key=f"sotd_tiktok_caption_dl_{pi}",
             )
 
     with st.expander("Journal history", expanded=False):
