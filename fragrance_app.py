@@ -5815,6 +5815,80 @@ def _note_tokens(f: dict) -> set:
     return {t for t in toks if t not in stop}
 
 
+def note_similarity(a: dict, b: dict) -> float:
+    """0-100 style overlap score from shared note tokens + categories."""
+    if not a or not b:
+        return 0.0
+    if (a.get("name") or "").strip().lower() == (b.get("name") or "").strip().lower():
+        return 0.0
+    ta, tb = _note_tokens(a), _note_tokens(b)
+    if not ta or not tb:
+        # Fall back to category overlap only
+        ca = {str(c).lower() for c in (a.get("category") or [])}
+        cb = {str(c).lower() for c in (b.get("category") or [])}
+        if not ca or not cb:
+            return 0.0
+        inter = len(ca & cb)
+        union = len(ca | cb) or 1
+        return round(100.0 * inter / union * 0.6, 1)
+    inter = ta & tb
+    union = ta | tb
+    jacc = len(inter) / (len(union) or 1)
+    # Shared important notes weigh more
+    important = {
+        "rose", "vanilla", "oud", "amber", "musk", "jasmine", "sandalwood",
+        "caramel", "coffee", "chocolate", "bergamot", "lavender", "patchouli",
+        "tonka", "saffron", "cinnamon", "pear", "peach", "coconut", "iris",
+    }
+    bonus = 4.0 * len(inter & important)
+    ca = {str(c).lower() for c in (a.get("category") or [])}
+    cb = {str(c).lower() for c in (b.get("category") or [])}
+    cat_bonus = 6.0 * len(ca & cb)
+    score = 100.0 * jacc + bonus + cat_bonus
+    return round(min(100.0, score), 1)
+
+
+def find_similar_fragrances(
+    base_name: str,
+    n: int = 5,
+    gender: str = "Any",
+    min_score: float = 12.0,
+) -> list:
+    """Return top similar vault bottles by notes (and categories)."""
+    db = list(st.session_state.get("fragrances_db") or [])
+    base = None
+    for f in db:
+        if (f.get("name") or "").strip().lower() == (base_name or "").strip().lower():
+            base = f
+            break
+    if not base:
+        try:
+            base = resolve_frag_by_name(base_name)
+        except Exception:
+            base = None
+    if not base:
+        return []
+    scored = []
+    for f in db:
+        if gender and gender != "Any":
+            try:
+                if not matches_gender(f, gender):
+                    continue
+            except Exception:
+                pass
+        s = note_similarity(base, f)
+        if s >= min_score:
+            shared = sorted(_note_tokens(base) & _note_tokens(f))
+            scored.append((s, f, shared))
+    scored.sort(key=lambda x: (-x[0], (x[1].get("name") or "").lower()))
+    out = []
+    for s, f, shared in scored[:n]:
+        out.append({"frag": f, "score": s, "shared": shared[:12]})
+    return out
+
+
+
+
 # Note families that play well / clash when layering
 _NOTE_SYNERGY = [
     ({"vanilla", "caramel", "tonka", "praline", "marshmallow", "sugar"}, 8),
@@ -10742,6 +10816,81 @@ with tab_discover:
                         ):
                             st.session_state["layer_base_name"] = f.get("name")
                             st.info(f"Base set to **{f.get('name')}** — open the Layer tab.")
+
+
+    # --- Similar by notes ---
+    with st.expander("Similar by notes", expanded=False):
+        st.caption(
+            "Pick a bottle you like — get vault matches that share notes and categories. "
+            "Useful for backups, twins, and layer partners."
+        )
+        all_names = sorted(
+            f.get("name") or ""
+            for f in (st.session_state.get("fragrances_db") or [])
+            if f.get("name")
+        )
+        if not all_names:
+            st.info("Vault is empty.")
+        else:
+            sc1, sc2, sc3 = st.columns([2, 1, 1])
+            with sc1:
+                sim_base = st.selectbox(
+                    "Fragrance",
+                    all_names,
+                    key="similar_base_pick",
+                )
+            with sc2:
+                sim_gender = st.selectbox(
+                    "Gender",
+                    ["Any", "Female", "Unisex", "Male"],
+                    key="similar_gender",
+                )
+            with sc3:
+                sim_n = st.selectbox(
+                    "How many",
+                    [3, 5, 8, 10],
+                    index=1,
+                    key="similar_count",
+                )
+            if st.button("Find similar", type="primary", key="similar_go"):
+                st.session_state["_similar_results"] = find_similar_fragrances(
+                    sim_base, n=int(sim_n), gender=sim_gender
+                )
+                st.session_state["_similar_base"] = sim_base
+            results = st.session_state.get("_similar_results") or []
+            base_shown = st.session_state.get("_similar_base") or sim_base
+            if results:
+                st.markdown(f"Similar to **{base_shown}**")
+                for i, row in enumerate(results, 1):
+                    f = row["frag"]
+                    shared = ", ".join(row.get("shared") or []) or "categories mainly"
+                    st.markdown(
+                        f"**{i}. {f.get('name')}** — *{f.get('brand') or '?'}* "
+                        f"· match **{row['score']}** · {f.get('gender') or '?'}"
+                    )
+                    st.caption(
+                        f"Season: {f.get('season') or '?'} · Shared: {shared}"
+                    )
+                    if f.get("notes"):
+                        try:
+                            st.caption(format_notes_for_display(f.get("notes"))[:240])
+                        except Exception:
+                            st.caption(str(f.get("notes"))[:200])
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button("Log SOTD", key=f"sim_sotd_{i}_{f.get('name')}"):
+                            try:
+                                log_sotd_immediate([f.get("name")], notes=f"Similar to {base_shown}")
+                                st.rerun()
+                            except Exception as ex:
+                                st.warning(str(ex))
+                    with b2:
+                        if st.button("Layer with base", key=f"sim_layer_{i}_{f.get('name')}"):
+                            st.session_state["layer_base_name"] = base_shown
+                            st.session_state["_layer_partner_preselect"] = f.get("name")
+                            st.info(f"Open **Layer** — base **{base_shown}**, try with **{f.get('name')}**.")
+            elif st.session_state.get("_similar_base"):
+                st.info("No close note matches with that filter — try Gender: Any.")
 
     # --- Top 5 by calendar season + gender ---
     with st.expander("Top 5 by season", expanded=True):
