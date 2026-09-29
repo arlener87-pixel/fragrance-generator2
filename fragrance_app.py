@@ -6885,23 +6885,79 @@ def resolve_frag_by_name(name: str):
 
 
 def recipe_season_label(bottles: list) -> str:
-    """Best-effort season tag from bottles in a recipe."""
-    db = { (f.get("name") or ""): f for f in (st.session_state.get("fragrances_db") or []) }
-    seasons = []
+    """Best-effort season tag from bottles in a recipe (deduped tokens)."""
+    db = {(f.get("name") or ""): f for f in (st.session_state.get("fragrances_db") or [])}
+    token_order = []
+    seen = set()
     for n in bottles or []:
         f = db.get(n) or resolve_frag_by_name(str(n))
         if not f:
             continue
         s = normalize_season_label(f.get("season") or "")
-        if s and s not in seasons:
-            seasons.append(s)
-    if not seasons:
+        if not s:
+            continue
+        for part in re.split(r"[,/]|\band\b", s, flags=re.I):
+            p = part.strip().title()
+            if not p:
+                continue
+            if p.lower() in ("autumn",):
+                p = "Fall"
+            key = p.lower()
+            if key not in seen and key not in ("versatile", "any", "all"):
+                seen.add(key)
+                token_order.append(p)
+    if not token_order:
         return "Versatile"
-    if len(seasons) == 1:
-        return seasons[0]
-    # Prefer combined familiar labels
-    joined = ", ".join(seasons[:3])
-    return joined
+    # Stable calendar order
+    rank = {"Spring": 0, "Summer": 1, "Fall": 2, "Winter": 3}
+    token_order.sort(key=lambda x: rank.get(x, 9))
+    return ", ".join(token_order)
+
+
+def recipe_desert_band(season_label: str) -> str:
+    """Map a recipe season string to one High Desert wear band."""
+    s = (season_label or "").lower()
+    has_su = "summer" in s
+    has_sp = "spring" in s
+    has_fa = "fall" in s or "autumn" in s
+    has_wi = "winter" in s
+    if has_su and not (has_fa or has_wi):
+        return "Hot days"
+    if has_sp and not (has_fa or has_wi):
+        return "Mild / Spring"
+    if has_fa and not has_wi:
+        return "Cool / Fall"
+    if has_wi:
+        return "Cold nights"
+    if has_fa:
+        return "Cool / Fall"
+    if has_su or has_sp:
+        return "Mild / Spring"
+    return "Any / flexible"
+
+
+def recipe_occasion_guess(recipe: dict, bottles: list) -> str:
+    """Light occasion tag from score / notes / stored field."""
+    stored = (recipe.get("occasion") or "").strip()
+    if stored:
+        return stored
+    # Infer from bottle categories
+    db = {(f.get("name") or "").lower(): f for f in (st.session_state.get("fragrances_db") or [])}
+    cats = set()
+    for n in bottles or []:
+        f = db.get(str(n).lower())
+        if f:
+            for c in f.get("category") or []:
+                cats.add(str(c).lower())
+    if cats & {"oud", "boozy", "oriental", "amber"} and cats & {"gourmand", "sweet", "vanilla"}:
+        return "Evening"
+    if cats & {"fresh", "citrus", "aquatic", "green"} and not (cats & {"gourmand", "oud"}):
+        return "Daily"
+    if cats & {"floral", "fruity"} and cats & {"sweet", "gourmand", "vanilla"}:
+        return "Date night"
+    if cats & {"floral", "powdery", "musky", "fresh"}:
+        return "Work"
+    return "Daily"
 
 
 def recipe_layer_rating(bottles: list) -> dict:
@@ -12864,225 +12920,279 @@ with tab_recipes:
             else:
                 st.info("No names changed (already matched or no note data).")
             st.rerun()
-        rf1, rf2 = st.columns([2, 1])
+        # ----- Organize: High Desert season + occasion + sort -----
+        st.markdown("#### Browse recipes")
+        st.caption(
+            "Grouped by **High Desert** season. Filter by occasion, search by name/bottle, "
+            "sort by score."
+        )
+        rf1, rf2, rf3 = st.columns([2, 1, 1])
         with rf1:
-            filt = st.text_input("Filter recipes", placeholder="Name or bottle...", key="recipes_filter")
+            filt = st.text_input(
+                "Filter recipes",
+                placeholder="Name or bottle...",
+                key="recipes_filter",
+            )
         with rf2:
             season_filter = st.selectbox(
                 "Season",
                 [
                     "Any",
-                    "Spring",
-                    "Summer",
-                    "Fall",
-                    "Winter",
-                    "Spring, Summer",
-                    "Fall, Winter",
-                    "Versatile",
+                    "Hot days",
+                    "Mild / Spring",
+                    "Cool / Fall",
+                    "Cold nights",
+                    "Any / flexible",
                 ],
                 key="recipes_season_filter",
             )
+        with rf3:
+            occ_filter = st.selectbox(
+                "Occasion",
+                ["Any", "Daily", "Date night", "Work", "Evening"],
+                key="recipes_occasion_filter",
+            )
+        sort_by = st.selectbox(
+            "Sort by",
+            ["Score (high → low)", "Name A–Z", "Newest first"],
+            key="recipes_sort_by",
+        )
+
+        # Normalize + filter
         show = []
         fl = (filt or "").strip().lower()
-        sf = (season_filter or "Any").strip()
         for r in recipes:
             bottles = list(r.get("bottles") or r.get("names") or [])
-            season = (r.get("season") or recipe_season_label(bottles) or "").strip()
-            if sf and sf != "Any":
-                season_l = season.lower()
-                sf_l = sf.lower()
-                # Match exact or overlapping season words (e.g. Fall in "Fall, Winter")
-                if sf_l == "versatile":
-                    if season_l not in ("versatile", "any", "all", ""):
-                        # still allow empty as versatile
-                        if season_l and "versatile" not in season_l:
-                            continue
-                else:
-                    tokens = [t.strip() for t in sf_l.replace("/", ",").split(",") if t.strip()]
-                    season_tokens = [t.strip() for t in season_l.replace("/", ",").split(",") if t.strip()]
-                    if tokens and not any(t in season_l or t in season_tokens for t in tokens):
-                        continue
+            season_raw = (r.get("season") or "").strip()
+            season = recipe_season_label(bottles) if not season_raw else recipe_season_label(bottles)
+            # Prefer live label (deduped) over stale stored string
+            season = recipe_season_label(bottles) or season_raw or "Versatile"
+            band = recipe_desert_band(season)
+            occasion = recipe_occasion_guess(r, bottles)
+            rating = recipe_layer_rating(bottles)
+            score = int(rating.get("score") or r.get("score") or 0)
+
+            if season_filter and season_filter != "Any":
+                if band != season_filter:
+                    continue
+            if occ_filter and occ_filter != "Any":
+                if occasion.lower() != occ_filter.lower():
+                    continue
             if fl:
-                blob = " ".join([
-                    str(r.get("name") or ""),
-                    " ".join(str(b) for b in bottles),
-                    season,
-                ]).lower()
+                blob = " ".join(
+                    [
+                        str(r.get("name") or ""),
+                        " ".join(str(b) for b in bottles),
+                        season,
+                        occasion,
+                    ]
+                ).lower()
                 if fl not in blob:
                     continue
-            show.append(r)
+            show.append(
+                {
+                    "r": r,
+                    "bottles": bottles,
+                    "season": season,
+                    "band": band,
+                    "occasion": occasion,
+                    "score": score,
+                    "rating": rating,
+                }
+            )
+
+        if sort_by.startswith("Score"):
+            show.sort(key=lambda x: (-x["score"], (x["r"].get("name") or "").lower()))
+        elif sort_by.startswith("Name"):
+            show.sort(key=lambda x: (x["r"].get("name") or "").lower())
+        else:
+            # Newest first — list order is usually newest at end or start; reverse original index
+            show = list(reversed(show))
+
         if not show:
             st.warning("No recipes match that filter.")
-        for ri, r in enumerate(show):
-            bottles = list(r.get("bottles") or r.get("names") or [])
-            nm = r.get("name") or (" + ".join(bottles) if bottles else "Recipe")
-            gender = r.get("gender") or ""
-            season = r.get("season") or recipe_season_label(bottles)
-            rating = recipe_layer_rating(bottles)
-            score = rating.get("score") or 0
-            st.markdown(f"### {nm}")
-            meta_bits = []
-            if gender:
-                meta_bits.append(str(gender))
-            meta_bits.append(f"Season: **{season}**")
-            st.caption(" · ".join(meta_bits))
-            st.write("Bottles: **" + " + ".join(str(b) for b in bottles) + "**")
-            if score >= 75:
-                st.success(f"Layer rating: **{score}/100**")
-            elif score > 0:
-                st.warning(f"Layer rating: **{score}/100** — skin-test first")
-            else:
-                st.caption("Layer rating: n/a (need 2+ bottles in vault)")
-            if rating.get("formula"):
-                st.caption(
-                    "Pyramid: "
-                    + str(rating.get("formula_explain")
-                    or "Layering Score=(Top×0.5)+(Middle×1.5)+(Base×3.0)+Density")
-                    + " → "
-                    + str(rating.get("formula"))
-                )
-            # Spray instructions (Recipes tab)
-            _app = r.get("application") or {}
-            _steps = list(_app.get("steps") or [])
-            _order = list(r.get("spray_order") or rating.get("spray_order") or bottles or [])
-            # Live-fill guide if older recipes lack application steps
-            if not _steps and len(bottles) >= 2:
-                try:
-                    _live = evaluate_layer_recipe_cached(list(bottles))
-                    _app = _live.get("application") or _app
-                    _steps = list((_app or {}).get("steps") or [])
-                    _order = list(_live.get("spray_order") or _order)
-                except Exception:
-                    pass
-            st.markdown("**How to spray** (heavy → light)")
-            if _steps:
-                for s in _steps:
-                    line1 = (
-                        str(s.get("order", "?"))
-                        + ". **"
-                        + str(s.get("name") or "")
-                        + "** — "
-                        + str(s.get("sprays", 1))
-                        + " spray(s), "
-                        + str(s.get("role") or "")
-                    )
-                    where = str(s.get("where") or "").strip()
-                    if where:
-                        st.markdown(line1 + "  \n" + where)
-                    else:
-                        st.markdown(line1)
-                for t in (_app.get("tips") or [])[:2]:
-                    st.caption("Tip: " + str(t))
-            elif _order:
-                st.markdown(" → ".join(f"**{x}**" for x in _order))
-                st.caption("Apply heaviest first on skin; wait 30–60s; lighter on top.")
-            else:
-                st.caption("Save again from Layer to attach spray steps.")
-            if r.get("notes"):
-                st.caption(str(r.get("notes"))[:220])
-            _trk = abs(hash(tuple(list(bottles)) + (str(nm),))) % 10_000_000
-            c1, c2, c3, c4, c5 = st.columns(5)
-            with c1:
-                if st.button("Add to SOTD", key=f"recipe_sotd_{ri}_{_trk}", type="primary"):
-                    try:
-                        send_to_sotd(list(bottles), notes=nm)
-                    except Exception:
-                        try:
-                            log_sotd_immediate(list(bottles), notes=nm)
-                        except Exception as e:
-                            st.error(str(e))
-                    else:
-                        st.success(f"Logged SOTD: **{nm}**")
-                        st.rerun()
-            with c2:
-                if st.button("Rename", key=f"recipe_rn_btn_{ri}_{_trk}"):
-                    st.session_state[f"_renaming_recipe_{_trk}"] = True
-                    try:
-                        st.session_state[f"_rename_recipe_val_{_trk}"] = suggest_recipe_name_from_notes(
-                            list(bottles), randomize=False
-                        )
-                    except Exception:
-                        st.session_state[f"_rename_recipe_val_{_trk}"] = nm or "Untitled layer"
-                    st.rerun()
-            with c3:
-                if st.button("Layer check", key=f"recipe_layer_{ri}_{_trk}"):
-                    st.session_state["_pending_layer_pick"] = list(bottles)
-                    st.session_state["_locked_layer_pair"] = list(bottles)
-                    st.session_state["_locked_recipe_name"] = nm
-                    try:
-                        ev = evaluate_layer_recipe_cached(list(bottles))
-                        ev["selected_names"] = list(bottles)
-                        ev["suggested_name"] = nm
-                        st.session_state["last_layer_check"] = ev
-                    except Exception:
-                        pass
-                    st.success("Open the **Layer** tab.")
-                    st.rerun()
-            with c4:
-                if st.button("Refresh rating", key=f"recipe_rate_{ri}_{_trk}"):
-                    st.rerun()
-            with c5:
-                if st.button("Delete", key=f"recipe_del_{ri}_{_trk}"):
-                    full = list(st.session_state.get("layer_recipes") or [])
-                    target_key = (nm, tuple(bottles))
-                    new_full = []
-                    removed = False
-                    for item in full:
-                        ib = list(item.get("bottles") or item.get("names") or [])
-                        iname = item.get("name") or ""
-                        if not removed and (iname, tuple(ib)) == target_key:
-                            removed = True
-                            continue
-                        new_full.append(item)
-                    st.session_state["layer_recipes"] = new_full
-                    mark_vault_dirty()
-                    save_persisted_data()
-                    st.rerun()
+        else:
+            st.caption(f"**{len(show)}** recipe(s) match.")
 
-            if st.session_state.get(f"_renaming_recipe_{_trk}"):
-                suggested = st.session_state.get(f"_rename_recipe_val_{_trk}") or nm
-                new_name = st.text_input(
-                    "New name (from notes)",
-                    value=suggested,
-                    key=f"recipe_rename_input_{ri}_{_trk}",
-                    help="Suggested from notes on the bottles. Edit or re-roll.",
-                )
-                rn1, rn2, rn3 = st.columns(3)
-                with rn1:
-                    if st.button("Save name", key=f"recipe_rename_save_{ri}_{_trk}", type="primary"):
-                        clean = (new_name or "").strip() or suggested
-                        full = list(st.session_state.get("layer_recipes") or [])
-                        target_key = (nm, tuple(bottles))
-                        for j, item in enumerate(full):
-                            ib = list(item.get("bottles") or item.get("names") or [])
-                            iname = item.get("name") or ""
-                            if (iname, tuple(ib)) == target_key:
-                                full[j]["name"] = clean
-                                break
-                        st.session_state["layer_recipes"] = full
-                        st.session_state.pop(f"_renaming_recipe_{_trk}", None)
-                        st.session_state.pop(f"_rename_recipe_val_{_trk}", None)
-                        mark_vault_dirty()
-                        save_persisted_data()
-                        st.success(f"Renamed → **{clean}**")
-                        st.rerun()
-                with rn2:
-                    if st.button("Suggest from notes", key=f"recipe_rename_sug_{ri}_{_trk}"):
-                        try:
-                            st.session_state[f"_rename_recipe_val_{_trk}"] = suggest_recipe_name_from_notes(
-                                list(bottles), randomize=True
+        # Group by High Desert band
+        band_order = [
+            "Hot days",
+            "Mild / Spring",
+            "Cool / Fall",
+            "Cold nights",
+            "Any / flexible",
+        ]
+        grouped = {b: [] for b in band_order}
+        for item in show:
+            grouped.setdefault(item["band"], []).append(item)
+
+        for band in band_order:
+            items = grouped.get(band) or []
+            if not items:
+                continue
+            with st.expander(f"{band} — {len(items)} recipe(s)", expanded=(band != "Any / flexible")):
+                for ri, item in enumerate(items):
+                    r = item["r"]
+                    bottles = item["bottles"]
+                    nm = r.get("name") or (" + ".join(bottles) if bottles else "Recipe")
+                    gender = r.get("gender") or ""
+                    season = item["season"]
+                    occasion = item["occasion"]
+                    rating = item["rating"]
+                    score = item["score"]
+                    _trk = abs(hash((nm, tuple(bottles), band, ri))) % 10_000_000
+
+                    st.markdown(f"### {nm}")
+                    meta_bits = []
+                    if gender:
+                        meta_bits.append(str(gender))
+                    meta_bits.append(f"Season: **{season}**")
+                    meta_bits.append(f"Wear: **{band}**")
+                    meta_bits.append(f"Occasion: **{occasion}**")
+                    st.caption(" · ".join(meta_bits))
+                    st.write("Bottles: **" + " + ".join(str(b) for b in bottles) + "**")
+                    if score >= 75:
+                        st.success(f"Layer rating: **{score}/100**")
+                    elif score > 0:
+                        st.warning(f"Layer rating: **{score}/100** — skin-test first")
+                    else:
+                        st.caption("Layer rating: n/a (need 2+ bottles in vault)")
+                    if rating.get("formula"):
+                        st.caption(
+                            "Pyramid: "
+                            + str(
+                                rating.get("formula_explain")
+                                or "Layering Score=(Top×0.5)+(Middle×1.5)+(Base×3.0)+Density"
                             )
+                            + " → "
+                            + str(rating.get("formula"))
+                        )
+
+                    _app = r.get("application") or {}
+                    _steps = list(_app.get("steps") or [])
+                    _order = list(r.get("spray_order") or rating.get("spray_order") or bottles or [])
+                    if not _steps and len(bottles) >= 2:
+                        try:
+                            _live = evaluate_layer_recipe_cached(list(bottles))
+                            _app = _live.get("application") or _app
+                            _steps = list((_app or {}).get("steps") or [])
+                            _order = list(_live.get("spray_order") or _order)
                         except Exception:
                             pass
-                        st.rerun()
-                with rn3:
-                    if st.button("Cancel", key=f"recipe_rename_cancel_{ri}_{_trk}"):
-                        st.session_state.pop(f"_renaming_recipe_{_trk}", None)
-                        st.session_state.pop(f"_rename_recipe_val_{_trk}", None)
-                        st.rerun()
+                    st.markdown("**How to spray** (heavy → light)")
+                    if _steps:
+                        for s in _steps:
+                            st.caption(
+                                str(s.get("order", "?"))
+                                + ". **"
+                                + str(s.get("name") or "")
+                                + "** — "
+                                + str(s.get("sprays", 1))
+                                + " spray(s), "
+                                + str(s.get("role") or "")
+                                + ". "
+                                + str(s.get("where") or "")
+                            )
+                    elif _order:
+                        st.caption(" → ".join(str(x) for x in _order))
+                    else:
+                        st.caption("Save from Layer check to store spray steps.")
 
-            st.markdown("---")
+                    bc1, bc2, bc3 = st.columns(3)
+                    with bc1:
+                        if st.button("Log SOTD", key=f"recipe_sotd_{_trk}"):
+                            try:
+                                log_sotd_immediate(
+                                    list(bottles),
+                                    notes=f"Recipe: {nm}",
+                                )
+                                st.rerun()
+                            except Exception as ex:
+                                st.warning(str(ex))
+                    with bc2:
+                        if st.button("Rename", key=f"recipe_rename_{_trk}"):
+                            st.session_state[f"_renaming_recipe_{_trk}"] = True
+                            try:
+                                st.session_state[f"_rename_recipe_val_{_trk}"] = (
+                                    suggest_recipe_name_from_notes(list(bottles), randomize=False)
+                                    or nm
+                                )
+                            except Exception:
+                                st.session_state[f"_rename_recipe_val_{_trk}"] = nm
+                            st.rerun()
+                    with bc3:
+                        if st.button("Delete", key=f"recipe_del_{_trk}"):
+                            full = list(st.session_state.get("layer_recipes") or [])
+                            target = (nm, tuple(bottles))
+                            st.session_state["layer_recipes"] = [
+                                item2
+                                for item2 in full
+                                if (
+                                    (item2.get("name") or ""),
+                                    tuple(item2.get("bottles") or item2.get("names") or []),
+                                )
+                                != target
+                            ]
+                            mark_vault_dirty()
+                            save_persisted_data()
+                            st.rerun()
 
+                    if st.session_state.get(f"_renaming_recipe_{_trk}"):
+                        suggested = st.session_state.get(f"_rename_recipe_val_{_trk}") or nm
+                        new_name = st.text_input(
+                            "New name (from notes)",
+                            value=suggested,
+                            key=f"recipe_rename_input_{ri}_{_trk}",
+                            help="Suggested from notes on the bottles. Edit or re-roll.",
+                        )
+                        rn1, rn2, rn3 = st.columns(3)
+                        with rn1:
+                            if st.button(
+                                "Save name",
+                                key=f"recipe_rename_save_{ri}_{_trk}",
+                                type="primary",
+                            ):
+                                clean = (new_name or "").strip() or suggested
+                                full = list(st.session_state.get("layer_recipes") or [])
+                                target_key = (nm, tuple(bottles))
+                                for j, item2 in enumerate(full):
+                                    ib = list(item2.get("bottles") or item2.get("names") or [])
+                                    iname = item2.get("name") or ""
+                                    if (iname, tuple(ib)) == target_key:
+                                        full[j]["name"] = clean
+                                        full[j]["season"] = season  # store cleaned season
+                                        break
+                                st.session_state["layer_recipes"] = full
+                                st.session_state.pop(f"_renaming_recipe_{_trk}", None)
+                                st.session_state.pop(f"_rename_recipe_val_{_trk}", None)
+                                mark_vault_dirty()
+                                save_persisted_data()
+                                st.success(f"Renamed → **{clean}**")
+                                st.rerun()
+                        with rn2:
+                            if st.button(
+                                "Suggest from notes",
+                                key=f"recipe_rename_sug_{ri}_{_trk}",
+                            ):
+                                try:
+                                    st.session_state[f"_rename_recipe_val_{_trk}"] = (
+                                        suggest_recipe_name_from_notes(
+                                            list(bottles), randomize=True
+                                        )
+                                    )
+                                except Exception:
+                                    pass
+                                st.rerun()
+                        with rn3:
+                            if st.button(
+                                "Cancel",
+                                key=f"recipe_rename_cancel_{ri}_{_trk}",
+                            ):
+                                st.session_state.pop(f"_renaming_recipe_{_trk}", None)
+                                st.session_state.pop(f"_rename_recipe_val_{_trk}", None)
+                                st.rerun()
+
+                    st.markdown("---")
 
 with tab_try:
     st.subheader("Try list")
