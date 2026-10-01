@@ -8584,16 +8584,80 @@ def season_family_summary() -> dict:
 
 
 
-def get_wear_counts() -> dict:
-    """Count how many times each fragrance appears in SOTD history."""
+def get_wear_counts(month: str = None, year: int = None) -> dict:
+    """Count how many times each fragrance appears in SOTD history.
+
+    month: optional "YYYY-MM" or "All time".
+    """
     counts = {}
+    prefix = None
+    if month is not None and str(month).strip() and str(month).strip() != "All time":
+        m = str(month).strip()
+        if re.match(r"^\d{4}-\d{2}$", m):
+            prefix = m
+        else:
+            try:
+                mnum = int(m)
+                if year is None:
+                    year = pacific_today().year
+                prefix = f"{int(year):04d}-{int(mnum):02d}"
+            except Exception:
+                prefix = None
     for entry in st.session_state.get("sotd_history", []):
+        d = str(entry.get("date") or "")[:10]
+        if prefix and not d.startswith(prefix):
+            continue
         scents = entry.get("scents") or []
         if not scents and entry.get("scent"):
-            scents = [p.strip() for p in entry["scent"].split(" + ")]
+            scents = [p.strip() for p in str(entry["scent"]).split(" + ") if p.strip()]
         for s in scents:
+            s = str(s).strip()
+            if not s:
+                continue
             counts[s] = counts.get(s, 0) + 1
     return counts
+
+
+def list_sotd_months() -> list:
+    """Distinct YYYY-MM months in SOTD history, newest first."""
+    months = set()
+    for entry in st.session_state.get("sotd_history", []):
+        d = str(entry.get("date") or "")[:7]
+        if re.match(r"^\d{4}-\d{2}$", d):
+            months.add(d)
+    try:
+        months.add(pacific_today().strftime("%Y-%m"))
+    except Exception:
+        pass
+    return sorted(months, reverse=True)
+
+
+def monthly_wear_tally(month: str = None) -> dict:
+    """Structured monthly (or all-time) wear tally from SOTD logs."""
+    if not month or month == "All time":
+        month_key = None
+    else:
+        month_key = str(month).strip()
+    counts = get_wear_counts(month=month_key)
+    total = sum(counts.values())
+    unique = len(counts)
+    days = set()
+    prefix = month_key if month_key and re.match(r"^\d{4}-\d{2}$", month_key) else None
+    for entry in st.session_state.get("sotd_history", []):
+        d = str(entry.get("date") or "")[:10]
+        if prefix and not d.startswith(prefix):
+            continue
+        if len(d) >= 10:
+            days.add(d[:10])
+    ranked = sorted(counts.items(), key=lambda x: (-x[1], x[0].lower()))
+    return {
+        "month": month_key or "All time",
+        "counts": counts,
+        "ranked": ranked,
+        "total_wears": total,
+        "unique_bottles": unique,
+        "days_logged": len(days),
+    }
 
 
 
@@ -13441,6 +13505,55 @@ with tab_sotd:
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
     if _ready2:
         st.success(_ready2)
+
+    # ----- Monthly wear tally (from SOTD logs) -----
+    with st.expander("Wear tally (this month)", expanded=True):
+        st.caption(
+            "Counts every bottle logged in **SOTD** (layered combos count each bottle). "
+            "Pick a month to see the leaderboard."
+        )
+        _months = list_sotd_months()
+        _month_opts = ["All time"] + _months
+        # Default to current month when available
+        try:
+            _cur_m = pacific_today().strftime("%Y-%m")
+            _default_i = _month_opts.index(_cur_m) if _cur_m in _month_opts else 0
+        except Exception:
+            _default_i = 0
+        tally_month = st.selectbox(
+            "Month",
+            _month_opts,
+            index=min(_default_i, len(_month_opts) - 1),
+            key="wear_tally_month",
+        )
+        tally = monthly_wear_tally(None if tally_month == "All time" else tally_month)
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Bottle wears", tally["total_wears"])
+        m2.metric("Unique bottles", tally["unique_bottles"])
+        m3.metric("Days logged", tally["days_logged"])
+        ranked = tally.get("ranked") or []
+        if not ranked:
+            st.info("No SOTD logs for this period yet — log today’s scent to start the tally.")
+        else:
+            st.markdown("**Most worn**")
+            for i, (name, cnt) in enumerate(ranked[:25], 1):
+                bar = "●" * min(cnt, 12)
+                st.write(f"{i}. **{name}** — **{cnt}**×  {bar}")
+            if len(ranked) > 25:
+                st.caption(f"…and {len(ranked) - 25} more")
+            # Download CSV-ish text
+            lines = [f"Wear tally — {tally['month']}", f"Total wears,{tally['total_wears']}", ""]
+            lines.append("Rank,Fragrance,Times worn")
+            for i, (name, cnt) in enumerate(ranked, 1):
+                lines.append(f"{i},{name},{cnt}")
+            st.download_button(
+                "Download tally",
+                data=chr(10).join(lines),
+                file_name=f"wear_tally_{str(tally['month']).replace(' ', '_')}.txt",
+                mime="text/plain",
+                key="wear_tally_dl",
+            )
+
     all_frag_names = sorted(f["name"] for f in st.session_state["fragrances_db"])
 
     # Clear form on next run AFTER log (must happen before widgets are created)
