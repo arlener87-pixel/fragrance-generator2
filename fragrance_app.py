@@ -6117,18 +6117,17 @@ def layering_score_pyramid(f1: dict, f2: dict) -> dict:
         mid_n = len(shared) * 0.7
         base_n = len(shared) * 0.3
 
-    # Soft family bridges (vanilla family, floral family, etc.)
-    fam_hits = _family_bridge_score(all1, all2)
-    # Distribute family bridges into middle/base weights
-    mid_n += fam_hits * 0.6
-    base_n += fam_hits * 0.8
+    # Soft family bridges (vanilla, floral, etc.) — capped so loose matches ≠ 100
+    fam_hits = min(3.0, _family_bridge_score(all1, all2))
+    mid_n += fam_hits * 0.35
+    base_n += fam_hits * 0.45
 
     # Category family synergy
     cats1 = {str(c) for c in (f1.get("category") or [])}
     cats2 = {str(c) for c in (f2.get("category") or [])}
     cat_bonus = 0.0
     if cats1 & cats2:
-        cat_bonus += 2.5 * len(cats1 & cats2)
+        cat_bonus += min(6.0, 1.8 * len(cats1 & cats2))
     for a, b in (
         ("Gourmand", "Vanilla"), ("Gourmand", "Sweet"), ("Gourmand", "Floral"),
         ("Gourmand", "Fruity"), ("Vanilla", "Floral"), ("Vanilla", "Woody"),
@@ -6137,7 +6136,8 @@ def layering_score_pyramid(f1: dict, f2: dict) -> dict:
         ("Creamy", "Fruity"), ("Creamy", "Vanilla"),
     ):
         if (a in cats1 and b in cats2) or (b in cats1 and a in cats2):
-            cat_bonus += 2.0
+            cat_bonus += 1.2
+    cat_bonus = min(8.0, cat_bonus)
 
     dens = density_modifier(f1) + density_modifier(f2)
     w1 = fragrance_weight_score(f1)
@@ -6154,11 +6154,68 @@ def layering_score_pyramid(f1: dict, f2: dict) -> dict:
 
     dens += cat_bonus
 
+    # Clash / mud penalties — two heavy same-lane bottles are not auto-100
+    clash = 0.0
+    heavy_gourmands = (
+        ("Gourmand" in cats1 or "Sweet" in cats1)
+        and ("Gourmand" in cats2 or "Sweet" in cats2)
+        and w1 >= 70
+        and w2 >= 70
+    )
+    if heavy_gourmands and gap < 10:
+        clash += 6.0  # both dense sweets with no weight contrast
+    # Oud + bright citrus/fresh often fights
+    oudish = "oud" in (str(all1) + str(all2)) or "Oud" in cats1 or "Oud" in cats2
+    bright = bool({"Fresh", "Citrus", "Aquatic"} & (cats1 | cats2))
+    if oudish and bright and not ({"Floral", "Amber", "Oriental"} & (cats1 & cats2)):
+        clash += 4.0
+    # Near-identical note sets → good twin, weaker *layer* (less progression)
+    if all1 and all2:
+        jacc = len(all1 & all2) / max(1, len(all1 | all2))
+        if jacc >= 0.75:
+            clash += 5.0
+        elif jacc >= 0.55 and gap < 8:
+            clash += 2.5
+    # No real shared or complementary structure
+    structure = top_n + mid_n + base_n
+    if structure < 1.0 and fam_hits < 1:
+        clash += 8.0
+    elif structure < 2.0 and cat_bonus < 2:
+        clash += 3.0
+
+    dens -= clash
+
     raw = (top_n * 0.5) + (mid_n * 1.5) + (base_n * 3.0) + dens
 
-    # Calibrated display: solid pairs ~70-90, excellent ~90-100
-    # Baseline 58 for any filtered partner + scaled formula contribution
-    display = int(max(0, min(100, round(58 + raw * 2.8))))
+    # Tighter display curve — 100 should be rare
+    # Approximate bands from raw:
+    #   weak < 4  → ~45-58
+    #   ok 4-10   → ~60-72
+    #   good 10-18 → ~74-86
+    #   excellent 18-28 → ~88-95
+    #   elite 28+ → ~96-99 (100 only if truly stacked)
+    if raw <= 0:
+        display = 42
+    elif raw < 4:
+        display = 48 + raw * 2.5
+    elif raw < 10:
+        display = 58 + (raw - 4) * 2.2
+    elif raw < 18:
+        display = 71 + (raw - 10) * 1.9
+    elif raw < 28:
+        display = 86 + (raw - 18) * 0.9
+    else:
+        display = 95 + min(4.5, (raw - 28) * 0.25)
+    display = int(max(35, min(99, round(display))))
+    # Reserve 100 for exceptional: strong base bridge + contrast + low clash
+    if (
+        raw >= 30
+        and base_n >= 3.0
+        and gap >= 12
+        and clash <= 1.0
+        and structure >= 6.0
+    ):
+        display = 100
 
     formula = (
         f"({top_n:.1f}×0.5)+({mid_n:.1f}×1.5)+({base_n:.1f}×3.0)"
@@ -6171,6 +6228,7 @@ def layering_score_pyramid(f1: dict, f2: dict) -> dict:
         "middle": round(mid_n, 2),
         "base": round(base_n, 2),
         "density_mod": round(dens, 2),
+        "clash": round(clash, 2),
         "formula": formula,
         "shared_top": sorted(shared_top)[:8],
         "shared_middle": sorted(shared_mid)[:8],
@@ -12074,15 +12132,19 @@ with tab_layer:
                         if include_unisex and layer_partner_gender in ("Male", "Female")
                         else ""
                     )
+                    top5 = list(partners[:5])
+                    rest = list(partners[5:])
                     st.markdown(
-                        f"**Top {len(partners)} layering partners for {base_name}** "
-                        f"(ranked by pyramid score · gender: {layer_partner_gender}{uni_note}"
-                        f" | season: {layer_partner_season})"
+                        f"### Top {len(top5)} best layers for **{base_name}**"
                     )
                     st.caption(
-                        "Layering Score = (Top×0.5)+(Middle×1.5)+(Base×3.0)+Density Modifier"
+                        f"Ranked by pyramid score · gender: {layer_partner_gender}{uni_note}"
+                        f" | season: {layer_partner_season} · "
+                        "Layering Score = (Top×0.5)+(Middle×1.5)+(Base×3.0)+Density"
                     )
-                    for pi, item in enumerate(partners, 1):
+                    if not top5:
+                        st.info("No partners matched these filters.")
+                    for pi, item in enumerate(top5, 1):
                         if len(item) >= 3:
                             pf, reason, score = item[0], item[1], item[2]
                         else:
@@ -12203,6 +12265,140 @@ with tab_layer:
                                 except Exception as _e:
                                     st.session_state["_layer_studio_flash"] = f"SOTD failed: {_e}"
                                 st.rerun()
+
+
+
+                    if rest:
+                        with st.expander(
+                            f"More options ({len(rest)}) — still good, a bit less ideal",
+                            expanded=False,
+                        ):
+                            st.caption(
+                                "These ranked lower than the top 5 but can still work — "
+                                "skin-test if the score is under ~75."
+                            )
+                            for pi, item in enumerate(rest, 6):
+                                if len(item) >= 3:
+                                    pf, reason, score = item[0], item[1], item[2]
+                                else:
+                                    pf, reason = item[0], item[1]
+                                    score = None
+                                if score is not None:
+                                    sc = int(round(float(score)))
+                                    if sc >= 90:
+                                        match_lbl = f"#{pi} · {sc}/100 Excellent"
+                                    elif sc >= 80:
+                                        match_lbl = f"#{pi} · {sc}/100 Strong"
+                                    elif sc >= 70:
+                                        match_lbl = f"#{pi} · {sc}/100 Good"
+                                    else:
+                                        match_lbl = f"#{pi} · {sc}/100 Okay"
+                                else:
+                                    match_lbl = f"#{pi}"
+                                _wb = fragrance_weight_score(base_f)
+                                _wp = fragrance_weight_score(pf)
+                                if _wb >= _wp + 8:
+                                    _role = (
+                                        f"Spray: **{base_name}** first (base), "
+                                        f"then **{pf['name']}** (top)"
+                                    )
+                                elif _wp >= _wb + 8:
+                                    _role = (
+                                        f"Spray: **{pf['name']}** first (base), "
+                                        f"then **{base_name}** (top)"
+                                    )
+                                else:
+                                    _role = "Similar weight - light sprays, skin-test order"
+                                # Short family line only (skip duplicate order text in reason)
+                                cats_p = ", ".join((pf.get("category") or [])[:4])
+                                cats_b = ", ".join((base_f.get("category") or [])[:3])
+                                family_line = f"Families: {cats_b} + {cats_p}"
+                                _card = (
+                                    "**" + str(pi) + ". " + str(pf.get("name") or "")
+                                    + "** (" + str(pf.get("brand") or "") + ")"
+                                    + "\n\n" + str(match_lbl)
+                                    + "\n\n" + str(_role)
+                                    + "\n\n" + str(pf.get("gender") or "")
+                                    + " | " + str(pf.get("season") or "?")
+                                    + " | " + cats_p
+                                    + "\n\n" + family_line
+                                )
+                                st.markdown(_card)
+                                _bn = str((base_f or {}).get("name") or base_name or "").strip()
+                                _pn = str((pf or {}).get("name") or "").strip()
+                                _pkey = abs(hash((_bn, _pn, pi))) % 10_000_000
+                                b1, b2, b3, b4 = st.columns(4)
+                                with b1:
+                                    if st.button("Layer check", key=f"layer_base_check_{_pkey}"):
+                                        _pair = [n for n in (_bn, _pn) if n]
+                                        _resolved = []
+                                        for n in _pair:
+                                            rf = resolve_frag_by_name(n)
+                                            _resolved.append(rf.get("name") if rf else n)
+                                        _pair = list(dict.fromkeys(_resolved))
+                                        st.session_state["layer_base_name"] = _bn
+                                        st.session_state["_pending_layer_pick"] = list(_pair)
+                                        st.session_state["_locked_layer_pair"] = list(_pair)
+                                        st.session_state["layer_check_pick"] = list(_pair)
+                                        try:
+                                            _ev = evaluate_layer_recipe(list(_pair))
+                                        except Exception as _e:
+                                            _ev = {"score": 0, "selected_names": list(_pair), "error": str(_e)}
+                                        _ev["selected_names"] = list(_pair)
+                                        _ev["checked_line"] = " + ".join(_pair)
+                                        _ev["spray_order"] = list(_ev.get("spray_order") or _pair)
+                                        st.session_state["last_layer_check"] = _ev
+                                        st.session_state["_open_layer_check"] = True
+                                        st.session_state["_layer_studio_flash"] = (
+                                            f"Layer check ready: **{' + '.join(_pair)}**"
+                                        )
+                                        st.rerun()
+                                with b2:
+                                    if st.button("Try it", key=f"layer_base_try_{_pkey}"):
+                                        _pair = [n for n in (_bn, _pn) if n]
+                                        st.session_state["layer_base_name"] = _bn
+                                        try:
+                                            ok = add_try_recipe(
+                                                f"{_bn} + {_pn}",
+                                                _pair,
+                                                notes="Layer studio partner",
+                                                source="Layer",
+                                            )
+                                            mark_vault_dirty()
+                                            save_persisted_data(force=True)
+                                            st.session_state["_layer_studio_flash"] = (
+                                                f"Added to **Try** list: {_bn} + {_pn}"
+                                                if ok
+                                                else f"Already on Try list: {_bn} + {_pn}"
+                                            )
+                                        except Exception as _e:
+                                            st.session_state["_layer_studio_flash"] = f"Try list failed: {_e}"
+                                        st.rerun()
+                                with b3:
+                                    if st.button("Save recipe", key=f"layer_base_recipe_{_pkey}"):
+                                        st.session_state["layer_base_name"] = _bn
+                                        try:
+                                            result = save_layer_recipe([_bn, _pn])
+                                            msg = result.get("message") or ""
+                                            if result.get("ok"):
+                                                msg = msg + " — open **Recipes** for spray steps."
+                                            st.session_state["_layer_studio_flash"] = msg
+                                            st.session_state["_last_saved_recipe"] = result.get("recipe")
+                                        except Exception as _e:
+                                            st.session_state["_layer_studio_flash"] = f"Save failed: {_e}"
+                                        st.rerun()
+                                with b4:
+                                    if st.button("SOTD", key=f"layer_base_use_{_pkey}"):
+                                        st.session_state["layer_base_name"] = _bn
+                                        try:
+                                            log_sotd_immediate([_bn, _pn], notes="Layer studio")
+                                            st.session_state["_layer_studio_flash"] = (
+                                                f"Logged SOTD: **{_bn} + {_pn}**"
+                                            )
+                                        except Exception as _e:
+                                            st.session_state["_layer_studio_flash"] = f"SOTD failed: {_e}"
+                                        st.rerun()
+
 
 
     # --- Multi-bottle stacks (3+) ---
