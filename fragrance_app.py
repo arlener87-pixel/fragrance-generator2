@@ -4648,6 +4648,69 @@ def matches_weather(fragrance: dict, weather: str) -> bool:
 
 
 
+
+def passes_core_filters(
+    f: dict,
+    gender: str = "Any",
+    weather: str = "Any",
+    *,
+    include_unisex: bool = True,
+    strict_weather: bool = True,
+) -> bool:
+    """Single gate for suggestions across tabs: gender + weather/season."""
+    if not f:
+        return False
+    g = gender or "Any"
+    if g and g != "Any":
+        fg = normalize_gender(f.get("gender") or "")
+        if g == "Female":
+            ok = fg in ("Female", "Female-leaning") or (
+                include_unisex and fg == "Unisex"
+            )
+        elif g == "Male":
+            ok = fg in ("Male", "Male-leaning") or (
+                include_unisex and fg == "Unisex"
+            )
+        elif g == "Unisex":
+            ok = fg == "Unisex" or (
+                include_unisex and fg in ("Male-leaning", "Female-leaning")
+            )
+        else:
+            ok = matches_gender(f, g)
+        if not ok:
+            return False
+    w = weather or "Any"
+    if w and w != "Any":
+        try:
+            matcher = matches_weather_strict if strict_weather else matches_weather
+            if not matcher(f, w):
+                return False
+        except Exception:
+            return False
+    return True
+
+
+def is_real_layer_match(detail: dict, min_display: int = 68) -> bool:
+    """True only when pyramid score shows a genuine pairing (not filler)."""
+    if not detail:
+        return False
+    display = int(detail.get("score") or 0)
+    if display < min_display:
+        return False
+    # Need some structure: shared/comp notes or meaningful density path
+    structure = (
+        float(detail.get("top") or 0)
+        + float(detail.get("middle") or 0)
+        + float(detail.get("base") or 0)
+    )
+    clash = float(detail.get("clash") or 0)
+    if structure < 1.5 and display < 78:
+        return False
+    if clash >= 8 and display < 80:
+        return False
+    return True
+
+
 def matches_weather_strict(fragrance: dict, weather: str) -> bool:
     """Harder season filter for Layer partners and band lists.
 
@@ -5759,12 +5822,15 @@ def get_top_fragrances(
                     pass
                 else:
                     continue
-        if (
-            matches_gender(f, gender)
-            and matches_weather(f, effective_weather)
-            and matches_category(f, category)
-            and matches_occasion(f, occasion)
+        if not passes_core_filters(
+            f,
+            gender=gender or "Any",
+            weather=effective_weather or "Any",
+            include_unisex=True,
+            strict_weather=True,
         ):
+            continue
+        if matches_category(f, category) and matches_occasion(f, occasion):
             s = score_fragrance(
                 f, gender, effective_weather, category, occasion, temp_f=temp_f,
                 projection=projection or "Any",
@@ -5852,6 +5918,7 @@ def find_similar_fragrances(
     base_name: str,
     n: int = 5,
     gender: str = "Any",
+    weather: str = "Any",
     min_score: float = 12.0,
 ) -> list:
     """Return top similar vault bottles by notes (and categories)."""
@@ -5870,12 +5937,14 @@ def find_similar_fragrances(
         return []
     scored = []
     for f in db:
-        if gender and gender != "Any":
-            try:
-                if not matches_gender(f, gender):
-                    continue
-            except Exception:
-                pass
+        if not passes_core_filters(
+            f,
+            gender=gender or "Any",
+            weather=weather or "Any",
+            include_unisex=True,
+            strict_weather=True,
+        ):
+            continue
         s = note_similarity(base, f)
         if s >= min_score:
             shared = sorted(_note_tokens(base) & _note_tokens(f))
@@ -7656,38 +7725,26 @@ def suggest_partners_for(
             continue
         if exclude_dislikes and _rx.get(fname) == "dislike":
             continue
-        if gender and gender != "Any":
-            fg = normalize_gender(f.get("gender", ""))
-            if gender == "Female":
-                ok = fg in ("Female", "Female-leaning") or (
-                    include_unisex and fg == "Unisex"
-                )
-            elif gender == "Male":
-                ok = fg in ("Male", "Male-leaning") or (
-                    include_unisex and fg == "Unisex"
-                )
-            elif gender == "Unisex":
-                ok = fg == "Unisex" or (
-                    include_unisex and fg in ("Male-leaning", "Female-leaning")
-                )
-            else:
-                ok = matches_gender(f, gender)
-            if not ok:
-                continue
-        if season and season != "Any":
-            try:
-                if not matches_weather_strict(f, season):
-                    continue
-            except Exception:
-                pass
+        # Gender + weather/season (strict) — same gate as other tabs
+        if not passes_core_filters(
+            f,
+            gender=gender or "Any",
+            weather=season or "Any",
+            include_unisex=include_unisex,
+            strict_weather=True,
+        ):
+            continue
 
         detail = layering_score_pyramid(base, f)
         raw = float(detail.get("score_raw") or 0)
         display = int(detail.get("score") or 0)
         if _rx.get(fname) == "fav":
-            raw += 3.0
-            display = min(100, display + 5)
-        if raw <= -40:
+            raw += 2.0
+            display = min(99, display + 3)
+        # Only keep real layer matches (not weak filler pairs)
+        if not is_real_layer_match(detail, min_display=68):
+            continue
+        if raw <= -20:
             continue
 
         wp = fragrance_weight_score(f)
@@ -10807,7 +10864,17 @@ def get_libra_suggestions(
     """Top Libra-aligned bottles (Female + Unisex), season + occasion aware."""
     db = list(st.session_state.get("fragrances_db") or [])
     scored = []
+    weather = "Any" if not season_key or str(season_key).lower() == "any" else season_key
     for f in db:
+        # Always Female + Unisex; season when selected
+        if not passes_core_filters(
+            f,
+            gender="Female",
+            weather=weather,
+            include_unisex=True,
+            strict_weather=True,
+        ):
+            continue
         s = libra_chart_score(f, occasion=occasion, season_key=season_key)
         if s < 0:
             continue
@@ -10974,9 +11041,23 @@ with tab_discover:
                     index=1,
                     key="similar_count",
                 )
+            sim_weather = st.selectbox(
+                "Weather / season",
+                [
+                    "Any",
+                    "Hot / Summer",
+                    "Warm / Mild",
+                    "Cool / Autumn",
+                    "Cold / Winter",
+                ],
+                key="similar_weather",
+            )
             if st.button("Find similar", type="primary", key="similar_go"):
                 st.session_state["_similar_results"] = find_similar_fragrances(
-                    sim_base, n=int(sim_n), gender=sim_gender
+                    sim_base,
+                    n=int(sim_n),
+                    gender=sim_gender,
+                    weather=sim_weather,
                 )
                 st.session_state["_similar_base"] = sim_base
             results = st.session_state.get("_similar_results") or []
@@ -12120,6 +12201,11 @@ with tab_layer:
                     except Exception:
                         return 0.0
                 _strict.sort(key=_partner_score, reverse=True)
+                # Keep only genuine layer scores (already filtered in suggest_partners_for)
+                _strict = [
+                    it for it in _strict
+                    if len(it) < 3 or float(it[2] or 0) >= 68
+                ]
                 partners = _strict[: int(show_n)]
                 if not partners:
                     st.warning(
