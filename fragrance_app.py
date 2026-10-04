@@ -220,6 +220,122 @@ def build_vault_export_dict() -> dict:
     }
 
 
+
+
+def build_fragrances_pdf(frags: list, title: str = "Fragrance list") -> bytes:
+    """Easy-to-read PDF of a fragrance list (all or one season)."""
+    lines = [
+        "ScentedDeadGirl — " + str(title),
+        "Exported " + str(pacific_today().isoformat()) + " (Pacific)",
+        f"{len(frags or [])} bottle(s)",
+        "",
+    ]
+    if not frags:
+        lines.append("No bottles in this list.")
+    for i, f in enumerate(frags or [], 1):
+        if not isinstance(f, dict):
+            continue
+        name = f.get("name") or "Untitled"
+        brand = f.get("brand") or "—"
+        lines.append("=" * 42)
+        lines.append(f"{i}. {name}")
+        lines.append("=" * 42)
+        lines.append(f"Brand: {brand}")
+        lines.append(f"Gender: {f.get('gender') or '—'}")
+        lines.append(f"Season: {f.get('season') or '—'}")
+        conc = f.get("concentration") or ""
+        if conc:
+            lines.append(f"Format: {conc}")
+        cats = ", ".join(str(c) for c in (f.get("category") or []))
+        if cats:
+            lines.append(f"Categories: {cats}")
+        notes = str(f.get("notes") or "").strip()
+        if notes:
+            try:
+                notes = format_notes_for_display(notes)
+            except Exception:
+                notes = re.sub(r"\s+", " ", notes)
+            lines.append("Notes:")
+            for nl in str(notes).splitlines() or [notes]:
+                nl = nl.strip()
+                if nl:
+                    lines.append(f"  {nl}")
+        shelf = f.get("shelf_status") or ""
+        if shelf:
+            lines.append(f"Shelf: {shelf}")
+        dupe = f.get("dupe_of") or ""
+        if dupe:
+            lines.append(f"Dupe of: {dupe}")
+        lines.append("")
+    return build_simple_pdf(str(title)[:60], lines)
+
+
+def fragrances_to_csv(frags: list) -> str:
+    """CSV export of fragrance list (name, brand, gender, season, notes, categories)."""
+    import csv
+    import io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(
+        [
+            "Name",
+            "Brand",
+            "Gender",
+            "Season",
+            "Concentration",
+            "Categories",
+            "Notes",
+            "Shelf",
+            "Dupe of",
+        ]
+    )
+    for f in frags or []:
+        if not isinstance(f, dict):
+            continue
+        cats = ", ".join(str(c) for c in (f.get("category") or []))
+        notes = re.sub(r"\s+", " ", str(f.get("notes") or "").strip())
+        w.writerow(
+            [
+                f.get("name") or "",
+                f.get("brand") or "",
+                f.get("gender") or "",
+                f.get("season") or "",
+                f.get("concentration") or "",
+                cats,
+                notes,
+                f.get("shelf_status") or "",
+                f.get("dupe_of") or "",
+            ]
+        )
+    return buf.getvalue()
+
+
+def fragrances_to_markdown(frags: list, title: str = "Fragrance list") -> str:
+    """Readable markdown list of bottles."""
+    lines = [f"# {title}", "", f"**{len(frags or [])}** bottle(s)", ""]
+    for i, f in enumerate(frags or [], 1):
+        if not isinstance(f, dict):
+            continue
+        lines.append(f"## {i}. {f.get('name') or 'Untitled'}")
+        lines.append(f"- **Brand:** {f.get('brand') or '—'}")
+        lines.append(f"- **Gender:** {f.get('gender') or '—'}")
+        lines.append(f"- **Season:** {f.get('season') or '—'}")
+        if f.get("concentration"):
+            lines.append(f"- **Format:** {f.get('concentration')}")
+        cats = ", ".join(str(c) for c in (f.get("category") or []))
+        if cats:
+            lines.append(f"- **Categories:** {cats}")
+        notes = str(f.get("notes") or "").strip()
+        if notes:
+            try:
+                notes = format_notes_for_display(notes)
+            except Exception:
+                pass
+            lines.append(f"- **Notes:** {notes}")
+        lines.append("")
+    return chr(10).join(lines)
+
+
 def build_vault_export_json() -> str:
     return json.dumps(build_vault_export_dict(), indent=2, ensure_ascii=False)
 
@@ -14325,6 +14441,29 @@ with tab_collection:
         if show_gender != "Any":
             pool = [f for f in pool if matches_gender(f, show_gender)]
 
+        # Download all (respects gender filter)
+        st.markdown("**Download bottles**")
+        st.caption(
+            "Full list uses the gender filter above. "
+            "Each season group has its own download inside the expander."
+        )
+        _g_tag = (show_gender or "Any").replace(" ", "_")
+        try:
+            _all_pdf = build_fragrances_pdf(
+                pool, title=f"All fragrances ({show_gender})"
+            )
+            st.download_button(
+                f"Download all bottles PDF ({len(pool)})",
+                data=_all_pdf,
+                file_name=f"fragrances_all_{_g_tag}.pdf",
+                mime="application/pdf",
+                key="dl_all_frags_pdf",
+                type="primary",
+                use_container_width=True,
+            )
+        except Exception as _ex:
+            st.warning(f"PDF unavailable: {_ex}")
+
         def _season_flags(f):
             s = (f.get("season") or "").lower()
             return {
@@ -14392,6 +14531,26 @@ with tab_collection:
                 if not matched:
                     st.caption("No bottles match with the current gender filter.")
                 else:
+                    _safe = re.sub(
+                        r"[^a-z0-9]+",
+                        "_",
+                        str(grp["label"]).lower(),
+                    ).strip("_")
+                    _g2 = (show_gender or "Any").replace(" ", "_")
+                    try:
+                        _season_pdf = build_fragrances_pdf(
+                            matched, title=str(grp["label"])
+                        )
+                        st.download_button(
+                            f"Download PDF ({len(matched)} bottles)",
+                            data=_season_pdf,
+                            file_name=f"fragrances_{_safe}_{_g2}.pdf",
+                            mime="application/pdf",
+                            key=f"dl_season_pdf_{_safe}_{_g2}",
+                            use_container_width=True,
+                        )
+                    except Exception as _ex:
+                        st.caption(f"PDF unavailable: {_ex}")
                     for f in matched:
                         cats = ", ".join((f.get("category") or [])[:4])
                         conc = f.get("concentration") or ""
