@@ -9467,57 +9467,147 @@ def resolve_known_dupe(name: str, brand: str = "") -> str:
 def _http_get(url: str, timeout: int = 14) -> str:
     """Fetch a URL as text (best-effort; used for fragrance lookup)."""
     import urllib.request
+    import ssl
     req = urllib.request.Request(
         url,
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             ),
-            "Accept": "text/html,application/xhtml+xml",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://duckduckgo.com/",
         },
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         return resp.read().decode("utf-8", errors="replace")
 
 
-def search_fragrance_web(query: str, max_results: int = 6) -> list:
-    """Search DuckDuckGo for Fragrantica perfume pages matching query."""
+
+def search_fragrance_web(query: str, max_results: int = 8) -> list:
+    """Search for Fragrantica perfume pages (DDG GET/POST + Bing)."""
     import urllib.parse
+    import urllib.request
     from urllib.parse import unquote
 
     q = (query or "").strip()
     if not q:
         return []
-    search_q = f"{q} site:fragrantica.com/perfume"
-    url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(search_q)
-    try:
-        html = _http_get(url, timeout=12)
-    except Exception:
-        return []
+
     results = []
     seen = set()
-    for m in re.finditer(r"uddg=([^&\"]+)", html):
-        link = unquote(m.group(1))
-        if "fragrantica." not in link or "/perfume/" not in link:
-            continue
-        # Normalize to .com when possible
+    errors = []
+
+    def _add(link: str, title: str = "", brand: str = ""):
+        link = (link or "").strip()
+        if not link or "fragrantica." not in link or "/perfume/" not in link:
+            return
+        link = link.split("#")[0].split("?")[0]
         if link in seen:
-            continue
+            return
         seen.add(link)
-        # Title from URL slug
-        parts = link.rstrip("/").split("/")
-        slug = parts[-1] if parts else link
-        slug = re.sub(r"-\d+\.html?$", "", slug, flags=re.I)
-        title = slug.replace("-", " ").strip()
-        brand = ""
-        if len(parts) >= 2 and parts[-2]:
-            brand = parts[-2].replace("-", " ").strip()
-        results.append({"title": title, "brand": brand, "url": link})
+        if not title or not brand:
+            parts = [p for p in link.split("/") if p]
+            try:
+                i = parts.index("perfume")
+                if not brand and i + 1 < len(parts):
+                    brand = parts[i + 1].replace("-", " ").strip()
+                if not title and i + 2 < len(parts):
+                    slug = re.sub(r"-\d+\.html?$", "", parts[i + 2], flags=re.I)
+                    title = slug.replace("-", " ").strip()
+            except Exception:
+                pass
+        results.append({"title": title or "Result", "brand": brand or "", "url": link})
+
+    def _extract_from_html(html: str):
+        if not html:
+            return
+        for m in re.finditer(r"uddg=([^&\"]+)", html):
+            _add(unquote(m.group(1)))
+            if len(results) >= max_results:
+                return
+        for m in re.finditer(
+            r'href="(https?://(?:www\.)?fragrantica\.[^/]+/perfume/[^"]+)"',
+            html,
+            re.I,
+        ):
+            _add(m.group(1))
+            if len(results) >= max_results:
+                return
+        for m in re.finditer(
+            r"https://www\.fragrantica\.com/perfume/[A-Za-z0-9_./\-]+\.html",
+            html,
+        ):
+            _add(m.group(0))
+            if len(results) >= max_results:
+                return
+
+    variants = [
+        f"{q} site:fragrantica.com/perfume",
+        f"{q} fragrantica",
+        f"{q} perfume fragrantica notes",
+    ]
+    words = q.split()
+    if len(words) >= 2:
+        variants.append(f"{words[0]} {words[-1]} fragrantica")
+
+    for v in variants:
         if len(results) >= max_results:
             break
-    return results
+        url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(v)
+        try:
+            html = _http_get(url, timeout=12)
+            _extract_from_html(html)
+        except Exception as e:
+            errors.append(f"DDG-GET: {e}")
+
+    if len(results) < 2:
+        try:
+            data = urllib.parse.urlencode({"q": variants[0], "b": ""}).encode("utf-8")
+            req = urllib.request.Request(
+                "https://html.duckduckgo.com/html/",
+                data=data,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                    ),
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "text/html",
+                    "Origin": "https://html.duckduckgo.com",
+                    "Referer": "https://html.duckduckgo.com/",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                html = resp.read().decode("utf-8", errors="replace")
+            _extract_from_html(html)
+        except Exception as e:
+            errors.append(f"DDG-POST: {e}")
+
+    if len(results) < 2:
+        url = "https://www.bing.com/search?q=" + urllib.parse.quote(
+            q + " site:fragrantica.com/perfume"
+        )
+        try:
+            html = _http_get(url, timeout=10)
+            _extract_from_html(html)
+        except Exception as e:
+            errors.append(f"Bing: {e}")
+
+    try:
+        if results:
+            st.session_state.pop("_web_frag_search_errors", None)
+        else:
+            st.session_state["_web_frag_search_errors"] = errors[:5] or [
+                "Search engines returned no Fragrantica links (blocked or empty)."
+            ]
+    except Exception:
+        pass
+
+    return results[:max_results]
 
 
 def parse_fragrantica_perfume(url: str) -> dict:
@@ -10508,52 +10598,71 @@ with st.expander("Add fragrance", expanded=False):
         # ----- Search Google/Fragrantica and add -----
         with st.expander("Search online & add", expanded=True):
             st.caption(
-                "Search the web (via DuckDuckGo → Fragrantica). "
-                "Pick a result, review notes, then **Add to vault**. "
-                "Always double-check notes — sites can be incomplete."
+                "Find a bottle online and add it with notes. "
+                "Use **name + brand** (example: `Yara Elixir Lattafa`). "
+                "If Search finds nothing, use the Google / Fragrantica links, then paste the page URL."
             )
-            sq1, sq2 = st.columns([3, 1])
-            with sq1:
-                web_q = st.text_input(
-                    "Search fragrance",
-                    key="web_frag_search_q",
-                    placeholder="e.g. Yara Elixir Lattafa",
+            import urllib.parse as _urlparse
+
+            web_q = st.text_input(
+                "Search fragrance",
+                key="web_frag_search_q",
+                placeholder="Name + brand, e.g. Khamrah Lattafa",
+            )
+            do_search = st.button(
+                "Search online",
+                type="primary",
+                key="web_frag_search_btn",
+                use_container_width=True,
+            )
+
+            q_clean = (web_q or "").strip()
+            if q_clean:
+                gq = _urlparse.quote(q_clean + " site:fragrantica.com")
+                fq = _urlparse.quote(q_clean)
+                st.markdown(
+                    f"[Search on Google](https://www.google.com/search?q={gq}) · "
+                    f"[Search on Fragrantica](https://www.fragrantica.com/search/?query={fq}) · "
+                    f"[Search on DuckDuckGo](https://duckduckgo.com/?q={gq})"
                 )
-            with sq2:
-                st.write("")
-                st.write("")
-                do_search = st.button(
-                    "Search",
-                    type="primary",
-                    key="web_frag_search_btn",
-                    use_container_width=True,
-                )
-            if do_search and (web_q or "").strip():
-                with st.spinner("Searching…"):
-                    try:
-                        st.session_state["_web_frag_hits"] = search_fragrance_web(
-                            web_q.strip(), max_results=6
-                        )
-                        st.session_state.pop("_web_frag_parsed", None)
-                    except Exception as ex:
-                        st.session_state["_web_frag_hits"] = []
-                        st.warning(f"Search failed: {ex}")
+
+            if do_search:
+                if not q_clean:
+                    st.warning("Type a fragrance name first.")
+                else:
+                    with st.spinner("Searching the web…"):
+                        try:
+                            hits = search_fragrance_web(q_clean, max_results=8)
+                            st.session_state["_web_frag_hits"] = hits
+                            st.session_state.pop("_web_frag_parsed", None)
+                            st.session_state["_web_frag_empty"] = not bool(hits)
+                        except Exception as ex:
+                            st.session_state["_web_frag_hits"] = []
+                            st.session_state["_web_frag_empty"] = True
+                            st.warning(f"Search error: {ex}")
+
             hits = st.session_state.get("_web_frag_hits") or []
             if hits:
-                st.markdown(f"**{len(hits)} result(s)** — tap one to load details")
+                st.markdown(f"**{len(hits)} result(s)** — tap **Load notes**")
                 for i, hit in enumerate(hits):
                     label = f"{hit.get('title') or 'Result'}"
                     if hit.get("brand"):
                         label += f" · {hit.get('brand')}"
-                    bcols = st.columns([4, 1])
+                    bcols = st.columns([3, 1])
                     with bcols[0]:
                         st.write(label)
-                        st.caption((hit.get("url") or "")[:80])
+                        st.caption((hit.get("url") or "")[:90])
                     with bcols[1]:
-                        if st.button("Load", key=f"web_frag_load_{i}"):
+                        if st.button(
+                            "Load notes",
+                            key=f"web_frag_load_{i}",
+                            use_container_width=True,
+                        ):
                             with st.spinner("Reading Fragrantica…"):
                                 try:
-                                    parsed = parse_fragrantica_perfume(hit.get("url") or "")
+                                    parsed = parse_fragrantica_perfume(
+                                        hit.get("url") or ""
+                                    )
                                     st.session_state["_web_frag_parsed"] = parsed
                                 except Exception as ex:
                                     st.session_state["_web_frag_parsed"] = {
@@ -10561,8 +10670,39 @@ with st.expander("Add fragrance", expanded=False):
                                         "url": hit.get("url"),
                                     }
                             st.rerun()
-            elif do_search:
-                st.info("No Fragrantica hits — try a clearer name + brand.")
+            elif st.session_state.get("_web_frag_empty"):
+                st.warning(
+                    "Automatic search found nothing (common on free Cloud hosts). "
+                    "Use the **Google / Fragrantica** links above, open the perfume page, "
+                    "copy the URL, and paste it below — that path is the most reliable."
+                )
+
+            st.markdown("### Paste Fragrantica URL (most reliable)")
+            frag_url = st.text_input(
+                "Fragrantica perfume link",
+                key="web_frag_url_paste",
+                placeholder="https://www.fragrantica.com/perfume/Brand/Name-12345.html",
+            )
+            if st.button(
+                "Load notes from URL",
+                key="web_frag_url_btn",
+                type="primary",
+                use_container_width=True,
+            ):
+                u = (frag_url or "").strip()
+                if not u or "fragrantica." not in u.lower():
+                    st.warning("Paste a full Fragrantica perfume URL.")
+                else:
+                    with st.spinner("Reading notes…"):
+                        try:
+                            parsed = parse_fragrantica_perfume(u)
+                            st.session_state["_web_frag_parsed"] = parsed
+                        except Exception as ex:
+                            st.session_state["_web_frag_parsed"] = {
+                                "error": str(ex),
+                                "url": u,
+                            }
+                    st.rerun()
 
             parsed = st.session_state.get("_web_frag_parsed")
             if parsed and not parsed.get("error"):
@@ -10576,7 +10716,9 @@ with st.expander("Add fragrance", expanded=False):
                     except Exception:
                         st.write(parsed.get("notes"))
                 else:
-                    st.caption("No pyramid notes found — you can still add and edit notes later.")
+                    st.caption(
+                        "No pyramid notes on that page — you can still add and edit notes after."
+                    )
                 if parsed.get("category"):
                     st.caption("Accords: " + ", ".join(parsed.get("category") or []))
                 if parsed.get("url"):
@@ -10593,7 +10735,6 @@ with st.expander("Add fragrance", expanded=False):
                         if not frag.get("name"):
                             st.warning("Missing name — cannot add.")
                         else:
-                            # Duplicate check
                             try:
                                 dups = find_duplicate_fragrances(
                                     frag["name"], frag.get("brand") or ""
@@ -10605,7 +10746,9 @@ with st.expander("Add fragrance", expanded=False):
                                     f"**{frag['name']}** already exists in your vault."
                                 )
                             else:
-                                st.session_state.setdefault("fragrances_db", []).append(frag)
+                                st.session_state.setdefault(
+                                    "fragrances_db", []
+                                ).append(frag)
                                 try:
                                     log_vault_action(
                                         "added", frag["name"], "web-search"
@@ -10621,7 +10764,7 @@ with st.expander("Add fragrance", expanded=False):
                                 st.session_state.pop("_web_frag_parsed", None)
                                 st.session_state.pop("_web_frag_hits", None)
                                 st.success(
-                                    f"Added **{frag['name']}** — download a backup so Cloud sleep doesn’t wipe it."
+                                    f"Added **{frag['name']}**. Download a backup next."
                                 )
                                 st.rerun()
                 with a2:
@@ -10630,11 +10773,19 @@ with st.expander("Add fragrance", expanded=False):
                         key="web_frag_prefill_btn",
                         use_container_width=True,
                     ):
-                        st.session_state["prefill_new_name"] = parsed.get("name") or ""
-                        st.session_state["prefill_new_brand"] = parsed.get("brand") or ""
-                        st.session_state["prefill_new_notes"] = parsed.get("notes") or ""
-                        st.session_state["prefill_new_gender"] = parsed.get("gender") or ""
-                        st.info("Scroll to the form below — fields prefilled where possible.")
+                        st.session_state["prefill_new_name"] = (
+                            parsed.get("name") or ""
+                        )
+                        st.session_state["prefill_new_brand"] = (
+                            parsed.get("brand") or ""
+                        )
+                        st.session_state["prefill_new_notes"] = (
+                            parsed.get("notes") or ""
+                        )
+                        st.session_state["prefill_new_gender"] = (
+                            parsed.get("gender") or ""
+                        )
+                        st.info("Scroll to the form below to finish editing.")
             elif parsed and parsed.get("error"):
                 st.warning(f"Could not read page: {parsed.get('error')}")
 
