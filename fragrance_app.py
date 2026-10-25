@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ==========================================
 # PERSISTENCE (auto-save / auto-load)
@@ -43,22 +44,207 @@ def _vault_count(data: dict) -> int:
 
 
 def load_persisted_data():
-    """Load the best available vault: main file, then .bak, then /tmp copy.
-
-    Always returns a dict. Sort by bottle count only (never compare nested dicts).
-    """
-    candidates = []
-    for p in (DATA_FILE, DATA_BAK, DATA_TMP):
+    """Load best vault from every known path; merge fields so SOTD/recipes survive partial wipes."""
+    paths = [
+        DATA_FILE,
+        DATA_BAK,
+        DATA_TMP,
+        Path(__file__).parent / "scented_dead_girl_backup.json",
+        Path(__file__).parent / "scented_dead_girl_RESTORE_ME.json",
+        Path(__file__).parent / "scented_dead_girl_data.json",
+    ]
+    seen, unique_paths = set(), []
+    for p in paths:
+        k = str(p)
+        if k not in seen:
+            seen.add(k)
+            unique_paths.append(p)
+    blobs = []
+    for p in unique_paths:
         data = _safe_json_load(p)
-        if data and isinstance(data, dict) and _vault_count(data) > 0:
-            candidates.append((_vault_count(data), str(p), data))
-    if candidates:
-        # Sort ONLY by integer count — never by the full tuple (dicts are not orderable)
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        best = candidates[0][2]
-        return best if isinstance(best, dict) else {}
-    data = _safe_json_load(DATA_FILE)
-    return data if isinstance(data, dict) else {}
+        if data and isinstance(data, dict):
+            blobs.append(data)
+    if not blobs:
+        return {}
+
+    def _best_list(key):
+        best = []
+        for b in blobs:
+            val = b.get(key) or []
+            if isinstance(val, list) and len(val) > len(best):
+                best = val
+        return list(best)
+
+    def _best_dict(key):
+        best = {}
+        for b in blobs:
+            val = b.get(key) or {}
+            if isinstance(val, dict) and len(val) >= len(best):
+                best = val
+        return dict(best)
+
+    merged = {
+        "fragrances_db": _best_list("fragrances_db"),
+        "sotd_history": _best_list("sotd_history"),
+        "layer_recipes": _best_list("layer_recipes"),
+        "wishlist": _best_list("wishlist"),
+        "try_recipes": _best_list("try_recipes"),
+        "vault_log": _best_list("vault_log"),
+        "user_reactions": _best_dict("user_reactions"),
+        "play_stats": _best_dict("play_stats"),
+        "last_export_date": None,
+        "last_saved_at": None,
+    }
+    for b in blobs:
+        for k in ("last_export_date", "last_saved_at"):
+            if b.get(k) and (not merged.get(k) or str(b.get(k)) > str(merged.get(k) or "")):
+                merged[k] = b.get(k)
+    return merged
+
+
+
+def apply_backup_payload(payload: dict) -> dict:
+    """Apply a backup JSON dict into session. Returns counts restored."""
+    if not isinstance(payload, dict):
+        raise ValueError("Backup file is not a JSON object.")
+    if "fragrances_db" not in payload and isinstance(payload.get("data"), dict):
+        payload = payload["data"]
+    if "fragrances_db" not in payload and isinstance(payload.get("vault"), dict):
+        payload = payload["vault"]
+    counts = {"bottles": 0, "sotd": 0, "recipes": 0, "reactions": 0}
+    if payload.get("fragrances_db"):
+        st.session_state["fragrances_db"] = list(payload["fragrances_db"])
+        counts["bottles"] = len(st.session_state["fragrances_db"])
+    if "sotd_history" in payload:
+        st.session_state["sotd_history"] = list(payload.get("sotd_history") or [])
+        counts["sotd"] = len(st.session_state["sotd_history"])
+    if "layer_recipes" in payload:
+        st.session_state["layer_recipes"] = list(payload.get("layer_recipes") or [])
+        counts["recipes"] = len(st.session_state["layer_recipes"])
+    if "user_reactions" in payload:
+        st.session_state["user_reactions"] = dict(payload.get("user_reactions") or {})
+        counts["reactions"] = len(st.session_state["user_reactions"])
+    if "wishlist" in payload:
+        st.session_state["wishlist"] = list(payload.get("wishlist") or [])
+    if "try_recipes" in payload:
+        st.session_state["try_recipes"] = list(payload.get("try_recipes") or [])
+    if "vault_log" in payload:
+        st.session_state["vault_log"] = list(payload.get("vault_log") or [])
+    if "play_stats" in payload:
+        st.session_state["play_stats"] = dict(payload.get("play_stats") or {})
+    save_persisted_data(force=True)
+    try:
+        prepare_backup_bytes()
+    except Exception:
+        pass
+    return counts
+
+
+def push_vault_to_browser(raw_json: str) -> None:
+    """Best-effort: store vault JSON in phone/browser localStorage (survives Cloud sleep)."""
+    if not raw_json or len(raw_json) > 1_800_000:
+        return
+    safe = (
+        str(raw_json)
+        .replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("${", "\\${")
+    )
+    try:
+        components.html(
+            f"""
+            <script>
+            (function() {{
+              try {{
+                const key = 'scented_dead_girl_vault_v1';
+                localStorage.setItem(key, `{safe}`);
+                localStorage.setItem(key + '_saved_at', new Date().toISOString());
+              }} catch (e) {{}}
+            }})();
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
+    except Exception:
+        pass
+
+
+def browser_vault_pull_ui() -> None:
+    try:
+        components.html(
+            """
+            <div style="font-family:system-ui,sans-serif;font-size:13px;color:#c5d0e4;">
+              <button id="sdg_load_ls" style="
+                background:#1a2740;color:#e8eef8;border:1px solid #3d5a80;
+                border-radius:8px;padding:8px 12px;width:100%;margin-bottom:8px;">
+                Load vault saved on this phone
+              </button>
+              <textarea id="sdg_ls_out" style="
+                width:100%;height:90px;background:#0b1220;color:#c5d0e4;
+                border:1px solid #1a2740;border-radius:8px;padding:8px;font-size:11px;"
+                placeholder="Phone backup appears here — select all, copy, paste below."></textarea>
+              <script>
+              (function() {
+                const key = 'scented_dead_girl_vault_v1';
+                const btn = document.getElementById('sdg_load_ls');
+                const out = document.getElementById('sdg_ls_out');
+                if (btn) btn.onclick = function() {
+                  try {
+                    const v = localStorage.getItem(key) || '';
+                    out.value = v || '(No phone backup yet. Download after logging SOTD.)';
+                    if (v) out.select();
+                  } catch (e) { out.value = 'Could not read phone storage: ' + e; }
+                };
+              })();
+              </script>
+            </div>
+            """,
+            height=160,
+        )
+    except Exception:
+        st.caption("Phone storage helper unavailable in this browser.")
+
+
+def prepare_backup_bytes() -> bytes:
+    """Build full vault JSON bytes for download + phone localStorage."""
+    try:
+        save_persisted_data(force=True)
+    except Exception:
+        pass
+    payload = {
+        "fragrances_db": st.session_state.get("fragrances_db") or [],
+        "user_reactions": st.session_state.get("user_reactions") or {},
+        "sotd_history": st.session_state.get("sotd_history") or [],
+        "layer_recipes": st.session_state.get("layer_recipes") or [],
+        "play_stats": st.session_state.get("play_stats") or {},
+        "wishlist": st.session_state.get("wishlist") or [],
+        "try_recipes": st.session_state.get("try_recipes") or [],
+        "vault_log": st.session_state.get("vault_log") or [],
+        "last_saved_at": st.session_state.get("last_saved_at"),
+        "exported_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(
+            timespec="seconds"
+        ),
+    }
+    raw = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+    st.session_state["_backup_bytes"] = raw
+    st.session_state["_backup_ready"] = True
+    st.session_state["_backup_meta"] = {
+        "bottles": len(payload["fragrances_db"]),
+        "sotd": len(payload["sotd_history"]),
+        "recipes": len(payload["layer_recipes"]),
+    }
+    try:
+        push_vault_to_browser(raw.decode("utf-8"))
+    except Exception:
+        pass
+    return raw
+
+
+def data_looks_wiped() -> bool:
+    db_n = len(st.session_state.get("fragrances_db") or [])
+    sotd_n = len(st.session_state.get("sotd_history") or [])
+    return db_n >= 30 and sotd_n == 0
 
 
 def save_persisted_data(force: bool = False):
@@ -4383,6 +4569,22 @@ if not _persisted:
     _persisted = load_persisted_data()
 
 # Built-in list is only a seed when there is NO saved vault on disk.
+
+# Heal empty session lists from any backup path (post-Cloud-sleep)
+try:
+    if isinstance(_persisted, dict):
+        for _k in ("sotd_history", "layer_recipes", "wishlist", "try_recipes", "vault_log"):
+            _disk = list(_persisted.get(_k) or [])
+            _sess = list(st.session_state.get(_k) or [])
+            if len(_disk) > len(_sess):
+                st.session_state[_k] = _disk
+        _dr = dict(_persisted.get("user_reactions") or {})
+        _sr = dict(st.session_state.get("user_reactions") or {})
+        if len(_dr) > len(_sr):
+            st.session_state["user_reactions"] = _dr
+except Exception:
+    pass
+
 # If disk has bottles, those always win on a fresh session.
 if "fragrances_db" not in st.session_state:
     # Prefer largest available vault: disk -> session path already empty -> embedded seed
@@ -9216,6 +9418,236 @@ def resolve_known_dupe(name: str, brand: str = "") -> str:
     return ""
 
 
+
+def _http_get(url: str, timeout: int = 14) -> str:
+    """Fetch a URL as text (best-effort; used for fragrance lookup)."""
+    import urllib.request
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def search_fragrance_web(query: str, max_results: int = 6) -> list:
+    """Search DuckDuckGo for Fragrantica perfume pages matching query."""
+    import urllib.parse
+    from urllib.parse import unquote
+
+    q = (query or "").strip()
+    if not q:
+        return []
+    search_q = f"{q} site:fragrantica.com/perfume"
+    url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(search_q)
+    try:
+        html = _http_get(url, timeout=12)
+    except Exception:
+        return []
+    results = []
+    seen = set()
+    for m in re.finditer(r"uddg=([^&\"]+)", html):
+        link = unquote(m.group(1))
+        if "fragrantica." not in link or "/perfume/" not in link:
+            continue
+        # Normalize to .com when possible
+        if link in seen:
+            continue
+        seen.add(link)
+        # Title from URL slug
+        parts = link.rstrip("/").split("/")
+        slug = parts[-1] if parts else link
+        slug = re.sub(r"-\d+\.html?$", "", slug, flags=re.I)
+        title = slug.replace("-", " ").strip()
+        brand = ""
+        if len(parts) >= 2 and parts[-2]:
+            brand = parts[-2].replace("-", " ").strip()
+        results.append({"title": title, "brand": brand, "url": link})
+        if len(results) >= max_results:
+            break
+    return results
+
+
+def parse_fragrantica_perfume(url: str) -> dict:
+    """Pull name, brand, gender, notes pyramid from a Fragrantica perfume page."""
+    from html import unescape
+
+    out = {
+        "name": "",
+        "brand": "",
+        "gender": "",
+        "notes": "",
+        "category": [],
+        "season": "",
+        "url": url,
+        "source": "Fragrantica",
+    }
+    try:
+        html = _http_get(url, timeout=16)
+    except Exception as e:
+        out["error"] = str(e)
+        return out
+
+    try:
+        parts = [p for p in (url or "").split("/") if p]
+        if "perfume" in parts:
+            i = parts.index("perfume")
+            if i + 1 < len(parts):
+                out["brand"] = parts[i + 1].replace("-", " ").strip()
+            if i + 2 < len(parts):
+                slug = re.sub(r"-\d+\.html?$", "", parts[i + 2], flags=re.I)
+                out["name"] = slug.replace("-", " ").strip()
+    except Exception:
+        pass
+
+    h1 = re.search(r"<h1[^>]*>([\s\S]*?)</h1>", html, re.I)
+    if h1:
+        raw = re.sub(r"<[^>]+>", " ", h1.group(1))
+        raw = unescape(re.sub(r"\s+", " ", raw)).strip()
+        low = raw.lower()
+        if "for women and men" in low or "women and men" in low:
+            out["gender"] = "Unisex"
+        elif re.search(r"for women\b", low):
+            out["gender"] = "Female"
+        elif re.search(r"for men\b", low):
+            out["gender"] = "Male"
+        name = re.sub(
+            r"\s+for\s+(women and men|women|men|woman|man).*$",
+            "",
+            raw,
+            flags=re.I,
+        ).strip()
+        if out["brand"] and name.lower().endswith(out["brand"].lower()):
+            name = name[: -len(out["brand"])].strip()
+        if name:
+            out["name"] = name
+
+    brand_key = re.sub(r"[^a-z0-9]", "", (out.get("brand") or "").lower())
+    designer_pat = r"/designers/([^\"']+)[\"'][^>]*>([^<]+)</a>"
+    matched = False
+    for b in re.finditer(designer_pat, html, re.I):
+        label = unescape(re.sub(r"\s+", " ", b.group(2))).strip()
+        lab_key = re.sub(r"[^a-z0-9]", "", label.lower())
+        slug_key = re.sub(r"[^a-z0-9]", "", b.group(1).lower())
+        if brand_key and (brand_key in lab_key or brand_key in slug_key or lab_key in brand_key):
+            out["brand"] = label
+            matched = True
+            break
+    if not matched and not out.get("brand"):
+        b = re.search(r"/designers/[^\"']+[\"'][^>]*>([^<]+)</a>", html, re.I)
+        if b:
+            out["brand"] = unescape(re.sub(r"\s+", " ", b.group(1))).strip()
+
+    if out["brand"] and out["name"].lower().endswith(out["brand"].lower()):
+        out["name"] = out["name"][: -len(out["brand"])].strip()
+
+    plain = re.sub(r"<script[\s\S]*?</script>", " ", html, flags=re.I)
+    plain = re.sub(r"<style[\s\S]*?</style>", " ", plain, flags=re.I)
+    plain = re.sub(r"<[^>]+>", " ", plain)
+    plain = unescape(re.sub(r"\s+", " ", plain))
+
+    top = mid = base = ""
+    mpy = re.search(
+        r"Top notes? are ([^.;]+)[.;]\s*middle notes? are ([^.;]+)[.;]\s*base notes? are ([^.;]+)[.;]",
+        plain,
+        re.I,
+    )
+    if mpy:
+        top, mid, base = mpy.group(1).strip(), mpy.group(2).strip(), mpy.group(3).strip()
+    else:
+        mt = re.search(r"Top notes?[:\s]+([^.;]+)", plain, re.I)
+        mm = re.search(r"(?:Middle|Heart) notes?[:\s]+([^.;]+)", plain, re.I)
+        mb = re.search(r"Base notes?[:\s]+([^.;]+)", plain, re.I)
+        if mt:
+            top = mt.group(1).strip()
+        if mm:
+            mid = mm.group(1).strip()
+        if mb:
+            base = mb.group(1).strip()
+
+    def _clean_list(s):
+        s = re.sub(r"\s+and\s+", ", ", s or "", flags=re.I)
+        s = re.sub(r"\s*,\s*", ", ", s)
+        s = re.split(r"Read about|This is a|The nose behind", s, maxsplit=1)[0]
+        return s.strip(" ,;")
+
+    parts = []
+    if top:
+        parts.append("Top - " + _clean_list(top))
+    if mid:
+        parts.append("Heart - " + _clean_list(mid))
+    if base:
+        parts.append("Base - " + _clean_list(base))
+    out["notes"] = " / ".join(parts)
+
+    accords = re.findall(
+        r"accord(?:-bar)?[^>]{0,80}>([A-Za-z][A-Za-z\s]{1,20})<",
+        html,
+        re.I,
+    )
+    cats = []
+    for a in accords:
+        a = a.strip().title()
+        if a and a not in cats and len(a) < 24:
+            cats.append(a)
+    out["category"] = cats[:6]
+
+    low = plain.lower()
+    seasons = []
+    for s in ("spring", "summer", "fall", "autumn", "winter"):
+        if s in low[:12000]:
+            label = "Fall" if s == "autumn" else s.title()
+            if label not in seasons:
+                seasons.append(label)
+    if seasons:
+        out["season"] = ", ".join(seasons[:3])
+
+    return out
+
+def web_result_to_frag(info: dict) -> dict:
+    """Map parsed web result into a vault fragrance dict."""
+    name = (info.get("name") or "").strip()
+    brand = (info.get("brand") or "").strip()
+    notes = (info.get("notes") or "").strip()
+    try:
+        notes = clean_notes_text(notes) if notes else notes
+    except Exception:
+        pass
+    gender = info.get("gender") or ""
+    if not gender and notes:
+        try:
+            gender = suggest_gender_from_notes(notes, info.get("category") or [], name) or ""
+        except Exception:
+            gender = ""
+    season = info.get("season") or ""
+    if not season and notes:
+        try:
+            sug = suggest_seasons_from_notes(notes, info.get("category") or [])
+            season = sug[0] if sug else "Versatile"
+        except Exception:
+            season = "Versatile"
+    cats = list(info.get("category") or [])
+    return {
+        "name": name,
+        "brand": brand,
+        "gender": gender or "Unisex",
+        "season": season or "Versatile",
+        "notes": notes,
+        "category": cats,
+        "concentration": "EDP",
+        "shelf_status": "Own",
+        "dupe_of": "",
+        "price": None,
+    }
+
+
 def notes_lookup_suggestions(name: str, brand: str = "") -> dict:
     """Local vault matches + online links for notes, gender, season, categories, dupes."""
     name = (name or "").strip()
@@ -10028,6 +10460,139 @@ with st.sidebar:
 
 
 with st.expander("Add fragrance", expanded=False):
+        # ----- Search Google/Fragrantica and add -----
+        with st.expander("Search online & add", expanded=True):
+            st.caption(
+                "Search the web (via DuckDuckGo → Fragrantica). "
+                "Pick a result, review notes, then **Add to vault**. "
+                "Always double-check notes — sites can be incomplete."
+            )
+            sq1, sq2 = st.columns([3, 1])
+            with sq1:
+                web_q = st.text_input(
+                    "Search fragrance",
+                    key="web_frag_search_q",
+                    placeholder="e.g. Yara Elixir Lattafa",
+                )
+            with sq2:
+                st.write("")
+                st.write("")
+                do_search = st.button(
+                    "Search",
+                    type="primary",
+                    key="web_frag_search_btn",
+                    use_container_width=True,
+                )
+            if do_search and (web_q or "").strip():
+                with st.spinner("Searching…"):
+                    try:
+                        st.session_state["_web_frag_hits"] = search_fragrance_web(
+                            web_q.strip(), max_results=6
+                        )
+                        st.session_state.pop("_web_frag_parsed", None)
+                    except Exception as ex:
+                        st.session_state["_web_frag_hits"] = []
+                        st.warning(f"Search failed: {ex}")
+            hits = st.session_state.get("_web_frag_hits") or []
+            if hits:
+                st.markdown(f"**{len(hits)} result(s)** — tap one to load details")
+                for i, hit in enumerate(hits):
+                    label = f"{hit.get('title') or 'Result'}"
+                    if hit.get("brand"):
+                        label += f" · {hit.get('brand')}"
+                    bcols = st.columns([4, 1])
+                    with bcols[0]:
+                        st.write(label)
+                        st.caption((hit.get("url") or "")[:80])
+                    with bcols[1]:
+                        if st.button("Load", key=f"web_frag_load_{i}"):
+                            with st.spinner("Reading Fragrantica…"):
+                                try:
+                                    parsed = parse_fragrantica_perfume(hit.get("url") or "")
+                                    st.session_state["_web_frag_parsed"] = parsed
+                                except Exception as ex:
+                                    st.session_state["_web_frag_parsed"] = {
+                                        "error": str(ex),
+                                        "url": hit.get("url"),
+                                    }
+                            st.rerun()
+            elif do_search:
+                st.info("No Fragrantica hits — try a clearer name + brand.")
+
+            parsed = st.session_state.get("_web_frag_parsed")
+            if parsed and not parsed.get("error"):
+                st.success(
+                    f"**{parsed.get('name') or '?'}** — *{parsed.get('brand') or '?'}* "
+                    f"· {parsed.get('gender') or '?'}"
+                )
+                if parsed.get("notes"):
+                    try:
+                        st.markdown(format_notes_for_display(parsed.get("notes")))
+                    except Exception:
+                        st.write(parsed.get("notes"))
+                else:
+                    st.caption("No pyramid notes found — you can still add and edit notes later.")
+                if parsed.get("category"):
+                    st.caption("Accords: " + ", ".join(parsed.get("category") or []))
+                if parsed.get("url"):
+                    st.markdown(f"[Open source page]({parsed.get('url')})")
+                a1, a2 = st.columns(2)
+                with a1:
+                    if st.button(
+                        "Add to vault",
+                        type="primary",
+                        key="web_frag_add_btn",
+                        use_container_width=True,
+                    ):
+                        frag = web_result_to_frag(parsed)
+                        if not frag.get("name"):
+                            st.warning("Missing name — cannot add.")
+                        else:
+                            # Duplicate check
+                            try:
+                                dups = find_duplicate_fragrances(
+                                    frag["name"], frag.get("brand") or ""
+                                )
+                            except Exception:
+                                dups = {"exact": []}
+                            if dups.get("exact"):
+                                st.error(
+                                    f"**{frag['name']}** already exists in your vault."
+                                )
+                            else:
+                                st.session_state.setdefault("fragrances_db", []).append(frag)
+                                try:
+                                    log_vault_action(
+                                        "added", frag["name"], "web-search"
+                                    )
+                                except Exception:
+                                    pass
+                                mark_vault_dirty()
+                                save_persisted_data(force=True)
+                                try:
+                                    prepare_backup_bytes()
+                                except Exception:
+                                    pass
+                                st.session_state.pop("_web_frag_parsed", None)
+                                st.session_state.pop("_web_frag_hits", None)
+                                st.success(
+                                    f"Added **{frag['name']}** — download a backup so Cloud sleep doesn’t wipe it."
+                                )
+                                st.rerun()
+                with a2:
+                    if st.button(
+                        "Prefill manual form",
+                        key="web_frag_prefill_btn",
+                        use_container_width=True,
+                    ):
+                        st.session_state["prefill_new_name"] = parsed.get("name") or ""
+                        st.session_state["prefill_new_brand"] = parsed.get("brand") or ""
+                        st.session_state["prefill_new_notes"] = parsed.get("notes") or ""
+                        st.session_state["prefill_new_gender"] = parsed.get("gender") or ""
+                        st.info("Scroll to the form below — fields prefilled where possible.")
+            elif parsed and parsed.get("error"):
+                st.warning(f"Could not read page: {parsed.get('error')}")
+
         # Notes helper (outside form so links work without submitting)
         # Prefill from Collection -> Short notes / Needs fix "Lookup" buttons
         _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
@@ -10310,13 +10875,23 @@ with st.expander("Add fragrance", expanded=False):
             st.session_state["add_notes_field"] = st.session_state.pop("prefill_new_notes")
 
         with st.form("add_fragrance_form", clear_on_submit=True):
-            new_name = st.text_input("Name")
-            new_brand = st.text_input("Brand")
+            new_name = st.text_input(
+                "Name",
+                value=st.session_state.pop("prefill_new_name", "") or "",
+            )
+            new_brand = st.text_input(
+                "Brand",
+                value=st.session_state.pop("prefill_new_brand", "") or "",
+            )
             new_gender = st.selectbox(
                 "Gender",
                 ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
             )
             new_season = st.text_input("Season", value="Fall, Winter")
+            if "prefill_new_notes" in st.session_state:
+                st.session_state["add_notes_field"] = st.session_state.pop(
+                    "prefill_new_notes"
+                ) or ""
             new_notes = st.text_input(
                 "Notes",
                 placeholder="Top - ... / Heart - ... / Base - ...",
@@ -10846,6 +11421,105 @@ try:
         st.session_state["_weight_cache_n"] = _vc
 except Exception:
     pass
+
+
+# ----- Backup & Restore (Cloud sleep protection) -----
+_sotd_n = len(st.session_state.get("sotd_history") or [])
+_rec_n = len(st.session_state.get("layer_recipes") or [])
+_db_n = len(st.session_state.get("fragrances_db") or [])
+_wiped = False
+try:
+    _wiped = data_looks_wiped()
+except Exception:
+    _wiped = (_db_n >= 30 and _sotd_n == 0)
+try:
+    if not st.session_state.get("_backup_bytes"):
+        prepare_backup_bytes()
+except Exception:
+    pass
+
+with st.expander(
+    "Backup & Restore (save this so Cloud sleep can't wipe SOTD / recipes)",
+    expanded=bool(_wiped or _sotd_n == 0),
+):
+    st.caption(
+        "**iPhone:** Download → Share → Save to Files → **iCloud Drive**. "
+        "Free Cloud cannot keep server files after sleep."
+    )
+    if _wiped or _sotd_n == 0:
+        st.error(
+            f"**Journal data looks wiped.** Bottles: **{_db_n}** · SOTD: **{_sotd_n}** · Recipes: **{_rec_n}**. "
+            "Upload scented_dead_girl_RESTORE_ME.json or your last backup."
+        )
+    else:
+        st.info(f"Vault: **{_db_n}** bottles · **{_sotd_n}** SOTD · **{_rec_n}** recipes.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Refresh backup", key="top_backup_refresh", use_container_width=True):
+            try:
+                prepare_backup_bytes()
+                st.rerun()
+            except Exception as ex:
+                st.warning(str(ex))
+    with c2:
+        _b = st.session_state.get("_backup_bytes")
+        if _b:
+            st.download_button(
+                "Download backup JSON",
+                data=_b,
+                file_name=f"scented_dead_girl_backup_{pacific_today().isoformat()}.json",
+                mime="application/json",
+                key="top_backup_download",
+                type="primary",
+                use_container_width=True,
+            )
+
+    st.markdown("**Restore from this phone**")
+    browser_vault_pull_ui()
+    paste_phone = st.text_area(
+        "Paste phone backup here",
+        key="paste_phone_vault",
+        height=90,
+        placeholder="Load phone vault → copy → paste → Restore",
+    )
+    if st.button("Restore from paste", key="restore_phone_paste"):
+        try:
+            counts = apply_backup_payload(json.loads((paste_phone or "").strip()))
+            st.success(
+                f"Restored **{counts.get('bottles', 0)}** bottles · "
+                f"**{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes."
+            )
+            st.rerun()
+        except Exception as ex:
+            st.warning(f"Paste restore failed: {ex}")
+
+    up = st.file_uploader(
+        "Upload backup JSON",
+        type=["json", "txt"],
+        key="top_restore_uploader",
+    )
+    if up is not None:
+        try:
+            raw = up.getvalue()
+            if raw[:3] == b"\xef\xbb\xbf":
+                raw = raw[3:]
+            counts = apply_backup_payload(json.loads(raw.decode("utf-8", errors="replace").strip()))
+            st.success(
+                f"Restored **{counts.get('bottles', 0)}** bottles · "
+                f"**{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes."
+            )
+            st.rerun()
+        except Exception as ex:
+            st.warning(f"Restore failed: {ex}")
+
+    if st.session_state.get("_backup_bytes"):
+        st.text_area(
+            "Or copy vault into Notes",
+            value=st.session_state["_backup_bytes"].decode("utf-8"),
+            height=100,
+            key="backup_copy_area",
+        )
 
 tab_discover, tab_layer, tab_recipes, tab_try, tab_sotd, tab_collection, tab_vault = st.tabs(
     ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
