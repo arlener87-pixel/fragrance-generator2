@@ -10793,69 +10793,78 @@ with st.expander("Add fragrance", expanded=True):
             if _pending_lu.get("brand"):
                 st.session_state["prefill_new_brand"] = _pending_lu.get("brand") or ""
 
-        with st.form("add_fragrance_form", clear_on_submit=True):
-            _pf_name = st.session_state.pop("prefill_new_name", "") or ""
-            _pf_brand = st.session_state.pop("prefill_new_brand", "") or ""
-            _pf_notes = st.session_state.pop("prefill_new_notes", "") or ""
-            _pf_gender = st.session_state.pop("prefill_new_gender", "") or ""
-            _pf_season = st.session_state.pop("prefill_new_season", "") or ""
-            _pf_cats = st.session_state.pop("prefill_new_cats", None)
-            _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
-            _g_idx = 0
-            if _pf_gender in _gender_opts:
-                _g_idx = _gender_opts.index(_pf_gender)
-
-            new_name = st.text_input("Name", value=_pf_name)
-            new_brand = st.text_input("Brand", value=_pf_brand)
-            new_gender = st.selectbox("Gender", _gender_opts, index=_g_idx)
-            new_season = st.text_input(
-                "Season",
-                value=_pf_season or "Fall, Winter",
+        # Prefill session keys BEFORE the form widgets (Streamlit form-safe)
+        _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
+        _cat_opts = [
+            "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
+            "Fruity", "Spicy", "Citrus", "Aromatic", "Leather", "Oud",
+            "Boozy", "Smoky", "Powdery",
+        ]
+        if "prefill_new_name" in st.session_state:
+            st.session_state["add_form_name"] = st.session_state.pop("prefill_new_name") or ""
+        if "prefill_new_brand" in st.session_state:
+            st.session_state["add_form_brand"] = st.session_state.pop("prefill_new_brand") or ""
+        if "prefill_new_notes" in st.session_state:
+            st.session_state["add_form_notes"] = st.session_state.pop("prefill_new_notes") or ""
+        if "prefill_new_season" in st.session_state:
+            st.session_state["add_form_season"] = (
+                st.session_state.pop("prefill_new_season") or "Fall, Winter"
             )
+        if "prefill_new_gender" in st.session_state:
+            g = st.session_state.pop("prefill_new_gender") or "Unisex"
+            st.session_state["add_form_gender"] = g if g in _gender_opts else "Unisex"
+        if "prefill_new_cats" in st.session_state:
+            raw_cats = st.session_state.pop("prefill_new_cats") or []
+            defaults = []
+            for c in raw_cats:
+                for opt in _cat_opts:
+                    if str(c).strip().lower() == opt.lower() and opt not in defaults:
+                        defaults.append(opt)
+            st.session_state["add_form_cats"] = defaults
+        # Defaults if keys never set
+        st.session_state.setdefault("add_form_name", "")
+        st.session_state.setdefault("add_form_brand", "")
+        st.session_state.setdefault("add_form_notes", "")
+        st.session_state.setdefault("add_form_season", "Fall, Winter")
+        st.session_state.setdefault("add_form_gender", "Unisex")
+        st.session_state.setdefault("add_form_cats", [])
+        st.session_state.setdefault("add_form_size", "")
+
+        with st.form("add_fragrance_form", clear_on_submit=True):
+            new_name = st.text_input("Name *", key="add_form_name")
+            new_brand = st.text_input("Brand *", key="add_form_brand")
+            new_gender = st.selectbox(
+                "Gender",
+                _gender_opts,
+                key="add_form_gender",
+            )
+            new_season = st.text_input("Season", key="add_form_season")
             new_notes = st.text_area(
                 "Notes",
-                value=_pf_notes,
                 height=100,
                 placeholder="Top - ... / Heart - ... / Base - ...",
+                key="add_form_notes",
             )
-            new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
+            new_shelf = st.selectbox(
+                "Shelf status",
+                SHELF_STATUSES,
+                key="add_form_shelf",
+            )
             new_concentration = st.selectbox(
                 "Format / concentration",
                 CONCENTRATION_OPTIONS,
-                index=0,
                 key="add_concentration",
                 help="Concentrated oil, EDP, EDT, body spray, etc.",
             )
-            new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
-            # price UI removed
-            _cat_opts = [
-                "Gourmand",
-                "Sweet",
-                "Floral",
-                "Woody",
-                "Oriental",
-                "Fresh",
-                "Fruity",
-                "Spicy",
-                "Citrus",
-                "Aromatic",
-                "Leather",
-                "Oud",
-                "Boozy",
-                "Smoky",
-                "Powdery",
-            ]
-            _default_cats = []
-            if isinstance(_pf_cats, list):
-                for c in _pf_cats:
-                    # match case-insensitively to options
-                    for opt in _cat_opts:
-                        if str(c).strip().lower() == opt.lower() and opt not in _default_cats:
-                            _default_cats.append(opt)
+            new_size = st.text_input(
+                "Size (ml)",
+                placeholder="e.g. 100",
+                key="add_form_size",
+            )
             new_cats = st.multiselect(
                 "Categories",
                 _cat_opts,
-                default=_default_cats,
+                key="add_form_cats",
             )
             c_add, c_clear = st.columns(2)
             with c_add:
