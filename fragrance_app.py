@@ -10737,7 +10737,12 @@ with st.expander("Add fragrance", expanded=True):
                         if dups.get("exact"):
                             st.error(f"**{frag['name']}** is already in your vault.")
                         else:
-                            st.session_state.setdefault("fragrances_db", []).append(frag)
+                            db = st.session_state.get("fragrances_db")
+                            if not isinstance(db, list):
+                                st.session_state["fragrances_db"] = []
+                                db = st.session_state["fragrances_db"]
+                            db.append(frag)
+                            st.session_state["fragrances_db"] = db
                             try:
                                 log_vault_action("added", frag["name"], "web-search")
                             except Exception:
@@ -10750,7 +10755,10 @@ with st.expander("Add fragrance", expanded=True):
                                 pass
                             st.session_state.pop("_web_frag_parsed", None)
                             st.session_state.pop("_web_frag_hits", None)
-                            st.success(f"Added **{frag['name']}**. Download a backup.")
+                            st.session_state["_add_flash"] = (
+                                f"Added **{frag['name']}**. Vault: **{len(db)}** bottles. "
+                                "Check Collection / search. Download a backup."
+                            )
                             st.rerun()
             with a3:
                 if st.button("Clear", key="web_frag_clear_btn", use_container_width=True):
@@ -10764,6 +10772,15 @@ with st.expander("Add fragrance", expanded=True):
         _flash = st.session_state.pop("_web_prefill_flash", None)
         if _flash:
             st.success(_flash)
+
+        # Show last few adds so user can confirm they landed
+        _db_now = st.session_state.get("fragrances_db") or []
+        if _db_now:
+            st.caption(
+                f"Vault has **{len(_db_now)}** bottles. "
+                f"Latest: **{(_db_now[-1].get('name') if _db_now else '—')}** "
+                f"({(_db_now[-1].get('brand') if _db_now else '')})"
+            )
 
         st.markdown("##### 2 · Fill in / edit, then add")
         st.caption("Type manually or use search above to prefill. You can change anything before adding.")
@@ -10856,37 +10873,51 @@ with st.expander("Add fragrance", expanded=True):
                 # fields are cleared by clear_on_submit; no vault change
 
             if submit_added:
-                if new_name and new_brand:
-                    dups = find_duplicate_fragrances(new_name, new_brand)
-                    if dups["exact"]:
+                nm = (new_name or "").strip()
+                br = (new_brand or "").strip()
+                if not nm:
+                    st.error("Name is required.")
+                elif not br:
+                    st.error("Brand is required — type the house name (e.g. Lattafa).")
+                else:
+                    dups = find_duplicate_fragrances(nm, br)
+                    if dups.get("exact"):
                         st.error(
                             f"Already in the vault: **{dups['exact'][0].get('name')}** by "
                             f"*{dups['exact'][0].get('brand')}*. Duplicate not added."
                         )
-                    elif dups["same_name"]:
-                        brands = ", ".join(
-                            sorted({(x.get("brand") or "?") for x in dups["same_name"]})
-                        )
-                        st.error(
-                            f"A bottle named **{new_name.strip()}** already exists "
-                            f"(brand: {brands}). Change the name or edit the existing entry."
-                        )
                     else:
-                        if dups["near"]:
-                            near_list = ", ".join(
-                                f"{x.get('name')} ({x.get('brand')})" for x in dups["near"][:3]
+                        if dups.get("same_name"):
+                            brands = ", ".join(
+                                sorted(
+                                    {
+                                        (x.get("brand") or "?")
+                                        for x in dups["same_name"]
+                                    }
+                                )
                             )
-                            st.warning(f"Similar bottles already in vault: {near_list}")
+                            st.warning(
+                                f"Same name exists with other brand(s): {brands}. "
+                                "Adding this one anyway."
+                            )
+                        if dups.get("near"):
+                            near_list = ", ".join(
+                                f"{x.get('name')} ({x.get('brand')})"
+                                for x in dups["near"][:3]
+                            )
+                            st.warning(f"Similar bottles: {near_list}")
                         new_frag = {
-                            "name": new_name.strip(),
-                            "brand": new_brand.strip(),
+                            "name": nm,
+                            "brand": br,
                             "gender": new_gender,
-                            "season": new_season or "Versatile",
-                            "notes": new_notes if new_notes else "Not specified",
-                            "category": new_cats if new_cats else ["Gourmand"],
+                            "season": normalize_season_label(new_season or "Versatile")
+                            if "normalize_season_label" in dir()
+                            else (new_season or "Versatile"),
+                            "notes": (new_notes or "").strip() or "Not specified",
+                            "category": list(new_cats) if new_cats else ["Gourmand"],
                             "dupe_of": "",
-                            "shelf_status": new_shelf,
-                            "concentration": new_concentration,
+                            "shelf_status": new_shelf or "Own",
+                            "concentration": new_concentration or "EDP",
                             "size_ml": (
                                 float(new_size)
                                 if str(new_size or "").strip().replace(".", "", 1).isdigit()
@@ -10894,13 +10925,40 @@ with st.expander("Add fragrance", expanded=True):
                             ),
                             "price": None,
                         }
-                        st.session_state["fragrances_db"].append(new_frag)
                         try:
-                            log_vault_action("added", new_frag["name"], new_frag.get("brand") or "")
+                            new_frag["season"] = normalize_season_label(
+                                new_frag.get("season") or "Versatile"
+                            )
                         except Exception:
                             pass
-                        save_persisted_data()
-                        st.success(f"Added **{new_frag['name']}** to the vault.")
+                        db = st.session_state.get("fragrances_db")
+                        if not isinstance(db, list):
+                            st.session_state["fragrances_db"] = []
+                            db = st.session_state["fragrances_db"]
+                        db.append(new_frag)
+                        st.session_state["fragrances_db"] = db
+                        try:
+                            log_vault_action(
+                                "added", new_frag["name"], new_frag.get("brand") or ""
+                            )
+                        except Exception:
+                            pass
+                        mark_vault_dirty()
+                        ok = save_persisted_data(force=True)
+                        try:
+                            prepare_backup_bytes()
+                        except Exception:
+                            pass
+                        st.session_state["_add_flash"] = (
+                            f"Added **{new_frag['name']}** ({new_frag.get('brand')}). "
+                            f"Vault now has **{len(db)}** bottles. "
+                            "Open **Collection** or search the name. "
+                            "Download a backup so Cloud sleep doesn’t erase it."
+                        )
+                        if not ok:
+                            st.session_state["_add_flash"] += (
+                                " ⚠️ Save to disk may have failed — download backup now."
+                            )
                         st.rerun()
 
 
@@ -15830,6 +15888,9 @@ with tab_vault:
     _rf = st.session_state.pop("_restore_flash", None)
     if _rf:
         st.success(_rf)
+    _af = st.session_state.pop("_add_flash", None)
+    if _af:
+        st.success(_af)
     st.subheader("Sanctuary vault")
     n_bottles = len(st.session_state["fragrances_db"])
     st.write(f"**{n_bottles}** bottles in the vault")
