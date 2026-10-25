@@ -10594,504 +10594,163 @@ with st.sidebar:
             st.rerun()
 
 
-with st.expander("Add fragrance", expanded=False):
-        # ----- Search Google/Fragrantica and add -----
-        with st.expander("Search online & add", expanded=True):
-            st.caption(
-                "Find a bottle online and add it with notes. "
-                "Use **name + brand** (example: `Yara Elixir Lattafa`). "
-                "If Search finds nothing, use the Google / Fragrantica links, then paste the page URL."
-            )
-            import urllib.parse as _urlparse
+with st.expander("Add fragrance", expanded=True):
+        st.markdown("##### 1 · Search (optional — fills the form below)")
+        st.caption(
+            "Search online or paste a Fragrantica link. "
+            "Results **prefill the form** so you can edit, then tap **Add to collection**."
+        )
+        import urllib.parse as _urlparse
 
-            web_q = st.text_input(
-                "Search fragrance",
-                key="web_frag_search_q",
-                placeholder="Name + brand, e.g. Khamrah Lattafa",
-            )
+        web_q = st.text_input(
+            "Search name + brand",
+            key="web_frag_search_q",
+            placeholder="e.g. Yara Elixir Lattafa",
+        )
+        q_clean = (web_q or "").strip()
+        s1, s2 = st.columns(2)
+        with s1:
             do_search = st.button(
                 "Search online",
-                type="primary",
                 key="web_frag_search_btn",
                 use_container_width=True,
             )
-
-            q_clean = (web_q or "").strip()
+        with s2:
             if q_clean:
                 gq = _urlparse.quote(q_clean + " site:fragrantica.com")
                 fq = _urlparse.quote(q_clean)
                 st.markdown(
-                    f"[Search on Google](https://www.google.com/search?q={gq}) · "
-                    f"[Search on Fragrantica](https://www.fragrantica.com/search/?query={fq}) · "
-                    f"[Search on DuckDuckGo](https://duckduckgo.com/?q={gq})"
+                    f"[Google](https://www.google.com/search?q={gq}) · "
+                    f"[Fragrantica](https://www.fragrantica.com/search/?query={fq})"
                 )
 
-            if do_search:
-                if not q_clean:
-                    st.warning("Type a fragrance name first.")
-                else:
-                    with st.spinner("Searching the web…"):
-                        try:
-                            hits = search_fragrance_web(q_clean, max_results=8)
-                            st.session_state["_web_frag_hits"] = hits
-                            st.session_state.pop("_web_frag_parsed", None)
-                            st.session_state["_web_frag_empty"] = not bool(hits)
-                        except Exception as ex:
-                            st.session_state["_web_frag_hits"] = []
-                            st.session_state["_web_frag_empty"] = True
-                            st.warning(f"Search error: {ex}")
-
-            hits = st.session_state.get("_web_frag_hits") or []
-            if hits:
-                st.markdown(f"**{len(hits)} result(s)** — tap **Load notes**")
-                for i, hit in enumerate(hits):
-                    label = f"{hit.get('title') or 'Result'}"
-                    if hit.get("brand"):
-                        label += f" · {hit.get('brand')}"
-                    bcols = st.columns([3, 1])
-                    with bcols[0]:
-                        st.write(label)
-                        st.caption((hit.get("url") or "")[:90])
-                    with bcols[1]:
-                        if st.button(
-                            "Load notes",
-                            key=f"web_frag_load_{i}",
-                            use_container_width=True,
-                        ):
-                            with st.spinner("Reading Fragrantica…"):
-                                try:
-                                    parsed = parse_fragrantica_perfume(
-                                        hit.get("url") or ""
-                                    )
-                                    st.session_state["_web_frag_parsed"] = parsed
-                                except Exception as ex:
-                                    st.session_state["_web_frag_parsed"] = {
-                                        "error": str(ex),
-                                        "url": hit.get("url"),
-                                    }
-                            st.rerun()
-            elif st.session_state.get("_web_frag_empty"):
-                st.warning(
-                    "Automatic search found nothing (common on free Cloud hosts). "
-                    "Use the **Google / Fragrantica** links above, open the perfume page, "
-                    "copy the URL, and paste it below — that path is the most reliable."
-                )
-
-            st.markdown("### Paste Fragrantica URL (most reliable)")
-            frag_url = st.text_input(
-                "Fragrantica perfume link",
-                key="web_frag_url_paste",
-                placeholder="https://www.fragrantica.com/perfume/Brand/Name-12345.html",
-            )
-            if st.button(
-                "Load notes from URL",
-                key="web_frag_url_btn",
-                type="primary",
-                use_container_width=True,
-            ):
-                u = (frag_url or "").strip()
-                if not u or "fragrantica." not in u.lower():
-                    st.warning("Paste a full Fragrantica perfume URL.")
-                else:
-                    with st.spinner("Reading notes…"):
-                        try:
-                            parsed = parse_fragrantica_perfume(u)
-                            st.session_state["_web_frag_parsed"] = parsed
-                        except Exception as ex:
-                            st.session_state["_web_frag_parsed"] = {
-                                "error": str(ex),
-                                "url": u,
-                            }
-                    st.rerun()
-
-            parsed = st.session_state.get("_web_frag_parsed")
-            if parsed and not parsed.get("error"):
-                st.success(
-                    f"**{parsed.get('name') or '?'}** — *{parsed.get('brand') or '?'}* "
-                    f"· {parsed.get('gender') or '?'}"
-                )
-                if parsed.get("notes"):
+        if do_search:
+            if not q_clean:
+                st.warning("Type a name first.")
+            else:
+                with st.spinner("Searching…"):
                     try:
-                        st.markdown(format_notes_for_display(parsed.get("notes")))
-                    except Exception:
-                        st.write(parsed.get("notes"))
-                else:
-                    st.caption(
-                        "No pyramid notes on that page — you can still add and edit notes after."
-                    )
-                if parsed.get("category"):
-                    st.caption("Accords: " + ", ".join(parsed.get("category") or []))
-                if parsed.get("url"):
-                    st.markdown(f"[Open source page]({parsed.get('url')})")
-                a1, a2 = st.columns(2)
-                with a1:
-                    if st.button(
-                        "Add to vault",
-                        type="primary",
-                        key="web_frag_add_btn",
-                        use_container_width=True,
-                    ):
-                        frag = web_result_to_frag(parsed)
-                        if not frag.get("name"):
-                            st.warning("Missing name — cannot add.")
-                        else:
-                            try:
-                                dups = find_duplicate_fragrances(
-                                    frag["name"], frag.get("brand") or ""
-                                )
-                            except Exception:
-                                dups = {"exact": []}
-                            if dups.get("exact"):
-                                st.error(
-                                    f"**{frag['name']}** already exists in your vault."
-                                )
-                            else:
-                                st.session_state.setdefault(
-                                    "fragrances_db", []
-                                ).append(frag)
-                                try:
-                                    log_vault_action(
-                                        "added", frag["name"], "web-search"
-                                    )
-                                except Exception:
-                                    pass
-                                mark_vault_dirty()
-                                save_persisted_data(force=True)
-                                try:
-                                    prepare_backup_bytes()
-                                except Exception:
-                                    pass
-                                st.session_state.pop("_web_frag_parsed", None)
-                                st.session_state.pop("_web_frag_hits", None)
-                                st.success(
-                                    f"Added **{frag['name']}**. Download a backup next."
-                                )
-                                st.rerun()
-                with a2:
-                    if st.button(
-                        "Prefill manual form",
-                        key="web_frag_prefill_btn",
-                        use_container_width=True,
-                    ):
-                        st.session_state["prefill_new_name"] = (
-                            parsed.get("name") or ""
-                        )
-                        st.session_state["prefill_new_brand"] = (
-                            parsed.get("brand") or ""
-                        )
-                        st.session_state["prefill_new_notes"] = (
-                            parsed.get("notes") or ""
-                        )
-                        st.session_state["prefill_new_gender"] = (
-                            parsed.get("gender") or ""
-                        )
-                        st.info("Scroll to the form below to finish editing.")
-            elif parsed and parsed.get("error"):
-                st.warning(f"Could not read page: {parsed.get('error')}")
+                        hits = search_fragrance_web(q_clean, max_results=8)
+                        st.session_state["_web_frag_hits"] = hits
+                        st.session_state["_web_frag_empty"] = not bool(hits)
+                    except Exception as ex:
+                        st.session_state["_web_frag_hits"] = []
+                        st.session_state["_web_frag_empty"] = True
+                        st.warning(f"Search error: {ex}")
 
-        # Notes helper (outside form so links work without submitting)
-        # Prefill from Collection -> Short notes / Needs fix "Lookup" buttons
+        hits = st.session_state.get("_web_frag_hits") or []
+        if hits:
+            st.caption(f"{len(hits)} result(s) — tap **Use in form** to prefill")
+            for i, hit in enumerate(hits[:6]):
+                label = hit.get("title") or "Result"
+                if hit.get("brand"):
+                    label += f" · {hit.get('brand')}"
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.write(label)
+                with c2:
+                    if st.button("Use in form", key=f"web_frag_load_{i}", use_container_width=True):
+                        with st.spinner("Loading notes…"):
+                            try:
+                                parsed = parse_fragrantica_perfume(hit.get("url") or "")
+                            except Exception as ex:
+                                parsed = {"error": str(ex)}
+                            if parsed.get("error"):
+                                st.warning(parsed["error"])
+                            else:
+                                st.session_state["prefill_new_name"] = parsed.get("name") or ""
+                                st.session_state["prefill_new_brand"] = parsed.get("brand") or ""
+                                st.session_state["prefill_new_notes"] = parsed.get("notes") or ""
+                                st.session_state["prefill_new_gender"] = parsed.get("gender") or ""
+                                st.session_state["prefill_new_season"] = parsed.get("season") or ""
+                                st.session_state["prefill_new_cats"] = list(
+                                    parsed.get("category") or []
+                                )
+                                st.session_state["_web_prefill_flash"] = (
+                                    f"Loaded **{parsed.get('name') or 'bottle'}** into the form below — edit if needed, then Add."
+                                )
+                        st.rerun()
+
+        elif st.session_state.get("_web_frag_empty"):
+            st.info(
+                "Auto-search found nothing. Use **Google / Fragrantica** links, "
+                "copy the perfume page URL, and paste it below."
+            )
+
+        frag_url = st.text_input(
+            "Or paste Fragrantica URL",
+            key="web_frag_url_paste",
+            placeholder="https://www.fragrantica.com/perfume/...",
+        )
+        if st.button(
+            "Load URL into form",
+            key="web_frag_url_btn",
+            use_container_width=True,
+        ):
+            u = (frag_url or "").strip()
+            if not u or "fragrantica." not in u.lower():
+                st.warning("Paste a full Fragrantica URL.")
+            else:
+                with st.spinner("Loading notes…"):
+                    try:
+                        parsed = parse_fragrantica_perfume(u)
+                    except Exception as ex:
+                        parsed = {"error": str(ex)}
+                    if parsed.get("error"):
+                        st.warning(parsed["error"])
+                    else:
+                        st.session_state["prefill_new_name"] = parsed.get("name") or ""
+                        st.session_state["prefill_new_brand"] = parsed.get("brand") or ""
+                        st.session_state["prefill_new_notes"] = parsed.get("notes") or ""
+                        st.session_state["prefill_new_gender"] = parsed.get("gender") or ""
+                        st.session_state["prefill_new_season"] = parsed.get("season") or ""
+                        st.session_state["prefill_new_cats"] = list(
+                            parsed.get("category") or []
+                        )
+                        st.session_state["_web_prefill_flash"] = (
+                            f"Loaded **{parsed.get('name') or 'bottle'}** into the form — edit, then Add."
+                        )
+                st.rerun()
+
+        _flash = st.session_state.pop("_web_prefill_flash", None)
+        if _flash:
+            st.success(_flash)
+
+        st.markdown("##### 2 · Fill in / edit, then add")
+        st.caption("Type manually or use search above to prefill. You can change anything before adding.")
+
+        # Pending lookup from Collection (legacy helper)
         _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
         if isinstance(_pending_lu, dict):
             if _pending_lu.get("name"):
-                st.session_state["notes_help_name"] = _pending_lu["name"]
-            if "brand" in _pending_lu:
-                st.session_state["notes_help_brand"] = _pending_lu.get("brand") or ""
-            st.session_state["notes_help_expand"] = True
-            st.session_state["_auto_run_notes_lookup"] = True
-
-        _notes_help_open = bool(
-            st.session_state.get("notes_help_expand")
-            or st.session_state.get("notes_help_result")
-        )
-        with st.expander("Fragrance lookup helper", expanded=_notes_help_open):
-            st.caption(
-                "Search your vault and open Google / Fragrantica / Parfumo for notes, "
-                "gender, season, category, **dupe of**, and price. "
-                "Sites are not auto-scraped; use the links and copy what you need. "
-                "From Collection - Short notes / Needs fix, tap **Lookup** on a bottle to fill this."
-            )
-            if st.session_state.pop("_clear_notes_help", False):
-                st.session_state["notes_help_name"] = ""
-                st.session_state["notes_help_brand"] = ""
-                st.session_state.pop("notes_help_result", None)
-                st.session_state.pop("prefill_new_notes", None)
-                st.session_state["notes_help_expand"] = False
-                st.session_state.pop("notes_help_focus_dupe", None)
-
-            h1, h2 = st.columns(2)
-            with h1:
-                help_name = st.text_input("Lookup name", key="notes_help_name")
-            with h2:
-                help_brand = st.text_input("Lookup brand", key="notes_help_brand")
-            hb1, hb2, hb3 = st.columns(3)
-            with hb1:
-                if st.button("Look up", key="notes_help_btn", use_container_width=True):
-                    st.session_state["notes_help_result"] = notes_lookup_suggestions(
-                        help_name, help_brand
-                    )
-                    st.session_state["notes_help_expand"] = True
-                    st.session_state["notes_help_focus_dupe"] = False
-            with hb2:
-                if st.button(
-                    "Find dupe of",
-                    key="notes_help_dupe_btn",
-                    use_container_width=True,
-                    help="Search name + brand for what original this clones / is inspired by",
-                ):
-                    st.session_state["notes_help_result"] = notes_lookup_suggestions(
-                        help_name, help_brand
-                    )
-                    st.session_state["notes_help_expand"] = True
-                    st.session_state["notes_help_focus_dupe"] = True
-            with hb3:
-                if st.button("Clear finder", key="notes_help_clear", use_container_width=True):
-                    st.session_state["_clear_notes_help"] = True
-                    st.rerun()
-
-            # Auto-run when opened from Collection
-            if st.session_state.pop("_auto_run_notes_lookup", False):
-                nm = (st.session_state.get("notes_help_name") or "").strip()
-                br = (st.session_state.get("notes_help_brand") or "").strip()
-                if nm:
-                    st.session_state["notes_help_result"] = notes_lookup_suggestions(nm, br)
-                    st.session_state["notes_help_expand"] = True
-
-            help_res = st.session_state.get("notes_help_result")
-            if help_res:
-                if help_res.get("local"):
-                    st.markdown("**Similar in your vault**")
-                    for f in help_res["local"]:
-                        cats = ", ".join(f.get("category") or [])
-                        price_bit = ""
-                        if f.get("price") is not None:
-                            try:
-                                price_bit = f" | Price: ${float(f.get('price')):.0f}"
-                            except (TypeError, ValueError):
-                                price_bit = ""
-                        dupe_bit = ""
-                        if (f.get("dupe_of") or "").strip():
-                            dupe_bit = f"  \nDupe of: **{(f.get('dupe_of') or '').strip()}**"
-                        st.write(
-                            f"**{f.get('name')}** ({f.get('brand')})  \n"
-                            f"Gender: {f.get('gender', '?')} | Season: {f.get('season', '?')} | "
-                            f"Category: {cats}{price_bit}{dupe_bit}  \n"
-                            f"Notes: {(f.get('notes') or '')[:160]}"
-                        )
-                        b1, b2 = st.columns(2)
-                        with b1:
-                            if st.button(
-                                "Use notes",
-                                key=f"use_notes_{f.get('name')}",
-                            ):
-                                st.session_state["prefill_new_notes"] = f.get("notes") or ""
-                                st.session_state["add_notes_field"] = f.get("notes") or ""
-                                st.success("Notes prefilled in the Add form.")
-                                st.rerun()
-                        with b2:
-                            if st.button(
-                                "Use full profile",
-                                key=f"use_profile_{f.get('name')}",
-                            ):
-                                st.session_state["prefill_new_notes"] = f.get("notes") or ""
-                                st.session_state["add_notes_field"] = f.get("notes") or ""
-                                st.session_state["lookup_profile_hint"] = {
-                                    "gender": f.get("gender"),
-                                    "season": f.get("season"),
-                                    "category": list(f.get("category") or []),
-                                    "price": f.get("price"),
-                                    "from": f.get("name"),
-                                }
-                                st.success(
-                                    "Notes prefilled. Gender / season / category / price shown below "
-                                    "to copy into the Add form."
-                                )
-                                st.rerun()
-
-                hint = st.session_state.get("lookup_profile_hint")
-                if hint:
-                    price_line = ""
-                    if hint.get("price") is not None:
-                        try:
-                            price_line = f"  \n**Price:** ${float(hint.get('price')):.0f}"
-                        except (TypeError, ValueError):
-                            price_line = ""
-                    st.info(
-                        f"Suggested from **{hint.get('from')}**:  \n"
-                        f"**Gender:** {hint.get('gender')}  \n"
-                        f"**Season:** {hint.get('season')}  \n"
-                        f"**Categories:** {', '.join(hint.get('category') or [])}"
-                        f"{price_line}"
-                    )
-
-                # --- Dupe of ---
-                dupe_hits = help_res.get("dupe_hits") or []
-                known_dupe = (help_res.get("known_dupe") or "").strip()
-                focus_dupe = bool(st.session_state.get("notes_help_focus_dupe"))
-                if focus_dupe:
-                    st.markdown("### Dupe of / inspired by")
-                    st.caption(
-                        f"Query: **{help_res.get('query') or (help_name + ' ' + help_brand).strip()}**"
-                    )
-                else:
-                    st.markdown("**Dupe of / inspired by**")
-                if dupe_hits:
-                    for hi, h in enumerate(dupe_hits):
-                        origin = h.get("origin") or ""
-                        src = h.get("source") or "?"
-                        br = h.get("brand") or ""
-                        target = h.get("dupe_of") or "?"
-                        st.write(
-                            f"**{target}**  \n"
-                            f"From: *{src}*"
-                            + (f" ({br})" if br else "")
-                            + (f" | {origin}" if origin else "")
-                        )
-                        if st.button(
-                            "Save dupe_of on vault match",
-                            key=f"save_dupe_{hi}_{src}",
-                            help="Write this dupe target onto the matching vault bottle",
-                        ):
-                            updated = False
-                            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
-                                if (f.get("name") or "") == src:
-                                    st.session_state["fragrances_db"][i]["dupe_of"] = target
-                                    updated = True
-                                    break
-                            # If lookup name matches a vault bottle not in hits as source
-                            if not updated:
-                                lu_name = (st.session_state.get("notes_help_name") or "").strip()
-                                for i, f in enumerate(st.session_state.get("fragrances_db") or []):
-                                    if (f.get("name") or "").lower() == lu_name.lower():
-                                        st.session_state["fragrances_db"][i]["dupe_of"] = target
-                                        updated = True
-                                        src = f.get("name")
-                                        break
-                            if updated:
-                                try:
-                                    log_vault_action("edited", src, f"dupe_of={target}")
-                                except Exception:
-                                    pass
-                                save_persisted_data()
-                                st.session_state["_dupe_save_flash"] = (
-                                    f"Saved dupe_of **{target}** on **{src}**"
-                                )
-                                st.rerun()
-                            else:
-                                st.warning(
-                                    "No vault bottle matched to save. Add the bottle first, "
-                                    "or edit dupe_of in Vault."
-                                )
-                if known_dupe and not dupe_hits:
-                    st.success(f"Likely dupe of / inspired by: **{known_dupe}**")
-                elif known_dupe and dupe_hits:
-                    # also surface known map even when vault hits exist
-                    st.info(f"Built-in suggestion: **{known_dupe}**")
-                if not dupe_hits and not known_dupe:
-                    st.caption(
-                        "No built-in dupe match yet. Use the **Dupe of (Google)** / Reddit links below, "
-                        "then save the original name with **Set dupe of manually** or Vault - Edit."
-                    )
-
-                _df = st.session_state.pop("_dupe_save_flash", None)
-                if _df:
-                    st.success(_df)
-
-                # Optional: type a dupe target and save onto lookup name bottle
-                with st.expander("Set dupe of manually", expanded=False):
-                    st.caption(
-                        "Enter the original / designer scent this bottle clones or is inspired by."
-                    )
-                    manual_dupe = st.text_input(
-                        "Dupe of (original name)",
-                        key="notes_help_manual_dupe",
-                        placeholder="e.g. Kilian Angels' Share",
-                    )
-                    if st.button("Save manual dupe_of", key="notes_help_manual_dupe_btn"):
-                        target = (manual_dupe or "").strip()
-                        lu_name = (st.session_state.get("notes_help_name") or "").strip()
-                        if not target or not lu_name:
-                            st.warning("Need Lookup name and a dupe target.")
-                        else:
-                            updated = False
-                            for i, f in enumerate(st.session_state.get("fragrances_db") or []):
-                                if (f.get("name") or "").lower() == lu_name.lower():
-                                    st.session_state["fragrances_db"][i]["dupe_of"] = target
-                                    updated = True
-                                    try:
-                                        log_vault_action(
-                                            "edited", f.get("name"), f"dupe_of={target}"
-                                        )
-                                    except Exception:
-                                        pass
-                                    save_persisted_data()
-                                    st.session_state["_dupe_save_flash"] = (
-                                        f"Saved dupe_of **{target}** on **{f.get('name')}**"
-                                    )
-                                    st.rerun()
-                            if not updated:
-                                st.warning(
-                                    f"No vault bottle named **{lu_name}**. "
-                                    "Add it first or pick the exact vault name."
-                                )
-
-                links = help_res.get("links") or {}
-                if links:
-                    st.markdown("**Search online**")
-                    st.caption(
-                        "Google / Fragrantica / Parfumo for notes, gender, season, category, "
-                        "dupe/clone, and price. Copy what you find into the Add form. "
-                        "Sites are not auto-filled."
-                    )
-                    # Show dupe links first
-                    preferred_order = [
-                        "Dupe of (Google)",
-                        "Dupe of (Reddit)",
-                        "Fragrantica dupe / similar",
-                        "Notes (Google)",
-                        "Gender (Google)",
-                        "Season (Google)",
-                        "Category / accords (Google)",
-                        "Fragrantica search",
-                        "Parfumo search",
-                    ]
-                    shown = set()
-                    for label in preferred_order:
-                        url = links.get(label)
-                        if url:
-                            st.markdown(f"- [{label}]({url})")
-                            shown.add(label)
-                    for label, url in links.items():
-                        if label not in shown:
-                            st.markdown(f"- [{label}]({url})")
-                st.caption("Clear finder resets lookup fields and results.")
-
-        # Prefill notes if helper requested it
-        if "prefill_new_notes" in st.session_state and "add_notes_field" not in st.session_state:
-            st.session_state["add_notes_field"] = st.session_state.pop("prefill_new_notes")
+                st.session_state["prefill_new_name"] = _pending_lu["name"]
+            if _pending_lu.get("brand"):
+                st.session_state["prefill_new_brand"] = _pending_lu.get("brand") or ""
 
         with st.form("add_fragrance_form", clear_on_submit=True):
-            new_name = st.text_input(
-                "Name",
-                value=st.session_state.pop("prefill_new_name", "") or "",
+            _pf_name = st.session_state.pop("prefill_new_name", "") or ""
+            _pf_brand = st.session_state.pop("prefill_new_brand", "") or ""
+            _pf_notes = st.session_state.pop("prefill_new_notes", "") or ""
+            _pf_gender = st.session_state.pop("prefill_new_gender", "") or ""
+            _pf_season = st.session_state.pop("prefill_new_season", "") or ""
+            _pf_cats = st.session_state.pop("prefill_new_cats", None)
+            _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
+            _g_idx = 0
+            if _pf_gender in _gender_opts:
+                _g_idx = _gender_opts.index(_pf_gender)
+
+            new_name = st.text_input("Name", value=_pf_name)
+            new_brand = st.text_input("Brand", value=_pf_brand)
+            new_gender = st.selectbox("Gender", _gender_opts, index=_g_idx)
+            new_season = st.text_input(
+                "Season",
+                value=_pf_season or "Fall, Winter",
             )
-            new_brand = st.text_input(
-                "Brand",
-                value=st.session_state.pop("prefill_new_brand", "") or "",
-            )
-            new_gender = st.selectbox(
-                "Gender",
-                ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"],
-            )
-            new_season = st.text_input("Season", value="Fall, Winter")
-            if "prefill_new_notes" in st.session_state:
-                st.session_state["add_notes_field"] = st.session_state.pop(
-                    "prefill_new_notes"
-                ) or ""
-            new_notes = st.text_input(
+            new_notes = st.text_area(
                 "Notes",
+                value=_pf_notes,
+                height=100,
                 placeholder="Top - ... / Heart - ... / Base - ...",
-                key="add_notes_field",
             )
             new_shelf = st.selectbox("Shelf status", SHELF_STATUSES, index=0)
             new_concentration = st.selectbox(
@@ -11103,25 +10762,34 @@ with st.expander("Add fragrance", expanded=False):
             )
             new_size = st.text_input("Size (ml)", placeholder="e.g. 100")
             # price UI removed
+            _cat_opts = [
+                "Gourmand",
+                "Sweet",
+                "Floral",
+                "Woody",
+                "Oriental",
+                "Fresh",
+                "Fruity",
+                "Spicy",
+                "Citrus",
+                "Aromatic",
+                "Leather",
+                "Oud",
+                "Boozy",
+                "Smoky",
+                "Powdery",
+            ]
+            _default_cats = []
+            if isinstance(_pf_cats, list):
+                for c in _pf_cats:
+                    # match case-insensitively to options
+                    for opt in _cat_opts:
+                        if str(c).strip().lower() == opt.lower() and opt not in _default_cats:
+                            _default_cats.append(opt)
             new_cats = st.multiselect(
                 "Categories",
-                [
-                    "Gourmand",
-                    "Sweet",
-                    "Floral",
-                    "Woody",
-                    "Oriental",
-                    "Fresh",
-                    "Fruity",
-                    "Spicy",
-                    "Citrus",
-                    "Aromatic",
-                    "Leather",
-                    "Oud",
-                    "Boozy",
-                    "Smoky",
-                    "Powdery",
-                ],
+                _cat_opts,
+                default=_default_cats,
             )
             c_add, c_clear = st.columns(2)
             with c_add:
