@@ -10594,1008 +10594,47 @@ with st.sidebar:
 
 
 
-# Flash messages for add form (shown above the form, not only in Vault tab)
-_af_top = st.session_state.pop("_add_flash", None)
-if _af_top:
-    st.success(_af_top)
 
-with st.expander("Add fragrance", expanded=True):
-        st.markdown("##### 1 · Search & load")
-        st.caption(
-            "Search → **Load** a result → choose **Prefill form** (edit then add) or **Add now**. "
-            "If search is empty, paste a Fragrantica URL."
-        )
-        import urllib.parse as _urlparse
-
-        web_q = st.text_input(
-            "Search name + brand",
-            key="web_frag_search_q",
-            placeholder="e.g. Yara Elixir Lattafa",
-        )
-        q_clean = (web_q or "").strip()
-
-        c_search, c_links = st.columns([1, 2])
-        with c_search:
-            do_search = st.button(
-                "Search",
-                type="primary",
-                key="web_frag_search_btn",
-                use_container_width=True,
-            )
-        with c_links:
-            if q_clean:
-                gq = _urlparse.quote(q_clean + " site:fragrantica.com")
-                fq = _urlparse.quote(q_clean)
-                st.markdown(
-                    f"[Google](https://www.google.com/search?q={gq}) · "
-                    f"[Fragrantica](https://www.fragrantica.com/search/?query={fq})"
-                )
-
-        if do_search:
-            if not q_clean:
-                st.warning("Type a name + brand first.")
-            else:
-                with st.spinner("Searching…"):
-                    try:
-                        hits = search_fragrance_web(q_clean, max_results=8)
-                        st.session_state["_web_frag_hits"] = hits
-                        st.session_state["_web_frag_empty"] = not bool(hits)
-                        st.session_state.pop("_web_frag_parsed", None)
-                    except Exception as ex:
-                        st.session_state["_web_frag_hits"] = []
-                        st.session_state["_web_frag_empty"] = True
-                        st.warning(f"Search error: {ex}")
-
-        hits = st.session_state.get("_web_frag_hits") or []
-        if hits:
-            st.markdown(f"**{len(hits)} result(s)** — tap **Load**")
-            for i, hit in enumerate(hits[:8]):
-                label = hit.get("title") or "Result"
-                if hit.get("brand"):
-                    label += f" · {hit.get('brand')}"
-                r1, r2 = st.columns([3, 1])
-                with r1:
-                    st.write(label)
-                    st.caption((hit.get("url") or "")[:100])
-                with r2:
-                    if st.button("Load", key=f"web_frag_load_{i}", use_container_width=True):
-                        with st.spinner("Loading notes…"):
-                            try:
-                                parsed = parse_fragrantica_perfume(hit.get("url") or "")
-                                st.session_state["_web_frag_parsed"] = parsed
-                            except Exception as ex:
-                                st.session_state["_web_frag_parsed"] = {
-                                    "error": str(ex),
-                                    "url": hit.get("url"),
-                                }
-                        st.rerun()
-        elif st.session_state.get("_web_frag_empty"):
-            st.warning(
-                "Search returned nothing (Cloud often blocks this). "
-                "Use Google/Fragrantica links above, then paste the URL below."
-            )
-
-        st.markdown("**Or paste Fragrantica URL**")
-        frag_url = st.text_input(
-            "Fragrantica link",
-            key="web_frag_url_paste",
-            placeholder="https://www.fragrantica.com/perfume/...",
-            label_visibility="collapsed",
-        )
-        if st.button("Load URL", key="web_frag_url_btn", use_container_width=True):
-            u = (frag_url or "").strip()
-            if not u or "fragrantica." not in u.lower():
-                st.warning("Paste a full Fragrantica perfume URL.")
-            else:
-                with st.spinner("Loading notes…"):
-                    try:
-                        parsed = parse_fragrantica_perfume(u)
-                        st.session_state["_web_frag_parsed"] = parsed
-                    except Exception as ex:
-                        st.session_state["_web_frag_parsed"] = {"error": str(ex), "url": u}
-                st.rerun()
-
-        # Loaded preview + actions (same pattern as the first working version)
-        parsed = st.session_state.get("_web_frag_parsed")
-        if parsed and not parsed.get("error"):
-            st.success(
-                f"**{parsed.get('name') or '?'}** — *{parsed.get('brand') or '?'}* "
-                f"· {parsed.get('gender') or '—'}"
-            )
-            if parsed.get("notes"):
-                try:
-                    st.markdown(format_notes_for_display(parsed.get("notes")))
-                except Exception:
-                    st.write(parsed.get("notes"))
-            else:
-                st.caption("No notes found on the page — you can still prefill and edit manually.")
-            if parsed.get("url"):
-                st.caption(parsed.get("url"))
-
-            a1, a2, a3 = st.columns(3)
-            with a1:
-                if st.button(
-                    "Prefill form",
-                    type="primary",
-                    key="web_frag_prefill_btn",
-                    use_container_width=True,
-                    help="Send name, brand, notes, gender into the manual form below",
-                ):
-                    apply_prefill_from_parsed(parsed)
-                    st.rerun()
-            with a2:
-                if st.button(
-                    "Add now",
-                    key="web_frag_add_btn",
-                    use_container_width=True,
-                    help="Add straight to vault without editing",
-                ):
-                    frag = web_result_to_frag(parsed)
-                    if not frag.get("name"):
-                        st.warning("Missing name — use Prefill form and type it.")
-                    else:
-                        try:
-                            dups = find_duplicate_fragrances(
-                                frag["name"], frag.get("brand") or ""
-                            )
-                        except Exception:
-                            dups = {"exact": []}
-                        if dups.get("exact"):
-                            st.error(f"**{frag['name']}** is already in your vault.")
-                        else:
-                            db = st.session_state.get("fragrances_db")
-                            if not isinstance(db, list):
-                                st.session_state["fragrances_db"] = []
-                                db = st.session_state["fragrances_db"]
-                            db.append(frag)
-                            st.session_state["fragrances_db"] = db
-                            try:
-                                log_vault_action("added", frag["name"], "web-search")
-                            except Exception:
-                                pass
-                            mark_vault_dirty()
-                            save_persisted_data(force=True)
-                            try:
-                                prepare_backup_bytes()
-                            except Exception:
-                                pass
-                            st.session_state.pop("_web_frag_parsed", None)
-                            st.session_state.pop("_web_frag_hits", None)
-                            st.session_state["_add_flash"] = (
-                                f"Added **{frag['name']}**. Vault: **{len(db)}** bottles. "
-                                "Check Collection / search. Download a backup."
-                            )
-                            st.rerun()
-            with a3:
-                if st.button("Clear", key="web_frag_clear_btn", use_container_width=True):
-                    st.session_state.pop("_web_frag_parsed", None)
-                    st.session_state.pop("_web_frag_hits", None)
-                    st.session_state.pop("_web_frag_empty", None)
-                    st.rerun()
-        elif parsed and parsed.get("error"):
-            st.warning(f"Could not load: {parsed.get('error')}")
-
-        _flash = st.session_state.pop("_web_prefill_flash", None)
-        if _flash:
-            st.success(_flash)
-
-        # Show last few adds so user can confirm they landed
-        _db_now = st.session_state.get("fragrances_db") or []
-        if _db_now:
-            st.caption(
-                f"Vault has **{len(_db_now)}** bottles. "
-                f"Latest: **{(_db_now[-1].get('name') if _db_now else '—')}** "
-                f"({(_db_now[-1].get('brand') if _db_now else '')})"
-            )
-
-        st.markdown("##### 2 · Fill in / edit, then add")
-        st.caption("Type manually or use search above to prefill. You can change anything before adding.")
-
-        # Pending lookup from Collection (legacy helper)
-        _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
-        if isinstance(_pending_lu, dict):
-            if _pending_lu.get("name"):
-                st.session_state["prefill_new_name"] = _pending_lu["name"]
-            if _pending_lu.get("brand"):
-                st.session_state["prefill_new_brand"] = _pending_lu.get("brand") or ""
-
-        # Prefill session keys BEFORE the form widgets (Streamlit form-safe)
-        _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
-        _cat_opts = [
-            "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
-            "Fruity", "Spicy", "Citrus", "Aromatic", "Leather", "Oud",
-            "Boozy", "Smoky", "Powdery",
-        ]
-        if "prefill_new_name" in st.session_state:
-            st.session_state["add_form_name"] = st.session_state.pop("prefill_new_name") or ""
-        if "prefill_new_brand" in st.session_state:
-            st.session_state["add_form_brand"] = st.session_state.pop("prefill_new_brand") or ""
-        if "prefill_new_notes" in st.session_state:
-            st.session_state["add_form_notes"] = st.session_state.pop("prefill_new_notes") or ""
-        if "prefill_new_season" in st.session_state:
-            st.session_state["add_form_season"] = (
-                st.session_state.pop("prefill_new_season") or "Fall, Winter"
-            )
-        if "prefill_new_gender" in st.session_state:
-            g = st.session_state.pop("prefill_new_gender") or "Unisex"
-            st.session_state["add_form_gender"] = g if g in _gender_opts else "Unisex"
-        if "prefill_new_cats" in st.session_state:
-            raw_cats = st.session_state.pop("prefill_new_cats") or []
-            defaults = []
-            for c in raw_cats:
-                for opt in _cat_opts:
-                    if str(c).strip().lower() == opt.lower() and opt not in defaults:
-                        defaults.append(opt)
-            st.session_state["add_form_cats"] = defaults
-        # Defaults if keys never set
-        st.session_state.setdefault("add_form_name", "")
-        st.session_state.setdefault("add_form_brand", "")
-        st.session_state.setdefault("add_form_notes", "")
-        st.session_state.setdefault("add_form_season", "Fall, Winter")
-        st.session_state.setdefault("add_form_gender", "Unisex")
-        st.session_state.setdefault("add_form_cats", [])
-        st.session_state.setdefault("add_form_size", "")
-
-        with st.form("add_fragrance_form", clear_on_submit=False):
-            st.text_input("Name *", key="add_form_name")
-            st.text_input("Brand *", key="add_form_brand")
-            # Guard selectbox values so Streamlit does not drop the form
-            if st.session_state.get("add_form_gender") not in _gender_opts:
-                st.session_state["add_form_gender"] = "Unisex"
-            st.selectbox("Gender", _gender_opts, key="add_form_gender")
-            st.text_input("Season", key="add_form_season")
-            st.text_area(
-                "Notes",
-                height=100,
-                placeholder="Top - ... / Heart - ... / Base - ...",
-                key="add_form_notes",
-            )
-            try:
-                _shelf_opts = list(SHELF_STATUSES)
-            except Exception:
-                _shelf_opts = ["Own", "Decant", "Wishlist", "Finished"]
-            if st.session_state.get("add_form_shelf") not in _shelf_opts:
-                st.session_state["add_form_shelf"] = _shelf_opts[0]
-            st.selectbox("Shelf status", _shelf_opts, key="add_form_shelf")
-            try:
-                _conc_opts = list(CONCENTRATION_OPTIONS)
-            except Exception:
-                _conc_opts = ["EDP", "EDT", "Oil", "Body spray", "Other"]
-            if st.session_state.get("add_concentration") not in _conc_opts:
-                st.session_state["add_concentration"] = _conc_opts[0]
-            st.selectbox(
-                "Format / concentration",
-                _conc_opts,
-                key="add_concentration",
-                help="Concentrated oil, EDP, EDT, body spray, etc.",
-            )
-            st.text_input("Size (ml)", placeholder="e.g. 100", key="add_form_size")
-            # Multiselect must be a list of valid options
-            _cur_cats = st.session_state.get("add_form_cats") or []
-            if not isinstance(_cur_cats, list):
-                _cur_cats = []
-            st.session_state["add_form_cats"] = [c for c in _cur_cats if c in _cat_opts]
-            st.multiselect("Categories", _cat_opts, key="add_form_cats")
-
-            c_add, c_clear = st.columns(2)
-            with c_add:
-                submit_added = st.form_submit_button(
-                    "Add to collection",
-                    type="primary",
-                    use_container_width=True,
-                )
-            with c_clear:
-                clear_add_form = st.form_submit_button(
-                    "Clear form", use_container_width=True
-                )
-
-            if clear_add_form:
-                for _k in (
-                    "add_form_name",
-                    "add_form_brand",
-                    "add_form_notes",
-                    "add_form_season",
-                    "add_form_gender",
-                    "add_form_cats",
-                    "add_form_size",
-                    "add_form_shelf",
-                    "add_concentration",
-                ):
-                    if _k in ("add_form_gender",):
-                        st.session_state[_k] = "Unisex"
-                    elif _k in ("add_form_season",):
-                        st.session_state[_k] = "Fall, Winter"
-                    elif _k in ("add_form_cats",):
-                        st.session_state[_k] = []
-                    elif _k in ("add_form_shelf",):
-                        st.session_state[_k] = _shelf_opts[0]
-                    elif _k in ("add_concentration",):
-                        st.session_state[_k] = _conc_opts[0]
-                    else:
-                        st.session_state[_k] = ""
-                st.session_state["_add_flash"] = "Form cleared."
-                st.rerun()
-
-            if submit_added:
-                # Always read from session_state keys (reliable inside forms)
-                nm = str(st.session_state.get("add_form_name") or "").strip()
-                br = str(st.session_state.get("add_form_brand") or "").strip()
-                new_gender = st.session_state.get("add_form_gender") or "Unisex"
-                new_season = st.session_state.get("add_form_season") or "Versatile"
-                new_notes = st.session_state.get("add_form_notes") or ""
-                new_shelf = st.session_state.get("add_form_shelf") or "Own"
-                new_concentration = st.session_state.get("add_concentration") or "EDP"
-                new_size = st.session_state.get("add_form_size") or ""
-                new_cats = st.session_state.get("add_form_cats") or []
-                if not nm:
-                    st.error("Name is required.")
-                elif not br:
-                    st.error("Brand is required — type the house name (e.g. Lattafa).")
-                else:
-                    dups = find_duplicate_fragrances(nm, br)
-                    if dups.get("exact"):
-                        st.error(
-                            f"Already in the vault: **{dups['exact'][0].get('name')}** by "
-                            f"*{dups['exact'][0].get('brand')}*. Duplicate not added."
-                        )
-                    else:
-                        if dups.get("same_name"):
-                            brands = ", ".join(
-                                sorted(
-                                    {
-                                        (x.get("brand") or "?")
-                                        for x in dups["same_name"]
-                                    }
-                                )
-                            )
-                            st.warning(
-                                f"Same name exists with other brand(s): {brands}. "
-                                "Adding this one anyway."
-                            )
-                        if dups.get("near"):
-                            near_list = ", ".join(
-                                f"{x.get('name')} ({x.get('brand')})"
-                                for x in dups["near"][:3]
-                            )
-                            st.warning(f"Similar bottles: {near_list}")
-                        new_frag = {
-                            "name": nm,
-                            "brand": br,
-                            "gender": new_gender,
-                            "season": (new_season or "Versatile"),
-                            "notes": (new_notes or "").strip() or "Not specified",
-                            "category": list(new_cats) if new_cats else ["Gourmand"],
-                            "dupe_of": "",
-                            "shelf_status": new_shelf or "Own",
-                            "concentration": new_concentration or "EDP",
-                            "size_ml": (
-                                float(new_size)
-                                if str(new_size or "").strip().replace(".", "", 1).isdigit()
-                                else None
-                            ),
-                            "price": None,
-                        }
-                        try:
-                            new_frag["season"] = normalize_season_label(
-                                new_frag.get("season") or "Versatile"
-                            )
-                        except Exception:
-                            pass
-                        db = st.session_state.get("fragrances_db")
-                        if not isinstance(db, list):
-                            st.session_state["fragrances_db"] = []
-                            db = st.session_state["fragrances_db"]
-                        db.append(new_frag)
-                        st.session_state["fragrances_db"] = db
-                        try:
-                            log_vault_action(
-                                "added", new_frag["name"], new_frag.get("brand") or ""
-                            )
-                        except Exception:
-                            pass
-                        mark_vault_dirty()
-                        ok = save_persisted_data(force=True)
-                        try:
-                            prepare_backup_bytes()
-                        except Exception:
-                            pass
-                        st.session_state["_add_flash"] = (
-                            f"Added **{new_frag['name']}** ({new_frag.get('brand')}). "
-                            f"Vault now has **{len(db)}** bottles. "
-                            "Open **Collection** or search the name. "
-                            "Download a backup so Cloud sleep doesn’t erase it."
-                        )
-                        if not ok:
-                            st.session_state["_add_flash"] += (
-                                " ⚠️ Save to disk may have failed — download backup now."
-                            )
-                        # Reset form fields after successful add
-                        st.session_state["add_form_name"] = ""
-                        st.session_state["add_form_brand"] = ""
-                        st.session_state["add_form_notes"] = ""
-                        st.session_state["add_form_size"] = ""
-                        st.session_state["add_form_cats"] = []
-                        st.rerun()
-
-
-    # (Add fragrance form / expander end above)
-
-# ---------- MAIN TABS ----------
-
-# Normalize season labels once per session (Autumn -> Fall, tidy tags)
-if not st.session_state.get("_seasons_normalized"):
-    try:
-        n = normalize_all_seasons_in_vault()
-        st.session_state["_seasons_normalized"] = True
-        if n:
-            mark_vault_dirty()
-    except Exception:
-        st.session_state["_seasons_normalized"] = True
-
-
-def _layer_score_bottle(f: dict) -> float:
-    """How dessert-like a bottle is (female-leaning vault picks)."""
-    if not f:
-        return -1.0
-    g = normalize_gender(f.get("gender") or "")
-    if g not in ("Female", "Female-leaning", "Unisex"):
-        return -1.0
-    cats = {str(c).lower() for c in (f.get("category") or [])}
-    notes = (f.get("notes") or "").lower()
-    name = (f.get("name") or "").lower()
-    text = notes + " " + name + " " + " ".join(cats)
-    pts = 0.0
-    dessert_cats = {
-        "gourmand": 12, "sweet": 10, "vanilla": 10, "creamy": 9,
-        "fruity": 6, "floral": 3, "powdery": 3, "amber": 4, "musky": 2,
-    }
-    for c, w in dessert_cats.items():
-        if c in cats:
-            pts += w
-    dessert_notes = [
-        ("vanilla", 8), ("caramel", 8), ("praline", 7), ("chocolate", 7),
-        ("cocoa", 6), ("coffee", 5), ("tonka", 5), ("marshmallow", 7),
-        ("sugar", 5), ("honey", 5), ("coconut", 5), ("almond", 5),
-        ("pistachio", 6), ("hazelnut", 5), ("cream", 5), ("milk", 4),
-        ("strawberry", 6), ("raspberry", 5), ("cherry", 5), ("peach", 4),
-        ("banana", 4), ("apple pie", 6), ("cinnamon", 4), ("whipped", 5),
-        ("butter", 4), ("cookie", 6), ("cake", 6), ("custard", 6),
-        ("toffee", 6), ("maple", 5), ("brown sugar", 6), ("sandalwood", 2),
-    ]
-    for k, w in dessert_notes:
-        if k in text:
-            pts += w
-    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
-        pts += 8
-    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
-        return -1.0
-    if is_oil_fragrance(f):
-        pts += 2  # oils layer nicely under sprays
-    return pts
-
-
-def _layer_display_name_from_frags(frags: list) -> str:
-    """Dessert name driven by the strongest notes in the stack (not random flavor)."""
-    text = " ".join(
-        ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
-        for f in frags
-        if isinstance(f, dict)
-    )
-    cats = set()
-    for f in frags:
-        for c in f.get("category") or []:
-            cats.add(str(c).lower())
-
-    # Score note families present in this exact stack
-    families = {
-        "strawberry": (["strawberry", "fraise"], 0),
-        "raspberry": (["raspberry", "framboise"], 0),
-        "cherry": (["cherry", "cerise"], 0),
-        "berry": (["berry", "berries", "blackcurrant", "cassis"], 0),
-        "coconut": (["coconut", "coco"], 0),
-        "pineapple": (["pineapple"], 0),
-        "peach": (["peach", "nectarine"], 0),
-        "apple": (["apple", "apple pie"], 0),
-        "pear": (["pear"], 0),
-        "banana": (["banana"], 0),
-        "chocolate": (["chocolate", "cocoa", "cacao"], 0),
-        "coffee": (["coffee", "espresso", "mocha"], 0),
-        "caramel": (["caramel", "toffee", "butterscotch"], 0),
-        "praline": (["praline", "hazelnut", "gianduja"], 0),
-        "pistachio": (["pistachio"], 0),
-        "almond": (["almond", "marzipan"], 0),
-        "vanilla": (["vanilla", "vanille", "tonka"], 0),
-        "marshmallow": (["marshmallow", "cotton candy", "meringue"], 0),
-        "cream": (["cream", "milk", "custard", "whipped", "lactonic"], 0),
-        "honey": (["honey", "beeswax"], 0),
-        "cinnamon": (["cinnamon", "spice", "clove", "nutmeg"], 0),
-        "pumpkin": (["pumpkin"], 0),
-        "rose": (["rose", "rosy"], 0),
-        "jasmine": (["jasmine", "sampaguita"], 0),
-        "sugar": (["sugar", "candied", "syrup"], 0),
-    }
-    scores = {}
-    for fam, (keys, _) in families.items():
-        sc = 0
-        for k in keys:
-            if k in text:
-                sc += text.count(k) + 2
-        if sc:
-            scores[fam] = sc
-
-    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    top = [f for f, _ in ranked[:3]]
-
-    # Combo names when two clear notes show up together
-    combos = [
-        (frozenset(["strawberry", "coconut"]), "Strawberry Coconut Cream"),
-        (frozenset(["strawberry", "cream"]), "Strawberry Whipped Cream"),
-        (frozenset(["strawberry", "vanilla"]), "Strawberry Vanilla Soft Serve"),
-        (frozenset(["raspberry", "vanilla"]), "Raspberry Vanilla Tart"),
-        (frozenset(["raspberry", "cream"]), "Raspberry Cream Tart"),
-        (frozenset(["cherry", "vanilla"]), "Cherry Vanilla Cupcake"),
-        (frozenset(["cherry", "chocolate"]), "Chocolate Cherry Gateau"),
-        (frozenset(["coconut", "vanilla"]), "Coconut Vanilla Chiffon"),
-        (frozenset(["coconut", "pineapple"]), "Pina Colada Cream Cup"),
-        (frozenset(["coconut", "cream"]), "Coconut Cream Pie"),
-        (frozenset(["peach", "cream"]), "Peach Cream Cobbler"),
-        (frozenset(["peach", "vanilla"]), "Peach Vanilla Crumble"),
-        (frozenset(["apple", "cinnamon"]), "Warm Apple Cinnamon Crumble"),
-        (frozenset(["apple", "caramel"]), "Caramel Apple Tart"),
-        (frozenset(["chocolate", "vanilla"]), "Chocolate Vanilla Sundae"),
-        (frozenset(["chocolate", "caramel"]), "Salted Caramel Brownie"),
-        (frozenset(["chocolate", "coffee"]), "Mocha Espresso Tiramisu"),
-        (frozenset(["chocolate", "cream"]), "Chocolate Mousse Cup"),
-        (frozenset(["caramel", "vanilla"]), "Salted Caramel Flan"),
-        (frozenset(["praline", "vanilla"]), "Praline Vanilla Cream Puff"),
-        (frozenset(["pistachio", "vanilla"]), "Pistachio Vanilla Baklava"),
-        (frozenset(["almond", "vanilla"]), "Almond Vanilla Croissant"),
-        (frozenset(["marshmallow", "vanilla"]), "Toasted Marshmallow Vanilla"),
-        (frozenset(["marshmallow", "chocolate"]), "Smores Chocolate Cloud"),
-        (frozenset(["honey", "vanilla"]), "Honey Vanilla Cake"),
-        (frozenset(["rose", "vanilla"]), "Rose Vanilla Macaron"),
-        (frozenset(["jasmine", "vanilla"]), "Jasmine Vanilla Cream"),
-        (frozenset(["cinnamon", "vanilla"]), "Cinnamon Roll Cream"),
-        (frozenset(["pumpkin", "vanilla"]), "Pumpkin Spice Latte Cream"),
-        (frozenset(["berry", "cream"]), "Berry Cream Tart"),
-        (frozenset(["berry", "vanilla"]), "Berry Vanilla Shortcake"),
-    ]
-    top_set = frozenset(top[:2]) if len(top) >= 2 else frozenset(top)
-    for need, name in combos:
-        if need.issubset(frozenset(top)):
-            return name
-    # Partial: any 2 of top match a combo
-    if len(top) >= 2:
-        pair = frozenset(top[:2])
-        for need, name in combos:
-            if need == pair:
-                return name
-
-    # Single dominant note → specific dessert
-    single = {
-        "strawberry": "Strawberry Shortcake",
-        "raspberry": "Raspberry Whipped Tart",
-        "cherry": "Cherry Glaze Cupcake",
-        "berry": "Berry Cream Tart",
-        "coconut": "Coconut Cream Chiffon",
-        "pineapple": "Pineapple Upside-Down Cake",
-        "peach": "Peach Cobbler Cloud",
-        "apple": "Warm Apple Crumble",
-        "pear": "Pear Almond Tart",
-        "banana": "Banana Cream Pudding",
-        "chocolate": "Molten Chocolate Cake",
-        "coffee": "Espresso Tiramisu",
-        "caramel": "Salted Caramel Flan",
-        "praline": "Praline Cream Puff",
-        "pistachio": "Pistachio Baklava",
-        "almond": "Almond Cream Croissant",
-        "vanilla": "Vanilla Bean Custard",
-        "marshmallow": "Toasted Marshmallow Cloud",
-        "cream": "Whipped Cream Dream",
-        "honey": "Honey Cream Cake",
-        "cinnamon": "Cinnamon Roll Swirl",
-        "pumpkin": "Pumpkin Spice Latte Cream",
-        "rose": "Rose Cream Macaron",
-        "jasmine": "Jasmine Sugar Cream",
-        "sugar": "Powdered Sugar Kiss",
-    }
-    if top:
-        if top[0] in single:
-            return single[top[0]]
-
-    if "gourmand" in cats or "sweet" in cats or "vanilla" in cats:
-        return "Sweet Cream Gourmand"
-    return "Soft Serve Layer"
-
-
-
-
-def _clean_layer_label(name: str) -> str:
-    """Drop repeated words (e.g. Cream Cream) and extra spaces."""
-    if not name:
-        return "Sweet Layer"
-    parts = str(name).split()
-    out = []
-    for p in parts:
-        if out and out[-1].lower() == p.lower():
-            continue
-        out.append(p)
-    return " ".join(out) or "Sweet Layer"
-
-
-def _unique_layer_display_name(frags: list, used: set) -> str:
-    """Note-based dessert name unique within this menu."""
-    base = _clean_layer_label(_layer_display_name_from_frags(frags))
-    if base not in used:
-        used.add(base)
-        return base
-    text = " ".join(
-        ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
-        for f in frags
-        if isinstance(f, dict)
-    )
-    alts = []
-    if "coconut" in text:
-        alts += ["Coconut Cream Layer", "Tropical Coconut Soft Serve"]
-    if "vanilla" in text:
-        alts += ["Vanilla Bean Soft Stack", "Madagascar Vanilla Layer"]
-    if "caramel" in text or "praline" in text:
-        alts += ["Caramel Cream Stack", "Praline Soft Layer"]
-    if "marshmallow" in text:
-        alts += ["Marshmallow Cloud Layer"]
-    if "chocolate" in text or "cocoa" in text:
-        alts += ["Chocolate Mousse Layer"]
-    if any(x in text for x in ("berry", "strawberry", "raspberry", "cherry")):
-        alts += ["Berry Cream Stack", "Fruit Cream Tart"]
-    alts += [base + " Duo", base + " Soft", "Gourmand " + base, "Layered " + base]
-    for a in alts:
-        a = _clean_layer_label(a)
-        if a not in used:
-            used.add(a)
-            return a
-    n = 2
-    while True:
-        cand = f"{base} ({n})"
-        if cand not in used:
-            used.add(cand)
-            return cand
-        n += 1
-
-
-def _layer_season_tip(frags: list) -> str:
-    text = " ".join((f.get("season") or "").lower() for f in frags)
-    notes = " ".join((f.get("notes") or "").lower() for f in frags)
-    if any(k in notes for k in ("vanilla", "caramel", "chocolate", "tonka", "amber")):
-        if "summer" in text and "winter" not in text and "fall" not in text:
-            return "Best in **Fall / Winter** evenings — heavy sweets bloom in cooler air."
-        return "Best in **Fall & Winter** — cozy dessert vibes; go light sprays in heat."
-    if any(k in notes for k in ("coconut", "citrus", "fruit", "berry", "peach")):
-        return "Best in **Spring / Summer** — fruity dessert layers stay bright in warmth."
-    return "Versatile — lighter sprays for warm days, richer base for cool nights."
-
-
-def _layer_combo_tip(frags: list) -> str:
-    if not frags:
-        return "Pick two sweet bottles and apply the richer one first."
-    ordered = process_layering_order(list(frags))
-    names = [f.get("name") for f in ordered if f.get("name")]
-    oils = [f for f in ordered if is_oil_fragrance(f)]
-    tips = []
-    if oils and len(ordered) >= 2:
-        tips.append(
-            "Oil first on pulse points, wait 30–60 sec, then spray the lighter dessert on top."
-        )
-    if len(names) >= 2:
-        tips.append(
-            "Spray order: **" + " > ".join(names) + "** (richest base → lighter top)."
-        )
-    tips.append("1–2 sprays each for daily; add one more of the top note for date night.")
-    tips.append("Target pulse points + a light mist on clothes for longer gourmand trail.")
-    return " ".join(tips)
-
-
-
-
-def recipe_combo_key(bottles) -> tuple:
-    """Canonical key for a recipe combo (order-independent)."""
-    names = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
-    return tuple(sorted(names))
-
-
-def recipe_combo_exists(bottles) -> dict:
-    """Return existing recipe dict if same bottle set already saved, else {}."""
-    key = recipe_combo_key(bottles)
-    if len(key) < 2:
-        return {}
-    for r in (st.session_state.get("layer_recipes") or []):
-        if recipe_combo_key(r.get("bottles") or r.get("names") or []) == key:
-            return r
-    return {}
-
-
-def format_spray_guide(ev: dict) -> str:
-    """Human-readable spray order from evaluate_layer_recipe result."""
-    if not ev:
-        return ""
-    lines = []
-    app = ev.get("application") or {}
-    steps = app.get("steps") or []
-    if steps:
-        lines.append("**How to spray** (heavy → light):")
-        for s in steps:
-            lines.append(
-                f"{s.get('order', '?')}. **{s.get('name')}** — "
-                f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
-                f"{s.get('where', '')}"
-            )
-        if app.get("tips"):
-            for t in (app.get("tips") or [])[:3]:
-                lines.append(f"• {t}")
-    else:
-        order = ev.get("spray_order") or ev.get("selected_names") or []
-        if order:
-            lines.append("**Spray order:** " + " → ".join(str(x) for x in order))
-            lines.append("Apply heaviest first on skin; wait 30–60s; lighter on top.")
-    return "\n\n".join(lines)
-
-
-def save_layer_recipe(bottle_names: list, *, allow_duplicate: bool = False) -> dict:
-    """
-    Save a layer recipe. Blocks duplicate combos unless allow_duplicate=True.
-    Returns {ok, message, recipe, duplicate, spray_guide}.
-    """
-    names = process_layering_order(
-        [str(n).strip() for n in (bottle_names or []) if n and str(n).strip()]
-    )
-    if len(names) < 2:
-        return {
-            "ok": False,
-            "message": "Need at least 2 bottles to save a recipe.",
-            "recipe": None,
-            "duplicate": False,
-            "spray_guide": "",
-        }
-    existing = recipe_combo_exists(names)
-    if existing and not allow_duplicate:
-        try:
-            ev = evaluate_layer_recipe(names)
-        except Exception:
-            ev = {}
-        guide = format_spray_guide(ev) or format_spray_guide(
-            {"spray_order": existing.get("bottles") or names,
-             "application": existing.get("application") or {}}
-        )
-        return {
-            "ok": False,
-            "message": (
-                f"Already saved as **{existing.get('name') or 'recipe'}** "
-                f"({' + '.join(names)}). Same combo can't be saved twice."
-            ),
-            "recipe": existing,
-            "duplicate": True,
-            "spray_guide": guide,
-        }
-    try:
-        ev = evaluate_layer_recipe(names)
-    except Exception as e:
-        ev = {"score": 0, "selected_names": names, "spray_order": names, "error": str(e)}
-    final_name = (ev.get("suggested_name") or "").strip() or " + ".join(names)
-    recipe = {
-        "name": final_name,
-        "bottles": list(names),
-        "season_label": (ev.get("season") or {}).get("label", ""),
-        "season_detail": (ev.get("season") or {}).get("detail", ""),
-        "bands": list((ev.get("season") or {}).get("bands") or []),
-        "application": ev.get("application") or {},
-        "spray_order": list(ev.get("spray_order") or names),
-        "score": ev.get("score"),
-        "label": ev.get("label"),
-        "verdict": ev.get("verdict"),
-        "why": ev.get("why") or "",
-        "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
-        "formula": ev.get("formula") or "",
-    }
-    recipes = list(st.session_state.get("layer_recipes") or [])
-    # Remove any exact combo match then insert fresh
-    key = recipe_combo_key(names)
-    recipes = [
-        r for r in recipes
-        if recipe_combo_key(r.get("bottles") or r.get("names") or []) != key
-    ]
-    recipes.insert(0, recipe)
-    st.session_state["layer_recipes"] = recipes[:80]
-    mark_vault_dirty()
-    save_persisted_data(force=True)
-    guide = format_spray_guide(ev)
-    return {
-        "ok": True,
-        "message": f"Saved recipe: **{final_name}**",
-        "recipe": recipe,
-        "duplicate": False,
-        "spray_guide": guide,
-    }
-
-
-def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Layer") -> bool:
-    """Add a layer idea to the Try list (deduped by bottles)."""
-    bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
-    if len(bottles) < 2:
-        return False
-    key = tuple(sorted(bottles))
-    existing = st.session_state.get("try_recipes") or []
-    for item in existing:
-        if tuple(sorted(item.get("bottles") or [])) == key:
-            return False
-    entry = {
-        "name": name or "Try layer",
-        "bottles": bottles,
-        "notes": notes or "",
-        "tried": False,
-        "source": source,
-        "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
-    }
-    st.session_state["try_recipes"] = [entry] + list(existing)
-    st.session_state["try_recipes"] = st.session_state["try_recipes"][:60]
-    mark_vault_dirty()
-    return True
-
-# Drop score caches when vault size changes (edits / restore)
-try:
-    _vc = len(st.session_state.get("fragrances_db") or [])
-    if st.session_state.get("_weight_cache_n") != _vc:
-        st.session_state["_weight_cache"] = {}
-        st.session_state["_layer_eval_cache"] = {}
-        st.session_state["_weight_cache_n"] = _vc
-except Exception:
-    pass
-
-
-# ----- Backup & Restore (Cloud sleep protection) -----
-_sotd_n = len(st.session_state.get("sotd_history") or [])
-_rec_n = len(st.session_state.get("layer_recipes") or [])
-_db_n = len(st.session_state.get("fragrances_db") or [])
-_wiped = False
-try:
-    _wiped = data_looks_wiped()
-except Exception:
-    _wiped = (_db_n >= 30 and _sotd_n == 0)
-try:
-    if not st.session_state.get("_backup_bytes"):
-        prepare_backup_bytes()
-except Exception:
-    pass
-
-with st.expander(
-    "Backup & Restore (save this so Cloud sleep can't wipe SOTD / recipes)",
-    expanded=bool(_wiped or _sotd_n == 0),
-):
-    st.caption(
-        "**iPhone:** Download → Share → Save to Files → **iCloud Drive**. "
-        "Free Cloud cannot keep server files after sleep."
-    )
-    if _wiped or _sotd_n == 0:
-        st.error(
-            f"**Journal data looks wiped.** Bottles: **{_db_n}** · SOTD: **{_sotd_n}** · Recipes: **{_rec_n}**."
-        )
-        if st.button(
-            "Restore SOTD + recipes (built-in backup)",
-            type="primary",
-            key="restore_builtin_journal_btn",
-            use_container_width=True,
-        ):
-            try:
-                counts = restore_built_in_journal(force=True)
-                st.success(
-                    f"Restored **{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes. "
-                    "Download a backup JSON next so the next sleep doesn’t wipe you again."
-                )
-                st.rerun()
-            except Exception as ex:
-                st.warning(f"Built-in restore failed: {ex}")
-        st.caption("Or upload a fuller JSON backup below if you have a newer one.")
-    else:
-        st.info(f"Vault: **{_db_n}** bottles · **{_sotd_n}** SOTD · **{_rec_n}** recipes.")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("Refresh backup", key="top_backup_refresh", use_container_width=True):
-            try:
-                prepare_backup_bytes()
-                st.rerun()
-            except Exception as ex:
-                st.warning(str(ex))
-    with c2:
-        _b = st.session_state.get("_backup_bytes")
-        if _b:
-            st.download_button(
-                "Download backup JSON",
-                data=_b,
-                file_name=f"scented_dead_girl_backup_{pacific_today().isoformat()}.json",
-                mime="application/json",
-                key="top_backup_download",
-                type="primary",
-                use_container_width=True,
-            )
-
-    st.markdown("**Restore from this phone**")
-    browser_vault_pull_ui()
-    paste_phone = st.text_area(
-        "Paste phone backup here",
-        key="paste_phone_vault",
-        height=90,
-        placeholder="Load phone vault → copy → paste → Restore",
-    )
-    if st.button("Restore from paste", key="restore_phone_paste"):
-        try:
-            counts = apply_backup_payload(json.loads((paste_phone or "").strip()))
-            st.success(
-                f"Restored **{counts.get('bottles', 0)}** bottles · "
-                f"**{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes."
-            )
-            st.rerun()
-        except Exception as ex:
-            st.warning(f"Paste restore failed: {ex}")
-
-    up = st.file_uploader(
-        "Upload backup JSON",
-        type=["json", "txt"],
-        key="top_restore_uploader",
-    )
-    if up is not None:
-        try:
-            raw = up.getvalue()
-            if raw[:3] == b"\xef\xbb\xbf":
-                raw = raw[3:]
-            counts = apply_backup_payload(json.loads(raw.decode("utf-8", errors="replace").strip()))
-            st.success(
-                f"Restored **{counts.get('bottles', 0)}** bottles · "
-                f"**{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes."
-            )
-            st.rerun()
-        except Exception as ex:
-            st.warning(f"Restore failed: {ex}")
-
-    if st.session_state.get("_backup_bytes"):
-        st.text_area(
-            "Or copy vault into Notes",
-            value=st.session_state["_backup_bytes"].decode("utf-8"),
-            height=100,
-            key="backup_copy_area",
-        )
-
-# Horizontal tab bar (one row). Remembers section across reruns (st.tabs cannot).
+# ---------- MAIN NAV (left → right, one horizontal row) ----------
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
+
+# Sync from URL ?tab= so HTML links work and stay horizontal on mobile
+try:
+    _qp = st.query_params
+    _qt = _qp.get("tab", None)
+    if isinstance(_qt, list):
+        _qt = _qt[0] if _qt else None
+    if _qt in _MAIN_TABS:
+        st.session_state["active_main_tab"] = _qt
+except Exception:
+    pass
 if st.session_state.get("active_main_tab") not in _MAIN_TABS:
     st.session_state["active_main_tab"] = "Discover"
 
+_active = st.session_state["active_main_tab"]
+_nav_parts = []
+for _label in _MAIN_TABS:
+    _on = _label == _active
+    _bg = "#ff4b4b" if _on else "#1a1a2e"
+    _fg = "#ffffff" if _on else "#c9c9d1"
+    _bd = "#ff4b4b" if _on else "#3a3a4a"
+    _nav_parts.append(
+        f'<a href="?tab={_label}" target="_self" '
+        f'style="flex:0 0 auto;text-decoration:none;padding:0.45rem 0.75rem;'
+        f'border-radius:999px;font-size:0.82rem;font-weight:{"700" if _on else "500"};'
+        f'color:{_fg};background:{_bg};border:1px solid {_bd};'
+        f'white-space:nowrap;">'
+        f'{_label}</a>'
+    )
 st.markdown(
-    """
-<style>
-/* Horizontal nav row — equal buttons, one line */
-div[data-testid="stHorizontalBlock"]:has(button[kind="primary"]) button,
-div[data-testid="stHorizontalBlock"] button {
-    white-space: nowrap;
-    font-size: 0.78rem;
-    padding: 0.35rem 0.2rem;
-    min-height: 2.2rem;
-}
-</style>
-""",
+    '<div style="display:flex;flex-direction:row;flex-wrap:nowrap;'
+    'gap:0.4rem;overflow-x:auto;-webkit-overflow-scrolling:touch;'
+    'padding:0.35rem 0 0.6rem 0;margin:0 0 0.5rem 0;">'
+    + "".join(_nav_parts)
+    + "</div>",
     unsafe_allow_html=True,
 )
 
-_nav_cols = st.columns(len(_MAIN_TABS), gap="small")
-for _i, _label in enumerate(_MAIN_TABS):
-    with _nav_cols[_i]:
-        _is_on = st.session_state.get("active_main_tab") == _label
-        if st.button(
-            _label,
-            key=f"main_nav_btn_{_label}",
-            use_container_width=True,
-            type="primary" if _is_on else "secondary",
-        ):
-            st.session_state["active_main_tab"] = _label
-            st.rerun()
 
 # ===== DISCOVER =====
 
@@ -15982,6 +15021,980 @@ if st.session_state.get("active_main_tab") == "Collection":
 
 # ===== VAULT =====
 if st.session_state.get("active_main_tab") == "Vault":
+
+    st.subheader("Vault")
+    st.caption("Add bottles, backup, and vault tools.")
+
+    # Flash messages for add form (shown above the form, not only in Vault tab)
+    _af_top = st.session_state.pop("_add_flash", None)
+    if _af_top:
+        st.success(_af_top)
+
+    with st.expander("Add fragrance", expanded=True):
+            st.markdown("##### 1 · Search & load")
+            st.caption(
+                "Search → **Load** a result → choose **Prefill form** (edit then add) or **Add now**. "
+                "If search is empty, paste a Fragrantica URL."
+            )
+            import urllib.parse as _urlparse
+
+            web_q = st.text_input(
+                "Search name + brand",
+                key="web_frag_search_q",
+                placeholder="e.g. Yara Elixir Lattafa",
+            )
+            q_clean = (web_q or "").strip()
+
+            c_search, c_links = st.columns([1, 2])
+            with c_search:
+                do_search = st.button(
+                    "Search",
+                    type="primary",
+                    key="web_frag_search_btn",
+                    use_container_width=True,
+                )
+            with c_links:
+                if q_clean:
+                    gq = _urlparse.quote(q_clean + " site:fragrantica.com")
+                    fq = _urlparse.quote(q_clean)
+                    st.markdown(
+                        f"[Google](https://www.google.com/search?q={gq}) · "
+                        f"[Fragrantica](https://www.fragrantica.com/search/?query={fq})"
+                    )
+
+            if do_search:
+                if not q_clean:
+                    st.warning("Type a name + brand first.")
+                else:
+                    with st.spinner("Searching…"):
+                        try:
+                            hits = search_fragrance_web(q_clean, max_results=8)
+                            st.session_state["_web_frag_hits"] = hits
+                            st.session_state["_web_frag_empty"] = not bool(hits)
+                            st.session_state.pop("_web_frag_parsed", None)
+                        except Exception as ex:
+                            st.session_state["_web_frag_hits"] = []
+                            st.session_state["_web_frag_empty"] = True
+                            st.warning(f"Search error: {ex}")
+
+            hits = st.session_state.get("_web_frag_hits") or []
+            if hits:
+                st.markdown(f"**{len(hits)} result(s)** — tap **Load**")
+                for i, hit in enumerate(hits[:8]):
+                    label = hit.get("title") or "Result"
+                    if hit.get("brand"):
+                        label += f" · {hit.get('brand')}"
+                    r1, r2 = st.columns([3, 1])
+                    with r1:
+                        st.write(label)
+                        st.caption((hit.get("url") or "")[:100])
+                    with r2:
+                        if st.button("Load", key=f"web_frag_load_{i}", use_container_width=True):
+                            with st.spinner("Loading notes…"):
+                                try:
+                                    parsed = parse_fragrantica_perfume(hit.get("url") or "")
+                                    st.session_state["_web_frag_parsed"] = parsed
+                                except Exception as ex:
+                                    st.session_state["_web_frag_parsed"] = {
+                                        "error": str(ex),
+                                        "url": hit.get("url"),
+                                    }
+                            st.rerun()
+            elif st.session_state.get("_web_frag_empty"):
+                st.warning(
+                    "Search returned nothing (Cloud often blocks this). "
+                    "Use Google/Fragrantica links above, then paste the URL below."
+                )
+
+            st.markdown("**Or paste Fragrantica URL**")
+            frag_url = st.text_input(
+                "Fragrantica link",
+                key="web_frag_url_paste",
+                placeholder="https://www.fragrantica.com/perfume/...",
+                label_visibility="collapsed",
+            )
+            if st.button("Load URL", key="web_frag_url_btn", use_container_width=True):
+                u = (frag_url or "").strip()
+                if not u or "fragrantica." not in u.lower():
+                    st.warning("Paste a full Fragrantica perfume URL.")
+                else:
+                    with st.spinner("Loading notes…"):
+                        try:
+                            parsed = parse_fragrantica_perfume(u)
+                            st.session_state["_web_frag_parsed"] = parsed
+                        except Exception as ex:
+                            st.session_state["_web_frag_parsed"] = {"error": str(ex), "url": u}
+                    st.rerun()
+
+            # Loaded preview + actions (same pattern as the first working version)
+            parsed = st.session_state.get("_web_frag_parsed")
+            if parsed and not parsed.get("error"):
+                st.success(
+                    f"**{parsed.get('name') or '?'}** — *{parsed.get('brand') or '?'}* "
+                    f"· {parsed.get('gender') or '—'}"
+                )
+                if parsed.get("notes"):
+                    try:
+                        st.markdown(format_notes_for_display(parsed.get("notes")))
+                    except Exception:
+                        st.write(parsed.get("notes"))
+                else:
+                    st.caption("No notes found on the page — you can still prefill and edit manually.")
+                if parsed.get("url"):
+                    st.caption(parsed.get("url"))
+
+                a1, a2, a3 = st.columns(3)
+                with a1:
+                    if st.button(
+                        "Prefill form",
+                        type="primary",
+                        key="web_frag_prefill_btn",
+                        use_container_width=True,
+                        help="Send name, brand, notes, gender into the manual form below",
+                    ):
+                        apply_prefill_from_parsed(parsed)
+                        st.rerun()
+                with a2:
+                    if st.button(
+                        "Add now",
+                        key="web_frag_add_btn",
+                        use_container_width=True,
+                        help="Add straight to vault without editing",
+                    ):
+                        frag = web_result_to_frag(parsed)
+                        if not frag.get("name"):
+                            st.warning("Missing name — use Prefill form and type it.")
+                        else:
+                            try:
+                                dups = find_duplicate_fragrances(
+                                    frag["name"], frag.get("brand") or ""
+                                )
+                            except Exception:
+                                dups = {"exact": []}
+                            if dups.get("exact"):
+                                st.error(f"**{frag['name']}** is already in your vault.")
+                            else:
+                                db = st.session_state.get("fragrances_db")
+                                if not isinstance(db, list):
+                                    st.session_state["fragrances_db"] = []
+                                    db = st.session_state["fragrances_db"]
+                                db.append(frag)
+                                st.session_state["fragrances_db"] = db
+                                try:
+                                    log_vault_action("added", frag["name"], "web-search")
+                                except Exception:
+                                    pass
+                                mark_vault_dirty()
+                                save_persisted_data(force=True)
+                                try:
+                                    prepare_backup_bytes()
+                                except Exception:
+                                    pass
+                                st.session_state.pop("_web_frag_parsed", None)
+                                st.session_state.pop("_web_frag_hits", None)
+                                st.session_state["_add_flash"] = (
+                                    f"Added **{frag['name']}**. Vault: **{len(db)}** bottles. "
+                                    "Check Collection / search. Download a backup."
+                                )
+                                st.rerun()
+                with a3:
+                    if st.button("Clear", key="web_frag_clear_btn", use_container_width=True):
+                        st.session_state.pop("_web_frag_parsed", None)
+                        st.session_state.pop("_web_frag_hits", None)
+                        st.session_state.pop("_web_frag_empty", None)
+                        st.rerun()
+            elif parsed and parsed.get("error"):
+                st.warning(f"Could not load: {parsed.get('error')}")
+
+            _flash = st.session_state.pop("_web_prefill_flash", None)
+            if _flash:
+                st.success(_flash)
+
+            # Show last few adds so user can confirm they landed
+            _db_now = st.session_state.get("fragrances_db") or []
+            if _db_now:
+                st.caption(
+                    f"Vault has **{len(_db_now)}** bottles. "
+                    f"Latest: **{(_db_now[-1].get('name') if _db_now else '—')}** "
+                    f"({(_db_now[-1].get('brand') if _db_now else '')})"
+                )
+
+            st.markdown("##### 2 · Fill in / edit, then add")
+            st.caption("Type manually or use search above to prefill. You can change anything before adding.")
+
+            # Pending lookup from Collection (legacy helper)
+            _pending_lu = st.session_state.pop("_pending_notes_lookup", None)
+            if isinstance(_pending_lu, dict):
+                if _pending_lu.get("name"):
+                    st.session_state["prefill_new_name"] = _pending_lu["name"]
+                if _pending_lu.get("brand"):
+                    st.session_state["prefill_new_brand"] = _pending_lu.get("brand") or ""
+
+            # Prefill session keys BEFORE the form widgets (Streamlit form-safe)
+            _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
+            _cat_opts = [
+                "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
+                "Fruity", "Spicy", "Citrus", "Aromatic", "Leather", "Oud",
+                "Boozy", "Smoky", "Powdery",
+            ]
+            if "prefill_new_name" in st.session_state:
+                st.session_state["add_form_name"] = st.session_state.pop("prefill_new_name") or ""
+            if "prefill_new_brand" in st.session_state:
+                st.session_state["add_form_brand"] = st.session_state.pop("prefill_new_brand") or ""
+            if "prefill_new_notes" in st.session_state:
+                st.session_state["add_form_notes"] = st.session_state.pop("prefill_new_notes") or ""
+            if "prefill_new_season" in st.session_state:
+                st.session_state["add_form_season"] = (
+                    st.session_state.pop("prefill_new_season") or "Fall, Winter"
+                )
+            if "prefill_new_gender" in st.session_state:
+                g = st.session_state.pop("prefill_new_gender") or "Unisex"
+                st.session_state["add_form_gender"] = g if g in _gender_opts else "Unisex"
+            if "prefill_new_cats" in st.session_state:
+                raw_cats = st.session_state.pop("prefill_new_cats") or []
+                defaults = []
+                for c in raw_cats:
+                    for opt in _cat_opts:
+                        if str(c).strip().lower() == opt.lower() and opt not in defaults:
+                            defaults.append(opt)
+                st.session_state["add_form_cats"] = defaults
+            # Defaults if keys never set
+            st.session_state.setdefault("add_form_name", "")
+            st.session_state.setdefault("add_form_brand", "")
+            st.session_state.setdefault("add_form_notes", "")
+            st.session_state.setdefault("add_form_season", "Fall, Winter")
+            st.session_state.setdefault("add_form_gender", "Unisex")
+            st.session_state.setdefault("add_form_cats", [])
+            st.session_state.setdefault("add_form_size", "")
+
+            with st.form("add_fragrance_form", clear_on_submit=False):
+                st.text_input("Name *", key="add_form_name")
+                st.text_input("Brand *", key="add_form_brand")
+                # Guard selectbox values so Streamlit does not drop the form
+                if st.session_state.get("add_form_gender") not in _gender_opts:
+                    st.session_state["add_form_gender"] = "Unisex"
+                st.selectbox("Gender", _gender_opts, key="add_form_gender")
+                st.text_input("Season", key="add_form_season")
+                st.text_area(
+                    "Notes",
+                    height=100,
+                    placeholder="Top - ... / Heart - ... / Base - ...",
+                    key="add_form_notes",
+                )
+                try:
+                    _shelf_opts = list(SHELF_STATUSES)
+                except Exception:
+                    _shelf_opts = ["Own", "Decant", "Wishlist", "Finished"]
+                if st.session_state.get("add_form_shelf") not in _shelf_opts:
+                    st.session_state["add_form_shelf"] = _shelf_opts[0]
+                st.selectbox("Shelf status", _shelf_opts, key="add_form_shelf")
+                try:
+                    _conc_opts = list(CONCENTRATION_OPTIONS)
+                except Exception:
+                    _conc_opts = ["EDP", "EDT", "Oil", "Body spray", "Other"]
+                if st.session_state.get("add_concentration") not in _conc_opts:
+                    st.session_state["add_concentration"] = _conc_opts[0]
+                st.selectbox(
+                    "Format / concentration",
+                    _conc_opts,
+                    key="add_concentration",
+                    help="Concentrated oil, EDP, EDT, body spray, etc.",
+                )
+                st.text_input("Size (ml)", placeholder="e.g. 100", key="add_form_size")
+                # Multiselect must be a list of valid options
+                _cur_cats = st.session_state.get("add_form_cats") or []
+                if not isinstance(_cur_cats, list):
+                    _cur_cats = []
+                st.session_state["add_form_cats"] = [c for c in _cur_cats if c in _cat_opts]
+                st.multiselect("Categories", _cat_opts, key="add_form_cats")
+
+                c_add, c_clear = st.columns(2)
+                with c_add:
+                    submit_added = st.form_submit_button(
+                        "Add to collection",
+                        type="primary",
+                        use_container_width=True,
+                    )
+                with c_clear:
+                    clear_add_form = st.form_submit_button(
+                        "Clear form", use_container_width=True
+                    )
+
+                if clear_add_form:
+                    for _k in (
+                        "add_form_name",
+                        "add_form_brand",
+                        "add_form_notes",
+                        "add_form_season",
+                        "add_form_gender",
+                        "add_form_cats",
+                        "add_form_size",
+                        "add_form_shelf",
+                        "add_concentration",
+                    ):
+                        if _k in ("add_form_gender",):
+                            st.session_state[_k] = "Unisex"
+                        elif _k in ("add_form_season",):
+                            st.session_state[_k] = "Fall, Winter"
+                        elif _k in ("add_form_cats",):
+                            st.session_state[_k] = []
+                        elif _k in ("add_form_shelf",):
+                            st.session_state[_k] = _shelf_opts[0]
+                        elif _k in ("add_concentration",):
+                            st.session_state[_k] = _conc_opts[0]
+                        else:
+                            st.session_state[_k] = ""
+                    st.session_state["_add_flash"] = "Form cleared."
+                    st.rerun()
+
+                if submit_added:
+                    # Always read from session_state keys (reliable inside forms)
+                    nm = str(st.session_state.get("add_form_name") or "").strip()
+                    br = str(st.session_state.get("add_form_brand") or "").strip()
+                    new_gender = st.session_state.get("add_form_gender") or "Unisex"
+                    new_season = st.session_state.get("add_form_season") or "Versatile"
+                    new_notes = st.session_state.get("add_form_notes") or ""
+                    new_shelf = st.session_state.get("add_form_shelf") or "Own"
+                    new_concentration = st.session_state.get("add_concentration") or "EDP"
+                    new_size = st.session_state.get("add_form_size") or ""
+                    new_cats = st.session_state.get("add_form_cats") or []
+                    if not nm:
+                        st.error("Name is required.")
+                    elif not br:
+                        st.error("Brand is required — type the house name (e.g. Lattafa).")
+                    else:
+                        dups = find_duplicate_fragrances(nm, br)
+                        if dups.get("exact"):
+                            st.error(
+                                f"Already in the vault: **{dups['exact'][0].get('name')}** by "
+                                f"*{dups['exact'][0].get('brand')}*. Duplicate not added."
+                            )
+                        else:
+                            if dups.get("same_name"):
+                                brands = ", ".join(
+                                    sorted(
+                                        {
+                                            (x.get("brand") or "?")
+                                            for x in dups["same_name"]
+                                        }
+                                    )
+                                )
+                                st.warning(
+                                    f"Same name exists with other brand(s): {brands}. "
+                                    "Adding this one anyway."
+                                )
+                            if dups.get("near"):
+                                near_list = ", ".join(
+                                    f"{x.get('name')} ({x.get('brand')})"
+                                    for x in dups["near"][:3]
+                                )
+                                st.warning(f"Similar bottles: {near_list}")
+                            new_frag = {
+                                "name": nm,
+                                "brand": br,
+                                "gender": new_gender,
+                                "season": (new_season or "Versatile"),
+                                "notes": (new_notes or "").strip() or "Not specified",
+                                "category": list(new_cats) if new_cats else ["Gourmand"],
+                                "dupe_of": "",
+                                "shelf_status": new_shelf or "Own",
+                                "concentration": new_concentration or "EDP",
+                                "size_ml": (
+                                    float(new_size)
+                                    if str(new_size or "").strip().replace(".", "", 1).isdigit()
+                                    else None
+                                ),
+                                "price": None,
+                            }
+                            try:
+                                new_frag["season"] = normalize_season_label(
+                                    new_frag.get("season") or "Versatile"
+                                )
+                            except Exception:
+                                pass
+                            db = st.session_state.get("fragrances_db")
+                            if not isinstance(db, list):
+                                st.session_state["fragrances_db"] = []
+                                db = st.session_state["fragrances_db"]
+                            db.append(new_frag)
+                            st.session_state["fragrances_db"] = db
+                            try:
+                                log_vault_action(
+                                    "added", new_frag["name"], new_frag.get("brand") or ""
+                                )
+                            except Exception:
+                                pass
+                            mark_vault_dirty()
+                            ok = save_persisted_data(force=True)
+                            try:
+                                prepare_backup_bytes()
+                            except Exception:
+                                pass
+                            st.session_state["_add_flash"] = (
+                                f"Added **{new_frag['name']}** ({new_frag.get('brand')}). "
+                                f"Vault now has **{len(db)}** bottles. "
+                                "Open **Collection** or search the name. "
+                                "Download a backup so Cloud sleep doesn’t erase it."
+                            )
+                            if not ok:
+                                st.session_state["_add_flash"] += (
+                                    " ⚠️ Save to disk may have failed — download backup now."
+                                )
+                            # Reset form fields after successful add
+                            st.session_state["add_form_name"] = ""
+                            st.session_state["add_form_brand"] = ""
+                            st.session_state["add_form_notes"] = ""
+                            st.session_state["add_form_size"] = ""
+                            st.session_state["add_form_cats"] = []
+                            st.rerun()
+
+
+        # (Add fragrance form / expander end above)
+
+    # ---------- MAIN TABS ----------
+
+    # Normalize season labels once per session (Autumn -> Fall, tidy tags)
+    if not st.session_state.get("_seasons_normalized"):
+        try:
+            n = normalize_all_seasons_in_vault()
+            st.session_state["_seasons_normalized"] = True
+            if n:
+                mark_vault_dirty()
+        except Exception:
+            st.session_state["_seasons_normalized"] = True
+
+
+    def _layer_score_bottle(f: dict) -> float:
+        """How dessert-like a bottle is (female-leaning vault picks)."""
+        if not f:
+            return -1.0
+        g = normalize_gender(f.get("gender") or "")
+        if g not in ("Female", "Female-leaning", "Unisex"):
+            return -1.0
+        cats = {str(c).lower() for c in (f.get("category") or [])}
+        notes = (f.get("notes") or "").lower()
+        name = (f.get("name") or "").lower()
+        text = notes + " " + name + " " + " ".join(cats)
+        pts = 0.0
+        dessert_cats = {
+            "gourmand": 12, "sweet": 10, "vanilla": 10, "creamy": 9,
+            "fruity": 6, "floral": 3, "powdery": 3, "amber": 4, "musky": 2,
+        }
+        for c, w in dessert_cats.items():
+            if c in cats:
+                pts += w
+        dessert_notes = [
+            ("vanilla", 8), ("caramel", 8), ("praline", 7), ("chocolate", 7),
+            ("cocoa", 6), ("coffee", 5), ("tonka", 5), ("marshmallow", 7),
+            ("sugar", 5), ("honey", 5), ("coconut", 5), ("almond", 5),
+            ("pistachio", 6), ("hazelnut", 5), ("cream", 5), ("milk", 4),
+            ("strawberry", 6), ("raspberry", 5), ("cherry", 5), ("peach", 4),
+            ("banana", 4), ("apple pie", 6), ("cinnamon", 4), ("whipped", 5),
+            ("butter", 4), ("cookie", 6), ("cake", 6), ("custard", 6),
+            ("toffee", 6), ("maple", 5), ("brown sugar", 6), ("sandalwood", 2),
+        ]
+        for k, w in dessert_notes:
+            if k in text:
+                pts += w
+        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
+            pts += 8
+        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+            return -1.0
+        if is_oil_fragrance(f):
+            pts += 2  # oils layer nicely under sprays
+        return pts
+
+
+    def _layer_display_name_from_frags(frags: list) -> str:
+        """Dessert name driven by the strongest notes in the stack (not random flavor)."""
+        text = " ".join(
+            ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+            for f in frags
+            if isinstance(f, dict)
+        )
+        cats = set()
+        for f in frags:
+            for c in f.get("category") or []:
+                cats.add(str(c).lower())
+
+        # Score note families present in this exact stack
+        families = {
+            "strawberry": (["strawberry", "fraise"], 0),
+            "raspberry": (["raspberry", "framboise"], 0),
+            "cherry": (["cherry", "cerise"], 0),
+            "berry": (["berry", "berries", "blackcurrant", "cassis"], 0),
+            "coconut": (["coconut", "coco"], 0),
+            "pineapple": (["pineapple"], 0),
+            "peach": (["peach", "nectarine"], 0),
+            "apple": (["apple", "apple pie"], 0),
+            "pear": (["pear"], 0),
+            "banana": (["banana"], 0),
+            "chocolate": (["chocolate", "cocoa", "cacao"], 0),
+            "coffee": (["coffee", "espresso", "mocha"], 0),
+            "caramel": (["caramel", "toffee", "butterscotch"], 0),
+            "praline": (["praline", "hazelnut", "gianduja"], 0),
+            "pistachio": (["pistachio"], 0),
+            "almond": (["almond", "marzipan"], 0),
+            "vanilla": (["vanilla", "vanille", "tonka"], 0),
+            "marshmallow": (["marshmallow", "cotton candy", "meringue"], 0),
+            "cream": (["cream", "milk", "custard", "whipped", "lactonic"], 0),
+            "honey": (["honey", "beeswax"], 0),
+            "cinnamon": (["cinnamon", "spice", "clove", "nutmeg"], 0),
+            "pumpkin": (["pumpkin"], 0),
+            "rose": (["rose", "rosy"], 0),
+            "jasmine": (["jasmine", "sampaguita"], 0),
+            "sugar": (["sugar", "candied", "syrup"], 0),
+        }
+        scores = {}
+        for fam, (keys, _) in families.items():
+            sc = 0
+            for k in keys:
+                if k in text:
+                    sc += text.count(k) + 2
+            if sc:
+                scores[fam] = sc
+
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        top = [f for f, _ in ranked[:3]]
+
+        # Combo names when two clear notes show up together
+        combos = [
+            (frozenset(["strawberry", "coconut"]), "Strawberry Coconut Cream"),
+            (frozenset(["strawberry", "cream"]), "Strawberry Whipped Cream"),
+            (frozenset(["strawberry", "vanilla"]), "Strawberry Vanilla Soft Serve"),
+            (frozenset(["raspberry", "vanilla"]), "Raspberry Vanilla Tart"),
+            (frozenset(["raspberry", "cream"]), "Raspberry Cream Tart"),
+            (frozenset(["cherry", "vanilla"]), "Cherry Vanilla Cupcake"),
+            (frozenset(["cherry", "chocolate"]), "Chocolate Cherry Gateau"),
+            (frozenset(["coconut", "vanilla"]), "Coconut Vanilla Chiffon"),
+            (frozenset(["coconut", "pineapple"]), "Pina Colada Cream Cup"),
+            (frozenset(["coconut", "cream"]), "Coconut Cream Pie"),
+            (frozenset(["peach", "cream"]), "Peach Cream Cobbler"),
+            (frozenset(["peach", "vanilla"]), "Peach Vanilla Crumble"),
+            (frozenset(["apple", "cinnamon"]), "Warm Apple Cinnamon Crumble"),
+            (frozenset(["apple", "caramel"]), "Caramel Apple Tart"),
+            (frozenset(["chocolate", "vanilla"]), "Chocolate Vanilla Sundae"),
+            (frozenset(["chocolate", "caramel"]), "Salted Caramel Brownie"),
+            (frozenset(["chocolate", "coffee"]), "Mocha Espresso Tiramisu"),
+            (frozenset(["chocolate", "cream"]), "Chocolate Mousse Cup"),
+            (frozenset(["caramel", "vanilla"]), "Salted Caramel Flan"),
+            (frozenset(["praline", "vanilla"]), "Praline Vanilla Cream Puff"),
+            (frozenset(["pistachio", "vanilla"]), "Pistachio Vanilla Baklava"),
+            (frozenset(["almond", "vanilla"]), "Almond Vanilla Croissant"),
+            (frozenset(["marshmallow", "vanilla"]), "Toasted Marshmallow Vanilla"),
+            (frozenset(["marshmallow", "chocolate"]), "Smores Chocolate Cloud"),
+            (frozenset(["honey", "vanilla"]), "Honey Vanilla Cake"),
+            (frozenset(["rose", "vanilla"]), "Rose Vanilla Macaron"),
+            (frozenset(["jasmine", "vanilla"]), "Jasmine Vanilla Cream"),
+            (frozenset(["cinnamon", "vanilla"]), "Cinnamon Roll Cream"),
+            (frozenset(["pumpkin", "vanilla"]), "Pumpkin Spice Latte Cream"),
+            (frozenset(["berry", "cream"]), "Berry Cream Tart"),
+            (frozenset(["berry", "vanilla"]), "Berry Vanilla Shortcake"),
+        ]
+        top_set = frozenset(top[:2]) if len(top) >= 2 else frozenset(top)
+        for need, name in combos:
+            if need.issubset(frozenset(top)):
+                return name
+        # Partial: any 2 of top match a combo
+        if len(top) >= 2:
+            pair = frozenset(top[:2])
+            for need, name in combos:
+                if need == pair:
+                    return name
+
+        # Single dominant note → specific dessert
+        single = {
+            "strawberry": "Strawberry Shortcake",
+            "raspberry": "Raspberry Whipped Tart",
+            "cherry": "Cherry Glaze Cupcake",
+            "berry": "Berry Cream Tart",
+            "coconut": "Coconut Cream Chiffon",
+            "pineapple": "Pineapple Upside-Down Cake",
+            "peach": "Peach Cobbler Cloud",
+            "apple": "Warm Apple Crumble",
+            "pear": "Pear Almond Tart",
+            "banana": "Banana Cream Pudding",
+            "chocolate": "Molten Chocolate Cake",
+            "coffee": "Espresso Tiramisu",
+            "caramel": "Salted Caramel Flan",
+            "praline": "Praline Cream Puff",
+            "pistachio": "Pistachio Baklava",
+            "almond": "Almond Cream Croissant",
+            "vanilla": "Vanilla Bean Custard",
+            "marshmallow": "Toasted Marshmallow Cloud",
+            "cream": "Whipped Cream Dream",
+            "honey": "Honey Cream Cake",
+            "cinnamon": "Cinnamon Roll Swirl",
+            "pumpkin": "Pumpkin Spice Latte Cream",
+            "rose": "Rose Cream Macaron",
+            "jasmine": "Jasmine Sugar Cream",
+            "sugar": "Powdered Sugar Kiss",
+        }
+        if top:
+            if top[0] in single:
+                return single[top[0]]
+
+        if "gourmand" in cats or "sweet" in cats or "vanilla" in cats:
+            return "Sweet Cream Gourmand"
+        return "Soft Serve Layer"
+
+
+
+
+    def _clean_layer_label(name: str) -> str:
+        """Drop repeated words (e.g. Cream Cream) and extra spaces."""
+        if not name:
+            return "Sweet Layer"
+        parts = str(name).split()
+        out = []
+        for p in parts:
+            if out and out[-1].lower() == p.lower():
+                continue
+            out.append(p)
+        return " ".join(out) or "Sweet Layer"
+
+
+    def _unique_layer_display_name(frags: list, used: set) -> str:
+        """Note-based dessert name unique within this menu."""
+        base = _clean_layer_label(_layer_display_name_from_frags(frags))
+        if base not in used:
+            used.add(base)
+            return base
+        text = " ".join(
+            ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+            for f in frags
+            if isinstance(f, dict)
+        )
+        alts = []
+        if "coconut" in text:
+            alts += ["Coconut Cream Layer", "Tropical Coconut Soft Serve"]
+        if "vanilla" in text:
+            alts += ["Vanilla Bean Soft Stack", "Madagascar Vanilla Layer"]
+        if "caramel" in text or "praline" in text:
+            alts += ["Caramel Cream Stack", "Praline Soft Layer"]
+        if "marshmallow" in text:
+            alts += ["Marshmallow Cloud Layer"]
+        if "chocolate" in text or "cocoa" in text:
+            alts += ["Chocolate Mousse Layer"]
+        if any(x in text for x in ("berry", "strawberry", "raspberry", "cherry")):
+            alts += ["Berry Cream Stack", "Fruit Cream Tart"]
+        alts += [base + " Duo", base + " Soft", "Gourmand " + base, "Layered " + base]
+        for a in alts:
+            a = _clean_layer_label(a)
+            if a not in used:
+                used.add(a)
+                return a
+        n = 2
+        while True:
+            cand = f"{base} ({n})"
+            if cand not in used:
+                used.add(cand)
+                return cand
+            n += 1
+
+
+    def _layer_season_tip(frags: list) -> str:
+        text = " ".join((f.get("season") or "").lower() for f in frags)
+        notes = " ".join((f.get("notes") or "").lower() for f in frags)
+        if any(k in notes for k in ("vanilla", "caramel", "chocolate", "tonka", "amber")):
+            if "summer" in text and "winter" not in text and "fall" not in text:
+                return "Best in **Fall / Winter** evenings — heavy sweets bloom in cooler air."
+            return "Best in **Fall & Winter** — cozy dessert vibes; go light sprays in heat."
+        if any(k in notes for k in ("coconut", "citrus", "fruit", "berry", "peach")):
+            return "Best in **Spring / Summer** — fruity dessert layers stay bright in warmth."
+        return "Versatile — lighter sprays for warm days, richer base for cool nights."
+
+
+    def _layer_combo_tip(frags: list) -> str:
+        if not frags:
+            return "Pick two sweet bottles and apply the richer one first."
+        ordered = process_layering_order(list(frags))
+        names = [f.get("name") for f in ordered if f.get("name")]
+        oils = [f for f in ordered if is_oil_fragrance(f)]
+        tips = []
+        if oils and len(ordered) >= 2:
+            tips.append(
+                "Oil first on pulse points, wait 30–60 sec, then spray the lighter dessert on top."
+            )
+        if len(names) >= 2:
+            tips.append(
+                "Spray order: **" + " > ".join(names) + "** (richest base → lighter top)."
+            )
+        tips.append("1–2 sprays each for daily; add one more of the top note for date night.")
+        tips.append("Target pulse points + a light mist on clothes for longer gourmand trail.")
+        return " ".join(tips)
+
+
+
+
+    def recipe_combo_key(bottles) -> tuple:
+        """Canonical key for a recipe combo (order-independent)."""
+        names = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+        return tuple(sorted(names))
+
+
+    def recipe_combo_exists(bottles) -> dict:
+        """Return existing recipe dict if same bottle set already saved, else {}."""
+        key = recipe_combo_key(bottles)
+        if len(key) < 2:
+            return {}
+        for r in (st.session_state.get("layer_recipes") or []):
+            if recipe_combo_key(r.get("bottles") or r.get("names") or []) == key:
+                return r
+        return {}
+
+
+    def format_spray_guide(ev: dict) -> str:
+        """Human-readable spray order from evaluate_layer_recipe result."""
+        if not ev:
+            return ""
+        lines = []
+        app = ev.get("application") or {}
+        steps = app.get("steps") or []
+        if steps:
+            lines.append("**How to spray** (heavy → light):")
+            for s in steps:
+                lines.append(
+                    f"{s.get('order', '?')}. **{s.get('name')}** — "
+                    f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
+                    f"{s.get('where', '')}"
+                )
+            if app.get("tips"):
+                for t in (app.get("tips") or [])[:3]:
+                    lines.append(f"• {t}")
+        else:
+            order = ev.get("spray_order") or ev.get("selected_names") or []
+            if order:
+                lines.append("**Spray order:** " + " → ".join(str(x) for x in order))
+                lines.append("Apply heaviest first on skin; wait 30–60s; lighter on top.")
+        return "\n\n".join(lines)
+
+
+    def save_layer_recipe(bottle_names: list, *, allow_duplicate: bool = False) -> dict:
+        """
+        Save a layer recipe. Blocks duplicate combos unless allow_duplicate=True.
+        Returns {ok, message, recipe, duplicate, spray_guide}.
+        """
+        names = process_layering_order(
+            [str(n).strip() for n in (bottle_names or []) if n and str(n).strip()]
+        )
+        if len(names) < 2:
+            return {
+                "ok": False,
+                "message": "Need at least 2 bottles to save a recipe.",
+                "recipe": None,
+                "duplicate": False,
+                "spray_guide": "",
+            }
+        existing = recipe_combo_exists(names)
+        if existing and not allow_duplicate:
+            try:
+                ev = evaluate_layer_recipe(names)
+            except Exception:
+                ev = {}
+            guide = format_spray_guide(ev) or format_spray_guide(
+                {"spray_order": existing.get("bottles") or names,
+                 "application": existing.get("application") or {}}
+            )
+            return {
+                "ok": False,
+                "message": (
+                    f"Already saved as **{existing.get('name') or 'recipe'}** "
+                    f"({' + '.join(names)}). Same combo can't be saved twice."
+                ),
+                "recipe": existing,
+                "duplicate": True,
+                "spray_guide": guide,
+            }
+        try:
+            ev = evaluate_layer_recipe(names)
+        except Exception as e:
+            ev = {"score": 0, "selected_names": names, "spray_order": names, "error": str(e)}
+        final_name = (ev.get("suggested_name") or "").strip() or " + ".join(names)
+        recipe = {
+            "name": final_name,
+            "bottles": list(names),
+            "season_label": (ev.get("season") or {}).get("label", ""),
+            "season_detail": (ev.get("season") or {}).get("detail", ""),
+            "bands": list((ev.get("season") or {}).get("bands") or []),
+            "application": ev.get("application") or {},
+            "spray_order": list(ev.get("spray_order") or names),
+            "score": ev.get("score"),
+            "label": ev.get("label"),
+            "verdict": ev.get("verdict"),
+            "why": ev.get("why") or "",
+            "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
+            "formula": ev.get("formula") or "",
+        }
+        recipes = list(st.session_state.get("layer_recipes") or [])
+        # Remove any exact combo match then insert fresh
+        key = recipe_combo_key(names)
+        recipes = [
+            r for r in recipes
+            if recipe_combo_key(r.get("bottles") or r.get("names") or []) != key
+        ]
+        recipes.insert(0, recipe)
+        st.session_state["layer_recipes"] = recipes[:80]
+        mark_vault_dirty()
+        save_persisted_data(force=True)
+        guide = format_spray_guide(ev)
+        return {
+            "ok": True,
+            "message": f"Saved recipe: **{final_name}**",
+            "recipe": recipe,
+            "duplicate": False,
+            "spray_guide": guide,
+        }
+
+
+    def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Layer") -> bool:
+        """Add a layer idea to the Try list (deduped by bottles)."""
+        bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+        if len(bottles) < 2:
+            return False
+        key = tuple(sorted(bottles))
+        existing = st.session_state.get("try_recipes") or []
+        for item in existing:
+            if tuple(sorted(item.get("bottles") or [])) == key:
+                return False
+        entry = {
+            "name": name or "Try layer",
+            "bottles": bottles,
+            "notes": notes or "",
+            "tried": False,
+            "source": source,
+            "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
+        }
+        st.session_state["try_recipes"] = [entry] + list(existing)
+        st.session_state["try_recipes"] = st.session_state["try_recipes"][:60]
+        mark_vault_dirty()
+        return True
+
+    # Drop score caches when vault size changes (edits / restore)
+    try:
+        _vc = len(st.session_state.get("fragrances_db") or [])
+        if st.session_state.get("_weight_cache_n") != _vc:
+            st.session_state["_weight_cache"] = {}
+            st.session_state["_layer_eval_cache"] = {}
+            st.session_state["_weight_cache_n"] = _vc
+    except Exception:
+        pass
+
+
+    # ----- Backup & Restore (Cloud sleep protection) -----
+    _sotd_n = len(st.session_state.get("sotd_history") or [])
+    _rec_n = len(st.session_state.get("layer_recipes") or [])
+    _db_n = len(st.session_state.get("fragrances_db") or [])
+    _wiped = False
+    try:
+        _wiped = data_looks_wiped()
+    except Exception:
+        _wiped = (_db_n >= 30 and _sotd_n == 0)
+    try:
+        if not st.session_state.get("_backup_bytes"):
+            prepare_backup_bytes()
+    except Exception:
+        pass
+
+    with st.expander(
+        "Backup & Restore (save this so Cloud sleep can't wipe SOTD / recipes)",
+        expanded=bool(_wiped or _sotd_n == 0),
+    ):
+        st.caption(
+            "**iPhone:** Download → Share → Save to Files → **iCloud Drive**. "
+            "Free Cloud cannot keep server files after sleep."
+        )
+        if _wiped or _sotd_n == 0:
+            st.error(
+                f"**Journal data looks wiped.** Bottles: **{_db_n}** · SOTD: **{_sotd_n}** · Recipes: **{_rec_n}**."
+            )
+            if st.button(
+                "Restore SOTD + recipes (built-in backup)",
+                type="primary",
+                key="restore_builtin_journal_btn",
+                use_container_width=True,
+            ):
+                try:
+                    counts = restore_built_in_journal(force=True)
+                    st.success(
+                        f"Restored **{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes. "
+                        "Download a backup JSON next so the next sleep doesn’t wipe you again."
+                    )
+                    st.rerun()
+                except Exception as ex:
+                    st.warning(f"Built-in restore failed: {ex}")
+            st.caption("Or upload a fuller JSON backup below if you have a newer one.")
+        else:
+            st.info(f"Vault: **{_db_n}** bottles · **{_sotd_n}** SOTD · **{_rec_n}** recipes.")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Refresh backup", key="top_backup_refresh", use_container_width=True):
+                try:
+                    prepare_backup_bytes()
+                    st.rerun()
+                except Exception as ex:
+                    st.warning(str(ex))
+        with c2:
+            _b = st.session_state.get("_backup_bytes")
+            if _b:
+                st.download_button(
+                    "Download backup JSON",
+                    data=_b,
+                    file_name=f"scented_dead_girl_backup_{pacific_today().isoformat()}.json",
+                    mime="application/json",
+                    key="top_backup_download",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+        st.markdown("**Restore from this phone**")
+        browser_vault_pull_ui()
+        paste_phone = st.text_area(
+            "Paste phone backup here",
+            key="paste_phone_vault",
+            height=90,
+            placeholder="Load phone vault → copy → paste → Restore",
+        )
+        if st.button("Restore from paste", key="restore_phone_paste"):
+            try:
+                counts = apply_backup_payload(json.loads((paste_phone or "").strip()))
+                st.success(
+                    f"Restored **{counts.get('bottles', 0)}** bottles · "
+                    f"**{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes."
+                )
+                st.rerun()
+            except Exception as ex:
+                st.warning(f"Paste restore failed: {ex}")
+
+        up = st.file_uploader(
+            "Upload backup JSON",
+            type=["json", "txt"],
+            key="top_restore_uploader",
+        )
+        if up is not None:
+            try:
+                raw = up.getvalue()
+                if raw[:3] == b"\xef\xbb\xbf":
+                    raw = raw[3:]
+                counts = apply_backup_payload(json.loads(raw.decode("utf-8", errors="replace").strip()))
+                st.success(
+                    f"Restored **{counts.get('bottles', 0)}** bottles · "
+                    f"**{counts.get('sotd', 0)}** SOTD · **{counts.get('recipes', 0)}** recipes."
+                )
+                st.rerun()
+            except Exception as ex:
+                st.warning(f"Restore failed: {ex}")
+
+        if st.session_state.get("_backup_bytes"):
+            st.text_area(
+                "Or copy vault into Notes",
+                value=st.session_state["_backup_bytes"].decode("utf-8"),
+                height=100,
+                key="backup_copy_area",
+            )
+
+
     _rf = st.session_state.pop("_restore_flash", None)
     if _rf:
         st.success(_rf)
