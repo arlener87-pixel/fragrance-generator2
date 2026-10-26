@@ -10593,6 +10593,12 @@ with st.sidebar:
             st.rerun()
 
 
+
+# Flash messages for add form (shown above the form, not only in Vault tab)
+_af_top = st.session_state.pop("_add_flash", None)
+if _af_top:
+    st.success(_af_top)
+
 with st.expander("Add fragrance", expanded=True):
         st.markdown("##### 1 · Search & load")
         st.caption(
@@ -10830,60 +10836,97 @@ with st.expander("Add fragrance", expanded=True):
         st.session_state.setdefault("add_form_cats", [])
         st.session_state.setdefault("add_form_size", "")
 
-        with st.form("add_fragrance_form", clear_on_submit=True):
-            new_name = st.text_input("Name *", key="add_form_name")
-            new_brand = st.text_input("Brand *", key="add_form_brand")
-            new_gender = st.selectbox(
-                "Gender",
-                _gender_opts,
-                key="add_form_gender",
-            )
-            new_season = st.text_input("Season", key="add_form_season")
-            new_notes = st.text_area(
+        with st.form("add_fragrance_form", clear_on_submit=False):
+            st.text_input("Name *", key="add_form_name")
+            st.text_input("Brand *", key="add_form_brand")
+            # Guard selectbox values so Streamlit does not drop the form
+            if st.session_state.get("add_form_gender") not in _gender_opts:
+                st.session_state["add_form_gender"] = "Unisex"
+            st.selectbox("Gender", _gender_opts, key="add_form_gender")
+            st.text_input("Season", key="add_form_season")
+            st.text_area(
                 "Notes",
                 height=100,
                 placeholder="Top - ... / Heart - ... / Base - ...",
                 key="add_form_notes",
             )
-            new_shelf = st.selectbox(
-                "Shelf status",
-                SHELF_STATUSES,
-                key="add_form_shelf",
-            )
-            new_concentration = st.selectbox(
+            try:
+                _shelf_opts = list(SHELF_STATUSES)
+            except Exception:
+                _shelf_opts = ["Own", "Decant", "Wishlist", "Finished"]
+            if st.session_state.get("add_form_shelf") not in _shelf_opts:
+                st.session_state["add_form_shelf"] = _shelf_opts[0]
+            st.selectbox("Shelf status", _shelf_opts, key="add_form_shelf")
+            try:
+                _conc_opts = list(CONCENTRATION_OPTIONS)
+            except Exception:
+                _conc_opts = ["EDP", "EDT", "Oil", "Body spray", "Other"]
+            if st.session_state.get("add_concentration") not in _conc_opts:
+                st.session_state["add_concentration"] = _conc_opts[0]
+            st.selectbox(
                 "Format / concentration",
-                CONCENTRATION_OPTIONS,
+                _conc_opts,
                 key="add_concentration",
                 help="Concentrated oil, EDP, EDT, body spray, etc.",
             )
-            new_size = st.text_input(
-                "Size (ml)",
-                placeholder="e.g. 100",
-                key="add_form_size",
-            )
-            new_cats = st.multiselect(
-                "Categories",
-                _cat_opts,
-                key="add_form_cats",
-            )
+            st.text_input("Size (ml)", placeholder="e.g. 100", key="add_form_size")
+            # Multiselect must be a list of valid options
+            _cur_cats = st.session_state.get("add_form_cats") or []
+            if not isinstance(_cur_cats, list):
+                _cur_cats = []
+            st.session_state["add_form_cats"] = [c for c in _cur_cats if c in _cat_opts]
+            st.multiselect("Categories", _cat_opts, key="add_form_cats")
+
             c_add, c_clear = st.columns(2)
             with c_add:
                 submit_added = st.form_submit_button(
-                    "Add to collection", use_container_width=True
+                    "Add to collection",
+                    type="primary",
+                    use_container_width=True,
                 )
             with c_clear:
-                # clear_on_submit=True clears fields after any form submit
                 clear_add_form = st.form_submit_button(
                     "Clear form", use_container_width=True
                 )
 
             if clear_add_form:
+                for _k in (
+                    "add_form_name",
+                    "add_form_brand",
+                    "add_form_notes",
+                    "add_form_season",
+                    "add_form_gender",
+                    "add_form_cats",
+                    "add_form_size",
+                    "add_form_shelf",
+                    "add_concentration",
+                ):
+                    if _k in ("add_form_gender",):
+                        st.session_state[_k] = "Unisex"
+                    elif _k in ("add_form_season",):
+                        st.session_state[_k] = "Fall, Winter"
+                    elif _k in ("add_form_cats",):
+                        st.session_state[_k] = []
+                    elif _k in ("add_form_shelf",):
+                        st.session_state[_k] = _shelf_opts[0]
+                    elif _k in ("add_concentration",):
+                        st.session_state[_k] = _conc_opts[0]
+                    else:
+                        st.session_state[_k] = ""
                 st.session_state["_add_flash"] = "Form cleared."
-                # fields are cleared by clear_on_submit; no vault change
+                st.rerun()
 
             if submit_added:
-                nm = (new_name or "").strip()
-                br = (new_brand or "").strip()
+                # Always read from session_state keys (reliable inside forms)
+                nm = str(st.session_state.get("add_form_name") or "").strip()
+                br = str(st.session_state.get("add_form_brand") or "").strip()
+                new_gender = st.session_state.get("add_form_gender") or "Unisex"
+                new_season = st.session_state.get("add_form_season") or "Versatile"
+                new_notes = st.session_state.get("add_form_notes") or ""
+                new_shelf = st.session_state.get("add_form_shelf") or "Own"
+                new_concentration = st.session_state.get("add_concentration") or "EDP"
+                new_size = st.session_state.get("add_form_size") or ""
+                new_cats = st.session_state.get("add_form_cats") or []
                 if not nm:
                     st.error("Name is required.")
                 elif not br:
@@ -10919,9 +10962,7 @@ with st.expander("Add fragrance", expanded=True):
                             "name": nm,
                             "brand": br,
                             "gender": new_gender,
-                            "season": normalize_season_label(new_season or "Versatile")
-                            if "normalize_season_label" in dir()
-                            else (new_season or "Versatile"),
+                            "season": (new_season or "Versatile"),
                             "notes": (new_notes or "").strip() or "Not specified",
                             "category": list(new_cats) if new_cats else ["Gourmand"],
                             "dupe_of": "",
@@ -10968,6 +11009,12 @@ with st.expander("Add fragrance", expanded=True):
                             st.session_state["_add_flash"] += (
                                 " ⚠️ Save to disk may have failed — download backup now."
                             )
+                        # Reset form fields after successful add
+                        st.session_state["add_form_name"] = ""
+                        st.session_state["add_form_brand"] = ""
+                        st.session_state["add_form_notes"] = ""
+                        st.session_state["add_form_size"] = ""
+                        st.session_state["add_form_cats"] = []
                         st.rerun()
 
 
