@@ -11563,40 +11563,39 @@ with st.expander(
             key="backup_copy_area",
         )
 
-# Persistent section nav (classic st.tabs resets to Discover after every rerun)
+# Horizontal tab bar (one row). Remembers section across reruns (st.tabs cannot).
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
 if st.session_state.get("active_main_tab") not in _MAIN_TABS:
     st.session_state["active_main_tab"] = "Discover"
 
-# Prefer segmented control / pills (clean tab look); fall back to compact select
-_nav = None
-try:
-    _nav = st.segmented_control(
-        "Section",
-        options=_MAIN_TABS,
-        key="active_main_tab",
-        label_visibility="collapsed",
-    )
-except Exception:
-    _nav = None
-if _nav is None:
-    try:
-        _nav = st.pills(
-            "Section",
-            options=_MAIN_TABS,
-            key="active_main_tab",
-            label_visibility="collapsed",
-        )
-    except Exception:
-        _nav = None
-if _nav is None:
-    # Compact dropdown — one line on mobile, remembers selection
-    st.selectbox(
-        "Go to",
-        _MAIN_TABS,
-        key="active_main_tab",
-        label_visibility="collapsed",
-    )
+st.markdown(
+    """
+<style>
+/* Horizontal nav row — equal buttons, one line */
+div[data-testid="stHorizontalBlock"]:has(button[kind="primary"]) button,
+div[data-testid="stHorizontalBlock"] button {
+    white-space: nowrap;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.2rem;
+    min-height: 2.2rem;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+_nav_cols = st.columns(len(_MAIN_TABS), gap="small")
+for _i, _label in enumerate(_MAIN_TABS):
+    with _nav_cols[_i]:
+        _is_on = st.session_state.get("active_main_tab") == _label
+        if st.button(
+            _label,
+            key=f"main_nav_btn_{_label}",
+            use_container_width=True,
+            type="primary" if _is_on else "secondary",
+        ):
+            st.session_state["active_main_tab"] = _label
+            st.rerun()
 
 # ===== DISCOVER =====
 
