@@ -11563,8 +11563,21 @@ with st.expander(
             key="backup_copy_area",
         )
 
-tab_discover, tab_layer, tab_recipes, tab_try, tab_sotd, tab_collection, tab_vault = st.tabs(
-    ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
+# Persistent tab navigation (st.tabs resets to Discover on every st.rerun())
+_MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
+if "active_main_tab" not in st.session_state:
+    st.session_state["active_main_tab"] = "Discover"
+if st.session_state.get("active_main_tab") not in _MAIN_TABS:
+    st.session_state["active_main_tab"] = "Discover"
+st.radio(
+    "Section",
+    _MAIN_TABS,
+    horizontal=True,
+    key="active_main_tab",
+    label_visibility="collapsed",
+)
+st.caption(
+    f"**{st.session_state.get('active_main_tab')}** — stays on this tab when you save or refresh picks."
 )
 
 # ===== DISCOVER =====
@@ -11696,7 +11709,11 @@ def get_libra_suggestions(
     """Top Libra-aligned bottles (Female + Unisex), season + occasion aware."""
     db = list(st.session_state.get("fragrances_db") or [])
     scored = []
-    weather = "Any" if not season_key or str(season_key).lower() == "any" else season_key
+    sk = (season_key or "Any")
+    if str(sk).lower() in ("any", "none", ""):
+        weather = "Any"
+    else:
+        weather = sk
     for f in db:
         # Always Female + Unisex; season when selected
         if not passes_core_filters(
@@ -11721,7 +11738,7 @@ def get_libra_suggestions(
     return [f for _, f in scored[:n]]
 
 
-with tab_discover:
+if st.session_state.get("active_main_tab") == "Discover":
     st.caption("Search, temp picks, and generated recommendations from the sidebar.")
 
     # --- Libra / horoscope suggestions (user chart) ---
@@ -12243,34 +12260,25 @@ with tab_discover:
                     continue
                 selected.append(f)
                 have.add(n)
-            # Last resort: relax weather to Any
+            # Do NOT relax weather/gender — empty is better than wrong-season picks
             if len(selected) < int(num_recs or 3):
-                try:
-                    extra2 = get_top_fragrances(
-                        gender,
-                        "Any",
-                        category,
-                        "Any",
-                        max(need * 4, 8),
-                        favorites_only=False,
-                        temp_f=None,
-                        shuffle=True,
-                        exclude_names=list(have),
-                        concentration=conc_filter,
-                        projection="Any",
-                    )
-                except Exception:
-                    extra2 = []
-                for f in extra2:
-                    if len(selected) >= int(num_recs or 3):
-                        break
-                    n = f.get("name")
-                    if not n or n in have:
-                        continue
-                    if sprays_only and is_oil_fragrance(f):
-                        continue
-                    selected.append(f)
-                    have.add(n)
+                st.session_state["_rec_shortfall"] = (
+                    f"Only **{len(selected)}** bottle(s) match gender + weather. "
+                    "Try another season band or add more bottles for this weather."
+                )
+        # Final gate: every pick must still match gender + weather
+        selected = [
+            f
+            for f in (selected or [])
+            if passes_core_filters(
+                f,
+                gender=gender or "Any",
+                weather=weather or "Any",
+                include_unisex=True,
+                strict_weather=True,
+            )
+        ]
+
         if prefer_oils and selected and not oils_only:
             # Re-rank: oils first while keeping relative order
             selected = sorted(
@@ -12291,7 +12299,20 @@ with tab_discover:
                 shuffle=True,
                 concentration=conc_filter,
             )
-            if prefer_oils and selected and not oils_only:
+            # Final gate: every pick must still match gender + weather
+        selected = [
+            f
+            for f in (selected or [])
+            if passes_core_filters(
+                f,
+                gender=gender or "Any",
+                weather=weather or "Any",
+                include_unisex=True,
+                strict_weather=True,
+            )
+        ]
+
+        if prefer_oils and selected and not oils_only:
                 selected = sorted(
                     selected,
                     key=lambda f: (
@@ -12481,6 +12502,9 @@ with tab_discover:
             )
         elif meta.get("weather") and meta.get("weather") != "Any":
             st.caption(f"Season: **{meta.get('weather')}**")
+        _sf = st.session_state.pop("_rec_shortfall", None)
+        if _sf:
+            st.warning(_sf)
         if meta:
             cat_meta = meta.get("category")
             if isinstance(cat_meta, (list, tuple)):
@@ -12783,7 +12807,7 @@ with tab_discover:
 
 
 # ===== LAYER =====
-with tab_layer:
+if st.session_state.get("active_main_tab") == "Layer":
     st.subheader("Layering Studio")
     st.caption("Pick a base → filter partners → refresh for new matches. Oil first, spray second.")
     _studio_flash = st.session_state.pop("_layer_studio_flash", None)
@@ -14153,7 +14177,7 @@ with tab_layer:
 
 
 
-with tab_recipes:
+if st.session_state.get("active_main_tab") == "Recipes":
     st.subheader("Saved recipes")
     st.caption(
         "All layer recipes you saved. Each card shows **rating**, **season**, spray order, "
@@ -14521,7 +14545,7 @@ with tab_recipes:
 
                     st.markdown("---")
 
-with tab_try:
+if st.session_state.get("active_main_tab") == "Try":
     st.subheader("Try list")
     st.caption(
         "Ideas you marked **Try it** from Layer or Discover. "
@@ -14614,7 +14638,7 @@ with tab_try:
             st.markdown("---")
 
 
-with tab_sotd:
+if st.session_state.get("active_main_tab") == "SOTD":
     st.subheader("Scent of the Day")
     _ready2 = st.session_state.pop("_sotd_ready_flash", None)
     if _ready2:
@@ -15083,7 +15107,7 @@ with tab_sotd:
             st.rerun()
 
 
-with tab_collection:
+if st.session_state.get("active_main_tab") == "Collection":
     st.subheader("Collection browser")
     _db_c = st.session_state.get("fragrances_db") or []
     _oil_count = sum(1 for f in _db_c if is_oil_fragrance(f))
@@ -15940,7 +15964,7 @@ with tab_collection:
 
 
 # ===== VAULT =====
-with tab_vault:
+if st.session_state.get("active_main_tab") == "Vault":
     _rf = st.session_state.pop("_restore_flash", None)
     if _rf:
         st.success(_rf)
