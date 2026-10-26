@@ -11563,22 +11563,40 @@ with st.expander(
             key="backup_copy_area",
         )
 
-# Persistent tab navigation (st.tabs resets to Discover on every st.rerun())
+# Persistent section nav (classic st.tabs resets to Discover after every rerun)
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
-if "active_main_tab" not in st.session_state:
-    st.session_state["active_main_tab"] = "Discover"
 if st.session_state.get("active_main_tab") not in _MAIN_TABS:
     st.session_state["active_main_tab"] = "Discover"
-st.radio(
-    "Section",
-    _MAIN_TABS,
-    horizontal=True,
-    key="active_main_tab",
-    label_visibility="collapsed",
-)
-st.caption(
-    f"**{st.session_state.get('active_main_tab')}** — stays on this tab when you save or refresh picks."
-)
+
+# Prefer segmented control / pills (clean tab look); fall back to compact select
+_nav = None
+try:
+    _nav = st.segmented_control(
+        "Section",
+        options=_MAIN_TABS,
+        key="active_main_tab",
+        label_visibility="collapsed",
+    )
+except Exception:
+    _nav = None
+if _nav is None:
+    try:
+        _nav = st.pills(
+            "Section",
+            options=_MAIN_TABS,
+            key="active_main_tab",
+            label_visibility="collapsed",
+        )
+    except Exception:
+        _nav = None
+if _nav is None:
+    # Compact dropdown — one line on mobile, remembers selection
+    st.selectbox(
+        "Go to",
+        _MAIN_TABS,
+        key="active_main_tab",
+        label_visibility="collapsed",
+    )
 
 # ===== DISCOVER =====
 
