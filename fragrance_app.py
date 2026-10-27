@@ -14070,40 +14070,67 @@ if st.session_state.get("active_main_tab") == "SOTD":
                 key=f"sotd_tiktok_caption_dl_{pi}",
             )
 
-    with st.expander("Journal history", expanded=False):
-        st.caption("Edit a log if the wrong bottle or date was saved. Changes autosave.")
+    with st.expander("Journal history", expanded=True):
+        st.caption("Edit or delete a log. Bottles should pre-fill — then Save changes.")
         all_names_sotd = sorted(
-            f.get("name")
-            for f in (st.session_state.get("fragrances_db") or [])
-            if f.get("name")
+            {
+                f.get("name")
+                for f in (st.session_state.get("fragrances_db") or [])
+                if f.get("name")
+            }
         )
         hist = list(st.session_state.get("sotd_history") or [])
         if not hist:
             st.caption("No SOTD entries yet.")
+        else:
+            st.write(f"**{len(hist)}** entries")
+
         for i, entry in enumerate(hist):
+            if not isinstance(entry, dict):
+                continue
             layer_badge = " | layering" if entry.get("is_layering") else ""
-            notes_text = f" - {entry['notes']}" if entry.get("notes") else ""
+            notes_text = (
+                f" - {entry.get('notes')}" if entry.get("notes") else ""
+            )
             st.write(
                 f"**{entry.get('date')}:** *{entry.get('scent')}*{layer_badge}{notes_text}"
             )
-            with st.expander(f"Edit entry {i+1} - {entry.get('date', '?')}", expanded=False):
-                cur_scents = entry.get("scents") or []
-                if not cur_scents and entry.get("scent"):
-                    cur_scents = [
-                        p.strip()
-                        for p in str(entry.get("scent")).split(" + ")
-                        if p.strip()
-                    ]
-                # keep names not in vault so they are not lost
-                name_opts = list(dict.fromkeys(list(all_names_sotd) + list(cur_scents)))
+
+            cur_scents = list(entry.get("scents") or [])
+            if not cur_scents and entry.get("scent"):
+                cur_scents = [
+                    p.strip()
+                    for p in str(entry.get("scent")).replace("+", " + ").split(" + ")
+                    if p.strip()
+                ]
+            # Unique stable keys per entry (index + date + scent)
+            _uid = f"{i}_{entry.get('date')}_{str(entry.get('scent') or '')[:40]}"
+            _sk = f"edit_sotd_scents_{_uid}"
+            _dk = f"edit_sotd_date_{_uid}"
+            _nk = f"edit_sotd_notes_{_uid}"
+
+            name_opts = list(dict.fromkeys(list(all_names_sotd) + list(cur_scents)))
+
+            # Prefill widget state once (Streamlit ignores default= when key exists)
+            if _sk not in st.session_state:
+                st.session_state[_sk] = [n for n in cur_scents if n in name_opts] or list(
+                    cur_scents
+                )
+            if _nk not in st.session_state:
+                st.session_state[_nk] = entry.get("notes") or ""
+
+            with st.expander(
+                f"Edit entry {i + 1} — {entry.get('date', '?')}",
+                expanded=False,
+            ):
                 new_scents = st.multiselect(
                     "Bottles",
-                    name_opts,
-                    default=[n for n in cur_scents if n in name_opts],
-                    key=f"edit_sotd_scents_{i}_{entry.get('date')}",
+                    options=name_opts,
+                    key=_sk,
                 )
                 try:
                     from datetime import date as _date
+
                     _d0 = entry.get("date") or pacific_today().isoformat()
                     if isinstance(_d0, str):
                         _parts = [int(x) for x in _d0[:10].split("-")]
@@ -14112,54 +14139,92 @@ if st.session_state.get("active_main_tab") == "SOTD":
                         _default_d = pacific_today()
                 except Exception:
                     _default_d = pacific_today()
-                new_date = st.date_input(
-                    "Date",
-                    value=_default_d,
-                    key=f"edit_sotd_date_{i}_{entry.get('date')}",
-                )
-                new_notes = st.text_area(
-                    "Notes",
-                    value=entry.get("notes") or "",
-                    key=f"edit_sotd_notes_{i}_{entry.get('date')}",
-                )
-                e1, e2 = st.columns(2)
+                if _dk not in st.session_state:
+                    st.session_state[_dk] = _default_d
+                new_date = st.date_input("Date", key=_dk)
+                new_notes = st.text_area("Notes", key=_nk)
+
+                e1, e2, e3 = st.columns(3)
                 with e1:
-                    if st.button("Save changes", type="primary", key=f"edit_sotd_save_{i}"):
-                        if not new_scents:
+                    if st.button(
+                        "Save changes",
+                        type="primary",
+                        key=f"edit_sotd_save_{_uid}",
+                    ):
+                        picks = list(new_scents or [])
+                        if not picks:
                             st.warning("Keep at least one bottle.")
                         else:
                             when_s = (
                                 new_date.isoformat()
                                 if hasattr(new_date, "isoformat")
-                                else str(new_date)
+                                else str(new_date)[:10]
                             )
-                            display = " + ".join(new_scents)
-                            st.session_state["sotd_history"][i] = {
-                                **entry,
-                                "date": when_s,
-                                "scents": list(new_scents),
-                                "scent": display,
-                                "notes": (new_notes or "").strip(),
-                                "is_layering": len(new_scents) > 1,
-                            }
+                            display = " + ".join(picks)
+                            # Write by index into live list
+                            live = st.session_state.get("sotd_history") or []
+                            if i < len(live):
+                                live[i] = {
+                                    **(live[i] if isinstance(live[i], dict) else {}),
+                                    "date": when_s,
+                                    "scents": picks,
+                                    "scent": display,
+                                    "notes": (new_notes or "").strip(),
+                                    "is_layering": len(picks) > 1,
+                                }
+                                st.session_state["sotd_history"] = live
+                                mark_vault_dirty()
+                                save_persisted_data(force=True)
+                                try:
+                                    prepare_backup_bytes()
+                                except Exception:
+                                    pass
+                                # Reset widget keys so next open refills from saved data
+                                for k in (_sk, _dk, _nk):
+                                    st.session_state.pop(k, None)
+                                st.session_state["_sotd_flash"] = (
+                                    f"Updated: **{display}** on {when_s}"
+                                )
+                                st.rerun()
+                with e2:
+                    if st.button(
+                        "Delete entry",
+                        key=f"del_sotd_{_uid}",
+                    ):
+                        live = list(st.session_state.get("sotd_history") or [])
+                        if 0 <= i < len(live):
+                            live.pop(i)
+                            st.session_state["sotd_history"] = live
                             mark_vault_dirty()
-                            save_persisted_data(force=False)
+                            save_persisted_data(force=True)
                             try:
-                                st.session_state["_vault_fp"] = vault_fingerprint()
+                                prepare_backup_bytes()
                             except Exception:
                                 pass
-                            st.success(f"Updated: **{display}** on {when_s}")
+                            for k in list(st.session_state.keys()):
+                                if str(k).startswith("edit_sotd_") or str(k).startswith(
+                                    "del_sotd_"
+                                ):
+                                    # clear edit widget state after delete so indices stay sane
+                                    if "edit_sotd_" in str(k):
+                                        st.session_state.pop(k, None)
+                            st.session_state["_sotd_flash"] = "Entry deleted."
                             st.rerun()
-                with e2:
-                    if st.button("Delete entry", key=f"del_sotd_{i}_{entry.get('date')}"):
-                        st.session_state["sotd_history"].pop(i)
-                        mark_vault_dirty()
-                        save_persisted_data(force=False)
+                with e3:
+                    if st.button(
+                        "Reset fields",
+                        key=f"reset_sotd_{_uid}",
+                    ):
+                        st.session_state[_sk] = list(cur_scents)
+                        st.session_state[_nk] = entry.get("notes") or ""
+                        st.session_state[_dk] = _default_d
                         st.rerun()
+
         if hist and st.button("Clear entire journal", key="clear_sotd_all"):
             st.session_state["sotd_history"] = []
             mark_vault_dirty()
-            save_persisted_data(force=False)
+            save_persisted_data(force=True)
+            st.session_state["_sotd_flash"] = "Journal cleared."
             st.rerun()
 
 
