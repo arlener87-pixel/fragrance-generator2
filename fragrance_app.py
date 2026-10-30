@@ -10595,6 +10595,414 @@ with st.sidebar:
 
 
 
+
+# ----- Layer recipe helpers (module level — must exist on every tab) -----
+def _layer_score_bottle(f: dict) -> float:
+    """How dessert-like a bottle is (female-leaning vault picks)."""
+    if not f:
+        return -1.0
+    g = normalize_gender(f.get("gender") or "")
+    if g not in ("Female", "Female-leaning", "Unisex"):
+        return -1.0
+    cats = {str(c).lower() for c in (f.get("category") or [])}
+    notes = (f.get("notes") or "").lower()
+    name = (f.get("name") or "").lower()
+    text = notes + " " + name + " " + " ".join(cats)
+    pts = 0.0
+    dessert_cats = {
+        "gourmand": 12, "sweet": 10, "vanilla": 10, "creamy": 9,
+        "fruity": 6, "floral": 3, "powdery": 3, "amber": 4, "musky": 2,
+    }
+    for c, w in dessert_cats.items():
+        if c in cats:
+            pts += w
+    dessert_notes = [
+        ("vanilla", 8), ("caramel", 8), ("praline", 7), ("chocolate", 7),
+        ("cocoa", 6), ("coffee", 5), ("tonka", 5), ("marshmallow", 7),
+        ("sugar", 5), ("honey", 5), ("coconut", 5), ("almond", 5),
+        ("pistachio", 6), ("hazelnut", 5), ("cream", 5), ("milk", 4),
+        ("strawberry", 6), ("raspberry", 5), ("cherry", 5), ("peach", 4),
+        ("banana", 4), ("apple pie", 6), ("cinnamon", 4), ("whipped", 5),
+        ("butter", 4), ("cookie", 6), ("cake", 6), ("custard", 6),
+        ("toffee", 6), ("maple", 5), ("brown sugar", 6), ("sandalwood", 2),
+    ]
+    for k, w in dessert_notes:
+        if k in text:
+            pts += w
+    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
+        pts += 8
+    if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
+        return -1.0
+    if is_oil_fragrance(f):
+        pts += 2  # oils layer nicely under sprays
+    return pts
+
+
+def _layer_display_name_from_frags(frags: list) -> str:
+    """Dessert name driven by the strongest notes in the stack (not random flavor)."""
+    text = " ".join(
+        ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+        for f in frags
+        if isinstance(f, dict)
+    )
+    cats = set()
+    for f in frags:
+        for c in f.get("category") or []:
+            cats.add(str(c).lower())
+
+    # Score note families present in this exact stack
+    families = {
+        "strawberry": (["strawberry", "fraise"], 0),
+        "raspberry": (["raspberry", "framboise"], 0),
+        "cherry": (["cherry", "cerise"], 0),
+        "berry": (["berry", "berries", "blackcurrant", "cassis"], 0),
+        "coconut": (["coconut", "coco"], 0),
+        "pineapple": (["pineapple"], 0),
+        "peach": (["peach", "nectarine"], 0),
+        "apple": (["apple", "apple pie"], 0),
+        "pear": (["pear"], 0),
+        "banana": (["banana"], 0),
+        "chocolate": (["chocolate", "cocoa", "cacao"], 0),
+        "coffee": (["coffee", "espresso", "mocha"], 0),
+        "caramel": (["caramel", "toffee", "butterscotch"], 0),
+        "praline": (["praline", "hazelnut", "gianduja"], 0),
+        "pistachio": (["pistachio"], 0),
+        "almond": (["almond", "marzipan"], 0),
+        "vanilla": (["vanilla", "vanille", "tonka"], 0),
+        "marshmallow": (["marshmallow", "cotton candy", "meringue"], 0),
+        "cream": (["cream", "milk", "custard", "whipped", "lactonic"], 0),
+        "honey": (["honey", "beeswax"], 0),
+        "cinnamon": (["cinnamon", "spice", "clove", "nutmeg"], 0),
+        "pumpkin": (["pumpkin"], 0),
+        "rose": (["rose", "rosy"], 0),
+        "jasmine": (["jasmine", "sampaguita"], 0),
+        "sugar": (["sugar", "candied", "syrup"], 0),
+    }
+    scores = {}
+    for fam, (keys, _) in families.items():
+        sc = 0
+        for k in keys:
+            if k in text:
+                sc += text.count(k) + 2
+        if sc:
+            scores[fam] = sc
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    top = [f for f, _ in ranked[:3]]
+
+    # Combo names when two clear notes show up together
+    combos = [
+        (frozenset(["strawberry", "coconut"]), "Strawberry Coconut Cream"),
+        (frozenset(["strawberry", "cream"]), "Strawberry Whipped Cream"),
+        (frozenset(["strawberry", "vanilla"]), "Strawberry Vanilla Soft Serve"),
+        (frozenset(["raspberry", "vanilla"]), "Raspberry Vanilla Tart"),
+        (frozenset(["raspberry", "cream"]), "Raspberry Cream Tart"),
+        (frozenset(["cherry", "vanilla"]), "Cherry Vanilla Cupcake"),
+        (frozenset(["cherry", "chocolate"]), "Chocolate Cherry Gateau"),
+        (frozenset(["coconut", "vanilla"]), "Coconut Vanilla Chiffon"),
+        (frozenset(["coconut", "pineapple"]), "Pina Colada Cream Cup"),
+        (frozenset(["coconut", "cream"]), "Coconut Cream Pie"),
+        (frozenset(["peach", "cream"]), "Peach Cream Cobbler"),
+        (frozenset(["peach", "vanilla"]), "Peach Vanilla Crumble"),
+        (frozenset(["apple", "cinnamon"]), "Warm Apple Cinnamon Crumble"),
+        (frozenset(["apple", "caramel"]), "Caramel Apple Tart"),
+        (frozenset(["chocolate", "vanilla"]), "Chocolate Vanilla Sundae"),
+        (frozenset(["chocolate", "caramel"]), "Salted Caramel Brownie"),
+        (frozenset(["chocolate", "coffee"]), "Mocha Espresso Tiramisu"),
+        (frozenset(["chocolate", "cream"]), "Chocolate Mousse Cup"),
+        (frozenset(["caramel", "vanilla"]), "Salted Caramel Flan"),
+        (frozenset(["praline", "vanilla"]), "Praline Vanilla Cream Puff"),
+        (frozenset(["pistachio", "vanilla"]), "Pistachio Vanilla Baklava"),
+        (frozenset(["almond", "vanilla"]), "Almond Vanilla Croissant"),
+        (frozenset(["marshmallow", "vanilla"]), "Toasted Marshmallow Vanilla"),
+        (frozenset(["marshmallow", "chocolate"]), "Smores Chocolate Cloud"),
+        (frozenset(["honey", "vanilla"]), "Honey Vanilla Cake"),
+        (frozenset(["rose", "vanilla"]), "Rose Vanilla Macaron"),
+        (frozenset(["jasmine", "vanilla"]), "Jasmine Vanilla Cream"),
+        (frozenset(["cinnamon", "vanilla"]), "Cinnamon Roll Cream"),
+        (frozenset(["pumpkin", "vanilla"]), "Pumpkin Spice Latte Cream"),
+        (frozenset(["berry", "cream"]), "Berry Cream Tart"),
+        (frozenset(["berry", "vanilla"]), "Berry Vanilla Shortcake"),
+    ]
+    top_set = frozenset(top[:2]) if len(top) >= 2 else frozenset(top)
+    for need, name in combos:
+        if need.issubset(frozenset(top)):
+            return name
+    # Partial: any 2 of top match a combo
+    if len(top) >= 2:
+        pair = frozenset(top[:2])
+        for need, name in combos:
+            if need == pair:
+                return name
+
+    # Single dominant note → specific dessert
+    single = {
+        "strawberry": "Strawberry Shortcake",
+        "raspberry": "Raspberry Whipped Tart",
+        "cherry": "Cherry Glaze Cupcake",
+        "berry": "Berry Cream Tart",
+        "coconut": "Coconut Cream Chiffon",
+        "pineapple": "Pineapple Upside-Down Cake",
+        "peach": "Peach Cobbler Cloud",
+        "apple": "Warm Apple Crumble",
+        "pear": "Pear Almond Tart",
+        "banana": "Banana Cream Pudding",
+        "chocolate": "Molten Chocolate Cake",
+        "coffee": "Espresso Tiramisu",
+        "caramel": "Salted Caramel Flan",
+        "praline": "Praline Cream Puff",
+        "pistachio": "Pistachio Baklava",
+        "almond": "Almond Cream Croissant",
+        "vanilla": "Vanilla Bean Custard",
+        "marshmallow": "Toasted Marshmallow Cloud",
+        "cream": "Whipped Cream Dream",
+        "honey": "Honey Cream Cake",
+        "cinnamon": "Cinnamon Roll Swirl",
+        "pumpkin": "Pumpkin Spice Latte Cream",
+        "rose": "Rose Cream Macaron",
+        "jasmine": "Jasmine Sugar Cream",
+        "sugar": "Powdered Sugar Kiss",
+    }
+    if top:
+        if top[0] in single:
+            return single[top[0]]
+
+    if "gourmand" in cats or "sweet" in cats or "vanilla" in cats:
+        return "Sweet Cream Gourmand"
+    return "Soft Serve Layer"
+
+
+
+
+def _clean_layer_label(name: str) -> str:
+    """Drop repeated words (e.g. Cream Cream) and extra spaces."""
+    if not name:
+        return "Sweet Layer"
+    parts = str(name).split()
+    out = []
+    for p in parts:
+        if out and out[-1].lower() == p.lower():
+            continue
+        out.append(p)
+    return " ".join(out) or "Sweet Layer"
+
+
+def _unique_layer_display_name(frags: list, used: set) -> str:
+    """Note-based dessert name unique within this menu."""
+    base = _clean_layer_label(_layer_display_name_from_frags(frags))
+    if base not in used:
+        used.add(base)
+        return base
+    text = " ".join(
+        ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
+        for f in frags
+        if isinstance(f, dict)
+    )
+    alts = []
+    if "coconut" in text:
+        alts += ["Coconut Cream Layer", "Tropical Coconut Soft Serve"]
+    if "vanilla" in text:
+        alts += ["Vanilla Bean Soft Stack", "Madagascar Vanilla Layer"]
+    if "caramel" in text or "praline" in text:
+        alts += ["Caramel Cream Stack", "Praline Soft Layer"]
+    if "marshmallow" in text:
+        alts += ["Marshmallow Cloud Layer"]
+    if "chocolate" in text or "cocoa" in text:
+        alts += ["Chocolate Mousse Layer"]
+    if any(x in text for x in ("berry", "strawberry", "raspberry", "cherry")):
+        alts += ["Berry Cream Stack", "Fruit Cream Tart"]
+    alts += [base + " Duo", base + " Soft", "Gourmand " + base, "Layered " + base]
+    for a in alts:
+        a = _clean_layer_label(a)
+        if a not in used:
+            used.add(a)
+            return a
+    n = 2
+    while True:
+        cand = f"{base} ({n})"
+        if cand not in used:
+            used.add(cand)
+            return cand
+        n += 1
+
+
+def _layer_season_tip(frags: list) -> str:
+    text = " ".join((f.get("season") or "").lower() for f in frags)
+    notes = " ".join((f.get("notes") or "").lower() for f in frags)
+    if any(k in notes for k in ("vanilla", "caramel", "chocolate", "tonka", "amber")):
+        if "summer" in text and "winter" not in text and "fall" not in text:
+            return "Best in **Fall / Winter** evenings — heavy sweets bloom in cooler air."
+        return "Best in **Fall & Winter** — cozy dessert vibes; go light sprays in heat."
+    if any(k in notes for k in ("coconut", "citrus", "fruit", "berry", "peach")):
+        return "Best in **Spring / Summer** — fruity dessert layers stay bright in warmth."
+    return "Versatile — lighter sprays for warm days, richer base for cool nights."
+
+
+def _layer_combo_tip(frags: list) -> str:
+    if not frags:
+        return "Pick two sweet bottles and apply the richer one first."
+    ordered = process_layering_order(list(frags))
+    names = [f.get("name") for f in ordered if f.get("name")]
+    oils = [f for f in ordered if is_oil_fragrance(f)]
+    tips = []
+    if oils and len(ordered) >= 2:
+        tips.append(
+            "Oil first on pulse points, wait 30–60 sec, then spray the lighter dessert on top."
+        )
+    if len(names) >= 2:
+        tips.append(
+            "Spray order: **" + " > ".join(names) + "** (richest base → lighter top)."
+        )
+    tips.append("1–2 sprays each for daily; add one more of the top note for date night.")
+    tips.append("Target pulse points + a light mist on clothes for longer gourmand trail.")
+    return " ".join(tips)
+
+
+
+
+def recipe_combo_key(bottles) -> tuple:
+    """Canonical key for a recipe combo (order-independent)."""
+    names = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+    return tuple(sorted(names))
+
+
+def recipe_combo_exists(bottles) -> dict:
+    """Return existing recipe dict if same bottle set already saved, else {}."""
+    key = recipe_combo_key(bottles)
+    if len(key) < 2:
+        return {}
+    for r in (st.session_state.get("layer_recipes") or []):
+        if recipe_combo_key(r.get("bottles") or r.get("names") or []) == key:
+            return r
+    return {}
+
+
+def format_spray_guide(ev: dict) -> str:
+    """Human-readable spray order from evaluate_layer_recipe result."""
+    if not ev:
+        return ""
+    lines = []
+    app = ev.get("application") or {}
+    steps = app.get("steps") or []
+    if steps:
+        lines.append("**How to spray** (heavy → light):")
+        for s in steps:
+            lines.append(
+                f"{s.get('order', '?')}. **{s.get('name')}** — "
+                f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
+                f"{s.get('where', '')}"
+            )
+        if app.get("tips"):
+            for t in (app.get("tips") or [])[:3]:
+                lines.append(f"• {t}")
+    else:
+        order = ev.get("spray_order") or ev.get("selected_names") or []
+        if order:
+            lines.append("**Spray order:** " + " → ".join(str(x) for x in order))
+            lines.append("Apply heaviest first on skin; wait 30–60s; lighter on top.")
+    return "\n\n".join(lines)
+
+
+def save_layer_recipe(bottle_names: list, *, allow_duplicate: bool = False) -> dict:
+    """
+    Save a layer recipe. Blocks duplicate combos unless allow_duplicate=True.
+    Returns {ok, message, recipe, duplicate, spray_guide}.
+    """
+    names = process_layering_order(
+        [str(n).strip() for n in (bottle_names or []) if n and str(n).strip()]
+    )
+    if len(names) < 2:
+        return {
+            "ok": False,
+            "message": "Need at least 2 bottles to save a recipe.",
+            "recipe": None,
+            "duplicate": False,
+            "spray_guide": "",
+        }
+    existing = recipe_combo_exists(names)
+    if existing and not allow_duplicate:
+        try:
+            ev = evaluate_layer_recipe(names)
+        except Exception:
+            ev = {}
+        guide = format_spray_guide(ev) or format_spray_guide(
+            {"spray_order": existing.get("bottles") or names,
+             "application": existing.get("application") or {}}
+        )
+        return {
+            "ok": False,
+            "message": (
+                f"Already saved as **{existing.get('name') or 'recipe'}** "
+                f"({' + '.join(names)}). Same combo can't be saved twice."
+            ),
+            "recipe": existing,
+            "duplicate": True,
+            "spray_guide": guide,
+        }
+    try:
+        ev = evaluate_layer_recipe(names)
+    except Exception as e:
+        ev = {"score": 0, "selected_names": names, "spray_order": names, "error": str(e)}
+    final_name = (ev.get("suggested_name") or "").strip() or " + ".join(names)
+    recipe = {
+        "name": final_name,
+        "bottles": list(names),
+        "season_label": (ev.get("season") or {}).get("label", ""),
+        "season_detail": (ev.get("season") or {}).get("detail", ""),
+        "bands": list((ev.get("season") or {}).get("bands") or []),
+        "application": ev.get("application") or {},
+        "spray_order": list(ev.get("spray_order") or names),
+        "score": ev.get("score"),
+        "label": ev.get("label"),
+        "verdict": ev.get("verdict"),
+        "why": ev.get("why") or "",
+        "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
+        "formula": ev.get("formula") or "",
+    }
+    recipes = list(st.session_state.get("layer_recipes") or [])
+    # Remove any exact combo match then insert fresh
+    key = recipe_combo_key(names)
+    recipes = [
+        r for r in recipes
+        if recipe_combo_key(r.get("bottles") or r.get("names") or []) != key
+    ]
+    recipes.insert(0, recipe)
+    st.session_state["layer_recipes"] = recipes[:80]
+    mark_vault_dirty()
+    save_persisted_data(force=True)
+    guide = format_spray_guide(ev)
+    return {
+        "ok": True,
+        "message": f"Saved recipe: **{final_name}**",
+        "recipe": recipe,
+        "duplicate": False,
+        "spray_guide": guide,
+    }
+
+
+def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Layer") -> bool:
+    """Add a layer idea to the Try list (deduped by bottles)."""
+    bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
+    if len(bottles) < 2:
+        return False
+    key = tuple(sorted(bottles))
+    existing = st.session_state.get("try_recipes") or []
+    for item in existing:
+        if tuple(sorted(item.get("bottles") or [])) == key:
+            return False
+    entry = {
+        "name": name or "Try layer",
+        "bottles": bottles,
+        "notes": notes or "",
+        "tried": False,
+        "source": source,
+        "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
+    }
+    st.session_state["try_recipes"] = [entry] + list(existing)
+    st.session_state["try_recipes"] = st.session_state["try_recipes"][:60]
+    mark_vault_dirty()
+    return True
+
 # ---------- MAIN NAV (left → right, one horizontal row) ----------
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
 
@@ -15529,411 +15937,7 @@ if st.session_state.get("active_main_tab") == "Vault":
             st.session_state["_seasons_normalized"] = True
 
 
-    def _layer_score_bottle(f: dict) -> float:
-        """How dessert-like a bottle is (female-leaning vault picks)."""
-        if not f:
-            return -1.0
-        g = normalize_gender(f.get("gender") or "")
-        if g not in ("Female", "Female-leaning", "Unisex"):
-            return -1.0
-        cats = {str(c).lower() for c in (f.get("category") or [])}
-        notes = (f.get("notes") or "").lower()
-        name = (f.get("name") or "").lower()
-        text = notes + " " + name + " " + " ".join(cats)
-        pts = 0.0
-        dessert_cats = {
-            "gourmand": 12, "sweet": 10, "vanilla": 10, "creamy": 9,
-            "fruity": 6, "floral": 3, "powdery": 3, "amber": 4, "musky": 2,
-        }
-        for c, w in dessert_cats.items():
-            if c in cats:
-                pts += w
-        dessert_notes = [
-            ("vanilla", 8), ("caramel", 8), ("praline", 7), ("chocolate", 7),
-            ("cocoa", 6), ("coffee", 5), ("tonka", 5), ("marshmallow", 7),
-            ("sugar", 5), ("honey", 5), ("coconut", 5), ("almond", 5),
-            ("pistachio", 6), ("hazelnut", 5), ("cream", 5), ("milk", 4),
-            ("strawberry", 6), ("raspberry", 5), ("cherry", 5), ("peach", 4),
-            ("banana", 4), ("apple pie", 6), ("cinnamon", 4), ("whipped", 5),
-            ("butter", 4), ("cookie", 6), ("cake", 6), ("custard", 6),
-            ("toffee", 6), ("maple", 5), ("brown sugar", 6), ("sandalwood", 2),
-        ]
-        for k, w in dessert_notes:
-            if k in text:
-                pts += w
-        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "fav":
-            pts += 8
-        if st.session_state.get("user_reactions", {}).get(f.get("name")) == "dislike":
-            return -1.0
-        if is_oil_fragrance(f):
-            pts += 2  # oils layer nicely under sprays
-        return pts
 
-
-    def _layer_display_name_from_frags(frags: list) -> str:
-        """Dessert name driven by the strongest notes in the stack (not random flavor)."""
-        text = " ".join(
-            ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
-            for f in frags
-            if isinstance(f, dict)
-        )
-        cats = set()
-        for f in frags:
-            for c in f.get("category") or []:
-                cats.add(str(c).lower())
-
-        # Score note families present in this exact stack
-        families = {
-            "strawberry": (["strawberry", "fraise"], 0),
-            "raspberry": (["raspberry", "framboise"], 0),
-            "cherry": (["cherry", "cerise"], 0),
-            "berry": (["berry", "berries", "blackcurrant", "cassis"], 0),
-            "coconut": (["coconut", "coco"], 0),
-            "pineapple": (["pineapple"], 0),
-            "peach": (["peach", "nectarine"], 0),
-            "apple": (["apple", "apple pie"], 0),
-            "pear": (["pear"], 0),
-            "banana": (["banana"], 0),
-            "chocolate": (["chocolate", "cocoa", "cacao"], 0),
-            "coffee": (["coffee", "espresso", "mocha"], 0),
-            "caramel": (["caramel", "toffee", "butterscotch"], 0),
-            "praline": (["praline", "hazelnut", "gianduja"], 0),
-            "pistachio": (["pistachio"], 0),
-            "almond": (["almond", "marzipan"], 0),
-            "vanilla": (["vanilla", "vanille", "tonka"], 0),
-            "marshmallow": (["marshmallow", "cotton candy", "meringue"], 0),
-            "cream": (["cream", "milk", "custard", "whipped", "lactonic"], 0),
-            "honey": (["honey", "beeswax"], 0),
-            "cinnamon": (["cinnamon", "spice", "clove", "nutmeg"], 0),
-            "pumpkin": (["pumpkin"], 0),
-            "rose": (["rose", "rosy"], 0),
-            "jasmine": (["jasmine", "sampaguita"], 0),
-            "sugar": (["sugar", "candied", "syrup"], 0),
-        }
-        scores = {}
-        for fam, (keys, _) in families.items():
-            sc = 0
-            for k in keys:
-                if k in text:
-                    sc += text.count(k) + 2
-            if sc:
-                scores[fam] = sc
-
-        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        top = [f for f, _ in ranked[:3]]
-
-        # Combo names when two clear notes show up together
-        combos = [
-            (frozenset(["strawberry", "coconut"]), "Strawberry Coconut Cream"),
-            (frozenset(["strawberry", "cream"]), "Strawberry Whipped Cream"),
-            (frozenset(["strawberry", "vanilla"]), "Strawberry Vanilla Soft Serve"),
-            (frozenset(["raspberry", "vanilla"]), "Raspberry Vanilla Tart"),
-            (frozenset(["raspberry", "cream"]), "Raspberry Cream Tart"),
-            (frozenset(["cherry", "vanilla"]), "Cherry Vanilla Cupcake"),
-            (frozenset(["cherry", "chocolate"]), "Chocolate Cherry Gateau"),
-            (frozenset(["coconut", "vanilla"]), "Coconut Vanilla Chiffon"),
-            (frozenset(["coconut", "pineapple"]), "Pina Colada Cream Cup"),
-            (frozenset(["coconut", "cream"]), "Coconut Cream Pie"),
-            (frozenset(["peach", "cream"]), "Peach Cream Cobbler"),
-            (frozenset(["peach", "vanilla"]), "Peach Vanilla Crumble"),
-            (frozenset(["apple", "cinnamon"]), "Warm Apple Cinnamon Crumble"),
-            (frozenset(["apple", "caramel"]), "Caramel Apple Tart"),
-            (frozenset(["chocolate", "vanilla"]), "Chocolate Vanilla Sundae"),
-            (frozenset(["chocolate", "caramel"]), "Salted Caramel Brownie"),
-            (frozenset(["chocolate", "coffee"]), "Mocha Espresso Tiramisu"),
-            (frozenset(["chocolate", "cream"]), "Chocolate Mousse Cup"),
-            (frozenset(["caramel", "vanilla"]), "Salted Caramel Flan"),
-            (frozenset(["praline", "vanilla"]), "Praline Vanilla Cream Puff"),
-            (frozenset(["pistachio", "vanilla"]), "Pistachio Vanilla Baklava"),
-            (frozenset(["almond", "vanilla"]), "Almond Vanilla Croissant"),
-            (frozenset(["marshmallow", "vanilla"]), "Toasted Marshmallow Vanilla"),
-            (frozenset(["marshmallow", "chocolate"]), "Smores Chocolate Cloud"),
-            (frozenset(["honey", "vanilla"]), "Honey Vanilla Cake"),
-            (frozenset(["rose", "vanilla"]), "Rose Vanilla Macaron"),
-            (frozenset(["jasmine", "vanilla"]), "Jasmine Vanilla Cream"),
-            (frozenset(["cinnamon", "vanilla"]), "Cinnamon Roll Cream"),
-            (frozenset(["pumpkin", "vanilla"]), "Pumpkin Spice Latte Cream"),
-            (frozenset(["berry", "cream"]), "Berry Cream Tart"),
-            (frozenset(["berry", "vanilla"]), "Berry Vanilla Shortcake"),
-        ]
-        top_set = frozenset(top[:2]) if len(top) >= 2 else frozenset(top)
-        for need, name in combos:
-            if need.issubset(frozenset(top)):
-                return name
-        # Partial: any 2 of top match a combo
-        if len(top) >= 2:
-            pair = frozenset(top[:2])
-            for need, name in combos:
-                if need == pair:
-                    return name
-
-        # Single dominant note → specific dessert
-        single = {
-            "strawberry": "Strawberry Shortcake",
-            "raspberry": "Raspberry Whipped Tart",
-            "cherry": "Cherry Glaze Cupcake",
-            "berry": "Berry Cream Tart",
-            "coconut": "Coconut Cream Chiffon",
-            "pineapple": "Pineapple Upside-Down Cake",
-            "peach": "Peach Cobbler Cloud",
-            "apple": "Warm Apple Crumble",
-            "pear": "Pear Almond Tart",
-            "banana": "Banana Cream Pudding",
-            "chocolate": "Molten Chocolate Cake",
-            "coffee": "Espresso Tiramisu",
-            "caramel": "Salted Caramel Flan",
-            "praline": "Praline Cream Puff",
-            "pistachio": "Pistachio Baklava",
-            "almond": "Almond Cream Croissant",
-            "vanilla": "Vanilla Bean Custard",
-            "marshmallow": "Toasted Marshmallow Cloud",
-            "cream": "Whipped Cream Dream",
-            "honey": "Honey Cream Cake",
-            "cinnamon": "Cinnamon Roll Swirl",
-            "pumpkin": "Pumpkin Spice Latte Cream",
-            "rose": "Rose Cream Macaron",
-            "jasmine": "Jasmine Sugar Cream",
-            "sugar": "Powdered Sugar Kiss",
-        }
-        if top:
-            if top[0] in single:
-                return single[top[0]]
-
-        if "gourmand" in cats or "sweet" in cats or "vanilla" in cats:
-            return "Sweet Cream Gourmand"
-        return "Soft Serve Layer"
-
-
-
-
-    def _clean_layer_label(name: str) -> str:
-        """Drop repeated words (e.g. Cream Cream) and extra spaces."""
-        if not name:
-            return "Sweet Layer"
-        parts = str(name).split()
-        out = []
-        for p in parts:
-            if out and out[-1].lower() == p.lower():
-                continue
-            out.append(p)
-        return " ".join(out) or "Sweet Layer"
-
-
-    def _unique_layer_display_name(frags: list, used: set) -> str:
-        """Note-based dessert name unique within this menu."""
-        base = _clean_layer_label(_layer_display_name_from_frags(frags))
-        if base not in used:
-            used.add(base)
-            return base
-        text = " ".join(
-            ((f.get("notes") or "") + " " + (f.get("name") or "")).lower()
-            for f in frags
-            if isinstance(f, dict)
-        )
-        alts = []
-        if "coconut" in text:
-            alts += ["Coconut Cream Layer", "Tropical Coconut Soft Serve"]
-        if "vanilla" in text:
-            alts += ["Vanilla Bean Soft Stack", "Madagascar Vanilla Layer"]
-        if "caramel" in text or "praline" in text:
-            alts += ["Caramel Cream Stack", "Praline Soft Layer"]
-        if "marshmallow" in text:
-            alts += ["Marshmallow Cloud Layer"]
-        if "chocolate" in text or "cocoa" in text:
-            alts += ["Chocolate Mousse Layer"]
-        if any(x in text for x in ("berry", "strawberry", "raspberry", "cherry")):
-            alts += ["Berry Cream Stack", "Fruit Cream Tart"]
-        alts += [base + " Duo", base + " Soft", "Gourmand " + base, "Layered " + base]
-        for a in alts:
-            a = _clean_layer_label(a)
-            if a not in used:
-                used.add(a)
-                return a
-        n = 2
-        while True:
-            cand = f"{base} ({n})"
-            if cand not in used:
-                used.add(cand)
-                return cand
-            n += 1
-
-
-    def _layer_season_tip(frags: list) -> str:
-        text = " ".join((f.get("season") or "").lower() for f in frags)
-        notes = " ".join((f.get("notes") or "").lower() for f in frags)
-        if any(k in notes for k in ("vanilla", "caramel", "chocolate", "tonka", "amber")):
-            if "summer" in text and "winter" not in text and "fall" not in text:
-                return "Best in **Fall / Winter** evenings — heavy sweets bloom in cooler air."
-            return "Best in **Fall & Winter** — cozy dessert vibes; go light sprays in heat."
-        if any(k in notes for k in ("coconut", "citrus", "fruit", "berry", "peach")):
-            return "Best in **Spring / Summer** — fruity dessert layers stay bright in warmth."
-        return "Versatile — lighter sprays for warm days, richer base for cool nights."
-
-
-    def _layer_combo_tip(frags: list) -> str:
-        if not frags:
-            return "Pick two sweet bottles and apply the richer one first."
-        ordered = process_layering_order(list(frags))
-        names = [f.get("name") for f in ordered if f.get("name")]
-        oils = [f for f in ordered if is_oil_fragrance(f)]
-        tips = []
-        if oils and len(ordered) >= 2:
-            tips.append(
-                "Oil first on pulse points, wait 30–60 sec, then spray the lighter dessert on top."
-            )
-        if len(names) >= 2:
-            tips.append(
-                "Spray order: **" + " > ".join(names) + "** (richest base → lighter top)."
-            )
-        tips.append("1–2 sprays each for daily; add one more of the top note for date night.")
-        tips.append("Target pulse points + a light mist on clothes for longer gourmand trail.")
-        return " ".join(tips)
-
-
-
-
-    def recipe_combo_key(bottles) -> tuple:
-        """Canonical key for a recipe combo (order-independent)."""
-        names = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
-        return tuple(sorted(names))
-
-
-    def recipe_combo_exists(bottles) -> dict:
-        """Return existing recipe dict if same bottle set already saved, else {}."""
-        key = recipe_combo_key(bottles)
-        if len(key) < 2:
-            return {}
-        for r in (st.session_state.get("layer_recipes") or []):
-            if recipe_combo_key(r.get("bottles") or r.get("names") or []) == key:
-                return r
-        return {}
-
-
-    def format_spray_guide(ev: dict) -> str:
-        """Human-readable spray order from evaluate_layer_recipe result."""
-        if not ev:
-            return ""
-        lines = []
-        app = ev.get("application") or {}
-        steps = app.get("steps") or []
-        if steps:
-            lines.append("**How to spray** (heavy → light):")
-            for s in steps:
-                lines.append(
-                    f"{s.get('order', '?')}. **{s.get('name')}** — "
-                    f"{s.get('sprays', 1)} spray(s), {s.get('role', '')}. "
-                    f"{s.get('where', '')}"
-                )
-            if app.get("tips"):
-                for t in (app.get("tips") or [])[:3]:
-                    lines.append(f"• {t}")
-        else:
-            order = ev.get("spray_order") or ev.get("selected_names") or []
-            if order:
-                lines.append("**Spray order:** " + " → ".join(str(x) for x in order))
-                lines.append("Apply heaviest first on skin; wait 30–60s; lighter on top.")
-        return "\n\n".join(lines)
-
-
-    def save_layer_recipe(bottle_names: list, *, allow_duplicate: bool = False) -> dict:
-        """
-        Save a layer recipe. Blocks duplicate combos unless allow_duplicate=True.
-        Returns {ok, message, recipe, duplicate, spray_guide}.
-        """
-        names = process_layering_order(
-            [str(n).strip() for n in (bottle_names or []) if n and str(n).strip()]
-        )
-        if len(names) < 2:
-            return {
-                "ok": False,
-                "message": "Need at least 2 bottles to save a recipe.",
-                "recipe": None,
-                "duplicate": False,
-                "spray_guide": "",
-            }
-        existing = recipe_combo_exists(names)
-        if existing and not allow_duplicate:
-            try:
-                ev = evaluate_layer_recipe(names)
-            except Exception:
-                ev = {}
-            guide = format_spray_guide(ev) or format_spray_guide(
-                {"spray_order": existing.get("bottles") or names,
-                 "application": existing.get("application") or {}}
-            )
-            return {
-                "ok": False,
-                "message": (
-                    f"Already saved as **{existing.get('name') or 'recipe'}** "
-                    f"({' + '.join(names)}). Same combo can't be saved twice."
-                ),
-                "recipe": existing,
-                "duplicate": True,
-                "spray_guide": guide,
-            }
-        try:
-            ev = evaluate_layer_recipe(names)
-        except Exception as e:
-            ev = {"score": 0, "selected_names": names, "spray_order": names, "error": str(e)}
-        final_name = (ev.get("suggested_name") or "").strip() or " + ".join(names)
-        recipe = {
-            "name": final_name,
-            "bottles": list(names),
-            "season_label": (ev.get("season") or {}).get("label", ""),
-            "season_detail": (ev.get("season") or {}).get("detail", ""),
-            "bands": list((ev.get("season") or {}).get("bands") or []),
-            "application": ev.get("application") or {},
-            "spray_order": list(ev.get("spray_order") or names),
-            "score": ev.get("score"),
-            "label": ev.get("label"),
-            "verdict": ev.get("verdict"),
-            "why": ev.get("why") or "",
-            "gender": recipe_gender_from_frags(ev.get("frags") or []) or "Any",
-            "formula": ev.get("formula") or "",
-        }
-        recipes = list(st.session_state.get("layer_recipes") or [])
-        # Remove any exact combo match then insert fresh
-        key = recipe_combo_key(names)
-        recipes = [
-            r for r in recipes
-            if recipe_combo_key(r.get("bottles") or r.get("names") or []) != key
-        ]
-        recipes.insert(0, recipe)
-        st.session_state["layer_recipes"] = recipes[:80]
-        mark_vault_dirty()
-        save_persisted_data(force=True)
-        guide = format_spray_guide(ev)
-        return {
-            "ok": True,
-            "message": f"Saved recipe: **{final_name}**",
-            "recipe": recipe,
-            "duplicate": False,
-            "spray_guide": guide,
-        }
-
-
-    def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Layer") -> bool:
-        """Add a layer idea to the Try list (deduped by bottles)."""
-        bottles = [str(b).strip() for b in (bottles or []) if b and str(b).strip()]
-        if len(bottles) < 2:
-            return False
-        key = tuple(sorted(bottles))
-        existing = st.session_state.get("try_recipes") or []
-        for item in existing:
-            if tuple(sorted(item.get("bottles") or [])) == key:
-                return False
-        entry = {
-            "name": name or "Try layer",
-            "bottles": bottles,
-            "notes": notes or "",
-            "tried": False,
-            "source": source,
-            "saved_at": datetime.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds"),
-        }
-        st.session_state["try_recipes"] = [entry] + list(existing)
-        st.session_state["try_recipes"] = st.session_state["try_recipes"][:60]
-        mark_vault_dirty()
-        return True
 
     # Drop score caches when vault size changes (edits / restore)
     try:
