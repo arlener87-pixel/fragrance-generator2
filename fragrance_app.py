@@ -15703,7 +15703,25 @@ if st.session_state.get("active_main_tab") == "Vault":
                 if _pending_lu.get("brand"):
                     st.session_state["prefill_new_brand"] = _pending_lu.get("brand") or ""
 
-            # Prefill session keys BEFORE the form widgets (Streamlit form-safe)
+                        # Apply pending form clear BEFORE widgets (Streamlit rule)
+            if st.session_state.pop("_clear_add_form", False):
+                st.session_state["add_form_name"] = ""
+                st.session_state["add_form_brand"] = ""
+                st.session_state["add_form_notes"] = ""
+                st.session_state["add_form_size"] = ""
+                st.session_state["add_form_cats"] = []
+                st.session_state["add_form_season"] = "Fall, Winter"
+                st.session_state["add_form_gender"] = "Unisex"
+                try:
+                    st.session_state["add_form_shelf"] = list(SHELF_STATUSES)[0]
+                except Exception:
+                    st.session_state["add_form_shelf"] = "Own"
+                try:
+                    st.session_state["add_concentration"] = list(CONCENTRATION_OPTIONS)[0]
+                except Exception:
+                    st.session_state["add_concentration"] = "EDP"
+            
+# Prefill session keys BEFORE the form widgets (Streamlit form-safe)
             _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
             _cat_opts = [
                 "Gourmand", "Sweet", "Floral", "Woody", "Oriental", "Fresh",
@@ -15794,30 +15812,8 @@ if st.session_state.get("active_main_tab") == "Vault":
                     )
 
                 if clear_add_form:
-                    for _k in (
-                        "add_form_name",
-                        "add_form_brand",
-                        "add_form_notes",
-                        "add_form_season",
-                        "add_form_gender",
-                        "add_form_cats",
-                        "add_form_size",
-                        "add_form_shelf",
-                        "add_concentration",
-                    ):
-                        if _k in ("add_form_gender",):
-                            st.session_state[_k] = "Unisex"
-                        elif _k in ("add_form_season",):
-                            st.session_state[_k] = "Fall, Winter"
-                        elif _k in ("add_form_cats",):
-                            st.session_state[_k] = []
-                        elif _k in ("add_form_shelf",):
-                            st.session_state[_k] = _shelf_opts[0]
-                        elif _k in ("add_concentration",):
-                            st.session_state[_k] = _conc_opts[0]
-                        else:
-                            st.session_state[_k] = ""
                     st.session_state["_add_flash"] = "Form cleared."
+                    st.session_state["_clear_add_form"] = True
                     st.rerun()
 
                 if submit_added:
@@ -15913,12 +15909,8 @@ if st.session_state.get("active_main_tab") == "Vault":
                                 st.session_state["_add_flash"] += (
                                     " ⚠️ Save to disk may have failed — download backup now."
                                 )
-                            # Reset form fields after successful add
-                            st.session_state["add_form_name"] = ""
-                            st.session_state["add_form_brand"] = ""
-                            st.session_state["add_form_notes"] = ""
-                            st.session_state["add_form_size"] = ""
-                            st.session_state["add_form_cats"] = []
+                            # Clear form on next run (avoids WidgetAlreadyInstantiatedError)
+                            st.session_state["_clear_add_form"] = True
                             st.rerun()
 
 
