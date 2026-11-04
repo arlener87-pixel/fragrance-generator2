@@ -11007,93 +11007,37 @@ def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Lay
     mark_vault_dirty()
     return True
 
-# ---------- MAIN NAV: left → right (one horizontal row) ----------
+# ---------- MAIN NAV: one horizontal row only ----------
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
 if st.session_state.get("active_main_tab") not in _MAIN_TABS:
     st.session_state["active_main_tab"] = "Discover"
 
-# Prefer native horizontal controls; fall back to a scrollable chip row
-_nav_done = False
+# st.pills / segmented_control already write to session_state via key=
+# Do NOT assign session_state[key] again after the widget (causes errors + duplicate UI)
 try:
-    _picked = st.pills(
+    st.pills(
         "Section",
         options=_MAIN_TABS,
         key="active_main_tab",
         label_visibility="collapsed",
     )
-    if _picked in _MAIN_TABS:
-        st.session_state["active_main_tab"] = _picked
-    _nav_done = True
 except Exception:
-    _nav_done = False
-
-if not _nav_done:
     try:
-        _picked = st.segmented_control(
+        st.segmented_control(
             "Section",
             options=_MAIN_TABS,
             key="active_main_tab",
             label_visibility="collapsed",
         )
-        if _picked in _MAIN_TABS:
-            st.session_state["active_main_tab"] = _picked
-        _nav_done = True
     except Exception:
-        _nav_done = False
-
-if not _nav_done:
-    # Scrollable HTML chip bar + Streamlit buttons kept in one row via CSS
-    st.markdown(
-        """
-<style>
-/* Force ONE horizontal scrolling row of tab buttons */
-div[data-testid="stHorizontalBlock"].sdg-tabrow,
-section.main div[data-testid="stHorizontalBlock"]:has(button[kind="primary"]):has(button[kind="secondary"]) {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  gap: 0.35rem !important;
-  margin-bottom: 0.5rem !important;
-}
-section.main div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-  min-width: fit-content !important;
-  width: auto !important;
-  flex: 0 0 auto !important;
-}
-section.main div[data-testid="stHorizontalBlock"] button {
-  white-space: nowrap !important;
-  font-size: 0.78rem !important;
-  padding: 0.3rem 0.65rem !important;
-  border-radius: 999px !important;
-}
-</style>
-""",
-        unsafe_allow_html=True,
-    )
-    _short = {
-        "Discover": "Discover",
-        "Layer": "Layer",
-        "Recipes": "Recipes",
-        "Try": "Try",
-        "SOTD": "SOTD",
-        "Collection": "Collect",
-        "Vault": "Vault",
-    }
-    _cols = st.columns(len(_MAIN_TABS), gap="small")
-    for _i, _label in enumerate(_MAIN_TABS):
-        with _cols[_i]:
-            _on = st.session_state.get("active_main_tab") == _label
-            if st.button(
-                _short.get(_label, _label),
-                key=f"nav_tab_{_label}",
-                use_container_width=True,
-                type="primary" if _on else "secondary",
-            ):
-                st.session_state["active_main_tab"] = _label
-                st.rerun()
+        # Last resort: horizontal radio (one control, not two bars)
+        st.radio(
+            "Section",
+            options=_MAIN_TABS,
+            key="active_main_tab",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
 
 if st.session_state.get("active_main_tab") == "Discover":
     st.caption("Search, temp picks, and generated recommendations from the sidebar.")
