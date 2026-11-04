@@ -10,6 +10,17 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
+# Must be the first Streamlit command
+st.set_page_config(
+    page_title="ScentedDeadGirl Fragrance Sanctuary",
+    page_icon="SDG",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+st.markdown("### Scented Dead Girl")
+st.caption("Loading vault…")
+
+
 # ==========================================
 # PERSISTENCE (auto-save / auto-load)
 # ==========================================
@@ -658,19 +669,6 @@ def autosave_if_changed(force: bool = False) -> bool:
 # ==========================================
 # PAGE CONFIGURATION & CUSTOM GOTHIC THEME
 # ==========================================
-st.set_page_config(
-    page_title="ScentedDeadGirl Fragrance Sanctuary",
-    page_icon="SDG",
-    layout="centered",
-    initial_sidebar_state="expanded",
-)
-
-st.markdown("### Scented Dead Girl")
-st.caption("Fragrance sanctuary — pick a tab below.")
-
-
-
-
 def clean_display_text(s) -> str:
     """Strip mojibake / weird separators so mobile text stays readable."""
     if s is None:
@@ -4604,6 +4602,8 @@ def init_session_states():
 
 
 _persisted = init_session_states()
+# Vault ready — replace loading caption is visual only on next widgets
+
 # Keep alias for older code paths
 if not _persisted:
     _persisted = load_persisted_data()
@@ -10184,12 +10184,11 @@ with st.sidebar:
         _hist = st.session_state.get("sotd_history") or []
         if _hist:
             _cap = format_sotd_tiktok_caption(_hist[0])
-            _sb_key = "sidebar_sotd_tiktok_caption_" + str((_hist[0] or {}).get("date", "")) + "_" + str((_hist[0] or {}).get("scent", ""))
-            st.session_state[_sb_key] = _cap
             st.text_area(
                 "TikTok caption (select all → copy)",
+                value=_cap,
                 height=130,
-                key=_sb_key,
+                key="sidebar_sotd_tiktok_caption_box",
             )
             st.link_button(
                 "Open TikTok to post",
@@ -11008,47 +11007,93 @@ def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Lay
     mark_vault_dirty()
     return True
 
-# ---------- MAIN NAV (horizontal buttons — stable on mobile) ----------
+# ---------- MAIN NAV: left → right (one horizontal row) ----------
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
 if st.session_state.get("active_main_tab") not in _MAIN_TABS:
     st.session_state["active_main_tab"] = "Discover"
 
-st.markdown(
-    """
+# Prefer native horizontal controls; fall back to a scrollable chip row
+_nav_done = False
+try:
+    _picked = st.pills(
+        "Section",
+        options=_MAIN_TABS,
+        key="active_main_tab",
+        label_visibility="collapsed",
+    )
+    if _picked in _MAIN_TABS:
+        st.session_state["active_main_tab"] = _picked
+    _nav_done = True
+except Exception:
+    _nav_done = False
+
+if not _nav_done:
+    try:
+        _picked = st.segmented_control(
+            "Section",
+            options=_MAIN_TABS,
+            key="active_main_tab",
+            label_visibility="collapsed",
+        )
+        if _picked in _MAIN_TABS:
+            st.session_state["active_main_tab"] = _picked
+        _nav_done = True
+    except Exception:
+        _nav_done = False
+
+if not _nav_done:
+    # Scrollable HTML chip bar + Streamlit buttons kept in one row via CSS
+    st.markdown(
+        """
 <style>
-section.main div[data-testid="stHorizontalBlock"]:has(button) {
+/* Force ONE horizontal scrolling row of tab buttons */
+div[data-testid="stHorizontalBlock"].sdg-tabrow,
+section.main div[data-testid="stHorizontalBlock"]:has(button[kind="primary"]):has(button[kind="secondary"]) {
+  display: flex !important;
+  flex-direction: row !important;
   flex-wrap: nowrap !important;
   overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  gap: 0.35rem !important;
+  margin-bottom: 0.5rem !important;
 }
-section.main div[data-testid="stHorizontalBlock"]:has(button) > div[data-testid="column"] {
-  min-width: 4.5rem !important;
+section.main div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+  min-width: fit-content !important;
   width: auto !important;
   flex: 0 0 auto !important;
 }
-section.main div[data-testid="stHorizontalBlock"]:has(button) button {
+section.main div[data-testid="stHorizontalBlock"] button {
   white-space: nowrap !important;
-  font-size: 0.8rem !important;
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.65rem !important;
+  border-radius: 999px !important;
 }
 </style>
 """,
-    unsafe_allow_html=True,
-)
-
-_nav_cols = st.columns(len(_MAIN_TABS), gap="small")
-for _i, _label in enumerate(_MAIN_TABS):
-    with _nav_cols[_i]:
-        _on = st.session_state.get("active_main_tab") == _label
-        if st.button(
-            _label,
-            key=f"nav_tab_{_label}",
-            use_container_width=True,
-            type="primary" if _on else "secondary",
-        ):
-            st.session_state["active_main_tab"] = _label
-            st.rerun()
-
-st.caption(f"**{st.session_state.get('active_main_tab')}**")
+        unsafe_allow_html=True,
+    )
+    _short = {
+        "Discover": "Discover",
+        "Layer": "Layer",
+        "Recipes": "Recipes",
+        "Try": "Try",
+        "SOTD": "SOTD",
+        "Collection": "Collect",
+        "Vault": "Vault",
+    }
+    _cols = st.columns(len(_MAIN_TABS), gap="small")
+    for _i, _label in enumerate(_MAIN_TABS):
+        with _cols[_i]:
+            _on = st.session_state.get("active_main_tab") == _label
+            if st.button(
+                _short.get(_label, _label),
+                key=f"nav_tab_{_label}",
+                use_container_width=True,
+                type="primary" if _on else "secondary",
+            ):
+                st.session_state["active_main_tab"] = _label
+                st.rerun()
 
 if st.session_state.get("active_main_tab") == "Discover":
     st.caption("Search, temp picks, and generated recommendations from the sidebar.")
