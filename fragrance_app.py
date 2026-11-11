@@ -10,15 +10,52 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Must be the first Streamlit command
+# First Streamlit command
 st.set_page_config(
     page_title="ScentedDeadGirl Fragrance Sanctuary",
     page_icon="SDG",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
-st.markdown("### Scented Dead Girl")
-st.caption("Loading vault…")
+
+# Dark theme for horizontal tabs + buttons
+st.markdown(
+    """
+<style>
+div[role="radiogroup"] {
+  flex-wrap: wrap !important;
+  gap: 0.35rem !important;
+}
+div[role="radiogroup"] label {
+  background: #1a2236 !important;
+  border: 1px solid #2a3550 !important;
+  border-radius: 999px !important;
+  padding: 0.35rem 0.85rem !important;
+  color: #c8d0e0 !important;
+}
+div[role="radiogroup"] label:has(input:checked) {
+  background: #c23a4b !important;
+  border-color: #e04a5c !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+div[role="radiogroup"] label p,
+div[role="radiogroup"] label span { color: inherit !important; }
+.stButton > button[kind="secondary"],
+.stDownloadButton > button,
+.stLinkButton > a {
+  background-color: #1a2236 !important;
+  border: 1px solid #3a4560 !important;
+  color: #d0d7e8 !important;
+}
+.stButton > button[kind="primary"] {
+  background-color: #c23a4b !important;
+  color: #fff !important;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ==========================================
@@ -669,6 +706,8 @@ def autosave_if_changed(force: bool = False) -> bool:
 # ==========================================
 # PAGE CONFIGURATION & CUSTOM GOTHIC THEME
 # ==========================================
+
+
 def clean_display_text(s) -> str:
     """Strip mojibake / weird separators so mobile text stays readable."""
     if s is None:
@@ -4602,8 +4641,6 @@ def init_session_states():
 
 
 _persisted = init_session_states()
-# Vault ready — replace loading caption is visual only on next widgets
-
 # Keep alias for older code paths
 if not _persisted:
     _persisted = load_persisted_data()
@@ -10184,11 +10221,12 @@ with st.sidebar:
         _hist = st.session_state.get("sotd_history") or []
         if _hist:
             _cap = format_sotd_tiktok_caption(_hist[0])
+            _sb_key = "sidebar_sotd_tiktok_caption_" + str((_hist[0] or {}).get("date", "")) + "_" + str((_hist[0] or {}).get("scent", ""))
+            st.session_state[_sb_key] = _cap
             st.text_area(
                 "TikTok caption (select all → copy)",
-                value=_cap,
                 height=130,
-                key="sidebar_sotd_tiktok_caption_box",
+                key=_sb_key,
             )
             st.link_button(
                 "Open TikTok to post",
@@ -11007,37 +11045,177 @@ def add_try_recipe(name: str, bottles: list, notes: str = "", source: str = "Lay
     mark_vault_dirty()
     return True
 
-# ---------- MAIN NAV: one horizontal row only ----------
+# ---------- MAIN NAV: left → right, one control only ----------
 _MAIN_TABS = ["Discover", "Layer", "Recipes", "Try", "SOTD", "Collection", "Vault"]
-if st.session_state.get("active_main_tab") not in _MAIN_TABS:
-    st.session_state["active_main_tab"] = "Discover"
+if "main_nav_radio" not in st.session_state:
+    _start = st.session_state.get("active_main_tab", "Discover")
+    st.session_state["main_nav_radio"] = _start if _start in _MAIN_TABS else "Discover"
+elif st.session_state.get("main_nav_radio") not in _MAIN_TABS:
+    st.session_state["main_nav_radio"] = "Discover"
 
-# st.pills / segmented_control already write to session_state via key=
-# Do NOT assign session_state[key] again after the widget (causes errors + duplicate UI)
-try:
-    st.pills(
-        "Section",
-        options=_MAIN_TABS,
-        key="active_main_tab",
-        label_visibility="collapsed",
-    )
-except Exception:
+st.radio(
+    "Section",
+    options=_MAIN_TABS,
+    horizontal=True,
+    label_visibility="collapsed",
+    key="main_nav_radio",
+)
+st.session_state["active_main_tab"] = st.session_state.get("main_nav_radio") or "Discover"
+
+# ==========================================
+# HOROSCOPE / LIBRA PROFILE (user chart)
+# Birth: 1987-09-30 03:10 Fontana, CA — Sun in Libra (Venus-ruled)
+# Suggestions: Female + Unisex only; season + occasion aware
+# ==========================================
+USER_CHART = {
+    "sun": "Libra",
+    "ruler": "Venus",
+    "birth": "1987-09-30 03:10 Fontana, CA",
+    "gender_pref": ("Female", "Female-leaning", "Unisex"),
+}
+
+# Note / category tokens that align with Libra + Venus (harmony, florals, polish)
+_LIBRA_LOVE = {
+    "rose", "peony", "jasmine", "violet", "iris", "magnolia", "orange blossom",
+    "bergamot", "pear", "peach", "apple", "berry", "raspberry", "strawberry",
+    "vanilla", "musk", "white musk", "sandalwood", "cedar", "amber", "powder",
+    "powdery", "floral", "fruity", "creamy", "soft", "clean", "fresh", "citrus",
+    "lily", "freesia", "heliotrope", "tonka", "caramel", "coconut", "marshmallow",
+    "cashmere", "suede", "honey", "fig", "tea", "green",
+}
+_LIBRA_SOFT_GOURMAND = {
+    "vanilla", "caramel", "marshmallow", "cream", "praline", "coconut", "tonka",
+    "chocolate", "coffee", "almond", "pistachio",
+}
+_LIBRA_AVOID = {
+    "oud", "tar", "smoke", "smoky", "gasoline", "animalic", "civet", "castoreum",
+    "heavy leather", "asphalt", "metallic", "harsh",
+}
+
+
+def libra_chart_score(frag: dict, occasion: str = "Daily", season_key: str = "") -> float:
+    """Score a bottle for Libra Sun / Venus-ruled taste + occasion + season."""
+    if not frag:
+        return -1.0
+    g = normalize_gender(frag.get("gender") or "")
+    if g not in ("Female", "Female-leaning", "Unisex"):
+        return -1.0  # user: female + unisex only
+
+    notes = (frag.get("notes") or "").lower()
+    cats = " ".join(str(c).lower() for c in (frag.get("category") or []))
+    blob = notes + " " + cats + " " + (frag.get("name") or "").lower()
+
+    score = 40.0  # baseline for allowed gender
+
+    # Positive note/family hits
+    for tok in _LIBRA_LOVE:
+        if tok in blob:
+            score += 3.5
+    for tok in _LIBRA_SOFT_GOURMAND:
+        if tok in blob:
+            score += 2.5
+    for tok in _LIBRA_AVOID:
+        if tok in blob:
+            score -= 6.0
+
+    # Category bonuses
+    cat_set = {str(c).lower() for c in (frag.get("category") or [])}
+    if "floral" in cat_set:
+        score += 8
+    if "fruity" in cat_set:
+        score += 5
+    if "gourmand" in cat_set or "sweet" in cat_set or "vanilla" in cat_set:
+        score += 4  # soft Libra gourmands OK
+    if "fresh" in cat_set or "citrus" in cat_set:
+        score += 5
+    if "powdery" in cat_set or "musky" in cat_set:
+        score += 4
+    if "oud" in cat_set or "smoky" in cat_set:
+        score -= 8
+
+    # Occasion shaping
+    occ = (occasion or "Daily").lower()
+    if occ == "daily":
+        if any(x in cat_set for x in ("fresh", "citrus", "floral", "fruity", "musky")):
+            score += 6
+        if "oud" in blob or "boozy" in cat_set:
+            score -= 4
+    elif occ in ("date night", "date"):
+        if any(x in cat_set for x in ("floral", "gourmand", "vanilla", "oriental", "amber", "sweet")):
+            score += 8
+        if "rose" in blob or "vanilla" in blob:
+            score += 4
+    elif occ == "work":
+        if any(x in cat_set for x in ("fresh", "citrus", "clean", "musky", "powdery", "green")):
+            score += 7
+        if "boozy" in cat_set or "oud" in blob:
+            score -= 5
+    elif occ == "evening":
+        if any(x in cat_set for x in ("oriental", "amber", "gourmand", "woody", "vanilla", "spicy")):
+            score += 7
+        if "fresh" in cat_set and "floral" not in cat_set:
+            score -= 2
+
+    # Season alignment (High Desert aware)
+    if season_key and season_key != "any":
+        try:
+            if matches_weather(frag, season_key):
+                score += 10
+            else:
+                # Soft penalty — still show if strongly Libra
+                score -= 8
+        except Exception:
+            pass
+
+    # Fav boost
     try:
-        st.segmented_control(
-            "Section",
-            options=_MAIN_TABS,
-            key="active_main_tab",
-            label_visibility="collapsed",
-        )
+        react = (st.session_state.get("user_reactions") or {}).get(frag.get("name") or "")
+        if react == "fav":
+            score += 6
+        elif react == "dislike":
+            score -= 20
     except Exception:
-        # Last resort: horizontal radio (one control, not two bars)
-        st.radio(
-            "Section",
-            options=_MAIN_TABS,
-            key="active_main_tab",
-            horizontal=True,
-            label_visibility="collapsed",
-        )
+        pass
+
+    return score
+
+
+def get_libra_suggestions(
+    n: int = 5,
+    occasion: str = "Daily",
+    season_key: str = "any",
+    shuffle_salt: str = "",
+) -> list:
+    """Top Libra-aligned bottles (Female + Unisex), season + occasion aware."""
+    db = list(st.session_state.get("fragrances_db") or [])
+    scored = []
+    sk = (season_key or "Any")
+    if str(sk).lower() in ("any", "none", ""):
+        weather = "Any"
+    else:
+        weather = sk
+    for f in db:
+        # Always Female + Unisex; season when selected
+        if not passes_core_filters(
+            f,
+            gender="Female",
+            weather=weather,
+            include_unisex=True,
+            strict_weather=True,
+        ):
+            continue
+        s = libra_chart_score(f, occasion=occasion, season_key=season_key)
+        if s < 0:
+            continue
+        scored.append((s, f))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    if shuffle_salt and len(scored) > n:
+        # Light shuffle among top pool for variety on Refresh
+        import random as _rnd
+        top = scored[: max(n * 3, n)]
+        _rnd.Random(str(shuffle_salt)).shuffle(top)
+        scored = top + scored[len(top):]
+    return [f for _, f in scored[:n]]
 
 if st.session_state.get("active_main_tab") == "Discover":
     st.caption("Search, temp picks, and generated recommendations from the sidebar.")
@@ -15558,19 +15736,6 @@ if st.session_state.get("active_main_tab") == "Vault":
                 except Exception:
                     st.session_state["add_concentration"] = "EDP"
             
-            # Apply pending form clear BEFORE widgets
-            if st.session_state.pop("_clear_add_form", False):
-                for _ck, _cv in (
-                    ("add_form_name", ""),
-                    ("add_form_brand", ""),
-                    ("add_form_notes", ""),
-                    ("add_form_size", ""),
-                    ("add_form_cats", []),
-                    ("add_form_season", "Fall, Winter"),
-                    ("add_form_gender", "Unisex"),
-                ):
-                    st.session_state[_ck] = _cv
-
 # Prefill session keys BEFORE the form widgets (Streamlit form-safe)
             _gender_opts = ["Unisex", "Female", "Male", "Female-leaning", "Male-leaning"]
             _cat_opts = [
